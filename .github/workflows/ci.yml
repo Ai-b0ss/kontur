@@ -1,0 +1,80 @@
+name: Kontur CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kontur-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: remote verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enable pnpm 11
+        run: |
+          corepack enable
+          corepack prepare pnpm@11 --activate
+          pnpm --version
+
+      - name: Install dependencies
+        timeout-minutes: 5
+        run: pnpm install --frozen-lockfile
+
+      - name: Core unit tests
+        timeout-minutes: 2
+        run: pnpm -F @kontur/core test
+
+      - name: DB unit tests
+        timeout-minutes: 2
+        run: pnpm -F @kontur/db test
+
+      - name: Bot unit tests
+        timeout-minutes: 2
+        run: pnpm -F @kontur/bot test
+
+      - name: Mini App unit tests
+        timeout-minutes: 2
+        run: pnpm -F @kontur/miniapp test
+
+      - name: Worker full local test gate
+        timeout-minutes: 8
+        run: pnpm cf:test
+
+      - name: API integration check
+        timeout-minutes: 3
+        run: pnpm test:api
+
+      - name: TypeScript typecheck
+        timeout-minutes: 5
+        run: pnpm typecheck
+
+      - name: Economy simulation
+        timeout-minutes: 2
+        run: pnpm sim
+
+      - name: D1 transfer check
+        timeout-minutes: 3
+        run: pnpm cf:test-transfer
+
+      - name: Mini App production build
+        timeout-minutes: 5
+        run: pnpm build

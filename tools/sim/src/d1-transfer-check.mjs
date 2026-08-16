@@ -11,14 +11,19 @@ const workerDir = join(root, 'apps', 'worker');
 const wrangler = createRequire(join(workerDir, 'package.json')).resolve('wrangler');
 const pnpm = process.env.npm_execpath;
 const temp = await mkdtemp(join(tmpdir(), 'kontur-transfer-check-'));
+const sourceDir = join(temp, 'source-pg');
+const d1Dir = join(temp, 'd1');
 const sqlFile = join(temp, 'transfer.sql');
 
 if (!pnpm) throw new Error('Run through pnpm cf:test-transfer');
 
-function run(args, cwd = root) {
+function run(args, cwd = root, extraEnv = {}) {
   return new Promise((resolveRun, reject) => {
     const child = spawn(process.execPath, args, {
-      cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
+      cwd,
+      env: { ...process.env, ...extraEnv },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     });
     let output = '';
     child.stdout.on('data', (chunk) => { output += chunk; });
@@ -31,15 +36,28 @@ function run(args, cwd = root) {
 }
 
 try {
-  const exportOutput = await run([pnpm, '-F', '@kontur/db', 'export:d1', '--', '--out', sqlFile]);
+  // Transfer verification must be deterministic and must never read a developer's
+  // configured/production DATABASE_URL. Build a disposable seeded PGlite source
+  // and export only that fixture.
+  const sourceEnv = {
+    DATABASE_URL: '',
+    PGLITE_DIR: sourceDir,
+  };
+  await run([pnpm, '-F', '@kontur/db', 'migrate'], root, sourceEnv);
+
+  const exportOutput = await run(
+    [pnpm, '-F', '@kontur/db', 'export:d1', '--', '--out', sqlFile],
+    root,
+    sourceEnv,
+  );
   const sourceMatch = /\{"users":\d+,"profiles":\d+\}/.exec(exportOutput);
   if (!sourceMatch) throw new Error('Exporter did not return its anonymized summary');
   const source = JSON.parse(sourceMatch[0]);
 
-  await run([wrangler, 'd1', 'migrations', 'apply', 'kontur', '--local', '--persist-to', temp], workerDir);
-  await run([wrangler, 'd1', 'execute', 'kontur', '--local', '--persist-to', temp, '--file', sqlFile], workerDir);
+  await run([wrangler, 'd1', 'migrations', 'apply', 'kontur', '--local', '--persist-to', d1Dir], workerDir);
+  await run([wrangler, 'd1', 'execute', 'kontur', '--local', '--persist-to', d1Dir, '--file', sqlFile], workerDir);
   const resultText = await run([
-    wrangler, 'd1', 'execute', 'kontur', '--local', '--persist-to', temp,
+    wrangler, 'd1', 'execute', 'kontur', '--local', '--persist-to', d1Dir,
     '--command', 'SELECT (SELECT count(*) FROM users) users, (SELECT count(*) FROM profiles WHERE hatched_at IS NOT NULL) hatched, (SELECT count(*) FROM worm_grants) grants, (SELECT count(*) FROM egg_pulls) pulls',
     '--json',
   ], workerDir);

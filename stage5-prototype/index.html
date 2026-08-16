@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f2f1ed" />
+    <title>Контур — образец первой нити</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="prototype" aria-label="Образец первого полезного взаимодействия">
+      <header class="topbar">
+        <a class="brand" href="#" data-reset aria-label="Начать сначала">
+          <span class="brand__mark" aria-hidden="true"></span>
+          <span>Контур</span>
+        </a>
+        <label class="motion-toggle">
+          <input id="motion-toggle" type="checkbox" checked />
+          <span>Движение</span>
+        </label>
+      </header>
+
+      <p class="prototype-note">Образец · ничего не отправляет в Telegram</p>
+
+      <section class="signal-field" aria-label="Состояние птицы">
+        <svg class="scene" viewBox="0 0 360 250" role="img" aria-labelledby="bird-title bird-desc">
+          <title id="bird-title">Птица «Контура»</title>
+          <desc id="bird-desc">Птица замечает сигнал, проводит нить к гнезду и продолжает её к следующему шагу.</desc>
+
+          <g class="grid" aria-hidden="true">
+            <path d="M18 34H342M18 91H342M18 148H342M18 205H342" />
+            <path d="M50 18V230M115 18V230M180 18V230M245 18V230M310 18V230" />
+          </g>
+
+          <g class="signal" aria-hidden="true">
+            <circle class="signal__halo" cx="293" cy="48" r="21" />
+            <circle class="signal__dot" cx="293" cy="48" r="6" />
+          </g>
+
+          <path class="thread thread--found" d="M293 48 C257 63 248 94 223 108" aria-hidden="true" />
+          <path class="thread thread--nest" d="M223 108 C236 130 252 150 232 174 C210 199 145 207 120 183" aria-hidden="true" />
+          <path class="thread thread--next" d="M120 183 C81 186 64 167 51 148" aria-hidden="true" />
+
+          <g class="nest" aria-hidden="true">
+            <ellipse cx="151" cy="193" rx="45" ry="13" />
+            <ellipse cx="151" cy="189" rx="35" ry="9" />
+            <path d="M111 188C129 177 170 176 193 188" />
+          </g>
+
+          <g class="next-node" aria-hidden="true">
+            <circle cx="51" cy="148" r="15" />
+            <circle cx="51" cy="148" r="5" />
+          </g>
+
+          <g class="bird" aria-hidden="true">
+            <path class="bird__tail" d="M191 166 L235 177 L204 145 Z" />
+            <path class="bird__body" d="M126 94 C151 72 190 76 211 105 C229 131 215 170 183 181 C148 193 111 174 105 143 C101 122 109 105 126 94 Z" />
+            <path class="bird__chest" d="M126 96 C142 91 155 99 161 112 L149 165 C127 162 114 149 112 133 C110 115 115 104 126 96 Z" />
+            <path class="bird__face" d="M126 94 L165 83 L181 103 L157 118 L130 110 Z" />
+            <path class="bird__crest" d="M123 94 L159 77 L169 85 L143 102 Z" />
+            <path class="bird__beak" d="M175 101 L207 110 L178 119 Z" />
+            <path class="bird__wing" d="M167 112 L211 106 L207 154 L176 170 L151 151 Z" />
+            <path class="bird__wing-line" d="M171 126 L202 119 M168 135 L199 130 M166 144 L194 141" />
+            <circle class="bird__eye" cx="157" cy="99" r="5" />
+            <circle class="bird__pupil" cx="158" cy="99" r="2" />
+            <path class="bird__leg" d="M151 177 L145 201 M187 177 L190 201" />
+            <path class="bird__foot" d="M145 201 L136 205 M145 201 L151 205 M190 201 L182 205 M190 201 L197 204" />
+          </g>
+        </svg>
+
+        <div class="state-label">
+          <span class="state-label__number" id="bird-state-number">01</span>
+          <span id="bird-state-name">Осматривается</span>
+        </div>
+      </section>
+
+      <nav class="path" aria-label="Путь первой недели">
+        <span class="path__step is-active"><i></i><b>Ориентир</b></span>
+        <span class="path__step"><i></i><b>Нить</b></span>
+        <span class="path__step"><i></i><b>Гнездо</b></span>
+        <span class="path__step"><i></i><b>Связь</b></span>
+      </nav>
+
+      <section class="panel" id="panel" aria-live="polite"></section>
+    </main>
+
+    <template id="screen-start">
+      <div class="screen-content">
+        <p class="eyebrow">Первый полезный шаг</p>
+        <h1>Не нужно знать всю историю чата</h1>
+        <p class="lead">Соберём вопрос так, чтобы другому человеку было проще понять его и ответить.</p>
+        <div class="context-card">
+          <span class="context-card__dot" aria-hidden="true"></span>
+          <div>
+            <b>Чат грантовиков</b>
+            <p>Поступление, подтверждение гранта и организационные вопросы</p>
+          </div>
+        </div>
+        <button class="button button--primary" type="button" data-action="prepare">Подготовить вопрос</button>
+        <p class="fineprint">Текст останется здесь, пока вы сами не решите отправить его.</p>
+      </div>
+    </template>
+
+    <template id="screen-compose">
+      <form class="screen-content" id="question-form">
+        <p class="eyebrow">Нашла нить</p>
+        <h1>Добавьте три детали</h1>
+        <label class="field">
+          <span>Что хотите понять?</span>
+          <textarea name="goal" rows="2">Как подтвердить грант в моей ситуации?</textarea>
+        </label>
+        <label class="field">
+          <span>Что уже проверили?</span>
+          <textarea name="checked" rows="2">Прочитал закреплённое сообщение и страницу конкурса.</textarea>
+        </label>
+        <label class="field">
+          <span>Какой ответ поможет?</span>
+          <textarea name="needed" rows="2">Нужны актуальная редакция правил и следующий срок.</textarea>
+        </label>
+        <button class="button button--primary" type="submit">Собрать вопрос</button>
+        <button class="button button--quiet" type="button" data-action="back-start">Назад</button>
+      </form>
+    </template>
+
+    <template id="screen-preview">
+      <div class="screen-content">
+        <p class="eyebrow">Вопрос готов</p>
+        <h1>Проверьте перед отправкой</h1>
+        <blockquote class="message-preview" id="question-preview"></blockquote>
+        <div class="notice">
+          <b>В настоящем продукте</b>
+          <p>Telegram откроет отправку, а последнее действие останется за вами.</p>
+        </div>
+        <button class="button button--primary" type="button" data-action="published">Показать, что будет после ответа</button>
+        <button class="button button--quiet" type="button" data-action="back-compose">Изменить вопрос</button>
+      </div>
+    </template>
+
+    <template id="screen-reply">
+      <div class="screen-content">
+        <p class="eyebrow">Пример отклика</p>
+        <h1>Ответ не должен потеряться</h1>
+        <div class="conversation">
+          <div class="conversation__question" id="reply-question"></div>
+          <div class="conversation__answer">
+            <span class="avatar" aria-hidden="true">А</span>
+            <p>Посмотрите пункт «Подтверждение» в актуальных правилах. Если пришлёте свой случай, помогу проверить.</p>
+          </div>
+        </div>
+        <p class="choice-label">Что произошло?</p>
+        <div class="choice-grid">
+          <button class="button button--success" type="button" data-action="helped">Помогло</button>
+          <button class="button button--secondary" type="button" data-action="clarify">Нужно уточнить</button>
+        </div>
+      </div>
+    </template>
+
+    <template id="screen-finish">
+      <div class="screen-content">
+        <p class="eyebrow">Устроила гнездо</p>
+        <h1>Результат сохранён</h1>
+        <div class="saved-card">
+          <div class="saved-card__head">
+            <span class="status">Помогло</span>
+            <span>сегодня</span>
+          </div>
+          <b>Подтверждение гранта</b>
+          <p>Ответ и ссылка на разговор останутся в личной истории.</p>
+        </div>
+        <div class="next-step">
+          <span>Следующий шаг</span>
+          <b>Сверить свой случай с актуальными правилами</b>
+        </div>
+        <p class="result-time" id="result-time"></p>
+        <button class="button button--primary" type="button" data-action="reset">Пройти ещё раз</button>
+      </div>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "name": "@kontur/worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:assets": "pnpm -F @kontur/miniapp build",
+    "db:local": "wrangler d1 migrations apply kontur --local",
+    "dev": "pnpm build:assets && pnpm db:local && wrangler dev --local",
+    "test": "node --import tsx --test \"test/*.test.ts\" && node ../../tools/sim/src/worker-check.mjs && node ../../tools/sim/src/d1-journey-schema-check.mjs && node ../../tools/sim/src/v5-telegram-check.mjs",
+    "test:v5-api": "node ../../tools/sim/src/v5-api-check.mjs",
+    "test:v5-telegram": "node ../../tools/sim/src/v5-telegram-check.mjs",
+    "typecheck": "tsc --noEmit",
+    "deploy": "pnpm build:assets && wrangler deploy"
+  },
+  "dependencies": {
+    "@kontur/contracts": "workspace:*",
+    "@kontur/core": "workspace:*",
+    "hono": "4.13.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260804.1",
+    "typescript": "^5.7.3",
+    "tsx": "4.20.6",
+    "wrangler": "4.119.0"
+  }
+}

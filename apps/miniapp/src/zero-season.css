@@ -1,0 +1,1196 @@
+.zero {
+  --bg: #141414;
+  --bg-elevated: #1C1C1B;
+  --ink: #F1F1EC;
+  --muted: #A4A49D;
+  --accent: #5AC8D5;
+  --accent-press: #48B7C4;
+  --ink-on-accent: #141414;
+  --line: #343638;
+  --success: #4FC28B;
+  --warn: #F3B74A;
+  --danger: #E9656F;
+  --egg: #8068F4;
+  --worm: #D5F15A;
+  --tree-place: #5AC8D5;
+  --soft: #C8C8C1;
+  min-height: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 18px 16px 36px;
+  color: var(--ink);
+  background: var(--bg);
+  font-family: Inter, "Segoe UI", sans-serif;
+  font-optical-sizing: auto;
+}
+
+.zero-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.zero-brand {
+  margin: 0;
+  font-family: Manrope, Inter, sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.zero-header .zero-brand {
+  font-size: 13px;
+  letter-spacing: 0.2em;
+}
+
+.zero-header b {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.zero-stage,
+.zero-home {
+  border: 0;
+  border-radius: 0;
+  padding: 8px 0 12px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.zero-intro {
+  min-height: min(72vh, 560px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  animation: zero-rise 0.55s ease-out both;
+}
+
+.zero-bird-stage {
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.zero-bird-stage .v5-bird,
+.zero-bird-stage .bird {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.zero-bird-stage--intro {
+  width: min(100%, 180px);
+  min-height: 168px;
+  margin: 0 0 12px;
+  border-radius: 28px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  animation: zero-breathe 4.5s ease-in-out infinite;
+}
+
+.zero-bird-stage--reveal {
+  width: min(100%, 200px);
+  min-height: 188px;
+  margin: 0 auto 10px;
+  border-radius: 32px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+}
+
+.zero-bird-stage--home {
+  width: 132px;
+  min-height: 136px;
+  margin: 0 auto;
+  border-radius: 28px;
+  flex-shrink: 0;
+  background: var(--bg-elevated);
+  border: 1px solid transparent;
+}
+
+.zero-bird-stage--lesson {
+  width: min(100%, 220px);
+  min-height: 210px;
+  margin: 0 auto 8px;
+  border-radius: 36px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  animation: zero-rise 0.5s ease-out both;
+}
+
+.zero-bird-stage--empty {
+  background: var(--bg-elevated);
+  border: 1px dashed var(--line);
+}
+
+.zero-bird-stage.tone-woodpecker { background: #2A2420; }
+.zero-bird-stage.tone-magpie { background: #24202A; }
+.zero-bird-stage.tone-owl { background: #1E242A; }
+.zero-bird-stage.tone-crane { background: #202624; }
+
+.zero-bird-chip {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-right: 6px;
+  vertical-align: middle;
+  border-radius: 12px;
+  background: rgba(20, 20, 20, 0.55);
+  overflow: hidden;
+}
+
+.zero-bird-chip .v5-bird,
+.zero-bird-chip .bird {
+  transform: scale(0.92);
+  transform-origin: center;
+}
+
+.zero-bird-mark {
+  display: inline-grid;
+  place-items: center;
+  font-family: Manrope, Inter, sans-serif;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.zero h1 {
+  font-family: Manrope, Inter, sans-serif;
+  font-size: clamp(28px, 7.5vw, 36px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  margin: 10px 0 12px;
+  color: var(--ink);
+}
+
+.zero h2 {
+  font-family: Manrope, Inter, sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 10px 0 12px;
+  color: var(--ink);
+}
+
+.zero p,
+.zero li {
+  color: var(--soft);
+  line-height: 1.5;
+}
+
+.zero-lead {
+  margin: 0 0 18px;
+  max-width: 28ch;
+  font-size: 16px;
+}
+
+.zero-soft {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 0 0 14px;
+}
+
+.zero-kicker {
+  display: block;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 0 0 6px;
+}
+
+.zero-beats {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.zero-beats li {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+  font-size: 14px;
+  animation: zero-rise 0.55s ease-out both;
+}
+
+.zero-beats li:nth-child(2) { animation-delay: 0.08s; }
+.zero-beats li:nth-child(3) { animation-delay: 0.16s; }
+
+.zero-beats strong {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.zero-primary,
+.zero-secondary {
+  appearance: none;
+  width: 100%;
+  border-radius: 14px;
+  padding: 15px 16px;
+  margin-top: 12px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease;
+}
+
+.zero-primary {
+  border: 0;
+  background: var(--accent);
+  color: var(--ink-on-accent);
+}
+
+.zero-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: var(--accent-press);
+}
+
+.zero-primary:disabled {
+  opacity: 0.42;
+  cursor: default;
+  transform: none;
+}
+
+.zero-secondary {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+}
+
+.zero-secondary:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.zero-link {
+  appearance: none;
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  text-align: center;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.zero-link:hover {
+  color: var(--ink);
+}
+
+.zero-lesson {
+  text-align: center;
+  animation: zero-rise 0.45s ease-out both;
+}
+
+.zero-lesson .zero-lead {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 30ch;
+}
+
+.zero-lesson .zero-soft {
+  max-width: 32ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.zero-lesson code {
+  font-family: Inter, "Segoe UI", sans-serif;
+  font-weight: 700;
+  color: var(--worm);
+}
+
+.zero-lesson-worm {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  margin: 4px auto 18px;
+  padding: 18px 16px;
+  width: min(100%, 280px);
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+  animation: zero-breathe 3.8s ease-in-out infinite;
+}
+
+.zero-worm-glyph {
+  font-family: Manrope, Inter, sans-serif;
+  font-size: 42px;
+  line-height: 1;
+  color: var(--worm);
+  letter-spacing: 0.08em;
+  animation: zero-worm-pulse 1.8s ease-in-out infinite;
+}
+
+.zero-worm-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  justify-content: center;
+  align-items: baseline;
+  color: var(--soft);
+  font-size: 14px;
+}
+
+.zero-worm-flow strong {
+  color: var(--worm);
+  font-size: 18px;
+  letter-spacing: 0.02em;
+}
+
+.zero-lesson-day {
+  width: 108px;
+  height: 108px;
+  margin: 8px auto 18px;
+  border-radius: 28px;
+  display: grid;
+  place-content: center;
+  gap: 2px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  animation: zero-rise 0.5s ease-out both;
+}
+
+.zero-lesson-day span {
+  font-family: Manrope, Inter, sans-serif;
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.zero-lesson-day small {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.zero-progress {
+  height: 4px;
+  background: var(--line);
+  border-radius: 99px;
+  overflow: hidden;
+  margin: 4px 0 16px;
+}
+
+.zero-progress i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+}
+
+.zero-options,
+.zero-birds {
+  display: grid;
+  gap: 9px;
+}
+
+.zero-options button,
+.zero-birds button,
+.zero-intents button {
+  appearance: none;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-elevated);
+  color: var(--ink);
+  padding: 13px 14px;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.zero-options button:hover,
+.zero-birds button:hover,
+.zero-intents button:hover,
+.zero-birds .is-selected,
+.zero-intents .is-selected {
+  border-color: var(--tree-place);
+  background: #222826;
+}
+
+.zero-options--compact button {
+  font-size: 13px;
+  padding: 11px 12px;
+}
+
+.zero-birds strong,
+.zero-birds small {
+  display: block;
+}
+
+.zero-birds strong {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.zero-birds small {
+  margin: 5px 0 0;
+  color: var(--muted);
+}
+
+.zero-reveal {
+  text-align: center;
+  margin: 4px 0 18px;
+  animation: zero-rise 0.5s ease-out both;
+}
+
+.zero-reveal p {
+  max-width: 32ch;
+  margin: 0 auto;
+}
+
+.zero-bars {
+  display: grid;
+  gap: 10px;
+  margin: 8px 0 8px;
+}
+
+.zero-bars div {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.zero-bars i {
+  height: 7px;
+  border-radius: 99px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.zero-bars b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.zero-quizhead,
+.zero-home-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.zero-quizhead strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  font-size: 18px;
+}
+
+.zero-home-hero {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  margin-bottom: 14px;
+  gap: 10px;
+}
+
+.zero-home-hero h1 {
+  margin: 0 0 4px;
+  font-size: clamp(26px, 7vw, 32px);
+}
+
+.zero-home-caption {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.zero-home-move {
+  margin: 0 0 4px;
+  text-align: center;
+}
+
+.zero-home-cta {
+  margin: 4px 0 18px;
+}
+
+.zero-home-cta .zero-primary {
+  margin-top: 10px;
+}
+
+.zero-home-cta .zero-intents {
+  margin-bottom: 2px;
+}
+
+.zero-rank {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.zero-resources {
+  margin: 0 0 14px;
+  padding: 0 2px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+  letter-spacing: 0.01em;
+}
+
+.zero-resources .egg {
+  color: var(--egg);
+  font-weight: 600;
+}
+
+.zero-resources .worm {
+  color: var(--worm);
+  font-weight: 600;
+}
+
+.zero-branch {
+  margin: 0 0 14px;
+}
+
+.zero-branch-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 6px;
+  padding: 0 2px;
+}
+
+.zero-branch-head strong {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.zero-branch-head span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.zero-branch > .zero-soft {
+  margin: 0 0 10px;
+  padding: 0 2px;
+  font-size: 13px;
+}
+
+.zero-nests {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 0;
+}
+
+.zero-nest {
+  position: relative;
+  min-height: 64px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.zero-nest span {
+  position: absolute;
+  top: 7px;
+  left: 9px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.zero-nest b {
+  font-family: Manrope, Inter, sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.zero-nest i,
+.zero-nest em {
+  position: absolute;
+  right: 7px;
+  font-style: normal;
+  font-size: 12px;
+}
+
+.zero-nest i { top: 7px; color: var(--accent); }
+.zero-nest em { bottom: 7px; color: var(--warn); }
+
+.zero-nest.is-target {
+  outline: 2px solid var(--tree-place);
+  outline-offset: 1px;
+  border-color: var(--tree-place);
+}
+
+.owner-woodpecker { background: #3A322C; }
+.owner-magpie { background: #322C3A; }
+.owner-owl { background: #2A323A; }
+.owner-crane { background: #2C3632; }
+
+.zero-today {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-elevated);
+}
+
+.zero-today .zero-kicker {
+  margin: 0 0 6px;
+}
+
+.zero-today p:last-child {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.zero-intents {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+
+.zero-intents button {
+  display: grid;
+  gap: 3px;
+  text-align: center;
+  padding: 11px 6px;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.zero-intents button strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.zero-intents button small {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  line-height: 1.25;
+}
+
+.zero-intents .is-selected {
+  color: var(--ink-on-accent);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.zero-intents .is-selected small {
+  color: var(--ink-on-accent);
+  opacity: 0.78;
+}
+
+.zero-hint {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 10px 0 0;
+  text-align: center;
+}
+
+.zero-result {
+  text-align: center;
+}
+
+.zero-review {
+  display: grid;
+  gap: 7px;
+  text-align: left;
+  margin: 16px 0;
+}
+
+.zero-review--quiet {
+  margin: 0 0 14px;
+}
+
+.zero-review div {
+  padding: 9px 11px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.zero-review .ok {
+  background: #1A2A22;
+  color: var(--success);
+}
+
+.zero-review .bad {
+  background: #2A1C1E;
+  color: var(--danger);
+}
+
+.zero-details {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.zero-details summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+  list-style: none;
+}
+
+.zero-details summary::-webkit-details-marker { display: none; }
+
+.zero-details summary::after {
+  content: ' ·';
+  color: var(--muted);
+}
+
+.zero-details[open] summary::after {
+  content: '';
+}
+
+.zero-details-body {
+  margin-top: 12px;
+}
+
+@keyframes zero-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes zero-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+@keyframes zero-worm-pulse {
+  0%, 100% { opacity: 0.72; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zero-intro,
+  .zero-beats li,
+  .zero-reveal,
+  .zero-bird-stage--intro,
+  .zero-bird-stage--lesson,
+  .zero-lesson,
+  .zero-lesson-worm,
+  .zero-lesson-day,
+  .zero-worm-glyph {
+    animation: none;
+  }
+}
+
+@media (max-width: 360px) {
+  .zero { padding: 14px 12px 28px; }
+  .zero h1 { font-size: 26px; }
+  .zero-stage,
+  .zero-home { padding: 4px 0 8px; }
+  .zero-nests { gap: 6px; }
+  .zero-nest { min-height: 56px; }
+}
+
+/* ─── CU-inspired Zero Season surface · editorial game, not dashboard ─── */
+body.zero-surface,
+body.zero-surface #root {
+  background: #141414;
+}
+
+.zero-bird-stage--intro,
+.zero-bird-stage--reveal,
+.zero-bird-stage--home,
+.zero-bird-stage--lesson,
+.zero-bird-stage.tone-woodpecker,
+.zero-bird-stage.tone-magpie,
+.zero-bird-stage.tone-owl,
+.zero-bird-stage.tone-crane {
+  background: transparent;
+  border-color: transparent;
+}
+
+.zero-bird-stage--intro,
+.zero-bird-stage--lesson {
+  animation: zero-rise 0.45s ease-out both;
+}
+
+.zero-bird-stage--home {
+  width: 100%;
+  min-height: 188px;
+  margin: 0;
+  border-radius: 0;
+}
+
+.season-bird {
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.18));
+}
+
+.season-bird__body {
+  transform-origin: 50% 70%;
+}
+
+.season-bird--ready .season-bird__body {
+  animation: season-bird-ready 0.58s cubic-bezier(.2,.8,.25,1) both;
+}
+
+.season-bird--active .season-bird__body {
+  animation: season-bird-active 0.42s cubic-bezier(.2,.85,.25,1) both;
+}
+
+.season-bird__achievement {
+  animation: season-bird-marks 0.5s ease-out both;
+}
+
+@keyframes season-bird-ready {
+  from { transform: translateY(7px) rotate(-1deg); opacity: 0.72; }
+  to { transform: translateY(0) rotate(0); opacity: 1; }
+}
+
+@keyframes season-bird-active {
+  0% { transform: translateY(0) rotate(0); }
+  45% { transform: translateY(-7px) rotate(1deg); }
+  100% { transform: translateY(0) rotate(0); }
+}
+
+@keyframes season-bird-marks {
+  from { opacity: 0; transform: scale(.92); transform-origin: center; }
+  to { opacity: 1; transform: scale(1); transform-origin: center; }
+}
+
+.zero-home {
+  padding-top: 0;
+}
+
+.zero-home-hero {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 0;
+  margin: -2px 0 22px;
+}
+
+.zero-home-caption {
+  margin-top: -4px;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: .01em;
+}
+
+.zero-home-move {
+  margin: 0 0 24px;
+  text-align: left;
+}
+
+.zero-home-move .zero-kicker {
+  margin-bottom: 8px;
+}
+
+.zero-home-move h1 {
+  max-width: 12ch;
+  margin: 0 0 10px;
+  font-size: clamp(32px, 8.5vw, 40px);
+  line-height: 1.02;
+}
+
+.zero-home-summary {
+  max-width: 34ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.48;
+}
+
+.zero-branch {
+  margin: 0 0 22px;
+}
+
+.zero-branch-head {
+  margin-bottom: 4px;
+  padding: 0;
+}
+
+.zero-branch-head strong {
+  font-family: Manrope, Inter, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.zero-tree {
+  --tree-line: #4A4D4F;
+  width: 100%;
+}
+
+.zero-tree-canvas {
+  position: relative;
+  width: 100%;
+  height: 250px;
+  overflow: hidden;
+}
+
+.zero-tree-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.zero-tree-lines path {
+  fill: none;
+  stroke: var(--tree-line);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.zero-tree-lines .trunk {
+  stroke: #666A6B;
+  stroke-width: 1.65;
+}
+
+.zero-tree-lines .twig {
+  stroke: #3A3D3F;
+  stroke-dasharray: 3 5;
+}
+
+.zero-tree-node {
+  appearance: none;
+  position: absolute;
+  width: 42px;
+  height: 42px;
+  transform: translate(-50%, -50%);
+  border: 1px solid #65686A;
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Manrope, Inter, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .16s ease, border-color .16s ease, background .16s ease, color .16s ease;
+}
+
+.zero-tree-node::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.zero-tree-node:active:not(:disabled) {
+  transform: translate(-50%, -50%) scale(.94);
+}
+
+.zero-tree-node.is-selected {
+  border-color: var(--tree-place);
+  background: var(--tree-place);
+  color: var(--ink-on-accent);
+  box-shadow: 0 0 0 1px var(--bg), 0 0 0 2px var(--tree-place);
+}
+
+.zero-tree-node.is-selected::before {
+  animation: zero-tree-ring .28s ease-out both;
+  border-color: rgba(90, 200, 213, .55);
+}
+
+@keyframes zero-tree-ring {
+  from { opacity: .9; transform: scale(.7); }
+  to { opacity: 0; transform: scale(1.35); }
+}
+
+.zero-tree-node.owner-woodpecker:not(.is-selected) { background: #292622; border-color: #6B6258; }
+.zero-tree-node.owner-magpie:not(.is-selected) { background: #25232A; border-color: #655D70; }
+.zero-tree-node.owner-owl:not(.is-selected) { background: #22262A; border-color: #5A6770; }
+.zero-tree-node.owner-crane:not(.is-selected) { background: #222824; border-color: #5B6A61; }
+
+.zero-tree-node > i {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .55;
+}
+
+.zero-tree-node > b,
+.zero-tree-node > em {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--bg);
+  font-style: normal;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.zero-tree-node > b {
+  right: -5px;
+  top: -4px;
+  color: var(--warn);
+}
+
+.zero-tree-node > em {
+  left: -5px;
+  top: -4px;
+  color: var(--accent);
+  font-size: 18px;
+}
+
+.zero-tree-node:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.zero-tree.is-locked .zero-tree-lines path {
+  stroke: #414446;
+}
+
+.zero-tree-selection {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: -2px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.zero-tree-selection strong {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.zero-tree-selection span::before {
+  content: '·';
+  margin-right: 8px;
+  color: var(--line);
+}
+
+.zero-home-cta {
+  margin: 0 0 24px;
+}
+
+.zero-home-cta .zero-intents {
+  margin-bottom: 12px;
+}
+
+.zero-home-cta .zero-primary {
+  margin-top: 0;
+}
+
+.zero-resources {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 28px;
+  margin: 8px 0 14px;
+  padding: 16px 0 4px;
+  color: var(--ink);
+  text-align: left;
+  border-top: 1px solid var(--line);
+}
+
+.zero-resource {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 92px;
+}
+
+.zero-resource > span {
+  display: grid;
+  gap: 0;
+}
+
+.zero-resource b {
+  color: var(--ink);
+  font-family: Manrope, Inter, sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.zero-resource small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.zero-resource--egg > i {
+  display: block;
+  width: 17px;
+  height: 23px;
+  border-radius: 52% 52% 46% 46% / 60% 60% 42% 42%;
+  background: var(--egg);
+  transform: rotate(4deg);
+}
+
+.zero-resource--worm > i {
+  display: block;
+  width: 28px;
+  color: var(--worm);
+  font-family: Manrope, Inter, sans-serif;
+  font-size: 29px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.zero-link {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration-color: #515457;
+}
+
+.zero-link:hover {
+  color: var(--ink);
+}
+
+@media (max-width: 360px) {
+  .zero-home-hero { margin-bottom: 16px; }
+  .zero-bird-stage--home { min-height: 172px; }
+  .zero-tree-canvas { height: 224px; }
+  .zero-tree-node { width: 38px; height: 38px; }
+  .zero-home-move h1 { font-size: 31px; }
+  .zero-resources { gap: 18px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .season-bird__body,
+  .season-bird__achievement,
+  .zero-tree-node.is-selected::before {
+    animation: none !important;
+  }
+}

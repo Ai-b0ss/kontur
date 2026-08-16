@@ -1,0 +1,33 @@
+node_modules/
+dist/
+*.local
+.env
+.env*.local
+*.sqlite
+*.sqlite-journal
+data/
+.wrangler/
+backups/
+research-private/
+apps/worker/wrangler.preview.local.jsonc
+.claude/
+.superseded/
+KONTUR_HANDOFF_*.zip
+KONTUR_HANDOFF_*.zip.sha256
+
+# Runtime/state is stored encrypted; plaintext is intentionally not in Git history.
+.runtime-state/plain/
+DO_NOT_COMMIT_RUNTIME_STATE_KEY.txt
+
+# Generated/dependency data
+node_modules/
+.venv/
+venv/
+__pycache__/
+dist/
+build/
+coverage/
+.wrangler/
+.turbo/
+.cache/
+*.pyc

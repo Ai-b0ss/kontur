@@ -1,0 +1,27 @@
+{
+  "name": "@kontur/miniapp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node ../../tools/run-vite.mjs",
+    "test": "node --experimental-strip-types --test \"test/*.test.ts\"",
+    "build": "node ../../tools/run-vite.mjs build",
+    "preview": "node ../../tools/run-vite.mjs preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@kontur/contracts": "workspace:*",
+    "@kontur/core": "workspace:*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "esbuild-win32-v025": "npm:@esbuild/win32-x64@0.25.12",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.11"
+  }
+}

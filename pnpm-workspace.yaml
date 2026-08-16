@@ -1,0 +1,23 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+  - 'tools/*'
+
+# Разрешены только нативные runtime-пакеты сборки и локального Worker-эмулятора.
+allowBuilds:
+  esbuild: true
+  workerd: true
+
+minimumReleaseAgeExclude:
+  - miniflare@5.20260801.0-alpha
+  - wrangler@4.119.0
+
+# pnpm 11 иначе может выкинуть optional-бинарник esbuild из lock даже на
+# текущей Windows-машине. `current` сохраняет переносимость lock-файла.
+supportedArchitectures:
+  os:
+    - current
+    - win32
+  cpu:
+    - current
+    - x64

@@ -1,0 +1,7 @@
+BOT_TOKEN=
+MAIN_CHAT_ID=
+JWT_SECRET=change-me
+MINIAPP_URL=http://127.0.0.1:8788
+WEBHOOK_SECRET=change-me
+ADMIN_SECRET=change-me
+DEV_MODE=true

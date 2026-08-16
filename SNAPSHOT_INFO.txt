@@ -1,0 +1,35 @@
+﻿KONTUR FRONTEND SNAPSHOT FOR SOL
+CREATED: 2026-08-08 18:02:45 +03:00
+SOURCE: K:\SPO (первый проект)\spo\spo
+
+GIT HEAD: a7906b4af7d890e92f016a8ba2412a97dcf5ffda
+GIT BRANCH: codex/v5-live-campaign
+
+GIT STATUS:
+ M AI_PROJECT_NAVIGATOR.md
+ M WORKLOG.md
+ M apps/miniapp/src/App.tsx
+ M apps/miniapp/src/api.ts
+ M apps/worker/src/api.ts
+ M apps/worker/src/bot.ts
+ M docs/mvp-core-2026-08-08/MVP_CORE.md
+ M tools/sim/src/check.mjs
+ M tools/sim/src/worker-check.mjs
+?? .sol-v3-frontend-backup-20260808-081646/
+?? PRODUCT_SOURCE_OF_TRUTH_2026-08-08.md
+?? _coded_final_unpack/
+?? _sol_local_mvp_unpack/
+?? _sol_local_mvp_unpack_v2/
+?? _sol_v3_frontend_unpack/
+?? apps/miniapp/src/components/LocalBird.tsx
+?? apps/miniapp/src/local-kontur.css
+?? apps/miniapp/src/screens/LocalKontur.tsx
+?? apps/worker/src/local-kontur-api.ts
+?? chat1.1.md
+?? chat1.2.md
+?? chat1.3.md
+?? chat1.4.md
+?? chat1.md
+?? chat2.md
+?? chat3.md
+?? chat4.md

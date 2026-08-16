@@ -1,0 +1,31 @@
+{
+  "name": "kontur",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n api,miniapp -c cyan,magenta \"pnpm -F @kontur/api dev\" \"pnpm -F @kontur/miniapp dev\"",
+    "dev:all": "concurrently -n api,miniapp,bot -c cyan,magenta,yellow \"pnpm -F @kontur/api dev\" \"pnpm -F @kontur/miniapp dev\" \"pnpm -F @kontur/bot dev\"",
+    "dev:api": "pnpm -F @kontur/api dev",
+    "dev:miniapp": "pnpm -F @kontur/miniapp dev",
+    "dev:bot": "pnpm -F @kontur/bot dev",
+    "test": "pnpm -r --if-present test",
+    "test:api": "node tools/sim/src/api-check.mjs",
+    "sim": "pnpm -F @kontur/sim start",
+    "migrate": "pnpm -F @kontur/db migrate",
+    "signal:issue": "pnpm -F @kontur/db signal:issue",
+    "metrics": "pnpm -F @kontur/db metrics",
+    "cf:dev": "pnpm -F @kontur/worker dev",
+    "cf:test": "pnpm -F @kontur/worker test",
+    "cf:test-transfer": "node tools/sim/src/d1-transfer-check.mjs",
+    "cf:deploy": "pnpm -F @kontur/worker deploy",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "build": "pnpm -F @kontur/miniapp build",
+    "check": "pnpm test && pnpm test:api && pnpm typecheck && pnpm sim && pnpm cf:test-transfer && pnpm build"
+  },
+  "devDependencies": {
+    "@esbuild/win32-x64": "0.28.1",
+    "@rollup/rollup-win32-x64-msvc": "4.62.3",
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3"
+  }
+}

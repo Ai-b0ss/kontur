@@ -1,0 +1,36 @@
+{
+  "name": "@kontur/db",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "migrate": "tsx src/cli.ts",
+    "peek": "tsx src/peek.ts",
+    "signal:issue": "tsx src/signal-cli.ts",
+    "metrics": "tsx src/metrics-cli.ts",
+    "export:d1": "tsx src/export-d1.ts",
+    "test": "node --import tsx --test \"test/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.2.17",
+    "@kontur/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "@types/pg": "^8.11.10",
+    "pg": "^8.13.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  },
+  "peerDependencies": {
+    "pg": "^8.13.1"
+  },
+  "peerDependenciesMeta": {
+    "pg": { "optional": true }
+  }
+}

@@ -6,13 +6,12 @@ on:
   push:
     branches:
       - main
-      - ci/remote-agent-foundation
 
 permissions:
   contents: read
 
 concurrency:
-  group: kontur-ci-${{ github.ref }}
+  group: kontur-ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -40,9 +39,38 @@ jobs:
         timeout-minutes: 5
         run: pnpm install --frozen-lockfile
 
-      - name: Unit tests
-        timeout-minutes: 5
-        run: pnpm test
+      - name: Core unit tests
+        timeout-minutes: 2
+        run: pnpm -F @kontur/core test
+
+      - name: DB unit tests
+        timeout-minutes: 2
+        run: pnpm -F @kontur/db test
+
+      - name: Bot unit tests
+        timeout-minutes: 2
+        run: pnpm -F @kontur/bot test
+
+      - name: Mini App unit tests
+        timeout-minutes: 2
+        run: pnpm -F @kontur/miniapp test
+
+      - name: Worker unit tests
+        timeout-minutes: 2
+        shell: bash
+        run: cd apps/worker && node --import tsx --test "test/*.test.ts"
+
+      - name: Worker local integration
+        timeout-minutes: 4
+        run: pnpm -F @kontur/worker exec node ../../tools/sim/src/worker-check.mjs
+
+      - name: D1 journey schema check
+        timeout-minutes: 2
+        run: pnpm -F @kontur/worker exec node ../../tools/sim/src/d1-journey-schema-check.mjs
+
+      - name: V5 Telegram check
+        timeout-minutes: 2
+        run: pnpm -F @kontur/worker exec node ../../tools/sim/src/v5-telegram-check.mjs
 
       - name: API integration check
         timeout-minutes: 3

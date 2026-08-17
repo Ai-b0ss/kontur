@@ -1,6 +1,6 @@
 # Контур — AI Project Navigator
 
-**Версия:** 3.0 · 2026-08-17  
+**Версия:** 3.1 · 2026-08-17  
 **Статус:** актуальная точка входа для AI/агентов.
 
 ## Сначала понять одну вещь
@@ -9,7 +9,13 @@
 
 `IMPLEMENTED != PRODUCT APPROVED`.
 
-Текущий продукт определяется exact primary/evidence + `CURRENT_PRODUCT.md`, а не самым новым по номеру старым V-файлом.
+Также различать:
+- файл существует;
+- файл статически runtime-достижим;
+- файл реально оставил байты в emitted bundle после tree-shaking;
+- механика owner-approved current product.
+
+Это четыре разных утверждения.
 
 ## Текущий MVP
 
@@ -48,7 +54,7 @@ Historical owner preview:
 
 `https://5dabce57-kontur-igor.igorekglukhovskii43.workers.dev`
 
-Exact source mapping для него пока не доказан. Нельзя объявлять `main`, v84, v86 или current HEAD byte-for-byte равным этому preview только по сходству.
+Exact source mapping пока не доказан. Нельзя объявлять `main`, v84, v86 или current HEAD byte-for-byte равным preview только по сходству.
 
 Нужна цепочка:
 
@@ -68,21 +74,26 @@ Exact source mapping для него пока не доказан. Нельзя 
 - `apps/miniapp/src/screens/LocalKontur.tsx`;
 - `QuizEgg`, current bird/result helpers, `result-taxonomy.ts`, `local-kontur-model.ts`, current CSS/assets;
 - `apps/worker/src/local-kontur-api.ts`;
-- current core/contracts dependencies.
+- current core/contracts source dependencies.
 
-### Production shell
+### Production source entries
 
 - `apps/miniapp/src/main.tsx` -> `App.tsx`;
-- `apps/worker/src/index.ts` -> `api.ts`;
-- auth/crypto/Telegram/D1/shared infrastructure.
+- `apps/worker/src/index.ts` -> `api.ts`.
 
-### Compatibility still shipping
+### Historical/compatibility runtime imports
 
-`App.tsx` статически импортирует старые screens; Worker `api.ts` статически монтирует journey/restored/zero/V5 routers. Поэтому значительная часть старого runtime реально входит в production bundles.
+`App.tsx` имеет runtime-imports старых screens; Worker `api.ts` runtime-монтирует journey/restored/zero/V5 routers.
 
-**Shipping != current. Shipping != safe-to-delete.**
+Это означает **static runtime reachability**, а не автоматически emitted bytes каждого модуля и не current product.
 
-`tools/runtime-reachability.mjs` строит полный bundle closure и narrow LocalKontur feature closure; разницу классифицировать пофайлово.
+`tools/runtime-reachability.mjs` v2 отдельно строит:
+- runtime-import graph без type-only imports;
+- source-dependency graph с type-only imports;
+- narrow current runtime/source graphs;
+- public asset references.
+
+До exact-head artifact не объявлять per-file counts/вердикты. Tree-shaken final bundle inclusion — отдельный build-evidence слой.
 
 ### ZERO_SEASON naming debt
 
@@ -103,7 +114,7 @@ Production guarded run `32030041504` уже:
 
 ## Deployment boundary
 
-`pnpm cf:deploy` и worker `pnpm deploy` **намеренно отключены fail-closed**.
+`pnpm cf:deploy` и worker `pnpm deploy` **намеренно отключены fail-closed** до Cloudflare request.
 
 Production — только `.github/workflows/release-production.yml` после explicit owner authorization. Staging — isolated staging workflow.
 
@@ -119,10 +130,10 @@ Production — только `.github/workflows/release-production.yml` посл�
 ## Текущий P0
 
 1. clean/reproducible exact-head handoff PR #11;
-2. runtime reachability evidence + per-file classification;
+2. runtime/source reachability artifact + per-file classification;
 3. historical preview `5dabce57` provenance до доказуемой границы;
 4. Codex lineage/review artifact retention;
-5. после proof — controlled runtime minimization, но не assumption-based deletion.
+5. после proof — controlled runtime minimization, без assumption-based deletion.
 
 ## Запреты
 

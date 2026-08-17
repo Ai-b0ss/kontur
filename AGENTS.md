@@ -20,7 +20,7 @@
 12. затем код/тесты конкретной задачи;
 13. `docs/archive/` — только исторические доказательства.
 
-**Никогда не выводить продуктовую механику из номера V1/V2/V3/V4/V5, имени feature flag или просто из факта существования/import/reachability кода. `IMPLEMENTED != PRODUCT APPROVED`.**
+**Никогда не выводить продуктовую механику из номера V1–V5, имени feature flag или просто из факта существования/import/reachability/bundle кода. `IMPLEMENTED != PRODUCT APPROVED`.**
 
 ## 2. Замороженный current invariant
 
@@ -40,14 +40,12 @@ Current first-time funnel:
 - STEP C 8 deterministic crack states — принят;
 - STEP D first-time flow — интегрирован в current runtime source;
 - STEP E — принят owner и интегрирован;
-- внутренних backend roles = 5;
+- backend roles = 5;
 - visual results = 6: magpie, woodpecker, jay, crane, owl, Kotosov;
 - Kotosov — presentation-only `vibe` subtype, когда coder строго единственный сильнейший secondary score; tie/incomplete -> owl;
 - backend scoring/weights/role taxonomy из-за Kotosov не расширять.
 
-Поэтому запрещено самостоятельно возвращать проект к «сделать новый STEP A» или «теперь нужно придумать STEP E».
-
-Exact accepted evidence лежит в `docs/product/evidence/` и защищено SHA gate.
+Не возвращать проект к «сделать новый STEP A» или «теперь нужно придумать STEP E» без нового owner decision.
 
 ## 4. Exact preview provenance gate
 
@@ -56,25 +54,28 @@ Historical owner preview:
 `https://5dabce57-kontur-igor.igorekglukhovskii43.workers.dev`
 
 Пока не доказано `preview -> immutable Worker version -> exact bundle/assets -> source`:
-- не утверждать, что `main`, v84, v86 или current HEAD byte-for-byte равны этому preview;
+- не утверждать, что `main`, v84, v86 или current HEAD byte-for-byte равны preview;
 - не удалять runtime/design code по названию;
-- сначала классифицировать reachability/provenance;
+- сначала классифицировать reachability/build/provenance;
 - UX preview можно использовать как historical visual reference, но не как Git provenance proof.
 
 Отдельно уже доказаны v84 immutable Version ID и exact Worker-module SHA; не смешивать v84 с `5dabce57`.
 
-## 5. Runtime reachability rule
+## 5. Runtime/source reachability rule
 
-Production bundle и current product — не одно и то же.
+`tools/runtime-reachability.mjs` v2 различает:
+- **runtime-import graph** — runtime imports/exports, type-only imports исключены;
+- **source-dependency graph** — включает type-only зависимости.
 
-- `App.tsx` статически импортирует старые frontend surfaces;
-- `apps/worker/src/api.ts` статически route-монтирует старые backend routers;
-- следовательно, часть legacy/compatibility кода реально shipping;
-- shipping/imported != current feature;
-- не считать файл dead только потому, что default route до него не доходит;
-- не считать файл current только потому, что bundler до него доходит.
+`App.tsx` имеет runtime-imports старых frontend surfaces, а Worker `api.ts` runtime-монтирует старые routers. Это доказывает **static runtime reachability** из production entrypoints.
 
-Перед removal/refactor запускать `tools/runtime-reachability.mjs` и разбирать результат пофайлово.
+Но:
+- static runtime reachable != current feature;
+- static runtime reachable != доказанные emitted bytes после tree-shaking;
+- emitted bytes != product approval;
+- static source-unreachable != автоматически dead/safe-to-delete.
+
+До exact-head artifact не заявлять per-file counts/вердикты. Перед removal/refactor разбирать reachability + semantic/build/provenance evidence.
 
 `UNKNOWN` — допустимый статус. Догадки запрещены.
 
@@ -88,8 +89,8 @@ Guarded release configs обязаны держать current LocalKontur API в
 
 P0:
 1. clean/reproducible handoff exact current head;
-2. runtime reachability evidence + exhaustive classification;
-3. exact historical preview provenance `5dabce57` насколько это доказуемо;
+2. runtime/source reachability evidence + per-file classification;
+3. exact historical preview provenance `5dabce57` насколько доказуемо;
 4. Codex lineage 14.08/evidence retention;
 5. улучшение PR #11, а не новая параллельная cleanup-ветка.
 
@@ -116,17 +117,9 @@ Owner override имеет приоритет над P1–P5 scheduling. Если
 
 ## 9. Secrets/private state
 
-Не публиковать:
-- plaintext `.env`, `*.local`;
-- Cloudflare/Telegram credentials;
-- sessions/cookies/browser profiles;
-- D1 dumps/backups;
-- private research/chat exports;
-- encryption keys.
+Не публиковать plaintext `.env`/`*.local`, credentials, sessions/cookies/browser profiles, D1 dumps/backups, private research/chat exports и encryption keys.
 
-`.runtime-state/` в Git — только encrypted `.gpg`.
-
-Applied migrations не редактировать задним числом.
+`.runtime-state/` в Git — только encrypted `.gpg`. Applied migrations не редактировать задним числом.
 
 ## 10. Cleanup policy
 
@@ -136,12 +129,12 @@ Runtime-файлу назначать одну из категорий:
 
 `CURRENT | CURRENT_CANDIDATE | COMPATIBILITY | TEST_INFRA | ARCHIVE | PRIVATE_EXCLUDED | UNKNOWN`
 
-Физическое удаление runtime допустимо только отдельным controlled diff после reachability + provenance evidence и тестов.
+Физическое удаление runtime допустимо только отдельным controlled diff после reachability + build/provenance evidence и тестов.
 
 ## 11. Проверки
 
 Документальные изменения не требуют live deployment.
 
-Изменения scripts/CI/runtime требуют соответствующий targeted check + полный clean-checkout gate. Не ослаблять тесты ради green и не переносить green со старого commit на новый head.
+Изменения scripts/CI/runtime требуют targeted check + полный clean-checkout gate. Не ослаблять тесты ради green и не переносить green со старого commit на новый head.
 
 После существенной работы обновлять issue #9 точными commit/PR/tests/remaining risk; не заявлять CI PASS, пока exact head действительно не проверен.

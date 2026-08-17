@@ -1,128 +1,128 @@
 # Контур — карта кодовой базы
 
 **Статус:** current handoff + forensic map · 2026-08-17.  
-Главное правило: **присутствие файла и даже попадание в production bundle не означает, что его механика входит в текущий продукт.**
+Главное правило: **присутствие файла, статическая runtime-достижимость и попадание байтов в emitted bundle — три разных утверждения; ни одно из них само по себе не означает product approval.**
 
 ## A. Product authority — CURRENT
 
-Текущую механику определяют, в порядке приоритета:
+Текущую механику определяют:
 
 - `docs/product/source/PRIMARY_SOURCE_IGOR_ZEZOKUK_2026-08-13.md` — exact primary source;
 - `docs/product/source/FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md` — exact final ТЗ;
 - `docs/product/evidence/PREVIEW_INTEGRATION_GATE_2026-08-14.md` — exact accepted integration evidence;
-- `docs/product/evidence/RESULT_TAXONOMY_ALIGNMENT_2026-08-14.md` — exact Step E/taxonomy owner acceptance;
-- `CURRENT_PRODUCT.md` — краткая текущая конституция;
+- `docs/product/evidence/RESULT_TAXONOMY_ALIGNMENT_2026-08-14.md` — exact STEP E/taxonomy owner acceptance;
+- `CURRENT_PRODUCT.md` — краткая current constitution;
 - `PROJECT_STATE.yaml` — машинная карта состояния;
 - `docs/product/DECISION_LOG_2026-08-14.md` — execution state A–E.
 
-Хэши exact files закреплены в `tools/handoff-safety-check.mjs`.
+Exact hashes закреплены в `tools/handoff-safety-check.mjs`.
 
-## B. Narrow current product feature closure — CURRENT
+## B. Narrow current feature — CURRENT
 
 Frontend:
 - `apps/miniapp/src/screens/LocalKontur.tsx`;
 - `apps/miniapp/src/components/QuizEgg.tsx`;
-- `apps/miniapp/src/components/LocalBirdVisual.tsx` и его current bird helpers;
-- `apps/miniapp/src/components/ResultBird.tsx`;
+- current LocalBird/ResultBird helpers;
 - `apps/miniapp/src/local-kontur-model.ts`;
 - `apps/miniapp/src/result-taxonomy.ts`;
 - `apps/miniapp/src/local-kontur.css`;
 - `apps/miniapp/public/quiz/egg-stage-01.webp` … `08.webp`;
-- current result/bird assets, реально используемые этой веткой.
+- accepted bird/result assets.
 
-Backend feature:
+Backend:
 - `apps/worker/src/local-kontur-api.ts`;
-- shared `db.ts`, `errors.ts`, `types.ts` и другие зависимости, достигаемые из current route;
-- `packages/core/` scoring/roles/egg selector, которые импортирует current feature;
-- `packages/contracts/` current DTO/contracts.
+- его shared DB/error/type/core/contracts dependencies.
 
 Current invariant:
 
 `8Q once -> bird -> reply /worm -> +1 worm -> 5 worms = egg -> guaranteed-new coloration -> equip -> reload persists`
 
-Current result taxonomy: **5 backend roles / 6 visual results**, Kotosov = presentation-only `vibe` subtype при strict unique coder secondary score.
+Current taxonomy: **5 backend roles / 6 visual results**; Kotosov — presentation-only `vibe` subtype при strict unique coder secondary score.
 
-## C. Production container/runtime — CURRENT_CANDIDATE
+## C. Production source/container — CURRENT_CANDIDATE
 
-- `apps/miniapp/src/main.tsx`;
-- `apps/miniapp/src/App.tsx`;
-- `apps/miniapp/src/api.ts`;
-- Telegram/bootstrap/shared UI files;
-- `apps/worker/src/index.ts`;
-- `apps/worker/src/api.ts`;
-- auth/crypto/Telegram/shared DB infrastructure;
-- `apps/worker/wrangler.jsonc`;
-- D1 migrations.
+Mini App production entry:
 
-Это production-capable shell вокруг current feature. Он одновременно содержит/импортирует compatibility surfaces, поэтому не следует путать **container reachability** с product approval.
+`apps/miniapp/src/main.tsx -> App.tsx`
 
-`tools/runtime-reachability.mjs` строит два разных графа:
-1. полный production bundle closure от реальных Vite/Worker entrypoints;
-2. narrow feature closure от `LocalKontur.tsx` + `local-kontur-api.ts`.
+Worker production entry:
 
-Разница между ними — не автоматический список для удаления, а очередь для классификации.
+`apps/worker/src/index.ts -> api.ts`
 
-## D. Route-gated / feature-gated compatibility — COMPATIBILITY UNTIL PROVEN OTHERWISE
+Production shell включает auth/Telegram/D1/shared infrastructure и route/container code вокруг current feature.
 
-Frontend `App.tsx` статически импортирует, среди прочего:
+## D. Reachability evidence — не путать уровни
+
+`tools/runtime-reachability.mjs` v2 строит:
+
+1. **production runtime-import graph** — runtime imports/exports, `import type` исключены;
+2. **production source-dependency graph** — включает type-only зависимости;
+3. **current feature runtime graph** — `LocalKontur.tsx` + `local-kontur-api.ts` и runtime deps;
+4. **current feature source graph** — то же плюс type-only deps;
+5. public asset references, включая простые template paths.
+
+Статически runtime-достижимый модуль является кандидатом для bundler, но это **не точное доказательство emitted bytes** после Vite/Rollup tree-shaking. Для удаления нужен semantic/build/provenance proof.
+
+Отсутствие из статического графа тоже не является автоматическим deletion permit: остаются dynamic/generated/tool references.
+
+## E. Route/feature-gated compatibility — COMPATIBILITY UNTIL PROVEN OTHERWISE
+
+Frontend `App.tsx` имеет runtime-imports, среди прочего, к:
 - `ExperienceV2`;
 - `RestoredExperience`;
 - `ZeroSeason`;
 - `LiveCampaign`;
-- старый `GameApp`/Onboarding/Profile/Community/Eggs path.
+- legacy GameApp components.
 
-Следовательно, значительная часть этих файлов **физически shipping в JS bundle**, даже если default route сразу возвращает `LocalKontur`.
-
-Текущие явные route boundaries:
+Route boundaries:
 - default → `LocalKontur`;
 - `?campaign=v5` → `LiveCampaign`;
-- `?season=zero` → тоже `LocalKontur`;
-- `ZeroSeason` отдельным screen доступен только через DEV `?season=zero-shelf`;
-- legacy `GameApp` — только DEV `?legacy=1`.
+- `?season=zero` → `LocalKontur`;
+- DEV `?season=zero-shelf` → old `ZeroSeason`;
+- DEV `?legacy=1` → old `GameApp`.
 
-Backend `apps/worker/src/api.ts` статически подключает:
+Это доказывает static runtime reachability из source graph, **не** owner approval и **не** per-module emitted-byte inclusion.
+
+Worker `apps/worker/src/api.ts` runtime-монтирует:
 - `journeyApi`;
 - `restoredApi`;
 - `localKonturApi`;
 - `zeroSeasonApi`;
 - `liveCampaignApi`.
 
-Поэтому старые routers также shipping в Worker bundle. Их product state определяется feature gates/owner decisions, а не import-фактом.
+Эти routers также нельзя удалять без отдельной классификации.
 
-### Naming debt: ZERO_SEASON
+### Naming debt: `ZERO_SEASON_ENABLED`
 
-`ZERO_SEASON_ENABLED` — историческое имя флага, но **сейчас оно также является gate для `/api/v4/local/*` current LocalKontur backend** через `zeroSeasonAllowed()`.
+`ZERO_SEASON_ENABLED` — историческое имя флага, но current `/api/v4/local/*` использует его через `zeroSeasonAllowed()`.
 
-Это не делает старый `ZeroSeason.tsx` current. Нельзя удалить/переименовать этот флаг без миграционного решения, потому что current LocalKontur API от него зависит.
-
-Guarded staging/production configs явно ставят:
+Это не делает старый `ZeroSeason.tsx` current. Guarded staging/production configs обязаны явно держать:
 - `ZERO_SEASON_ENABLED=true`;
-- `EXPERIENCE_V2_ENABLED=false`;
-- `EXPERIENCE_V3_ENABLED=false`;
-- `LIVE_CAMPAIGN_V5_ENABLED=false`;
-- `LIVE_CAMPAIGN_V5_PUBLISH_ENABLED=false`.
+- V2/V3 disabled;
+- V5 + V5 publish disabled;
+- V5 LLM disabled.
 
-## E. Public assets
+## F. Public assets
 
-`apps/miniapp/public/**` Vite копирует в `dist` независимо от того, найден ли literal reference в TS/CSS.
+`apps/miniapp/public/**` Vite копирует в `dist` независимо от TS import graph.
 
 Поэтому:
-- `deployed asset != current product asset`;
-- отсутствие literal reference != доказанный dead asset;
-- dynamic template paths (`egg-stage-${...}.webp`) должны учитываться отдельно.
+- copied/deployed asset != current product asset;
+- отсутствие literal reference != dead asset;
+- dynamic paths вроде `egg-stage-${...}.webp` требуют template-aware анализа.
 
-Reachability tool сохраняет как полный список deployed public assets, так и обнаруженные literal/template references.
+Cloudflare Assets использует SPA fallback: отсутствующий asset может вернуть `index.html` с HTTP 200. Critical assets проверяются MIME + exact SHA после exact root convergence.
 
-## F. Local/reference/test compatibility
+## G. Local/reference compatibility
 
 - `apps/api/` — COMPATIBILITY/local reference;
 - `apps/bot/` — COMPATIBILITY/local reference;
-- `packages/db/` — COMPATIBILITY/local/reference DB layer;
-- `tools/sim/` и тестовые harnesses — TEST_INFRA.
+- `packages/db/` — COMPATIBILITY/local/reference DB;
+- `tools/sim/` и harnesses — TEST_INFRA.
 
-Они нужны для проверки/истории/сравнения и не объявляются вторым production runtime.
+Они не являются вторым production runtime.
 
-## G. Release / verification infrastructure — TEST_INFRA
+## H. Release / verification infrastructure — TEST_INFRA
 
 - `.github/workflows/ci.yml`;
 - `.github/workflows/release-staging.yml`;
@@ -138,58 +138,42 @@ Reachability tool сохраняет как полный список deployed p
 
 ### Production deploy boundary
 
-`pnpm cf:deploy` / worker `pnpm deploy` намеренно fail-closed. Они не должны посылать запрос Cloudflare.
+`pnpm cf:deploy` / worker `pnpm deploy` намеренно fail-closed до Cloudflare request.
 
-Production — только guarded workflow после owner authorization. Причина: guarded path включает rollback evidence, D1 identity proof, explicit current vars и exact post-deploy asset convergence.
+Production — только `.github/workflows/release-production.yml` после explicit owner authorization. Guarded path включает rollback evidence, D1 identity proof, current flags и exact post-deploy asset convergence.
 
-## H. Provenance — PROVENANCE / FORENSIC
-
-`docs/provenance/` хранит:
-- current Git-export origin из Codex `v86-local-candidate/.../verification/result/source/kontur`;
-- v84 integration evidence;
-- production incident 17.08;
-- derived candidate/snapshot/hash evidence.
+## I. Provenance — FORENSIC
 
 Доказано:
+- current Git export origin = Codex `v86-local-candidate/.../verification/result/source/kontur`;
 - v84 immutable Worker Version = `ab3cce08-12a0-4fa7-879b-9f6bbe838076`;
-- v84 Worker module SHA-256 = `80510394f7a3e3c086b4c85e96dec0a555b105f5bbdb1e7c8f57d5f78dbdef39`;
-- current Git export происходит из Codex v86 lineage;
-- production run 17.08 создал Worker Version `b6a03ac0-ec1f-43b9-886a-dd1664c9f6c1`.
+- v84 Worker SHA-256 = `80510394f7a3e3c086b4c85e96dec0a555b105f5bbdb1e7c8f57d5f78dbdef39`;
+- production release 17.08 created Version `b6a03ac0-ec1f-43b9-886a-dd1664c9f6c1`.
 
-Не доказано до конца:
+Не доказано:
 - historical preview `5dabce57 -> immutable CF version -> exact assets/source`.
 
-Поэтому `5dabce57` остаётся forensic target, а не authority над current product.
+`5dabce57` остаётся forensic target, а не current authority.
 
-## I. Historical docs/art — ARCHIVE
+## J. ARCHIVE / PRIVATE_EXCLUDED
 
-`docs/archive/legacy/` — сохранённая история:
-- старые README/state/navigator/backlog/product directions/V5 specs;
-- Stage 1/5/6/7 материалы;
-- старые handoff/design/research docs;
-- historical worklog;
-- art direction/prototypes/candidates.
+`docs/archive/legacy/` — история/evidence, не current ТЗ.
 
-Это evidence/recovery, не ТЗ.
-
-## J. Private/runtime state — PRIVATE_EXCLUDED
-
-Не входит в обычный source handoff:
-- plaintext `.env`;
-- токены/credentials;
+Не входит в обычный handoff:
+- plaintext `.env`/tokens/secrets/keys;
 - Telegram sessions/cookies/accounts;
 - production D1 dumps;
-- private research/chat exports;
 - browser profiles;
-- encryption keys.
+- private research/chat exports.
 
-`.runtime-state/` допускается в Git только в уже зашифрованном `.gpg` виде.
+`.runtime-state/` в Git допускается только как encrypted `.gpg`.
 
 ## K. Следующие gates
 
-1. дождаться clean CI exact текущего head и забрать runtime-reachability/public-provenance artifacts;
-2. продолжить `5dabce57` provenance до доказуемой границы;
-3. классифицировать `productionOutsideNarrowFeature` и `trackedSourceNotInProductionBundle` по файлам;
-4. только потом делать отдельный controlled removal/refactor diff;
-5. не повторять destructive production reset ради verification;
-6. merge PR #11 — только по отдельному owner-разрешению.
+1. получить clean CI exact текущего head;
+2. прочитать runtime-reachability + public-provenance artifacts;
+3. продолжить `5dabce57` provenance до доказуемой границы;
+4. классифицировать runtime-import candidates по semantic/build evidence;
+5. только затем отдельный controlled removal/refactor diff;
+6. не повторять destructive production reset ради verification;
+7. merge PR #11 — только по отдельному owner-разрешению.

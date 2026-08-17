@@ -140,8 +140,9 @@ jobs:
           test "$code" = "200" || { echo "Staging root did not become healthy: HTTP $code"; exit 1; }
           grep -q '<div id="root">' "$RUNNER_TEMP/root.html" || { echo 'Mini App root marker missing'; exit 1; }
 
-          health_code=$(curl -sS -o "$RUNNER_TEMP/health.json" -w '%{http_code}' "$STAGING_ORIGIN/api/health" || true)
-          test "$health_code" = "200" || { echo "Staging /api/health failed: HTTP $health_code"; cat "$RUNNER_TEMP/health.json"; exit 1; }
+          health_code=$(curl -sS -o "$RUNNER_TEMP/health.json" -w '%{http_code}' "$STAGING_ORIGIN/api/v1/health" || true)
+          test "$health_code" = "200" || { echo "Staging /api/v1/health failed: HTTP $health_code"; cat "$RUNNER_TEMP/health.json"; exit 1; }
+          node --input-type=module -e "import fs from 'node:fs'; const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/health.json','utf8')); if(x.ok!==true) throw new Error('health ok is not true'); if(x.devMode!==false) throw new Error('staging unexpectedly exposes DEV_MODE'); if(x.driver!=='d1') throw new Error('staging health is not using D1'); console.log('STAGING_LIVE_HEALTH_PASS')"
           echo 'STAGING_LIVE_SMOKE_PASS'
 
       - name: Report safe staging identity

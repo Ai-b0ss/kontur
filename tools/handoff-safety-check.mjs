@@ -29,6 +29,10 @@ const required = [
   'apps/miniapp/src/screens/LocalKontur.tsx',
   'apps/miniapp/src/components/QuizEgg.tsx',
   'apps/miniapp/src/result-taxonomy.ts',
+  'tools/runtime-reachability.mjs',
+  'tools/cloudflare/refuse-direct-production-deploy.mjs',
+  '.github/workflows/release-staging.yml',
+  '.github/workflows/release-production.yml',
 ];
 for (const path of required) mustExist(path);
 for (let stage = 1; stage <= 8; stage += 1) {
@@ -98,10 +102,21 @@ for (const path of tracked) {
   }
 }
 
+const rootPackage = JSON.parse(readFileSync('package.json', 'utf8'));
+const workerPackage = JSON.parse(readFileSync('apps/worker/package.json', 'utf8'));
+if (rootPackage.scripts?.['cf:deploy'] !== 'pnpm -F @kontur/worker deploy') {
+  fail('root cf:deploy must remain routed through the guarded/refused worker deploy command');
+}
+if (workerPackage.scripts?.deploy !== 'node ../../tools/cloudflare/refuse-direct-production-deploy.mjs') {
+  fail('worker package deploy must remain fail-closed; guarded GitHub release workflow is the only production path');
+}
+
 const app = readFileSync('apps/miniapp/src/App.tsx', 'utf8');
 const local = readFileSync('apps/miniapp/src/screens/LocalKontur.tsx', 'utf8');
 const egg = readFileSync('apps/miniapp/src/components/QuizEgg.tsx', 'utf8');
 const taxonomy = readFileSync('apps/miniapp/src/result-taxonomy.ts', 'utf8');
+const productionWorkflow = readFileSync('.github/workflows/release-production.yml', 'utf8');
+const stagingWorkflow = readFileSync('.github/workflows/release-staging.yml', 'utf8');
 
 if (!app.includes("params.get('campaign') === 'v5'")) fail('explicit V5 route guard missing');
 if (!app.includes('return <LocalKontur />;')) fail('LocalKontur is not the default app surface');
@@ -119,7 +134,11 @@ if (!taxonomy.includes("BirdResultId = 'magpie' | 'woodpecker' | 'jay' | 'crane'
 if (!taxonomy.includes("reason: 'coder-is-unique-secondary'")) fail('Kotosov unique-secondary classification missing');
 if (!taxonomy.includes('scores.coder > scores[role]')) fail('Kotosov coder-secondary strictness changed unexpectedly');
 if (!taxonomy.includes("resolvedRole !== 'vibe'")) fail('Kotosov must remain presentation-only under canonical vibe role');
+if (!productionWorkflow.includes("ZERO_SEASON_ENABLED:'true'")) fail('guarded production config must explicitly enable current LocalKontur API surface');
+if (!productionWorkflow.includes('wait-for-deployed-assets.mjs')) fail('production release must wait for exact public asset generation convergence');
+if (!stagingWorkflow.includes("ZERO_SEASON_ENABLED:'true'")) fail('staging config must explicitly enable current LocalKontur API surface');
+if (!stagingWorkflow.includes('wait-for-deployed-assets.mjs')) fail('staging release must wait for exact public asset generation convergence');
 
 if (!process.exitCode) {
-  console.log(`HANDOFF_SAFETY_PASS tracked=${tracked.length} required=${required.length} eggStages=8 exactEvidence=${exactEvidence.size}`);
+  console.log(`HANDOFF_SAFETY_PASS tracked=${tracked.length} required=${required.length} eggStages=8 exactEvidence=${exactEvidence.size} directDeploy=refused`);
 }

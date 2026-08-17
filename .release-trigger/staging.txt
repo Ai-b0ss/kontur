@@ -1,0 +1,3 @@
+trigger=2026-08-17T14:44:00+03:00
+source=handoff/kontur-2026-08-17@85290a821bdd1a5ceb170480eccdba4243bea997
+purpose=fresh-staging-db-deploy-and-remote-asset-smoke

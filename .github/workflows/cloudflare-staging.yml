@@ -1,0 +1,143 @@
+name: Kontur Cloudflare staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'preflight = no Cloudflare writes; deploy = staging Worker only; deploy-with-migrations = staging D1 migrations then staging Worker'
+        required: true
+        default: preflight
+        type: choice
+        options:
+          - preflight
+          - deploy
+          - deploy-with-migrations
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kontur-cloudflare-staging
+  cancel-in-progress: false
+
+env:
+  STAGING_WORKER_NAME: kontur-igor-staging
+  STAGING_D1_NAME: kontur-staging
+  PROD_D1_ID: 91e39e7e-70fc-4551-8d3e-48235e70f985
+
+jobs:
+  staging:
+    name: staging safety + optional deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enable pnpm 11
+        run: |
+          corepack enable
+          corepack prepare pnpm@11 --activate
+          pnpm --version
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Offline staging isolation gate
+        run: node tools/cloudflare/staging-config-check.mjs
+
+      - name: Full project verification before any remote write
+        run: pnpm check
+
+      - name: Build Mini App assets
+        run: pnpm build
+
+      - name: Generate synthetic staging config for preflight
+        if: inputs.mode == 'preflight'
+        env:
+          CLOUDFLARE_STAGING_WORKER_NAME: ${{ env.STAGING_WORKER_NAME }}
+          CLOUDFLARE_STAGING_D1_DATABASE_NAME: ${{ env.STAGING_D1_NAME }}
+          CLOUDFLARE_STAGING_D1_DATABASE_ID: 00000000-0000-4000-8000-000000000001
+        run: node tools/cloudflare/make-staging-config.mjs
+
+      - name: Validate Wrangler bundle without Cloudflare access
+        if: inputs.mode == 'preflight'
+        run: pnpm -F @kontur/worker exec wrangler deploy --config wrangler.staging.generated.jsonc --dry-run
+
+      - name: Require Cloudflare CI credentials for remote modes
+        if: inputs.mode != 'preflight'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo 'Missing CLOUDFLARE_ACCOUNT_ID'; exit 1; }
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo 'Missing CLOUDFLARE_API_TOKEN'; exit 1; }
+          echo 'Cloudflare credentials are present (values not printed).'
+
+      - name: Resolve existing staging D1 identity
+        if: inputs.mode != 'preflight'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler d1 info "$STAGING_D1_NAME" --json > "$RUNNER_TEMP/staging-d1.json"
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          const raw = fs.readFileSync(process.env.RUNNER_TEMP + '/staging-d1.json', 'utf8');
+          const data = JSON.parse(raw);
+          const all = [];
+          const walk = (value) => {
+            if (typeof value === 'string') all.push(value);
+            else if (Array.isArray(value)) value.forEach(walk);
+            else if (value && typeof value === 'object') Object.values(value).forEach(walk);
+          };
+          walk(data);
+          if (!all.includes(process.env.STAGING_D1_NAME)) {
+            throw new Error('D1 info did not identify the expected staging database name');
+          }
+          const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+          const ids = [...new Set(all.filter((v) => uuid.test(v) && v !== process.env.PROD_D1_ID))];
+          if (ids.length !== 1) throw new Error(`Expected exactly one non-production D1 UUID, found ${ids.length}`);
+          if (ids[0] === process.env.PROD_D1_ID) throw new Error('Resolved production D1 UUID');
+          fs.appendFileSync(process.env.GITHUB_ENV, `CLOUDFLARE_STAGING_D1_DATABASE_ID=${ids[0]}\n`);
+          console.log('STAGING_D1_IDENTITY_PASS');
+          NODE
+
+      - name: Generate remote staging config
+        if: inputs.mode != 'preflight'
+        env:
+          CLOUDFLARE_STAGING_WORKER_NAME: ${{ env.STAGING_WORKER_NAME }}
+          CLOUDFLARE_STAGING_D1_DATABASE_NAME: ${{ env.STAGING_D1_NAME }}
+          CLOUDFLARE_STAGING_D1_DATABASE_ID: ${{ env.CLOUDFLARE_STAGING_D1_DATABASE_ID }}
+        run: node tools/cloudflare/make-staging-config.mjs
+
+      - name: Remote staging Wrangler dry-run
+        if: inputs.mode != 'preflight'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm -F @kontur/worker exec wrangler deploy --config wrangler.staging.generated.jsonc --dry-run
+
+      - name: Apply migrations to staging D1 only
+        if: inputs.mode == 'deploy-with-migrations'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm -F @kontur/worker exec wrangler d1 migrations apply "$STAGING_D1_NAME" --remote --config wrangler.staging.generated.jsonc
+
+      - name: Deploy staging Worker only
+        if: inputs.mode != 'preflight'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm -F @kontur/worker exec wrangler deploy --config wrangler.staging.generated.jsonc

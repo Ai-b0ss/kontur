@@ -1,0 +1,210 @@
+name: Kontur staging release + clean reset
+
+on:
+  push:
+    branches:
+      - release/kontur-staging-reset-2026-08-17
+    paths:
+      - '.github/workflows/kontur-staging-release-reset.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kontur-staging-release-reset-2026-08-17
+  cancel-in-progress: false
+
+env:
+  STAGING_WORKER_NAME: kontur-igor-staging
+  STAGING_D1_NAME: kontur-staging
+  PROD_WORKER_NAME: kontur-igor
+  PROD_D1_NAME: kontur
+  PROD_D1_ID: 91e39e7e-70fc-4551-8d3e-48235e70f985
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enable pnpm 11
+        run: |
+          corepack enable
+          corepack prepare pnpm@11 --activate
+          pnpm --version
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify source before any Cloudflare write
+        run: |
+          node tools/cloudflare/staging-config-check.mjs
+          pnpm check
+          pnpm build
+
+      - name: Require Cloudflare credentials
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$CLOUDFLARE_API_TOKEN"
+
+      - name: Resolve and prove staging D1 identity
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          test "$STAGING_WORKER_NAME" != "$PROD_WORKER_NAME"
+          test "$STAGING_D1_NAME" != "$PROD_D1_NAME"
+          pnpm -F @kontur/worker exec wrangler d1 info "$STAGING_D1_NAME" --json > "$RUNNER_TEMP/staging-d1.json"
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          const data = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/staging-d1.json', 'utf8'));
+          const values = [];
+          const walk = (v) => {
+            if (typeof v === 'string') values.push(v);
+            else if (Array.isArray(v)) v.forEach(walk);
+            else if (v && typeof v === 'object') Object.values(v).forEach(walk);
+          };
+          walk(data);
+          if (!values.includes(process.env.STAGING_D1_NAME)) throw new Error('Expected staging D1 name not found');
+          const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+          const ids = [...new Set(values.filter(v => uuid.test(v) && v !== process.env.PROD_D1_ID))];
+          if (ids.length !== 1) throw new Error(`Expected one staging D1 UUID, got ${ids.length}`);
+          if (ids[0] === process.env.PROD_D1_ID) throw new Error('Refusing production D1');
+          fs.appendFileSync(process.env.GITHUB_ENV, `CLOUDFLARE_STAGING_D1_DATABASE_ID=${ids[0]}\n`);
+          console.log('STAGING_IDENTITY_PASS');
+          NODE
+
+      - name: Generate staging config and dry-run bundle
+        env:
+          CLOUDFLARE_STAGING_WORKER_NAME: ${{ env.STAGING_WORKER_NAME }}
+          CLOUDFLARE_STAGING_D1_DATABASE_NAME: ${{ env.STAGING_D1_NAME }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          node tools/cloudflare/make-staging-config.mjs
+          pnpm -F @kontur/worker exec wrangler deploy --config wrangler.staging.generated.jsonc --dry-run
+
+      - name: Backup current staging D1 before reset
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler d1 export "$STAGING_D1_NAME" --remote --output "$RUNNER_TEMP/kontur-staging-before-reset.sql" --config wrangler.staging.generated.jsonc --yes
+          test -s "$RUNNER_TEMP/kontur-staging-before-reset.sql"
+
+      - name: Upload pre-reset D1 backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: kontur-staging-before-reset-${{ github.sha }}
+          path: ${{ runner.temp }}/kontur-staging-before-reset.sql
+          retention-days: 14
+
+      - name: Discover staging tables and build reset SQL
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler d1 execute "$STAGING_D1_NAME" --remote --config wrangler.staging.generated.jsonc --command "SELECT name FROM sqlite_schema WHERE type='table' ORDER BY name" --json > "$RUNNER_TEMP/tables.json"
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          const raw = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/tables.json', 'utf8'));
+          const names = new Set();
+          const walk = (v) => {
+            if (Array.isArray(v)) v.forEach(walk);
+            else if (v && typeof v === 'object') {
+              if (typeof v.name === 'string') names.add(v.name);
+              Object.values(v).forEach(walk);
+            }
+          };
+          walk(raw);
+          const drop = [...names]
+            .filter(n => !n.startsWith('sqlite_') && n !== '_cf_KV')
+            .sort()
+            .map(n => `DROP TABLE IF EXISTS "${n.replaceAll('"','""')}";`);
+          if (!drop.some(x => x.includes('users'))) throw new Error('users table not discovered; refusing reset');
+          const sql = ['PRAGMA foreign_keys=OFF;', ...drop, 'PRAGMA foreign_keys=ON;'].join('\n') + '\n';
+          fs.writeFileSync(process.env.RUNNER_TEMP + '/reset-staging.sql', sql);
+          console.log(`RESET_PLAN_PASS tables=${drop.length}`);
+          NODE
+
+      - name: Reset staging D1 only
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          test "$CLOUDFLARE_STAGING_D1_DATABASE_ID" != "$PROD_D1_ID"
+          pnpm -F @kontur/worker exec wrangler d1 execute "$STAGING_D1_NAME" --remote --config wrangler.staging.generated.jsonc --file "$RUNNER_TEMP/reset-staging.sql" --yes
+          pnpm -F @kontur/worker exec wrangler d1 migrations apply "$STAGING_D1_NAME" --remote --config wrangler.staging.generated.jsonc
+
+      - name: Verify fresh player state
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler d1 execute "$STAGING_D1_NAME" --remote --config wrangler.staging.generated.jsonc --command "SELECT count(*) AS users FROM users; SELECT count(*) AS answers FROM onboarding_answers;" --json | tee "$RUNNER_TEMP/fresh-state.json"
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          const text = fs.readFileSync(process.env.RUNNER_TEMP + '/fresh-state.json','utf8');
+          const parsed = JSON.parse(text);
+          const nums = [];
+          const walk = v => {
+            if (typeof v === 'number') nums.push(v);
+            else if (Array.isArray(v)) v.forEach(walk);
+            else if (v && typeof v === 'object') Object.values(v).forEach(walk);
+          };
+          walk(parsed);
+          if (!nums.includes(0)) throw new Error('Could not prove empty fresh state');
+          console.log('FRESH_STATE_QUERY_PASS');
+          NODE
+
+      - name: Deploy staging Worker with latest Mini App
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler deploy --config wrangler.staging.generated.jsonc | tee "$RUNNER_TEMP/deploy.log"
+          grep -Eo 'https://[^[:space:]]+workers\.dev' "$RUNNER_TEMP/deploy.log" | tail -n1 | tr -d '\r' > "$RUNNER_TEMP/url.txt" || true
+          URL="$(cat "$RUNNER_TEMP/url.txt")"
+          test -n "$URL" || { echo 'Could not extract workers.dev URL'; cat "$RUNNER_TEMP/deploy.log"; exit 1; }
+          echo "STAGING_URL=$URL" >> "$GITHUB_ENV"
+          echo "Deployed staging URL: $URL"
+
+      - name: Public staging smoke
+        run: |
+          set -euo pipefail
+          for i in {1..12}; do
+            code=$(curl -sS -o "$RUNNER_TEMP/index.html" -w '%{http_code}' "$STAGING_URL/" || true)
+            [ "$code" = 200 ] && break
+            sleep 5
+          done
+          test "$code" = 200
+          grep -q 'root' "$RUNNER_TEMP/index.html"
+          code=$(curl -sS -o "$RUNNER_TEMP/egg.webp" -w '%{http_code}' "$STAGING_URL/quiz/egg-stage-01.webp")
+          test "$code" = 200
+          test -s "$RUNNER_TEMP/egg.webp"
+          echo "PUBLIC_STAGING_SMOKE_PASS $STAGING_URL"
+
+      - name: Release summary
+        run: |
+          echo "## Kontur staging reset release" >> "$GITHUB_STEP_SUMMARY"
+          echo "- source: \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- worker: \`${STAGING_WORKER_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- D1: \`${STAGING_D1_NAME}\` (fresh)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: ${STAGING_URL}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- pre-reset D1 backup uploaded as workflow artifact" >> "$GITHUB_STEP_SUMMARY"

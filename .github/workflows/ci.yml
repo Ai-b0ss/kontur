@@ -39,6 +39,10 @@ jobs:
         timeout-minutes: 5
         run: pnpm install --frozen-lockfile
 
+      - name: Cloudflare staging isolation gate
+        timeout-minutes: 1
+        run: node tools/cloudflare/staging-config-check.mjs
+
       - name: Core unit tests
         timeout-minutes: 2
         run: pnpm -F @kontur/core test
@@ -78,3 +82,15 @@ jobs:
       - name: Mini App production build
         timeout-minutes: 5
         run: pnpm build
+
+      - name: Generate isolated staging config for Wrangler dry-run
+        timeout-minutes: 1
+        env:
+          CLOUDFLARE_STAGING_WORKER_NAME: kontur-igor-staging
+          CLOUDFLARE_STAGING_D1_DATABASE_NAME: kontur-staging
+          CLOUDFLARE_STAGING_D1_DATABASE_ID: 00000000-0000-4000-8000-000000000001
+        run: node tools/cloudflare/make-staging-config.mjs
+
+      - name: Cloudflare staging Wrangler dry-run
+        timeout-minutes: 2
+        run: pnpm -F @kontur/worker exec wrangler deploy --config wrangler.staging.generated.jsonc --dry-run

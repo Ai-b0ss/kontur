@@ -65,15 +65,21 @@ Current first-time flow:
 
 Старый runtime **ещё не физически вычищен**.
 
-`App.tsx` статически импортирует старые screens, а `apps/worker/src/api.ts` подключает старые routers. Поэтому часть V1–V5 кода реально входит в production bundle, хотя default UX/feature flags его не делают текущим продуктом.
+`App.tsx` имеет runtime-imports старых screens, а `apps/worker/src/api.ts` runtime-монтирует старые routers. Поэтому эта часть V1–V5 **статически runtime-достижима из production entrypoints** и не может удаляться по имени.
 
-Это означает:
-- bundle reachability != product approval;
-- старые modules нельзя удалять только по названию;
-- сначала нужен reachability/provenance proof;
-- `tools/runtime-reachability.mjs` строит воспроизводимый граф actual entrypoints и narrow LocalKontur feature closure.
+Это не тождественно двум другим утверждениям:
+- статическая runtime-достижимость **не доказывает**, что модуль оставил байты в финальном emitted bundle после tree-shaking;
+- наличие байтов в bundle **не делает механику current product**.
 
-Особый исторический naming debt: `ZERO_SEASON_ENABLED` сейчас используется как backend gate для `/api/v4/local/*`, хотя отдельный старый `ZeroSeason.tsx` surface не является current product. Не путать feature-flag name с продуктовой властью старого ZeroSeason UI.
+`tools/runtime-reachability.mjs` v2 отдельно строит:
+- runtime-import graph без type-only imports;
+- source-dependency graph с type-only imports;
+- narrow LocalKontur runtime/source graph;
+- public asset references.
+
+Его artifact нужно прочитать на exact head до per-file cleanup-решений.
+
+Особый naming debt: `ZERO_SEASON_ENABLED` сейчас используется как backend gate для `/api/v4/local/*`, хотя отдельный старый `ZeroSeason.tsx` surface не является current product. Не путать имя feature flag с продуктовой властью старого UI.
 
 ## Что читать получателю
 
@@ -100,16 +106,18 @@ pnpm install --frozen-lockfile
 pnpm check
 ```
 
-Для handoff-commit дополнительно нужен зелёный clean-checkout GitHub CI именно на зафиксированном head. Не переносить зелёный статус со старого commit на более новый.
+Для handoff-commit дополнительно нужен зелёный clean-checkout GitHub CI именно на зафиксированном head. **Не переносить зелёный статус со старого commit на более новый.**
 
 CI также проверяет:
 - exact primary/evidence hashes;
 - current A–E source invariants;
 - direct production deploy refusal;
-- runtime reachability graph;
+- runtime/source reachability v2;
 - deployment propagation regression;
 - share-safe reproducible archive;
 - isolated staging Wrangler dry-run.
+
+На текущем head CI нельзя считать доказанно зелёным, пока Actions connector не вернёт run/jobs/artifacts.
 
 ## Deployment: что делать нельзя
 
@@ -149,7 +157,7 @@ Run `32030041504` уже выполнил production D1 reset/migrations и depl
 
 ## Сообщение разработчику
 
-> Рабочая база «Контура»: `Ai-b0ss/kontur`, ветка `cleanup/repo-hygiene-shareable-source`, PR #11. Начни с `README.md`, `CURRENT_PRODUCT.md` и exact sources/evidence в `docs/product/source` + `docs/product/evidence`. Current flow A–E уже интегрирован: hook → 8Q/8 egg stages → bird reveal → `/worm` → Home; 5 backend roles дают 6 visual results, включая Kotosov presentation subtype. Старый V1–V5 runtime частично всё ещё shipping/reachable, но не является product authority. Не удаляй его без reachability proof. Не используй прямой `pnpm cf:deploy`; production только через guarded workflow после owner authorization. `5dabce57` остаётся historical forensic target, exact mapping к Git ещё не закрыт.
+> Рабочая база «Контура»: `Ai-b0ss/kontur`, ветка `cleanup/repo-hygiene-shareable-source`, PR #11. Начни с `README.md`, `CURRENT_PRODUCT.md` и exact sources/evidence в `docs/product/source` + `docs/product/evidence`. Current flow A–E уже интегрирован: hook → 8Q/8 egg stages → bird reveal → `/worm` → Home; 5 backend roles дают 6 visual results, включая Kotosov presentation subtype. Старый V1–V5 runtime частично статически runtime-достижим из production entrypoints, но это не product authority и не доказательство emitted bytes каждого модуля. Не удаляй его без reachability/build proof. Не используй прямой `pnpm cf:deploy`; production только через guarded workflow после owner authorization. `5dabce57` остаётся historical forensic target, exact mapping к Git ещё не закрыт.
 
 ## Definition of handoff-ready
 
@@ -159,7 +167,7 @@ Run `32030041504` уже выполнил production D1 reset/migrations и depl
 - exact primary/evidence присутствуют и SHA gate green;
 - current A–E source/assets присутствуют;
 - clean clone install/check/tests/typecheck/build green на exact head;
-- runtime reachability evidence сохранён;
+- runtime/source reachability artifact сохранён и прочитан;
 - secret/private-state scan green;
 - reproducible share-safe archive green;
 - одна branch + один зафиксированный commit;
@@ -169,7 +177,7 @@ Run `32030041504` уже выполнил production D1 reset/migrations и depl
 
 Дополнительно:
 - закрыть `5dabce57 -> immutable Cloudflare version -> exact assets/source` настолько, насколько позволяют raw evidence;
-- закончить per-blob reachability/classification спорного runtime;
+- закончить per-file runtime/build classification спорного runtime;
 - проиндексировать восстановленную Codex lineage 14.08;
 - не выдавать `UNKNOWN` за `PROVEN`.
 

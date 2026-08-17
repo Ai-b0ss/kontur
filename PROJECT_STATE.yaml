@@ -1,11 +1,26 @@
-schema_version: 2
+schema_version: 3
 updated_at: "2026-08-17"
-status: "cleanup_and_exact_preview_provenance"
+status: "handoff_candidate_ci_verification"
 
 product_authority:
   file: "CURRENT_PRODUCT.md"
   invariant: "8Q once -> bird -> reply /worm -> +1 worm -> 5 worms = egg -> guaranteed new cosmetic coloration -> equip -> reload persists"
-  first_time_funnel: "Какая ты птица в IT? -> hero egg -> 8Q quiz -> progressive cracks -> bird reveal -> /worm -> HOME"
+  first_time_funnel: "Какая ты птица в IT? -> hero egg -> 8Q quiz -> 8 physical crack stages -> bird reveal -> /worm -> HOME"
+  visual_progress:
+    step_a_h3: accepted
+    step_b_one_egg_continuity: accepted
+    step_c_eight_crack_states: accepted
+    step_d_flow_source_present: true
+
+source_handoff:
+  repository: "Ai-b0ss/kontur"
+  branch: "cleanup/repo-hygiene-shareable-source"
+  pull_request: 11
+  source_export_origin: "Codex/2026-08-14/.../v86-local-candidate/verification/result/source/kontur"
+  origin_evidence: "docs/provenance/SOURCE_PROVENANCE_LOCAL.json"
+  integration_evidence: "docs/provenance/INTEGRATION_README_2026-08-14.md"
+  practical_handoff_gate: "PENDING_LATEST_CI"
+  exact_preview_equality_required_for_practical_handoff: false
 
 explicitly_not_current:
   - tactical_tree
@@ -27,22 +42,28 @@ explicitly_not_current:
 preview_provenance:
   owner_current_preview: "https://5dabce57-kontur-igor.igorekglukhovskii43.workers.dev"
   exact_source_mapping: "UNKNOWN"
-  rule: "Do not claim GitHub main equals the current preview until preview -> Worker version -> exact assets/source is proven."
+  classification: "FORENSIC_FOLLOWUP_NOT_PRACTICAL_HANDOFF_BLOCKER"
+  rule: "Do not claim byte-for-byte equality to preview until preview -> immutable Worker version -> exact assets/source is proven."
 
 repository_policy:
   code_presence_is_not_product_approval: true
   legacy_runtime_removal_requires_reachability_proof: true
-  historical_docs_root: "docs/archive/"
+  historical_docs_root: "docs/archive/legacy/"
+  provenance_root: "docs/provenance/"
   source_map: "CODEBASE_MAP.md"
   share_safe_policy: "SHARE_SAFE_SOURCE.md"
+  clean_checkout_ci: true
+  handoff_safety_gate: "tools/handoff-safety-check.mjs"
+  reproducible_zip_tool: "tools/package-handoff.ps1"
 
 private_exclusions:
-  - ".runtime-state/"
+  - ".runtime-state/ from ordinary source archive (encrypted Git copy retained separately)"
   - ".env"
   - "*.local"
   - "backups/"
   - "data/"
   - "research-private/"
+  - "plaintext credentials/session/profile data"
 
 old_state_snapshot:
   file: "docs/archive/legacy/PROJECT_STATE_2026-08-08.yaml"
@@ -52,3 +73,5 @@ control:
   handoff_issue: "Ai-b0ss/kontur#9"
   generation: "v2"
   lane: "KONTUR"
+  owner_mode: "MANUAL_TAKEOVER"
+  autonomous_workers_allowed_to_write_kontur: false

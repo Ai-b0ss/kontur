@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: kontur-production-release
@@ -19,9 +20,10 @@ env:
   PROD_WORKER_NAME: kontur-igor
   PROD_D1_NAME: kontur
   PROD_D1_ID: 91e39e7e-70fc-4551-8d3e-48235e70f985
-  STAGING_D1_ID: 22786b4b-99cc-4ca5-a18b-932e8781021b
   PROD_ORIGIN: https://kontur-igor.igorekglukhovskii43.workers.dev
-  HANDOFF_SHA: 85290a821bdd1a5ceb170480eccdba4243bea997
+  FROZEN_SOURCE_SHA: 85290a821bdd1a5ceb170480eccdba4243bea997
+  STAGING_PROOF_RUN_ID: '32029546952'
+  STAGING_PROOF_HEAD_SHA: 7e2e01884f8b71179bb853979666b6fe89428ea9
 
 jobs:
   guarded-production-release:
@@ -30,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -41,172 +43,204 @@ jobs:
           corepack enable
           corepack prepare pnpm@11 --activate
 
-      - name: Prove runtime source is still the frozen handoff
+      - name: Prove product runtime is exactly the frozen handoff
         shell: bash
         run: |
           set -euo pipefail
-          git fetch --no-tags --depth=1 origin "$HANDOFF_SHA"
-          git diff --exit-code "$HANDOFF_SHA" HEAD -- apps packages package.json pnpm-lock.yaml pnpm-workspace.yaml tools/run-vite.mjs
-          echo FROZEN_HANDOFF_RUNTIME_SOURCE_PASS
+          git cat-file -e "$FROZEN_SOURCE_SHA^{commit}"
+          git diff --quiet "$FROZEN_SOURCE_SHA" HEAD -- apps packages package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json tools/run-vite.mjs
+          echo FROZEN_RUNTIME_SOURCE_PASS
 
-      - name: Install and verify frozen source
+      - name: Require exact successful staging proof
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$STAGING_PROOF_RUN_ID" > "$RUNNER_TEMP/staging-proof.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/staging-proof.json','utf8'));
+          if(x.status!=='completed'||x.conclusion!=='success') throw new Error('required staging proof is not green');
+          if(x.head_sha!==process.env.STAGING_PROOF_HEAD_SHA) throw new Error('staging proof head SHA mismatch');
+          console.log(`STAGING_PROOF_REQUIRED_PASS run=${x.id}`);
+          NODE
+
+      - name: Install, test and build frozen source
         run: |
           pnpm install --frozen-lockfile
           pnpm check
           pnpm build
 
-      - name: Require Cloudflare credential
+      - name: Require Cloudflare credential and encryption key
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          RUNTIME_STATE_KEY: ${{ secrets.RUNTIME_STATE_KEY }}
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$CLOUDFLARE_ACCOUNT_ID"
           test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$RUNTIME_STATE_KEY"
+          test ${#RUNTIME_STATE_KEY} -ge 20
+          echo RELEASE_CREDENTIALS_PRESENT_PASS
 
-      - name: Generate guarded production config
+      - name: Snapshot exact production identity and player counts read-only
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
+          auth=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json")
+          curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$PROD_D1_ID" > "$RUNNER_TEMP/prod-d1-before.json"
+          curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$PROD_WORKER_NAME/deployments" > "$RUNNER_TEMP/prod-worker-before.json"
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
-          const src='apps/worker/wrangler.jsonc';
-          const out='apps/worker/wrangler.production.generated.jsonc';
-          const raw=fs.readFileSync(src,'utf8').replace(/^\uFEFF/,'');
-          const c=JSON.parse(raw);
-          if(c.name!==process.env.PROD_WORKER_NAME) throw new Error('production Worker identity mismatch in source config');
-          const db=(c.d1_databases||[]).find(x=>x?.binding==='DB');
-          if(!db||db.database_name!==process.env.PROD_D1_NAME||db.database_id!==process.env.PROD_D1_ID) throw new Error('production D1 binding mismatch in source config');
-          if(db.database_id===process.env.STAGING_D1_ID) throw new Error('staging D1 leaked into production config');
-          c.vars={
-            ...(c.vars||{}),
-            DEV_MODE:'false',
-            EXPERIENCE_V2_ENABLED:'false',
-            EXPERIENCE_V3_ENABLED:'false',
-            ZERO_SEASON_ENABLED:'true',
-            LIVE_CAMPAIGN_V5_ENABLED:'false',
-            LIVE_CAMPAIGN_V5_PUBLISH_ENABLED:'false',
-            V5_LLM_PROVIDER:'disabled'
-          };
-          fs.writeFileSync(out,JSON.stringify(c,null,2)+'\n');
-          console.log('PRODUCTION_CONFIG_PASS');
+          const root=process.env.RUNNER_TEMP;
+          const d1=JSON.parse(fs.readFileSync(`${root}/prod-d1-before.json`,'utf8'));
+          const worker=JSON.parse(fs.readFileSync(`${root}/prod-worker-before.json`,'utf8'));
+          if(!d1.success||d1.result?.uuid!==process.env.PROD_D1_ID||d1.result?.name!==process.env.PROD_D1_NAME) throw new Error('production D1 identity mismatch');
+          if(!worker.success||!Array.isArray(worker.result?.deployments)||worker.result.deployments.length<1) throw new Error('production Worker deployment identity unavailable');
+          const compact={d1:{uuid:d1.result.uuid,name:d1.result.name},workerDeployments:worker.result.deployments.map(d=>({id:d.id,versions:d.versions,source:d.source,strategy:d.strategy}))};
+          fs.writeFileSync(`${root}/prod-identity-before.json`,JSON.stringify(compact,null,2));
+          console.log('PRODUCTION_IDENTITY_BEFORE_PASS');
           NODE
-
-      - name: Verify exact production D1 identity before any write
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          pnpm -F @kontur/worker exec wrangler d1 info "$PROD_D1_NAME" --config wrangler.production.generated.jsonc --json > "$RUNNER_TEMP/prod-d1-info.json"
+          pnpm -F @kontur/worker exec wrangler d1 execute "$PROD_D1_NAME" --remote --config wrangler.jsonc --json --command \
+            "SELECT (SELECT count(*) FROM users) AS users, (SELECT count(*) FROM users WHERE started_bot_at IS NOT NULL) AS started_bot, (SELECT count(*) FROM profiles WHERE role IS NOT NULL OR hatched_at IS NOT NULL) AS hatched, (SELECT count(*) FROM wallets WHERE wallet<>0 OR reputation<>0 OR passive_collected_day IS NOT NULL) AS nonzero_wallets, (SELECT count(*) FROM onboarding_answers) AS onboarding, (SELECT count(*) FROM worm_grants) AS worms, (SELECT count(*) FROM egg_pulls) AS eggs;" > "$RUNNER_TEMP/prod-state-before.raw.json"
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
-          const text=fs.readFileSync(process.env.RUNNER_TEMP+'/prod-d1-info.json','utf8');
-          if(!text.includes(process.env.PROD_D1_NAME)||!text.includes(process.env.PROD_D1_ID)) throw new Error('production D1 identity mismatch');
-          if(text.includes(process.env.STAGING_D1_ID)) throw new Error('staging D1 appeared in production identity');
-          console.log('PRODUCTION_D1_IDENTITY_PASS');
+          const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/prod-state-before.raw.json','utf8'));
+          let row=null;
+          const walk=v=>{if(row)return;if(Array.isArray(v))for(const y of v)walk(y);else if(v&&typeof v==='object'){if(Object.hasOwn(v,'users')&&Object.hasOwn(v,'hatched')){row=v;return;}for(const y of Object.values(v))walk(y);}};
+          walk(x); if(!row) throw new Error('production state count row missing');
+          fs.writeFileSync(process.env.RUNNER_TEMP+'/prod-state-before.json',JSON.stringify(row,null,2));
+          console.log(`PRODUCTION_STATE_BEFORE_PASS users=${row.users} hatched=${row.hatched}`);
           NODE
 
-      - name: Capture pre-reset counts and Time Travel bookmark
+      - name: Export, encrypt and verify production D1 backup
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          RUNTIME_STATE_KEY: ${{ secrets.RUNTIME_STATE_KEY }}
         shell: bash
         run: |
           set -euo pipefail
-          pnpm -F @kontur/worker exec wrangler d1 execute "$PROD_D1_NAME" --remote --config wrangler.production.generated.jsonc --json --command "SELECT (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM profiles WHERE hatched_at IS NOT NULL) AS hatched" > "$RUNNER_TEMP/pre-reset-counts.json"
-          pnpm -F @kontur/worker exec wrangler d1 time-travel info "$PROD_D1_NAME" --config wrangler.production.generated.jsonc --json > "$RUNNER_TEMP/time-travel-before-reset.json"
-          test -s "$RUNNER_TEMP/time-travel-before-reset.json"
-          echo PRODUCTION_ROLLBACK_BOOKMARK_PASS
+          sql="$RUNNER_TEMP/kontur-prod-pre-reset-${GITHUB_RUN_ID}.sql"
+          enc="$RUNNER_TEMP/kontur-prod-pre-reset-${GITHUB_RUN_ID}.sql.gpg"
+          key="$RUNNER_TEMP/runtime-state-key.txt"
+          verified="$RUNNER_TEMP/kontur-prod-backup-verified.sql"
+          pnpm -F @kontur/worker exec wrangler d1 export "$PROD_D1_NAME" --remote --config wrangler.jsonc --output "$sql" --skip-confirmation
+          test -s "$sql"
+          sha256sum "$sql" > "$RUNNER_TEMP/backup-plaintext.sha256"
+          umask 077
+          printf '%s' "$RUNTIME_STATE_KEY" > "$key"
+          gpg --batch --yes --pinentry-mode loopback --passphrase-file "$key" --symmetric --cipher-algo AES256 --output "$enc" "$sql"
+          sha256sum "$enc" > "$RUNNER_TEMP/backup-encrypted.sha256"
+          gpg --batch --yes --pinentry-mode loopback --passphrase-file "$key" --decrypt --output "$verified" "$enc"
+          cmp -s "$sql" "$verified"
+          rm -f "$sql" "$verified" "$key"
+          echo PRODUCTION_ENCRYPTED_BACKUP_VERIFIED_PASS
 
-      - name: Export full production D1 before reset
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          pnpm -F @kontur/worker exec wrangler d1 export "$PROD_D1_NAME" --remote --config wrangler.production.generated.jsonc --output="$RUNNER_TEMP/kontur-production-before-reset.sql" --skip-confirmation
-          test -s "$RUNNER_TEMP/kontur-production-before-reset.sql"
-          sha256sum "$RUNNER_TEMP/kontur-production-before-reset.sql" > "$RUNNER_TEMP/kontur-production-before-reset.sha256"
-          echo PRODUCTION_SQL_EXPORT_PASS
-
-      - name: Upload rollback artifact BEFORE destructive reset
+      - name: Persist encrypted backup BEFORE any production mutation
         uses: actions/upload-artifact@v4
         with:
-          name: kontur-production-before-reset-${{ github.run_id }}
-          retention-days: 14
+          name: kontur-production-encrypted-pre-reset-${{ github.run_id }}
+          retention-days: 30
           if-no-files-found: error
           path: |
-            ${{ runner.temp }}/kontur-production-before-reset.sql
-            ${{ runner.temp }}/kontur-production-before-reset.sha256
-            ${{ runner.temp }}/time-travel-before-reset.json
-            ${{ runner.temp }}/pre-reset-counts.json
-            ${{ runner.temp }}/prod-d1-info.json
+            ${{ runner.temp }}/kontur-prod-pre-reset-${{ github.run_id }}.sql.gpg
+            ${{ runner.temp }}/backup-plaintext.sha256
+            ${{ runner.temp }}/backup-encrypted.sha256
+            ${{ runner.temp }}/prod-identity-before.json
+            ${{ runner.temp }}/prod-state-before.json
 
-      - name: Reset production D1 to a truly fresh schema
+      - name: Apply pending migrations after backup
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm -F @kontur/worker exec wrangler d1 migrations apply "$PROD_D1_NAME" --remote --config wrangler.jsonc
+
+      - name: Deploy frozen handoff source while preserving dashboard bindings
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm -F @kontur/worker exec wrangler deploy --keep-vars --config wrangler.jsonc
+
+      - name: Verify production code and approved onboarding eggs before reset
         shell: bash
         run: |
           set -euo pipefail
-          pnpm -F @kontur/worker exec wrangler d1 execute "$PROD_D1_NAME" --remote --config wrangler.production.generated.jsonc --json --command "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' ORDER BY name" > "$RUNNER_TEMP/prod-tables.json"
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          const data=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/prod-tables.json','utf8'));
-          const names=[];
-          const walk=v=>{ if(Array.isArray(v)) v.forEach(walk); else if(v&&typeof v==='object'){ if(typeof v.name==='string') names.push(v.name); Object.values(v).forEach(walk); } };
-          walk(data);
-          const uniq=[...new Set(names)].filter(n=>!n.startsWith('sqlite_')&&!n.startsWith('_cf_'));
-          if(!uniq.includes('users')||uniq.length<3) throw new Error('unexpected production schema; refusing reset');
-          const q=s=>'"'+s.replaceAll('"','""')+'"';
-          const sql=['PRAGMA foreign_keys=OFF;',...uniq.map(n=>`DROP TABLE IF EXISTS ${q(n)};`),'PRAGMA foreign_keys=ON;'].join('\n');
-          fs.writeFileSync(process.env.RUNNER_TEMP+'/prod-reset.sql',sql);
-          console.log(`PRODUCTION_RESET_PLAN_PASS tables=${uniq.length}`);
-          NODE
-          pnpm -F @kontur/worker exec wrangler d1 execute "$PROD_D1_NAME" --remote --config wrangler.production.generated.jsonc --file "$RUNNER_TEMP/prod-reset.sql"
-          pnpm -F @kontur/worker exec wrangler d1 migrations apply "$PROD_D1_NAME" --remote --config wrangler.production.generated.jsonc
-
-      - name: Deploy frozen handoff source to production
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: pnpm -F @kontur/worker exec wrangler deploy --keep-vars --config wrangler.production.generated.jsonc
-
-      - name: Remote production HTTP and approved egg smoke
-        shell: bash
-        run: |
-          set -euo pipefail
-          for i in $(seq 1 20); do
-            if curl -fsS "$PROD_ORIGIN/" -o "$RUNNER_TEMP/prod-root.html"; then break; fi
-            sleep 3
-          done
+          for i in $(seq 1 20); do if curl -fsS "$PROD_ORIGIN/" -o "$RUNNER_TEMP/prod-root.html"; then break; fi; sleep 3; done
           grep -q '<div id="root"' "$RUNNER_TEMP/prod-root.html"
-          curl -fsS "$PROD_ORIGIN/api/v1/health" -o "$RUNNER_TEMP/prod-health.json"
+          curl -fsS "$PROD_ORIGIN/api/v1/health" -o "$RUNNER_TEMP/prod-health-before-reset.json"
           node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/prod-health.json','utf8'));
-          if(x.ok!==true||x.devMode!==false||x.driver!=='d1'||x.hatched!==0) throw new Error('fresh production health mismatch');
-          console.log('PRODUCTION_HEALTH_PASS');
+          import fs from 'node:fs'; const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/prod-health-before-reset.json','utf8'));
+          if(x.ok!==true||x.devMode!==false||x.driver!=='d1') throw new Error('production health mismatch after deploy');
+          console.log('PRODUCTION_DEPLOY_HEALTH_PASS');
           NODE
           curl -fsS "$PROD_ORIGIN/quiz/egg-stage-01.webp" -o "$RUNNER_TEMP/prod-egg01.webp"
           curl -fsS "$PROD_ORIGIN/quiz/egg-stage-08.webp" -o "$RUNNER_TEMP/prod-egg08.webp"
-          test -s "$RUNNER_TEMP/prod-egg01.webp"
-          test -s "$RUNNER_TEMP/prod-egg08.webp"
-          local01=$(sha256sum apps/miniapp/dist/quiz/egg-stage-01.webp | awk '{print $1}')
-          remote01=$(sha256sum "$RUNNER_TEMP/prod-egg01.webp" | awk '{print $1}')
-          local08=$(sha256sum apps/miniapp/dist/quiz/egg-stage-08.webp | awk '{print $1}')
-          remote08=$(sha256sum "$RUNNER_TEMP/prod-egg08.webp" | awk '{print $1}')
-          test "$local01" = "$remote01"
-          test "$local08" = "$remote08"
+          test -s "$RUNNER_TEMP/prod-egg01.webp"; test -s "$RUNNER_TEMP/prod-egg08.webp"
+          local01=$(sha256sum apps/miniapp/dist/quiz/egg-stage-01.webp | awk '{print $1}'); remote01=$(sha256sum "$RUNNER_TEMP/prod-egg01.webp" | awk '{print $1}')
+          local08=$(sha256sum apps/miniapp/dist/quiz/egg-stage-08.webp | awk '{print $1}'); remote08=$(sha256sum "$RUNNER_TEMP/prod-egg08.webp" | awk '{print $1}')
+          test "$local01" = "$remote01"; test "$local08" = "$remote08"
           echo PRODUCTION_APPROVED_EGG_ASSETS_EXACT_PASS
 
-      - name: Upload post-release evidence
+      - name: Reset only game progress, preserve Telegram identities
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/reset-player-progress.sql" <<'SQL'
+          DELETE FROM onboarding_answers;
+          DELETE FROM egg_pulls;
+          DELETE FROM player_colorings;
+          DELETE FROM passive_claims;
+          DELETE FROM worm_grants;
+          DELETE FROM nest_visits;
+          DELETE FROM signal_cards;
+          DELETE FROM events;
+          DELETE FROM push_log;
+          DELETE FROM rate_limits;
+          UPDATE profiles SET role=NULL, coloring='plain', hatched_at=NULL, bird_name=NULL;
+          UPDATE wallets SET wallet=0, reputation=0, passive_collected_day=NULL, updated_at=datetime('now');
+          SQL
+          pnpm -F @kontur/worker exec wrangler d1 execute "$PROD_D1_NAME" --remote --config wrangler.jsonc --file "$RUNNER_TEMP/reset-player-progress.sql"
+          echo PRODUCTION_PLAYER_PROGRESS_RESET_APPLIED
+
+      - name: Verify fresh start and identity preservation
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler d1 execute "$PROD_D1_NAME" --remote --config wrangler.jsonc --json --command \
+            "SELECT (SELECT count(*) FROM users) AS users, (SELECT count(*) FROM users WHERE started_bot_at IS NOT NULL) AS started_bot, (SELECT count(*) FROM profiles WHERE role IS NOT NULL OR hatched_at IS NOT NULL) AS hatched, (SELECT count(*) FROM wallets WHERE wallet<>0 OR reputation<>0 OR passive_collected_day IS NOT NULL) AS nonzero_wallets, (SELECT count(*) FROM onboarding_answers) AS onboarding, (SELECT count(*) FROM worm_grants) AS worms, (SELECT count(*) FROM egg_pulls) AS eggs, (SELECT count(*) FROM player_colorings) AS owned_colorings;" > "$RUNNER_TEMP/prod-state-after.raw.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs'; const root=process.env.RUNNER_TEMP;
+          const before=JSON.parse(fs.readFileSync(`${root}/prod-state-before.json`,'utf8')); const x=JSON.parse(fs.readFileSync(`${root}/prod-state-after.raw.json`,'utf8'));
+          let after=null; const walk=v=>{if(after)return;if(Array.isArray(v))for(const y of v)walk(y);else if(v&&typeof v==='object'){if(Object.hasOwn(v,'users')&&Object.hasOwn(v,'hatched')){after=v;return;}for(const y of Object.values(v))walk(y);}}; walk(x);
+          if(!after) throw new Error('post-reset state missing');
+          if(Number(after.users)!==Number(before.users)||Number(after.started_bot)!==Number(before.started_bot)) throw new Error('Telegram identities changed during reset');
+          for(const k of ['hatched','nonzero_wallets','onboarding','worms','eggs','owned_colorings']) if(Number(after[k])!==0) throw new Error(`post-reset ${k} is not zero`);
+          fs.writeFileSync(`${root}/prod-state-after.json`,JSON.stringify(after,null,2));
+          console.log(`PRODUCTION_FRESH_START_PASS users_preserved=${after.users}`);
+          NODE
+          curl -fsS "$PROD_ORIGIN/api/v1/health" -o "$RUNNER_TEMP/prod-health-after-reset.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs'; const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/prod-health-after-reset.json','utf8'));
+          if(x.ok!==true||x.devMode!==false||x.driver!=='d1'||Number(x.hatched)!==0) throw new Error('production health not fresh after reset');
+          console.log('PRODUCTION_FRESH_HEALTH_PASS');
+          NODE
+
+      - name: Upload non-secret post-release evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: kontur-production-release-evidence-${{ github.run_id }}
-          retention-days: 14
+          retention-days: 30
           if-no-files-found: warn
           path: |
-            ${{ runner.temp }}/prod-health.json
+            ${{ runner.temp }}/prod-state-before.json
+            ${{ runner.temp }}/prod-state-after.json
+            ${{ runner.temp }}/prod-health-before-reset.json
+            ${{ runner.temp }}/prod-health-after-reset.json
             ${{ runner.temp }}/prod-root.html
-            ${{ runner.temp }}/prod-egg01.webp
-            ${{ runner.temp }}/prod-egg08.webp

@@ -1,0 +1,132 @@
+name: Kontur release staging proof
+
+on:
+  push:
+    branches:
+      - release/kontur-2026-08-17
+    paths:
+      - .release-trigger/staging.txt
+
+permissions:
+  contents: read
+
+env:
+  STAGING_WORKER_NAME: kontur-igor-staging
+  STAGING_D1_NAME: kontur-staging
+  STAGING_D1_ID: 22786b4b-99cc-4ca5-a18b-932e8781021b
+  STAGING_ORIGIN: https://kontur-igor-staging.igorekglukhovskii43.workers.dev
+  PROD_D1_ID: 91e39e7e-70fc-4551-8d3e-48235e70f985
+
+jobs:
+  release-staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enable pnpm 11
+        run: |
+          corepack enable
+          corepack prepare pnpm@11 --activate
+
+      - name: Install and verify exact handoff source
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm check
+          pnpm build
+
+      - name: Require Cloudflare credentials
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$CLOUDFLARE_API_TOKEN"
+
+      - name: Generate isolated staging Wrangler config
+        env:
+          CLOUDFLARE_STAGING_WORKER_NAME: ${{ env.STAGING_WORKER_NAME }}
+          CLOUDFLARE_STAGING_D1_DATABASE_NAME: ${{ env.STAGING_D1_NAME }}
+          CLOUDFLARE_STAGING_D1_DATABASE_ID: ${{ env.STAGING_D1_ID }}
+        run: node tools/cloudflare/make-staging-config.mjs
+
+      - name: Verify staging identity and production separation
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          test "$STAGING_D1_ID" != "$PROD_D1_ID"
+          pnpm -F @kontur/worker exec wrangler d1 info "$STAGING_D1_NAME" --json > "$RUNNER_TEMP/staging-d1.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const text=fs.readFileSync(process.env.RUNNER_TEMP+'/staging-d1.json','utf8');
+          if(!text.includes(process.env.STAGING_D1_NAME)||!text.includes(process.env.STAGING_D1_ID)) throw new Error('staging D1 identity mismatch');
+          if(text.includes(process.env.PROD_D1_ID)) throw new Error('production D1 leaked into staging identity');
+          console.log('STAGING_IDENTITY_PASS');
+          NODE
+
+      - name: Reset staging D1 to a truly fresh schema
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler d1 execute "$STAGING_D1_NAME" --remote --config wrangler.staging.generated.jsonc --json --command "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' ORDER BY name" > "$RUNNER_TEMP/tables.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const data=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/tables.json','utf8'));
+          const names=[];
+          const walk=(v)=>{ if(Array.isArray(v)) v.forEach(walk); else if(v&&typeof v==='object'){ if(typeof v.name==='string') names.push(v.name); Object.values(v).forEach(walk); } };
+          walk(data);
+          const uniq=[...new Set(names)].filter(n=>!n.startsWith('sqlite_')&&!n.startsWith('_cf_'));
+          if(!uniq.includes('users') && !uniq.includes('d1_migrations')) throw new Error('unexpected staging schema; refusing reset');
+          const q=(s)=>'"'+s.replaceAll('"','""')+'"';
+          const sql=['PRAGMA foreign_keys=OFF;',...uniq.map(n=>`DROP TABLE IF EXISTS ${q(n)};`),'PRAGMA foreign_keys=ON;'].join('\n');
+          fs.writeFileSync(process.env.RUNNER_TEMP+'/reset.sql',sql);
+          console.log(`STAGING_RESET_PLAN_PASS tables=${uniq.length}`);
+          NODE
+          pnpm -F @kontur/worker exec wrangler d1 execute "$STAGING_D1_NAME" --remote --config wrangler.staging.generated.jsonc --file "$RUNNER_TEMP/reset.sql"
+          pnpm -F @kontur/worker exec wrangler d1 migrations apply "$STAGING_D1_NAME" --remote --config wrangler.staging.generated.jsonc
+
+      - name: Install inert staging Worker secrets
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          put(){ printf '%s' "$2" | pnpm -F @kontur/worker exec wrangler secret put "$1" --config wrangler.staging.generated.jsonc >/dev/null; }
+          put BOT_TOKEN 'staging-disabled-not-a-telegram-token'
+          put MAIN_CHAT_ID '-1000000000000'
+          put JWT_SECRET 'staging-jwt-release-2026-08-17-not-production'
+          put MINIAPP_URL "$STAGING_ORIGIN"
+          put WEBHOOK_SECRET 'staging-disabled-webhook-secret'
+          put ADMIN_SECRET 'staging-disabled-admin-secret'
+
+      - name: Deploy latest handoff source to staging
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm -F @kontur/worker exec wrangler deploy --config wrangler.staging.generated.jsonc
+
+      - name: Remote staging HTTP smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 20); do
+            if curl -fsS "$STAGING_ORIGIN/" -o "$RUNNER_TEMP/root.html"; then break; fi
+            sleep 3
+          done
+          grep -q '<div id="root"' "$RUNNER_TEMP/root.html"
+          curl -fsS "$STAGING_ORIGIN/quiz/egg-stage-01.webp" -o "$RUNNER_TEMP/egg01.webp"
+          test -s "$RUNNER_TEMP/egg01.webp"
+          curl -fsS "$STAGING_ORIGIN/quiz/egg-stage-08.webp" -o "$RUNNER_TEMP/egg08.webp"
+          test -s "$RUNNER_TEMP/egg08.webp"
+          echo STAGING_REMOTE_ASSET_SMOKE_PASS

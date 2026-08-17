@@ -10,6 +10,7 @@ data/
 backups/
 research-private/
 apps/worker/wrangler.preview.local.jsonc
+apps/worker/wrangler.staging.generated.jsonc
 .claude/
 .superseded/
 KONTUR_HANDOFF_*.zip

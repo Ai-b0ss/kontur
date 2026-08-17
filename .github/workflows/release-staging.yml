@@ -149,6 +149,6 @@ jobs:
         run: |
           set -euo pipefail
           if [ -f apps/worker/wrangler.staging.generated.jsonc ] && [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
-            pnpm -F @kontur/worker exec wrangler d1 execute "$STAGING_D1_NAME" --remote --config wrangler.staging.generated.jsonc --command "DELETE FROM rate_limits WHERE user_id IN (SELECT id FROM users WHERE tg_id=$STAGING_TG_ID); DELETE FROM events WHERE user_id IN (SELECT id FROM users WHERE tg_id=$STAGING_TG_ID); DELETE FROM users WHERE tg_id=$STAGING_TG_ID);"
+            pnpm -F @kontur/worker exec wrangler d1 execute "$STAGING_D1_NAME" --remote --config wrangler.staging.generated.jsonc --command "DELETE FROM rate_limits WHERE user_id IN (SELECT id FROM users WHERE tg_id=$STAGING_TG_ID); DELETE FROM events WHERE user_id IN (SELECT id FROM users WHERE tg_id=$STAGING_TG_ID); DELETE FROM users WHERE tg_id=$STAGING_TG_ID;"
             echo STAGING_SYNTHETIC_CLEANUP_PASS
           fi

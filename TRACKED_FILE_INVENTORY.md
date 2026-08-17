@@ -6,7 +6,7 @@
 Этот документ различает:
 
 1. **рабочий source handoff** — воспроизводимая Git-база, из которой разработчик может продолжить проект;
-2. **forensic-complete handoff** — дополнительно доказаны exact historical preview provenance и per-file reachability/classification старого runtime.
+2. **forensic-complete handoff** — дополнительно доказаны exact historical preview provenance и per-file runtime/build classification.
 
 PR #11 остаётся draft/current-candidate. Пока не закрыт `5dabce57`, запрещено называть HEAD `byte-for-byte equals 5dabce57`.
 
@@ -55,13 +55,12 @@ Raw bytes восстановлены и защищены clean-checkout SHA gate
 Frontend current root:
 - `apps/miniapp/src/screens/LocalKontur.tsx`;
 - `apps/miniapp/src/components/QuizEgg.tsx`;
-- `apps/miniapp/src/components/LocalBirdVisual.tsx` и current bird helpers;
-- `apps/miniapp/src/components/ResultBird.tsx`;
+- current LocalBird/ResultBird helpers;
 - `apps/miniapp/src/local-kontur-model.ts`;
 - `apps/miniapp/src/result-taxonomy.ts`;
 - `apps/miniapp/src/local-kontur.css`;
 - `apps/miniapp/public/quiz/egg-stage-01.webp` … `08.webp`;
-- current bird/result assets, достигаемые этой feature-line.
+- current bird/result assets, используемые этой feature-line.
 
 Backend current root:
 - `apps/worker/src/local-kontur-api.ts`;
@@ -75,7 +74,7 @@ Current invariant:
 
 `8Q once -> bird -> reply /worm -> +1 worm -> 5 worms = egg -> guaranteed-new coloration -> equip -> reload persists`
 
-## 4. CURRENT_CANDIDATE — production shell/container
+## 4. CURRENT_CANDIDATE — production source graph
 
 Mini App production entry:
 
@@ -85,27 +84,43 @@ Worker production entry:
 
 `apps/worker/src/index.ts -> api.ts`
 
-Эти shells production-capable, но содержат compatibility imports/routes.
+### Важная граница доказательства
 
-### Доказанная shipping legacy/compatibility граница
+`tools/runtime-reachability.mjs` v2 строит **два разных графа**:
 
-`App.tsx` статически импортирует старые surfaces, включая `ExperienceV2`, `RestoredExperience`, `ZeroSeason`, `LiveCampaign` и legacy GameApp components.
+- `runtime-import graph` — только runtime imports/exports, type-only imports исключены;
+- `source-dependency graph` — дополнительно включает type-only зависимости для source handoff.
 
-Текущая route-policy:
+Статическая runtime-достижимость означает: модуль находится в import graph от production entrypoint и должен рассматриваться bundler'ом. Она **не доказывает**, что модуль оставил байты в финальном emitted JS после Vite/Rollup tree-shaking.
+
+Поэтому термины:
+- `static runtime reachable` — PROVEN анализатором после зелёного evidence run;
+- `emitted in final bundle` — требует отдельного build/module evidence;
+- `current product` — определяется owner authority, а не обоими предыдущими фактами.
+
+### Старые frontend surfaces
+
+`App.tsx` содержит runtime imports старых surfaces, включая `ExperienceV2`, `RestoredExperience`, `ZeroSeason`, `LiveCampaign` и legacy GameApp components.
+
+Route-policy:
 - default → `LocalKontur`;
 - `?campaign=v5` → `LiveCampaign`;
 - `?season=zero` → `LocalKontur`;
 - DEV-only `?season=zero-shelf` → old `ZeroSeason`;
 - DEV-only `?legacy=1` → old `GameApp`.
 
-Worker `api.ts` статически монтирует:
+До build-module evidence это означает **static runtime-reachable candidates**, а не автоматически «байты точно shipping в production chunk».
+
+### Старые Worker routers
+
+Worker `api.ts` runtime-монтирует:
 - `journeyApi`;
 - `restoredApi`;
 - `localKonturApi`;
 - `zeroSeasonApi`;
 - `liveCampaignApi`.
 
-Следствие: часть legacy реально shipping в JS/Worker bundles. **Shipping != current; shipping != safe-to-delete.**
+Для Worker это также статическая runtime-достижимость. Удаление запрещено без semantic/reachability/build proof.
 
 ## 5. CURRENT_CANDIDATE — historical flag naming debt
 
@@ -121,26 +136,30 @@ Guarded staging/production configs обязаны явно держать:
 
 Переименование флага возможно только отдельной миграцией/controlled diff.
 
-## 6. TEST_INFRA — runtime reachability
+## 6. TEST_INFRA — runtime/source reachability
 
-`tools/runtime-reachability.mjs` строит воспроизводимый статический граф из фактического `git ls-files`:
-- Mini App production closure от `main.tsx`;
-- Worker production closure от `index.ts`;
-- narrow frontend closure от `LocalKontur.tsx`;
-- narrow backend closure от `local-kontur-api.ts`;
-- workspace imports `@kontur/core/contracts`;
-- deployed `public/**` assets;
-- literal и simple-template asset references, включая динамические egg stages.
+`tools/runtime-reachability.mjs` v2 использует фактический `git ls-files` и TypeScript AST.
+
+Он:
+- различает runtime и type-only imports;
+- резолвит relative `.js` imports обратно в tracked `.ts/.tsx`;
+- резолвит workspace packages `@kontur/core` / `@kontur/contracts`;
+- строит production/current runtime graphs;
+- строит production/current source graphs;
+- отдельно перечисляет tracked source вне production source graph;
+- анализирует `public/**` literal/simple-template references, включая `egg-stage-${...}.webp`;
+- fail-closed падает на unresolved internal/workspace imports.
 
 CI сохраняет JSON+Markdown artifact `kontur-runtime-reachability-${run_id}`.
 
-**Последний artifact exact текущего head пока не прочитан: Actions connector отвечает 403.** Поэтому per-file counts/списки не повышать до PROVEN до получения artifact.
+**Artifact exact текущего head пока не прочитан: Actions connector отвечает 403.** Поэтому counts/per-file lists не повышать до PROVEN до получения artifact.
 
 Интерпретация:
-- `productionBundleReachable` ≠ product approval;
-- `productionOutsideNarrowFeature` ≠ dead code;
-- `trackedSourceNotInProductionBundle` ≠ автоматическое разрешение удалить;
-- public asset без literal/template ref всё равно может deploy-иться/использоваться динамически.
+- runtime-import reachable ≠ current product;
+- runtime-import reachable ≠ гарантированные emitted bytes;
+- outside current feature ≠ dead code;
+- static source-unreachable ≠ автоматическое разрешение удалить;
+- public asset без detected ref всё равно может deploy-иться/использоваться динамически.
 
 ## 7. COMPATIBILITY — local/reference
 
@@ -156,7 +175,7 @@ CI сохраняет JSON+Markdown artifact `kontur-runtime-reachability-${run_
 - `.github/workflows/release-staging.yml` — isolated staging;
 - `.github/workflows/release-production.yml` — guarded production path;
 - `tools/handoff-safety-check.mjs` — exact hashes/current invariants/deploy boundary;
-- `tools/package-handoff.ps1` — `git ls-files` source archive + exclusions + secret scan + SHA manifest + re-extract verification;
+- `tools/package-handoff.ps1` — `git ls-files` archive + exclusions + secret scan + SHA manifest + re-extract verification;
 - `tools/cloudflare/make-staging-config.mjs`;
 - `tools/cloudflare/live-release-staging-smoke.mjs`;
 - `tools/cloudflare/wait-for-deployed-assets.mjs` + regression test;
@@ -173,9 +192,9 @@ Production разрешён только `.github/workflows/release-production.y
 
 ## 9. Public assets
 
-`apps/miniapp/public/**` копируется Vite в `dist` целиком. Поэтому deployed asset != current product asset.
+`apps/miniapp/public/**` Vite копирует в `dist` независимо от TypeScript import graph. Поэтому для public files факт попадания в deploy source сильнее import reachability, но всё ещё не означает product approval.
 
-Cloudflare Assets использует SPA fallback, так что отсутствующий asset может вернуть `index.html` с HTTP 200. Production verifier поэтому требует fresh-root exact SHA, затем asset MIME + exact SHA.
+Cloudflare Assets использует SPA fallback, поэтому отсутствующий asset path может вернуть `index.html` с HTTP 200. Production verifier требует fresh-root exact SHA, затем critical asset MIME + exact SHA.
 
 Incident evidence: `docs/provenance/PRODUCTION_RELEASE_2026-08-17.md`.
 
@@ -194,7 +213,7 @@ Incident evidence: `docs/provenance/PRODUCTION_RELEASE_2026-08-17.md`.
 
 ## 11. ARCHIVE
 
-`docs/archive/legacy/` — исторические документы/art/prototypes/worklog. Это evidence/recovery, не current authority.
+`docs/archive/legacy/` — historical docs/art/prototypes/worklog. Это evidence/recovery, не current authority.
 
 ## 12. PROVENANCE
 
@@ -206,7 +225,8 @@ Incident evidence: `docs/provenance/PRODUCTION_RELEASE_2026-08-17.md`.
 
 UNKNOWN:
 - historical preview `5dabce57 -> immutable version -> exact assets/source`;
-- per-file verdict по shipping compatibility до получения/анализа reachability artifact;
+- final emitted-module verdict по compatibility frontend до build evidence;
+- exact per-file cleanup verdict до анализа reachability artifact;
 - часть Codex review boards/WebM, полезных для provenance.
 
 `UNKNOWN` означает «не удалять и не повышать до current без evidence».
@@ -229,7 +249,7 @@ Green от старого commit не переносится.
 
 Дополнительно:
 1. закрыть `5dabce57` provenance настолько, насколько позволяют raw evidence, с честным STOP при недоступности;
-2. закончить per-file reachability/classification shipping runtime;
+2. закончить per-file runtime/build classification;
 3. проиндексировать восстановленную Codex lineage 14.08;
 4. только после этого делать controlled legacy-removal/minimization.
 

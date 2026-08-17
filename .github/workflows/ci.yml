@@ -22,10 +22,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
 
@@ -89,6 +89,7 @@ jobs:
           CLOUDFLARE_STAGING_WORKER_NAME: kontur-igor-staging
           CLOUDFLARE_STAGING_D1_DATABASE_NAME: kontur-staging
           CLOUDFLARE_STAGING_D1_DATABASE_ID: 00000000-0000-4000-8000-000000000001
+          STAGING_ORIGIN: https://kontur-igor-staging.igorekglukhovskii43.workers.dev
         run: node tools/cloudflare/make-staging-config.mjs
 
       - name: Cloudflare staging Wrangler dry-run

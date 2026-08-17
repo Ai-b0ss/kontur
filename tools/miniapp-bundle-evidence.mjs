@@ -9,7 +9,14 @@ const MINIAPP_ROOT = path.resolve(ROOT, 'apps/miniapp');
 const OUTPUT = process.env.MINIAPP_BUNDLE_EVIDENCE_OUTPUT || '';
 
 const normalize = (value) => value.replaceAll('\\', '/');
-const repoRelative = (value) => normalize(path.relative(ROOT, value));
+
+function repoPathForModuleId(id) {
+  const cleanId = id.split('?', 1)[0];
+  if (!path.isAbsolute(cleanId)) return null;
+  const relative = path.relative(ROOT, cleanId);
+  if (!relative || relative.startsWith(`..${path.sep}`) || relative === '..' || path.isAbsolute(relative)) return null;
+  return normalize(relative);
+}
 
 function fail(message) {
   console.error(`MINIAPP_BUNDLE_EVIDENCE_FAIL: ${message}`);
@@ -38,20 +45,19 @@ const evidencePlugin = {
   generateBundle(_options, bundle) {
     for (const [fileName, item] of Object.entries(bundle)) {
       if (item.type === 'chunk') {
-        const modules = Object.entries(item.modules)
-          .map(([id, meta]) => {
-            const cleanId = id.split('?', 1)[0];
-            const absolute = path.isAbsolute(cleanId) ? cleanId : path.resolve(MINIAPP_ROOT, cleanId);
-            return {
-              id: normalize(id),
-              repoPath: absolute.startsWith(ROOT) ? repoRelative(absolute) : null,
-              renderedLength: Number(meta.renderedLength ?? 0),
-              originalLength: Number(meta.originalLength ?? 0),
-              renderedExports: Array.isArray(meta.renderedExports) ? [...meta.renderedExports] : [],
-              removedExports: Array.isArray(meta.removedExports) ? [...meta.removedExports] : [],
-            };
-          })
-          .sort((a, b) => (a.repoPath || a.id).localeCompare(b.repoPath || b.id));
+        const allModules = Object.entries(item.modules);
+        const repoModules = allModules
+          .map(([id, meta]) => ({ id, meta, repoPath: repoPathForModuleId(id) }))
+          .filter((entry) => entry.repoPath)
+          .map(({ meta, repoPath }) => ({
+            repoPath,
+            renderedLength: Number(meta.renderedLength ?? 0),
+            originalLength: Number(meta.originalLength ?? 0),
+            renderedExports: Array.isArray(meta.renderedExports) ? [...meta.renderedExports] : [],
+            removedExports: Array.isArray(meta.removedExports) ? [...meta.removedExports] : [],
+          }))
+          .sort((a, b) => a.repoPath.localeCompare(b.repoPath));
+
         chunks.push({
           fileName,
           name: item.name,
@@ -59,7 +65,9 @@ const evidencePlugin = {
           isDynamicEntry: item.isDynamicEntry,
           imports: [...item.imports].sort(),
           dynamicImports: [...item.dynamicImports].sort(),
-          modules,
+          totalModuleCount: allModules.length,
+          repoModuleCount: repoModules.length,
+          repoModules,
         });
       } else {
         assets.push({
@@ -88,8 +96,7 @@ assets.sort((a, b) => a.fileName.localeCompare(b.fileName));
 
 const repoModules = new Map();
 for (const chunk of chunks) {
-  for (const module of chunk.modules) {
-    if (!module.repoPath) continue;
+  for (const module of chunk.repoModules) {
     const prior = repoModules.get(module.repoPath) || {
       repoPath: module.repoPath,
       chunks: [],
@@ -148,6 +155,8 @@ const probeResults = Object.fromEntries(probes.map((probe) => {
   }];
 }));
 
+const entryChunks = chunks.filter((chunk) => chunk.isEntry);
+if (!entryChunks.length) fail('Vite/Rollup produced no entry chunk');
 for (const required of [
   'apps/miniapp/src/screens/LocalKontur.tsx',
   'apps/miniapp/src/components/QuizEgg.tsx',
@@ -163,11 +172,12 @@ const result = {
   schema: 'kontur-miniapp-bundle-evidence-v1',
   generatedAt: new Date().toISOString(),
   gitHead: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim(),
-  viteResolvedEntry: normalize(viteEntry),
+  vitePackage: 'apps/miniapp dependency graph',
   buildMode: 'production',
   write: false,
   counts: {
     chunks: chunks.length,
+    entryChunks: entryChunks.length,
     assets: assets.length,
     repoModulesInRollupChunks: emittedRepoModules.length,
     repoModulesContributingRenderedCode: emittedRepoModules.filter((item) => item.contributesRenderedCode).length,
@@ -177,9 +187,10 @@ const result = {
   chunks,
   assets,
   interpretation: {
-    presentInRollupChunkModules: 'Rollup reported the source module in a generated production chunk during a Vite production build.',
-    contributesRenderedCode: 'Rollup reported renderedLength > 0 for the source module across generated chunks. This is stronger than static import reachability but still does not make the module an owner-approved current feature.',
+    presentInRollupChunkModules: 'Rollup reported the source module in a generated production chunk during this exact Vite production build.',
+    contributesRenderedCode: 'Rollup reported renderedLength > 0 for the source module across generated chunks. This is stronger than static import reachability but does not make the module an owner-approved current feature.',
     absent: 'The module was not reported in generated chunk.modules for this exact production build. Treat as build evidence for this commit/config only, not a permanent deletion authorization.',
+    writeFalse: 'The evidence build runs with build.write=false and does not replace apps/miniapp/dist.',
   },
 };
 

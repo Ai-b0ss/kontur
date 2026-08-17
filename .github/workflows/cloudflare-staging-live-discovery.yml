@@ -1,0 +1,81 @@
+name: Kontur Cloudflare live staging discovery
+
+on:
+  push:
+    branches:
+      - infra/cloudflare-staging-live
+
+permissions:
+  contents: read
+
+env:
+  CLOUDFLARE_ACCOUNT_ID: 7a5b709a066fca0ee563c42b3e5c4f10
+  STAGING_D1_NAME: kontur-staging
+  PROD_D1_NAME: kontur
+  PROD_D1_ID: 91e39e7e-70fc-4551-8d3e-48235e70f985
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enable pnpm 11
+        run: |
+          corepack enable
+          corepack prepare pnpm@11 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify Cloudflare token and account
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          pnpm -F @kontur/worker exec wrangler whoami
+
+      - name: Read D1 inventory only
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler d1 list --json > "$RUNNER_TEMP/d1-list.json"
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          const rows = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/d1-list.json', 'utf8'));
+          if (!Array.isArray(rows)) throw new Error('Unexpected wrangler d1 list JSON shape');
+          const prod = rows.find((x) => x.name === process.env.PROD_D1_NAME);
+          if (!prod) throw new Error('Production D1 not visible to token');
+          const prodId = prod.uuid ?? prod.id;
+          if (prodId !== process.env.PROD_D1_ID) throw new Error(`Production D1 identity mismatch: ${prodId}`);
+          const staging = rows.filter((x) => x.name === process.env.STAGING_D1_NAME);
+          if (staging.length > 1) throw new Error('More than one staging D1 with expected name');
+          if (staging.length === 1) {
+            const id = staging[0].uuid ?? staging[0].id;
+            if (id === process.env.PROD_D1_ID) throw new Error('Staging name resolves to production UUID');
+            console.log(`STAGING_D1_PRESENT id=${id}`);
+          } else {
+            console.log('STAGING_D1_ABSENT');
+          }
+          console.log(`D1_INVENTORY_PASS count=${rows.length}`);
+          NODE
+
+      - name: Capture current Wrangler command contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '--- d1 create help ---'
+          pnpm -F @kontur/worker exec wrangler d1 create --help
+          echo '--- d1 migrations apply help ---'
+          pnpm -F @kontur/worker exec wrangler d1 migrations apply --help
+          echo '--- deploy help ---'
+          pnpm -F @kontur/worker exec wrangler deploy --help | head -n 120

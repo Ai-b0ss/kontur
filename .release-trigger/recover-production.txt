@@ -1,0 +1,4 @@
+trigger=emergency-restore-pre-reset-state
+source_run=32030041504
+rollback_artifact=kontur-production-before-reset-32030041504
+reason=prior-production-workflow-dropped-users;restore-before-identity-preserving-reset

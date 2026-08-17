@@ -31,11 +31,13 @@ const required = [
   'apps/miniapp/src/result-taxonomy.ts',
   'tools/runtime-reachability.mjs',
   'tools/runtime-reachability.test.mjs',
+  'tools/miniapp-bundle-evidence.mjs',
   'tools/cloudflare/refuse-direct-production-deploy.mjs',
   'tools/cloudflare/refuse-direct-production-deploy.test.mjs',
   'tools/cloudflare/read-only-public-provenance.mjs',
   'tools/cloudflare/wait-for-deployed-assets.mjs',
   'tools/cloudflare/wait-for-deployed-assets.test.mjs',
+  '.github/workflows/production-readonly-verify.yml',
   '.github/workflows/release-staging.yml',
   '.github/workflows/release-production.yml',
 ];
@@ -122,6 +124,7 @@ const egg = readFileSync('apps/miniapp/src/components/QuizEgg.tsx', 'utf8');
 const taxonomy = readFileSync('apps/miniapp/src/result-taxonomy.ts', 'utf8');
 const productionWorkflow = readFileSync('.github/workflows/release-production.yml', 'utf8');
 const stagingWorkflow = readFileSync('.github/workflows/release-staging.yml', 'utf8');
+const readonlyWorkflow = readFileSync('.github/workflows/production-readonly-verify.yml', 'utf8');
 
 if (!app.includes("params.get('campaign') === 'v5'")) fail('explicit V5 route guard missing');
 if (!app.includes('return <LocalKontur />;')) fail('LocalKontur is not the default app surface');
@@ -143,7 +146,9 @@ if (!productionWorkflow.includes("ZERO_SEASON_ENABLED:'true'")) fail('guarded pr
 if (!productionWorkflow.includes('wait-for-deployed-assets.mjs')) fail('production release must wait for exact public asset generation convergence');
 if (!stagingWorkflow.includes("ZERO_SEASON_ENABLED:'true'")) fail('staging config must explicitly enable current LocalKontur API surface');
 if (!stagingWorkflow.includes('wait-for-deployed-assets.mjs')) fail('staging release must wait for exact public asset generation convergence');
+if (!readonlyWorkflow.includes('wait-for-deployed-assets.mjs')) fail('read-only production proof must reuse the exact deployed-asset convergence verifier');
+if (!readonlyWorkflow.includes('no Cloudflare/D1 writes')) fail('read-only production proof must explicitly report its non-mutating boundary');
 
 if (!process.exitCode) {
-  console.log(`HANDOFF_SAFETY_PASS tracked=${tracked.length} required=${required.length} eggStages=8 exactEvidence=${exactEvidence.size} directDeploy=refused`);
+  console.log(`HANDOFF_SAFETY_PASS tracked=${tracked.length} required=${required.length} eggStages=8 exactEvidence=${exactEvidence.size} directDeploy=refused bundleEvidence=required readonlyProduction=required`);
 }

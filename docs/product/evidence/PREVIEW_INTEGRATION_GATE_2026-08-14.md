@@ -100,3 +100,4 @@ $h=@(Get-ChildItem -LiteralPath (Join-Path $env:USERPROFILE 'Downloads') -Filter
 ## 8. Честный статус
 
 Архитектура изменения, assets, motion mock и selector готовы. Production integration, build, browser smoke и Worker Version ещё не выполнены, потому что exact full source отсутствует в текущей среде.
+

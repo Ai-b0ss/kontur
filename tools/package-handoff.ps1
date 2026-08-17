@@ -19,10 +19,10 @@ $tempZip = Join-Path $script:tempRoot ($ArchiveName + "-$runId.zip")
 $bundle = Join-Path $stage 'kontur'
 
 function Get-RelativePath([string]$basePath, [string]$targetPath) {
-    $baseFull = [IO.Path]::GetFullPath($basePath).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
-    $targetFull = [IO.Path]::GetFullPath($targetPath)
-    $relativeUri = ([Uri]$baseFull).MakeRelativeUri([Uri]$targetFull)
-    return [Uri]::UnescapeDataString($relativeUri.ToString()).Replace('/', [IO.Path]::DirectorySeparatorChar)
+    return [IO.Path]::GetRelativePath(
+        [IO.Path]::GetFullPath($basePath),
+        [IO.Path]::GetFullPath($targetPath)
+    )
 }
 
 function Test-ShareSafeTrackedPath([string]$relative) {

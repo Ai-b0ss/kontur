@@ -1,11 +1,11 @@
-schema_version: 4
+schema_version: 5
 updated_at: "2026-08-17"
-status: "handoff_candidate_ci_verification"
+status: "handoff_candidate_exact_head_ci_pending"
 
 product_authority:
   file: "CURRENT_PRODUCT.md"
   invariant: "8Q once -> bird -> reply /worm -> +1 worm -> 5 worms = egg -> guaranteed new cosmetic coloration -> equip -> reload persists"
-  first_time_funnel: "Какая ты птица в IT? -> hero egg -> 8Q quiz -> 8 physical crack stages -> bird reveal -> /worm -> HOME"
+  first_time_funnel: "Какая ты птица в IT? -> hero egg -> 8Q quiz -> 8 physical crack stages -> hatching -> bird reveal -> /worm -> HOME"
   exact_primary_sources:
     transcript:
       path: "docs/product/source/PRIMARY_SOURCE_IGOR_ZEZOKUK_2026-08-13.md"
@@ -36,6 +36,22 @@ product_authority:
         sha256: "5e6bdd4ca358d19ff1d1a97d93c0b1ccacea05ddd5d8756a17d253eb3d760bbe"
     historical_step_f: "safe undeployed Worker Version after accepted Step E"
 
+runtime_architecture:
+  miniapp_production_entry: "apps/miniapp/src/main.tsx -> App.tsx"
+  miniapp_default_surface: "LocalKontur"
+  worker_production_entry: "apps/worker/src/index.ts -> api.ts"
+  current_frontend_root: "apps/miniapp/src/screens/LocalKontur.tsx"
+  current_backend_root: "apps/worker/src/local-kontur-api.ts"
+  compatibility_still_shipping: true
+  rule: "bundle reachability != product approval; absence from static graph != deletion proof"
+  reachability_tool: "tools/runtime-reachability.mjs"
+  reachability_ci_artifact: "kontur-runtime-reachability-${github.run_id}"
+  reachability_latest_exact_head_evidence: "PENDING_ACTIONS_VISIBILITY"
+  zero_season_flag_naming_debt:
+    flag: "ZERO_SEASON_ENABLED"
+    current_use: "technical gate for current /api/v4/local/* via zeroSeasonAllowed()"
+    old_zero_season_ui_current: false
+
 source_handoff:
   repository: "Ai-b0ss/kontur"
   branch: "cleanup/repo-hygiene-shareable-source"
@@ -43,9 +59,15 @@ source_handoff:
   source_export_origin: "Codex/2026-08-14/.../v86-local-candidate/verification/result/source/kontur"
   origin_evidence: "docs/provenance/SOURCE_PROVENANCE_LOCAL.json"
   integration_evidence: "docs/provenance/INTEGRATION_README_2026-08-14.md"
-  practical_handoff_gate: "PENDING_LATEST_CI"
-  exact_preview_equality_required_for_practical_handoff: false
+  practical_handoff_gate: "PENDING_EXACT_HEAD_CLEAN_CI"
+  latest_ci_visibility: "GITHUB_ACTIONS_CONNECTOR_403"
+  exact_preview_equality_required_for_working_source_handoff: false
+  exact_preview_equality_required_for_forensic_complete_claim: true
   exact_evidence_hash_gate: "tools/handoff-safety-check.mjs"
+  reproducible_package_tool: "tools/package-handoff.ps1"
+  package_source_selection: "git ls-files minus explicit private/generated exclusions"
+  package_internal_sha256_manifest: true
+  package_secret_scan: true
 
 release_2026_08_17:
   production_run: 32030041504
@@ -59,6 +81,13 @@ release_2026_08_17:
   durable_guard: "tools/cloudflare/wait-for-deployed-assets.mjs"
   destructive_rerun_for_verification: forbidden
   next_live_proof: "read-only/non-destructive exact frontend generation convergence + human smoke"
+  direct_production_deploy:
+    status: "FAIL_CLOSED"
+    root_command: "pnpm cf:deploy"
+    worker_command: "pnpm -F @kontur/worker deploy"
+    guard: "tools/cloudflare/refuse-direct-production-deploy.mjs"
+    permitted_production_path: ".github/workflows/release-production.yml after explicit owner authorization"
+  staging_path: ".github/workflows/release-staging.yml"
 
 explicitly_not_current:
   - tactical_tree
@@ -80,14 +109,19 @@ explicitly_not_current:
 preview_provenance:
   owner_historical_preview: "https://5dabce57-kontur-igor.igorekglukhovskii43.workers.dev"
   exact_source_mapping: "UNKNOWN"
-  classification: "FORENSIC_FOLLOWUP_NOT_PRACTICAL_HANDOFF_BLOCKER"
+  classification: "FORENSIC_OPEN"
+  read_only_probe: "tools/cloudflare/read-only-public-provenance.mjs"
+  read_only_probe_latest_evidence: "PENDING_ACTIONS_VISIBILITY"
   proven_v84_version: "ab3cce08-12a0-4fa7-879b-9f6bbe838076"
   proven_v84_worker_sha256: "80510394f7a3e3c086b4c85e96dec0a555b105f5bbdb1e7c8f57d5f78dbdef39"
+  proven_2026_08_17_production_version: "b6a03ac0-ec1f-43b9-886a-dd1664c9f6c1"
   rule: "Do not claim byte-for-byte equality to 5dabce57 until preview -> immutable Worker version -> exact assets/source is proven."
 
 repository_policy:
   code_presence_is_not_product_approval: true
-  legacy_runtime_removal_requires_reachability_proof: true
+  bundle_reachability_is_not_product_approval: true
+  static_unreachability_is_not_deletion_proof: true
+  legacy_runtime_removal_requires_reachability_and_provenance_proof: true
   historical_docs_root: "docs/archive/legacy/"
   provenance_root: "docs/provenance/"
   product_evidence_root: "docs/product/evidence/"
@@ -95,7 +129,8 @@ repository_policy:
   share_safe_policy: "SHARE_SAFE_SOURCE.md"
   clean_checkout_ci: true
   handoff_safety_gate: "tools/handoff-safety-check.mjs"
-  reproducible_zip_tool: "tools/package-handoff.ps1"
+  direct_main_push: false
+  merge_requires_owner_permission: true
 
 private_exclusions:
   - ".runtime-state/ from ordinary source archive (encrypted Git copy retained separately)"
@@ -116,5 +151,6 @@ control:
   lane: "KONTUR"
   owner_mode: "MANUAL_TAKEOVER"
   autonomous_workers_allowed_to_write_kontur: false
+  manual_lock_release_token: "OWNER OVERRIDE — RELEASE KONTUR"
   direct_main_push: false
   merge_requires_owner_permission: true

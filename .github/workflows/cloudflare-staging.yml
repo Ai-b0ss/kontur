@@ -118,7 +118,6 @@ jobs:
         env:
           CLOUDFLARE_STAGING_WORKER_NAME: ${{ env.STAGING_WORKER_NAME }}
           CLOUDFLARE_STAGING_D1_DATABASE_NAME: ${{ env.STAGING_D1_NAME }}
-          CLOUDFLARE_STAGING_D1_DATABASE_ID: ${{ env.CLOUDFLARE_STAGING_D1_DATABASE_ID }}
         run: node tools/cloudflare/make-staging-config.mjs
 
       - name: Remote staging Wrangler dry-run

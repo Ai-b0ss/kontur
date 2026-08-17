@@ -1,0 +1,25 @@
+name: Remote Agent Loop Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'docs/REMOTE_AGENT_LOOP_PROOF.txt'
+      - '.github/workflows/agent-loop-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prove-loop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require repaired marker
+        shell: bash
+        run: |
+          set -euo pipefail
+          value="$(tr -d '\r\n' < docs/REMOTE_AGENT_LOOP_PROOF.txt)"
+          echo "Observed marker: $value"
+          test "$value" = "GREEN"

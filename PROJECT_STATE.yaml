@@ -1,4 +1,4 @@
-schema_version: 3
+schema_version: 4
 updated_at: "2026-08-17"
 status: "handoff_candidate_ci_verification"
 
@@ -6,11 +6,35 @@ product_authority:
   file: "CURRENT_PRODUCT.md"
   invariant: "8Q once -> bird -> reply /worm -> +1 worm -> 5 worms = egg -> guaranteed new cosmetic coloration -> equip -> reload persists"
   first_time_funnel: "Какая ты птица в IT? -> hero egg -> 8Q quiz -> 8 physical crack stages -> bird reveal -> /worm -> HOME"
+  exact_primary_sources:
+    transcript:
+      path: "docs/product/source/PRIMARY_SOURCE_IGOR_ZEZOKUK_2026-08-13.md"
+      sha256: "1f519becf36a44e1761a50c359e9dca02473c81f2f24194bb3c4c704052a436f"
+      recovered: true
+    final_tz:
+      path: "docs/product/source/FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md"
+      sha256: "7d092fa46a21de7931bf2f1a26aaea21df5926cd51c322d2b2ad420700074cbe"
+      recovered: true
   visual_progress:
     step_a_h3: accepted
     step_b_one_egg_continuity: accepted
     step_c_eight_crack_states: accepted
-    step_d_flow_source_present: true
+    step_d_full_first_time_flow:
+      status: "integrated_in_current_runtime_source"
+      browser_smoke_of_historical_mock: "not_proven_in_original_local_qa_environment"
+    step_e_six_visual_results:
+      status: accepted
+      backend_roles: 5
+      visual_results: 6
+      kotosov_contract: "presentation-only vibe subtype when coder is strict unique strongest secondary score; tie/incomplete -> owl"
+      runtime_taxonomy_integrated: true
+      preview_gate_evidence:
+        path: "docs/product/evidence/PREVIEW_INTEGRATION_GATE_2026-08-14.md"
+        sha256: "a11802a8b4fab881b4b19877a086786273fd1f16b48746ac5872cd1f844ef0fb"
+      taxonomy_evidence:
+        path: "docs/product/evidence/RESULT_TAXONOMY_ALIGNMENT_2026-08-14.md"
+        sha256: "5e6bdd4ca358d19ff1d1a97d93c0b1ccacea05ddd5d8756a17d253eb3d760bbe"
+    historical_step_f: "safe undeployed Worker Version after accepted Step E"
 
 source_handoff:
   repository: "Ai-b0ss/kontur"
@@ -21,6 +45,20 @@ source_handoff:
   integration_evidence: "docs/provenance/INTEGRATION_README_2026-08-14.md"
   practical_handoff_gate: "PENDING_LATEST_CI"
   exact_preview_equality_required_for_practical_handoff: false
+  exact_evidence_hash_gate: "tools/handoff-safety-check.mjs"
+
+release_2026_08_17:
+  production_run: 32030041504
+  frozen_runtime_sha: "85290a821bdd1a5ceb170480eccdba4243bea997"
+  deployed_worker_version: "b6a03ac0-ec1f-43b9-886a-dd1664c9f6c1"
+  d1_reset_and_migrations: completed
+  rollback_evidence_captured_before_reset: true
+  health_after_deploy: pass
+  final_asset_check: "invalid_red_due_to_stale_public_asset_generation"
+  incident_evidence: "docs/provenance/PRODUCTION_RELEASE_2026-08-17.md"
+  durable_guard: "tools/cloudflare/wait-for-deployed-assets.mjs"
+  destructive_rerun_for_verification: forbidden
+  next_live_proof: "read-only/non-destructive exact frontend generation convergence + human smoke"
 
 explicitly_not_current:
   - tactical_tree
@@ -40,16 +78,19 @@ explicitly_not_current:
   - overloaded_v3_v4_v5_default_surfaces
 
 preview_provenance:
-  owner_current_preview: "https://5dabce57-kontur-igor.igorekglukhovskii43.workers.dev"
+  owner_historical_preview: "https://5dabce57-kontur-igor.igorekglukhovskii43.workers.dev"
   exact_source_mapping: "UNKNOWN"
   classification: "FORENSIC_FOLLOWUP_NOT_PRACTICAL_HANDOFF_BLOCKER"
-  rule: "Do not claim byte-for-byte equality to preview until preview -> immutable Worker version -> exact assets/source is proven."
+  proven_v84_version: "ab3cce08-12a0-4fa7-879b-9f6bbe838076"
+  proven_v84_worker_sha256: "80510394f7a3e3c086b4c85e96dec0a555b105f5bbdb1e7c8f57d5f78dbdef39"
+  rule: "Do not claim byte-for-byte equality to 5dabce57 until preview -> immutable Worker version -> exact assets/source is proven."
 
 repository_policy:
   code_presence_is_not_product_approval: true
   legacy_runtime_removal_requires_reachability_proof: true
   historical_docs_root: "docs/archive/legacy/"
   provenance_root: "docs/provenance/"
+  product_evidence_root: "docs/product/evidence/"
   source_map: "CODEBASE_MAP.md"
   share_safe_policy: "SHARE_SAFE_SOURCE.md"
   clean_checkout_ci: true
@@ -75,3 +116,5 @@ control:
   lane: "KONTUR"
   owner_mode: "MANUAL_TAKEOVER"
   autonomous_workers_allowed_to_write_kontur: false
+  direct_main_push: false
+  merge_requires_owner_permission: true

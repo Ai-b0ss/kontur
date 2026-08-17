@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 const output = 'apps/worker/wrangler.staging.generated.jsonc';
 const fakeId = '00000000-0000-4000-8000-000000000001';
 const prodId = '91e39e7e-70fc-4551-8d3e-48235e70f985';
+const stageOrigin = 'https://kontur-igor-staging.igorekglukhovskii43.workers.dev';
 
 try {
   const result = spawnSync(process.execPath, ['tools/cloudflare/make-staging-config.mjs'], {
@@ -13,6 +14,7 @@ try {
       CLOUDFLARE_STAGING_D1_DATABASE_ID: fakeId,
       CLOUDFLARE_STAGING_D1_DATABASE_NAME: 'kontur-staging',
       CLOUDFLARE_STAGING_WORKER_NAME: 'kontur-igor-staging',
+      STAGING_ORIGIN: stageOrigin,
     },
     encoding: 'utf8',
   });
@@ -32,6 +34,16 @@ try {
   if (db?.database_id === prodId) failures.push('production D1 selected');
   if ('triggers' in cfg) failures.push('cron triggers leaked into staging');
   if ('route' in cfg || 'routes' in cfg) failures.push('routes leaked into staging');
+  if (cfg.vars?.DEV_MODE !== 'false') failures.push('DEV_MODE exposed');
+  if (cfg.vars?.MINIAPP_URL !== stageOrigin) failures.push('wrong staging MINIAPP_URL');
+  if (cfg.vars?.V5_MINIAPP_URL !== stageOrigin) failures.push('wrong staging V5_MINIAPP_URL');
+  if (!String(cfg.vars?.BOT_TOKEN || '').startsWith('staging-disabled-')) failures.push('non-inert staging BOT_TOKEN');
+  if (!String(cfg.vars?.JWT_SECRET || '').startsWith('staging-')) failures.push('staging JWT secret missing');
+  if (!String(cfg.vars?.WEBHOOK_SECRET || '').startsWith('staging-')) failures.push('staging webhook secret missing');
+  if (!String(cfg.vars?.ADMIN_SECRET || '').startsWith('staging-')) failures.push('staging admin secret missing');
+  if (cfg.vars?.EXPERIENCE_V2_ENABLED !== 'false') failures.push('V2 enabled');
+  if (cfg.vars?.EXPERIENCE_V3_ENABLED !== 'false') failures.push('V3 enabled');
+  if (cfg.vars?.ZERO_SEASON_ENABLED !== 'false') failures.push('zero season enabled');
   if (cfg.vars?.LIVE_CAMPAIGN_V5_ENABLED !== 'false') failures.push('live campaign enabled');
   if (cfg.vars?.LIVE_CAMPAIGN_V5_PUBLISH_ENABLED !== 'false') failures.push('live publish enabled');
   if (cfg.vars?.V5_LLM_PROVIDER !== 'disabled') failures.push('LLM provider enabled');
@@ -40,7 +52,7 @@ try {
     console.error(`STAGING_SAFETY_FAIL: ${failures.join('; ')}`);
     process.exit(1);
   }
-  console.log('STAGING_SAFETY_PASS: generated config cannot target current production Worker/D1');
+  console.log('STAGING_SAFETY_PASS: generated config cannot target current production Worker/D1 and external-effect gates stay disabled');
 } finally {
   try { fs.unlinkSync(output); } catch {}
 }

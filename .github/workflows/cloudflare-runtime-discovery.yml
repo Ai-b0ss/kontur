@@ -72,22 +72,10 @@ jobs:
           set -euo pipefail
           auth=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json")
           curl -fsS "${auth[@]}" https://api.cloudflare.com/client/v4/user/tokens/verify > "$RUNNER_TEMP/token.json"
-          node --input-type=module - <<'NODE'
-          import fs from 'node:fs';
-          const x = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/token.json', 'utf8'));
-          if (!x.success || x.result?.status !== 'active') throw new Error('Cloudflare token is not active');
-          console.log('CLOUDFLARE_TOKEN_VERIFY_PASS');
-          NODE
+          node --input-type=module -e "import fs from 'node:fs'; const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/token.json','utf8')); if(!x.success||x.result?.status!=='active') throw new Error('Cloudflare token is not active'); console.log('CLOUDFLARE_TOKEN_VERIFY_PASS')"
 
           curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$PROD_D1_ID" > "$RUNNER_TEMP/prod-d1.json"
-          node --input-type=module - <<'NODE'
-          import fs from 'node:fs';
-          const x = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/prod-d1.json', 'utf8'));
-          if (!x.success) throw new Error('Known production D1 is not readable');
-          if (x.result?.uuid !== process.env.PROD_D1_ID) throw new Error('Production D1 UUID mismatch');
-          if (x.result?.name !== process.env.PROD_D1_NAME) throw new Error('Production D1 name mismatch');
-          console.log('PRODUCTION_D1_IDENTITY_READONLY_PASS');
-          NODE
+          node --input-type=module -e "import fs from 'node:fs'; const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/prod-d1.json','utf8')); if(!x.success) throw new Error('Known production D1 is not readable'); if(x.result?.uuid!==process.env.PROD_D1_ID) throw new Error('Production D1 UUID mismatch'); if(x.result?.name!==process.env.PROD_D1_NAME) throw new Error('Production D1 name mismatch'); console.log('PRODUCTION_D1_IDENTITY_READONLY_PASS')"
 
       - name: Resolve or create staging D1 only
         shell: bash
@@ -95,37 +83,26 @@ jobs:
           set -euo pipefail
           auth=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json")
           curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database?per_page=100" > "$RUNNER_TEMP/d1-list.json"
-          node --input-type=module - <<'NODE'
-          import fs from 'node:fs';
-          const x = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/d1-list.json', 'utf8'));
-          if (!x.success || !Array.isArray(x.result)) throw new Error('Cannot list D1 databases');
-          const staging = x.result.filter(d => d.name === process.env.STAGING_D1_NAME);
-          if (staging.length > 1) throw new Error('More than one staging D1 with expected name');
-          if (staging.length === 1) {
-            const id = staging[0].uuid;
-            if (!id || id === process.env.PROD_D1_ID) throw new Error('Staging D1 resolved to production UUID');
-            fs.appendFileSync(process.env.GITHUB_ENV, `CLOUDFLARE_STAGING_D1_DATABASE_ID=${id}\n`);
-            fs.appendFileSync(process.env.GITHUB_ENV, 'STAGING_D1_CREATED=false\n');
-            console.log('STAGING_D1_EXISTING_PASS');
-          }
-          NODE
 
-          if [ -z "${CLOUDFLARE_STAGING_D1_DATABASE_ID:-}" ]; then
+          existing_id=$(node --input-type=module -e "import fs from 'node:fs'; const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/d1-list.json','utf8')); if(!x.success||!Array.isArray(x.result)) throw new Error('Cannot list D1 databases'); const s=x.result.filter(d=>d.name===process.env.STAGING_D1_NAME); if(s.length>1) throw new Error('More than one staging D1 with expected name'); if(s.length===1){ const id=s[0].uuid; if(!id||id===process.env.PROD_D1_ID) throw new Error('Staging D1 resolved to production UUID'); process.stdout.write(id); }")
+
+          if [ -n "$existing_id" ]; then
+            staging_id="$existing_id"
+            created=false
+            echo 'STAGING_D1_EXISTING_PASS'
+          else
             curl -fsS -X POST "${auth[@]}" \
               --data "{\"name\":\"$STAGING_D1_NAME\"}" \
               "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database" > "$RUNNER_TEMP/d1-create.json"
-            node --input-type=module - <<'NODE'
-            import fs from 'node:fs';
-            const x = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/d1-create.json', 'utf8'));
-            if (!x.success) throw new Error('Staging D1 create failed');
-            const id = x.result?.uuid;
-            if (!id || id === process.env.PROD_D1_ID) throw new Error('Created D1 UUID is invalid or production');
-            if (x.result?.name !== process.env.STAGING_D1_NAME) throw new Error('Created D1 name mismatch');
-            fs.appendFileSync(process.env.GITHUB_ENV, `CLOUDFLARE_STAGING_D1_DATABASE_ID=${id}\n`);
-            fs.appendFileSync(process.env.GITHUB_ENV, 'STAGING_D1_CREATED=true\n');
-            console.log('STAGING_D1_CREATE_PASS');
-            NODE
+            staging_id=$(node --input-type=module -e "import fs from 'node:fs'; const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/d1-create.json','utf8')); if(!x.success) throw new Error('Staging D1 create failed'); const id=x.result?.uuid; if(!id||id===process.env.PROD_D1_ID) throw new Error('Created D1 UUID is invalid or production'); if(x.result?.name!==process.env.STAGING_D1_NAME) throw new Error('Created D1 name mismatch'); process.stdout.write(id);")
+            created=true
+            echo 'STAGING_D1_CREATE_PASS'
           fi
+
+          test -n "$staging_id"
+          test "$staging_id" != "$PROD_D1_ID"
+          echo "CLOUDFLARE_STAGING_D1_DATABASE_ID=$staging_id" >> "$GITHUB_ENV"
+          echo "STAGING_D1_CREATED=$created" >> "$GITHUB_ENV"
 
       - name: Generate isolated staging config
         env:
@@ -137,14 +114,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node --input-type=module - <<'NODE'
-          import fs from 'node:fs';
-          const text = fs.readFileSync('apps/worker/wrangler.staging.generated.jsonc', 'utf8');
-          if (text.includes(process.env.PROD_D1_ID)) throw new Error('Generated staging config contains production D1 UUID');
-          if (!text.includes(process.env.CLOUDFLARE_STAGING_D1_DATABASE_ID)) throw new Error('Generated staging config lacks resolved staging D1 UUID');
-          if (!text.includes(process.env.STAGING_WORKER_NAME)) throw new Error('Generated staging config lacks staging Worker name');
-          console.log('GENERATED_STAGING_CONFIG_FAIL_CLOSED_PASS');
-          NODE
+          node --input-type=module -e "import fs from 'node:fs'; const text=fs.readFileSync('apps/worker/wrangler.staging.generated.jsonc','utf8'); if(text.includes(process.env.PROD_D1_ID)) throw new Error('Generated staging config contains production D1 UUID'); if(!text.includes(process.env.CLOUDFLARE_STAGING_D1_DATABASE_ID)) throw new Error('Generated staging config lacks resolved staging D1 UUID'); if(!text.includes(process.env.STAGING_WORKER_NAME)) throw new Error('Generated staging config lacks staging Worker name'); console.log('GENERATED_STAGING_CONFIG_FAIL_CLOSED_PASS')"
 
       - name: Wrangler staging dry-run
         run: pnpm -F @kontur/worker exec wrangler deploy --config wrangler.staging.generated.jsonc --dry-run
@@ -161,6 +131,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          code=000
           for i in $(seq 1 30); do
             code=$(curl -sS -o "$RUNNER_TEMP/root.html" -w '%{http_code}' "$STAGING_ORIGIN/" || true)
             if [ "$code" = "200" ]; then break; fi

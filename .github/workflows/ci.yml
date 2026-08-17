@@ -39,6 +39,10 @@ jobs:
         timeout-minutes: 5
         run: pnpm install --frozen-lockfile
 
+      - name: Cloudflare staging isolation gate
+        timeout-minutes: 1
+        run: node tools/cloudflare/staging-config-check.mjs
+
       - name: Core unit tests
         timeout-minutes: 2
         run: pnpm -F @kontur/core test

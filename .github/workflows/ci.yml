@@ -47,6 +47,10 @@ jobs:
         timeout-minutes: 1
         run: node tools/cloudflare/staging-config-check.mjs
 
+      - name: Deployment propagation regression test
+        timeout-minutes: 1
+        run: node --test tools/cloudflare/wait-for-deployed-assets.test.mjs
+
       - name: Core unit tests
         timeout-minutes: 2
         run: pnpm -F @kontur/core test

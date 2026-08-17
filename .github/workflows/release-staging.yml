@@ -16,6 +16,7 @@ env:
   STAGING_D1_NAME: kontur-staging
   STAGING_D1_ID: 22786b4b-99cc-4ca5-a18b-932e8781021b
   STAGING_ORIGIN: https://kontur-igor-staging.igorekglukhovskii43.workers.dev
+  STAGING_TG_ID: '987654321'
   PROD_D1_ID: 91e39e7e-70fc-4551-8d3e-48235e70f985
 
 jobs:
@@ -48,12 +49,22 @@ jobs:
           test -n "$CLOUDFLARE_ACCOUNT_ID"
           test -n "$CLOUDFLARE_API_TOKEN"
 
-      - name: Generate isolated staging Wrangler config
+      - name: Generate isolated inert staging Wrangler config
         env:
           CLOUDFLARE_STAGING_WORKER_NAME: ${{ env.STAGING_WORKER_NAME }}
           CLOUDFLARE_STAGING_D1_DATABASE_NAME: ${{ env.STAGING_D1_NAME }}
           CLOUDFLARE_STAGING_D1_DATABASE_ID: ${{ env.STAGING_D1_ID }}
-        run: node tools/cloudflare/make-staging-config.mjs
+          CLOUDFLARE_STAGING_ORIGIN: ${{ env.STAGING_ORIGIN }}
+        run: |
+          node tools/cloudflare/make-staging-config.mjs
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const c=JSON.parse(fs.readFileSync('apps/worker/wrangler.staging.generated.jsonc','utf8'));
+          const v=c.vars||{};
+          const required={BOT_TOKEN:'staging-disabled-not-a-telegram-token',MAIN_CHAT_ID:'-1000000000000',MINIAPP_URL:process.env.STAGING_ORIGIN,DEV_MODE:'false',ZERO_SEASON_ENABLED:'true',LIVE_CAMPAIGN_V5_ENABLED:'false',LIVE_CAMPAIGN_V5_PUBLISH_ENABLED:'false',V5_LLM_PROVIDER:'disabled'};
+          for(const [k,value] of Object.entries(required)) if(v[k]!==value) throw new Error(`unsafe staging var ${k}`);
+          console.log('STAGING_INERT_RUNTIME_CONFIG_PASS');
+          NODE
 
       - name: Verify staging identity and production separation
         env:
@@ -93,12 +104,12 @@ jobs:
           pnpm -F @kontur/worker exec wrangler d1 execute "$STAGING_D1_NAME" --remote --config wrangler.staging.generated.jsonc --file "$RUNNER_TEMP/reset.sql"
           pnpm -F @kontur/worker exec wrangler d1 migrations apply "$STAGING_D1_NAME" --remote --config wrangler.staging.generated.jsonc
 
-      - name: Deploy latest handoff source to staging
+      - name: Deploy latest handoff source to isolated staging
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: pnpm -F @kontur/worker exec wrangler deploy --config wrangler.staging.generated.jsonc
+        run: pnpm -F @kontur/worker exec wrangler deploy --keep-vars --config wrangler.staging.generated.jsonc
 
-      - name: Remote staging HTTP smoke
+      - name: Remote staging HTTP and approved egg assets smoke
         shell: bash
         run: |
           set -euo pipefail
@@ -107,8 +118,38 @@ jobs:
             sleep 3
           done
           grep -q '<div id="root"' "$RUNNER_TEMP/root.html"
+          curl -fsS "$STAGING_ORIGIN/api/v1/health" -o "$RUNNER_TEMP/health.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/health.json','utf8'));
+          if(x.ok!==true||x.devMode!==false||x.driver!=='d1'||x.hatched!==0) throw new Error('fresh staging health mismatch');
+          console.log('STAGING_HEALTH_PASS');
+          NODE
           curl -fsS "$STAGING_ORIGIN/quiz/egg-stage-01.webp" -o "$RUNNER_TEMP/egg01.webp"
           test -s "$RUNNER_TEMP/egg01.webp"
           curl -fsS "$STAGING_ORIGIN/quiz/egg-stage-08.webp" -o "$RUNNER_TEMP/egg08.webp"
           test -s "$RUNNER_TEMP/egg08.webp"
           echo STAGING_REMOTE_ASSET_SMOKE_PASS
+
+      - name: Seed isolated synthetic player with exactly five worms
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler d1 execute "$STAGING_D1_NAME" --remote --config wrangler.staging.generated.jsonc --command "DELETE FROM rate_limits WHERE user_id IN (SELECT id FROM users WHERE tg_id=$STAGING_TG_ID); DELETE FROM events WHERE user_id IN (SELECT id FROM users WHERE tg_id=$STAGING_TG_ID); DELETE FROM users WHERE tg_id=$STAGING_TG_ID; INSERT INTO users (tg_id,username,started_bot_at,is_member,member_checked_at) VALUES ($STAGING_TG_ID,'release_staging_987654321',datetime('now'),1,datetime('now')); UPDATE wallets SET wallet=5 WHERE user_id=(SELECT id FROM users WHERE tg_id=$STAGING_TG_ID);"
+
+      - name: Prove current MVP remotely end to end
+        run: node tools/cloudflare/live-release-staging-smoke.mjs
+
+      - name: Cleanup synthetic staging player
+        if: ${{ always() }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f apps/worker/wrangler.staging.generated.jsonc ] && [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
+            pnpm -F @kontur/worker exec wrangler d1 execute "$STAGING_D1_NAME" --remote --config wrangler.staging.generated.jsonc --command "DELETE FROM rate_limits WHERE user_id IN (SELECT id FROM users WHERE tg_id=$STAGING_TG_ID); DELETE FROM events WHERE user_id IN (SELECT id FROM users WHERE tg_id=$STAGING_TG_ID); DELETE FROM users WHERE tg_id=$STAGING_TG_ID;"
+            echo STAGING_SYNTHETIC_CLEANUP_PASS
+          fi

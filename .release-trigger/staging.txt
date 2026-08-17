@@ -1,4 +1,4 @@
-trigger=retry-3
+trigger=retry-4-current-mvp-e2e
 source=handoff/kontur-2026-08-17@85290a821bdd1a5ceb170480eccdba4243bea997
-purpose=fresh-staging-db-deploy-and-remote-asset-smoke
-fix=remove-redundant-secret-put-use-generated-inert-text-bindings
+purpose=fresh-staging-db-deploy-approved-eggs-and-current-mvp-e2e
+fix=inert-runtime-vars-keep-vars-local-mvp-remote-proof

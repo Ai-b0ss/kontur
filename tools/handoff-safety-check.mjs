@@ -32,6 +32,7 @@ const required = [
   'tools/runtime-reachability.mjs',
   'tools/runtime-reachability.test.mjs',
   'tools/cloudflare/refuse-direct-production-deploy.mjs',
+  'tools/cloudflare/refuse-direct-production-deploy.test.mjs',
   'tools/cloudflare/read-only-public-provenance.mjs',
   'tools/cloudflare/wait-for-deployed-assets.mjs',
   'tools/cloudflare/wait-for-deployed-assets.test.mjs',

@@ -9,21 +9,20 @@ const MARKDOWN_OUTPUT = process.env.RUNTIME_REACHABILITY_MARKDOWN || '';
 
 const normalize = (value) => value.replaceAll('\\', '/').replace(/^\.\//, '');
 const abs = (value) => path.resolve(ROOT, value);
+const sorted = (values) => [...values].sort((a, b) => a.localeCompare(b));
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function fail(message) {
   console.error(`RUNTIME_REACHABILITY_FAIL: ${message}`);
   process.exitCode = 1;
 }
 
-function trackedFiles() {
-  return execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8' })
-    .split('\0')
-    .filter(Boolean)
-    .map(normalize);
-}
-
-const tracked = trackedFiles();
+const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8' })
+  .split('\0')
+  .filter(Boolean)
+  .map(normalize);
 const trackedSet = new Set(tracked);
+
 const sourceRoots = [
   'apps/miniapp/src/',
   'apps/worker/src/',
@@ -41,26 +40,51 @@ function scriptKind(file) {
   return ts.ScriptKind.TS;
 }
 
-function moduleSpecifiers(file) {
+function importHasRuntimeBinding(node) {
+  const clause = node.importClause;
+  if (!clause) return true; // side-effect import
+  if (clause.isTypeOnly) return false;
+  if (clause.name) return true; // default import
+  const bindings = clause.namedBindings;
+  if (!bindings) return false;
+  if (ts.isNamespaceImport(bindings)) return true;
+  if (ts.isNamedImports(bindings)) return bindings.elements.some((element) => !element.isTypeOnly);
+  return true;
+}
+
+function exportHasRuntimeBinding(node) {
+  if (node.isTypeOnly) return false;
+  if (!node.exportClause) return true; // export * from
+  if (ts.isNamespaceExport(node.exportClause)) return true;
+  if (ts.isNamedExports(node.exportClause)) return node.exportClause.elements.some((element) => !element.isTypeOnly);
+  return true;
+}
+
+function dependenciesOf(file) {
   const text = fs.readFileSync(abs(file), 'utf8');
   if (file.endsWith('.css')) {
-    const specs = [];
-    for (const match of text.matchAll(/@import\s+(?:url\()?\s*["']([^"']+)["']/g)) specs.push(match[1]);
-    return specs;
+    return [...text.matchAll(/@import\s+(?:url\()?\s*["']([^"']+)["']/g)]
+      .map((match) => ({ specifier: match[1], runtime: true, kind: 'css-import' }));
   }
+
   const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, scriptKind(file));
-  const specs = [];
+  const deps = [];
   const visit = (node) => {
-    if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier && ts.isStringLiteralLike(node.moduleSpecifier)) {
-      specs.push(node.moduleSpecifier.text);
+    if (ts.isImportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteralLike(node.moduleSpecifier)) {
+      deps.push({ specifier: node.moduleSpecifier.text, runtime: importHasRuntimeBinding(node), kind: 'import' });
+    } else if (ts.isExportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteralLike(node.moduleSpecifier)) {
+      deps.push({ specifier: node.moduleSpecifier.text, runtime: exportHasRuntimeBinding(node), kind: 'export' });
     } else if (ts.isCallExpression(node) && node.arguments.length === 1 && ts.isStringLiteralLike(node.arguments[0])) {
-      if (node.expression.kind === ts.SyntaxKind.ImportKeyword) specs.push(node.arguments[0].text);
-      if (ts.isIdentifier(node.expression) && node.expression.text === 'require') specs.push(node.arguments[0].text);
+      if (node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+        deps.push({ specifier: node.arguments[0].text, runtime: true, kind: 'dynamic-import' });
+      } else if (ts.isIdentifier(node.expression) && node.expression.text === 'require') {
+        deps.push({ specifier: node.arguments[0].text, runtime: true, kind: 'require' });
+      }
     }
     ts.forEachChild(node, visit);
   };
   visit(sf);
-  return specs;
+  return deps;
 }
 
 const packageMap = new Map();
@@ -89,6 +113,7 @@ function resolveCandidate(base) {
   }
   if (normalizedBase.endsWith('.mjs')) variants.add(normalizedBase.slice(0, -4) + '.mts');
   if (normalizedBase.endsWith('.cjs')) variants.add(normalizedBase.slice(0, -4) + '.cts');
+
   for (const variant of variants) {
     if (trackedSet.has(variant)) return variant;
     if (!path.extname(variant)) {
@@ -100,93 +125,94 @@ function resolveCandidate(base) {
 }
 
 function resolveSpecifier(fromFile, specifier) {
-  if (specifier.startsWith('.') || specifier.startsWith('/')) {
-    if (specifier.startsWith('/')) return null;
-    return resolveCandidate(normalize(path.join(path.dirname(fromFile), specifier)));
-  }
-  for (const [packageName, entry] of packageMap) {
-    if (specifier === packageName) return resolveCandidate(entry);
-  }
-  return null;
+  if (specifier.startsWith('.')) return resolveCandidate(normalize(path.join(path.dirname(fromFile), specifier)));
+  if (specifier.startsWith('/')) return null;
+  const packageEntry = packageMap.get(specifier);
+  return packageEntry ? resolveCandidate(packageEntry) : null;
 }
 
-const importCache = new Map();
+const dependencyCache = new Map();
 const unresolvedInternal = [];
-function imports(file) {
-  if (importCache.has(file)) return importCache.get(file);
-  const out = [];
-  for (const specifier of moduleSpecifiers(file)) {
-    const resolved = resolveSpecifier(file, specifier);
-    if (resolved) out.push(resolved);
-    else if (specifier.startsWith('.') || specifier.startsWith('@kontur/')) unresolvedInternal.push({ from: file, specifier });
+function resolvedDependencies(file) {
+  if (dependencyCache.has(file)) return dependencyCache.get(file);
+  const merged = new Map();
+  for (const dep of dependenciesOf(file)) {
+    const resolved = resolveSpecifier(file, dep.specifier);
+    if (resolved) {
+      const prior = merged.get(resolved);
+      merged.set(resolved, { path: resolved, runtime: Boolean(dep.runtime || prior?.runtime) });
+    } else if (dep.specifier.startsWith('.') || dep.specifier.startsWith('@kontur/')) {
+      unresolvedInternal.push({ from: file, specifier: dep.specifier, runtime: dep.runtime, kind: dep.kind });
+    }
   }
-  importCache.set(file, [...new Set(out)]);
-  return importCache.get(file);
+  const result = [...merged.values()];
+  dependencyCache.set(file, result);
+  return result;
 }
 
-function closure(entrypoints) {
+function closure(entrypoints, { runtimeOnly }) {
   const seen = new Set();
   const stack = [...entrypoints];
   for (const entry of entrypoints) if (!trackedSet.has(entry)) fail(`entrypoint missing: ${entry}`);
+
   while (stack.length) {
     const file = stack.pop();
     if (!file || seen.has(file)) continue;
     seen.add(file);
     if (!sourceExts.has(path.extname(file))) continue;
-    for (const dep of imports(file)) if (!seen.has(dep)) stack.push(dep);
+    for (const dep of resolvedDependencies(file)) {
+      if (runtimeOnly && !dep.runtime) continue;
+      if (!seen.has(dep.path)) stack.push(dep.path);
+    }
   }
   return seen;
 }
 
-const roots = {
-  miniappBundle: ['apps/miniapp/src/main.tsx'],
-  workerBundle: ['apps/worker/src/index.ts'],
-  currentMiniappFeature: ['apps/miniapp/src/screens/LocalKontur.tsx'],
-  currentWorkerFeature: ['apps/worker/src/local-kontur-api.ts'],
-};
-const graphs = Object.fromEntries(Object.entries(roots).map(([name, entries]) => [name, closure(entries)]));
-const productionReachable = new Set([...graphs.miniappBundle, ...graphs.workerBundle]);
-const currentFeatureReachable = new Set([...graphs.currentMiniappFeature, ...graphs.currentWorkerFeature]);
+const productionEntries = ['apps/miniapp/src/main.tsx', 'apps/worker/src/index.ts'];
+const currentEntries = ['apps/miniapp/src/screens/LocalKontur.tsx', 'apps/worker/src/local-kontur-api.ts'];
 
-function sorted(values) {
-  return [...values].sort((a, b) => a.localeCompare(b));
-}
+const productionRuntimeGraph = closure(productionEntries, { runtimeOnly: true });
+const productionSourceGraph = closure(productionEntries, { runtimeOnly: false });
+const currentRuntimeGraph = closure(currentEntries, { runtimeOnly: true });
+const currentSourceGraph = closure(currentEntries, { runtimeOnly: false });
 
-const productionBundleReachable = sorted([...productionReachable].filter((file) => sourceSet.has(file)));
-const currentFeatureClosure = sorted([...currentFeatureReachable].filter((file) => sourceSet.has(file)));
-const productionOutsideNarrowFeature = productionBundleReachable.filter((file) => !currentFeatureReachable.has(file));
-const trackedSourceNotInProductionBundle = sourceFiles.filter((file) => !productionReachable.has(file)).sort();
+const productionRuntimeImportGraph = sorted([...productionRuntimeGraph].filter((file) => sourceSet.has(file)));
+const productionSourceDependencyGraph = sorted([...productionSourceGraph].filter((file) => sourceSet.has(file)));
+const currentFeatureRuntimeGraph = sorted([...currentRuntimeGraph].filter((file) => sourceSet.has(file)));
+const currentFeatureSourceGraph = sorted([...currentSourceGraph].filter((file) => sourceSet.has(file)));
+const runtimeReachableOutsideCurrentFeature = productionRuntimeImportGraph.filter((file) => !currentRuntimeGraph.has(file));
+const sourceReachableOutsideCurrentFeature = productionSourceDependencyGraph.filter((file) => !currentSourceGraph.has(file));
+const trackedSourceNotInProductionSourceGraph = sourceFiles.filter((file) => !productionSourceGraph.has(file)).sort();
+
 const publicAssets = tracked.filter((file) => file.startsWith('apps/miniapp/public/'));
 const publicAssetSet = new Set(publicAssets);
 
 function publicRefs(files) {
   const refs = new Set();
   const dynamicPatterns = new Set();
-  const ext = '(?:webp|png|jpe?g|svg|gif|ico|webm|mp4|woff2?|ttf|json)';
+  const literalPattern = /["'`]\/(?!api\/)([^"'`?#]+\.(?:webp|png|jpe?g|svg|gif|ico|webm|mp4|woff2?|ttf|json))(?:[?#][^"'`]*)?["'`]/gi;
+  const cssUrlPattern = /url\(\s*["']?\/(?!api\/)([^)"'?#]+\.(?:webp|png|jpe?g|svg|gif|ico|webm|mp4|woff2?|ttf))(?:[?#][^)"']*)?["']?\s*\)/gi;
+  const templatePattern = /`(\/[^`]*\$\{[^`]+\}[^`]*)`/g;
+  const assetExtensionPattern = /\.(?:webp|png|jpe?g|svg|gif|ico|webm|mp4|woff2?|ttf|json)(?:[?#].*)?$/i;
+
   for (const file of files) {
     if (!trackedSet.has(file)) continue;
     const text = fs.readFileSync(abs(file), 'utf8');
 
-    const literal = new RegExp(`["'\\`]\\/(?!api\\/)([^"'\\`?#]+\\.${ext})(?:[?#][^"'\\`]*)?["'\\`]`, 'gi');
-    for (const match of text.matchAll(literal)) {
+    for (const match of text.matchAll(literalPattern)) {
       const candidate = `apps/miniapp/public/${match[1]}`;
       if (publicAssetSet.has(candidate)) refs.add(candidate);
     }
-
-    const cssUrl = new RegExp(`url\\(\\s*["']?\\/(?!api\\/)([^)"'?#]+\\.${ext})(?:[?#][^)"']*)?["']?\\s*\\)`, 'gi');
-    for (const match of text.matchAll(cssUrl)) {
+    for (const match of text.matchAll(cssUrlPattern)) {
       const candidate = `apps/miniapp/public/${match[1]}`;
       if (publicAssetSet.has(candidate)) refs.add(candidate);
     }
-
-    for (const match of text.matchAll(/`(\/[^`]*\$\{[^`]+\}[^`]*)`/g)) {
+    for (const match of text.matchAll(templatePattern)) {
       const template = match[1];
-      if (!new RegExp(`\\.${ext}(?:[?#].*)?$`, 'i').test(template)) continue;
+      if (!assetExtensionPattern.test(template)) continue;
       const pathOnly = template.split(/[?#]/, 1)[0];
-      const escaped = pathOnly
-        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        .replace(/\\\$\\\{[^}]+\\\}/g, '.*');
-      const matcher = new RegExp(`^apps/miniapp/public${escaped}$`);
+      const parts = pathOnly.split(/\$\{[^}]+\}/g).map(escapeRegex);
+      const matcher = new RegExp(`^apps/miniapp/public${parts.join('[^/]*')}$`);
       dynamicPatterns.add(template);
       for (const asset of publicAssets) if (matcher.test(asset)) refs.add(asset);
     }
@@ -195,62 +221,81 @@ function publicRefs(files) {
 }
 
 const indexHtml = trackedSet.has('apps/miniapp/index.html') ? ['apps/miniapp/index.html'] : [];
-const productionPublic = publicRefs([...productionBundleReachable, ...indexHtml]);
-const currentPublic = publicRefs([...currentFeatureClosure, ...indexHtml]);
-const publicWithoutStaticOrTemplateRef = publicAssets.filter((file) => !productionPublic.refs.has(file)).sort();
+const productionPublic = publicRefs([...productionRuntimeImportGraph, ...indexHtml]);
+const currentPublic = publicRefs([...currentFeatureRuntimeGraph, ...indexHtml]);
+const publicWithoutDetectedReference = publicAssets.filter((file) => !productionPublic.refs.has(file)).sort();
 
-const expectedCurrent = [
+const expectedCurrentRuntime = [
   'apps/miniapp/src/screens/LocalKontur.tsx',
   'apps/miniapp/src/components/QuizEgg.tsx',
   'apps/miniapp/src/result-taxonomy.ts',
+  'apps/miniapp/src/local-kontur.css',
   'apps/worker/src/local-kontur-api.ts',
   'packages/core/src/index.ts',
+];
+const expectedCurrentSource = [
+  ...expectedCurrentRuntime,
   'packages/contracts/src/index.ts',
 ];
-for (const file of expectedCurrent) {
-  if (!currentFeatureReachable.has(file)) fail(`expected current feature dependency is not reachable: ${file}`);
+for (const file of expectedCurrentRuntime) {
+  if (!currentRuntimeGraph.has(file)) fail(`expected current runtime dependency is not reachable: ${file}`);
+}
+for (const file of expectedCurrentSource) {
+  if (!currentSourceGraph.has(file)) fail(`expected current source dependency is not reachable: ${file}`);
 }
 if (unresolvedInternal.length) {
-  for (const item of unresolvedInternal) console.error(`UNRESOLVED_INTERNAL_IMPORT ${item.from} -> ${item.specifier}`);
+  for (const item of unresolvedInternal) {
+    console.error(`UNRESOLVED_INTERNAL_IMPORT runtime=${item.runtime} ${item.from} -> ${item.specifier}`);
+  }
   fail(`${unresolvedInternal.length} relative/workspace imports could not be resolved`);
 }
 
 const result = {
-  schema: 'kontur-runtime-reachability-v1',
+  schema: 'kontur-runtime-reachability-v2',
   generatedAt: new Date().toISOString(),
   gitHead: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim(),
-  roots,
+  roots: {
+    productionEntries,
+    currentEntries,
+  },
   counts: {
     tracked: tracked.length,
-    productionSourceFiles: sourceFiles.length,
-    productionBundleReachable: productionBundleReachable.length,
-    currentFeatureClosure: currentFeatureClosure.length,
-    productionOutsideNarrowFeature: productionOutsideNarrowFeature.length,
-    trackedSourceNotInProductionBundle: trackedSourceNotInProductionBundle.length,
+    trackedProductionAreaSource: sourceFiles.length,
+    productionRuntimeImportGraph: productionRuntimeImportGraph.length,
+    productionSourceDependencyGraph: productionSourceDependencyGraph.length,
+    currentFeatureRuntimeGraph: currentFeatureRuntimeGraph.length,
+    currentFeatureSourceGraph: currentFeatureSourceGraph.length,
+    runtimeReachableOutsideCurrentFeature: runtimeReachableOutsideCurrentFeature.length,
+    sourceReachableOutsideCurrentFeature: sourceReachableOutsideCurrentFeature.length,
+    trackedSourceNotInProductionSourceGraph: trackedSourceNotInProductionSourceGraph.length,
     deployedPublicAssets: publicAssets.length,
     productionPublicRefs: productionPublic.refs.size,
     currentPublicRefs: currentPublic.refs.size,
-    publicWithoutStaticOrTemplateRef: publicWithoutStaticOrTemplateRef.length,
+    publicWithoutDetectedReference: publicWithoutDetectedReference.length,
   },
   packageEntries: Object.fromEntries([...packageMap].sort(([a], [b]) => a.localeCompare(b))),
-  productionBundleReachable,
-  currentFeatureClosure,
-  productionOutsideNarrowFeature,
-  trackedSourceNotInProductionBundle,
+  productionRuntimeImportGraph,
+  productionSourceDependencyGraph,
+  currentFeatureRuntimeGraph,
+  currentFeatureSourceGraph,
+  runtimeReachableOutsideCurrentFeature,
+  sourceReachableOutsideCurrentFeature,
+  trackedSourceNotInProductionSourceGraph,
   deployedPublicAssets: publicAssets.sort(),
   productionPublicRefs: sorted(productionPublic.refs),
   currentPublicRefs: sorted(currentPublic.refs),
   productionDynamicPublicPatterns: sorted(productionPublic.dynamicPatterns),
   currentDynamicPublicPatterns: sorted(currentPublic.dynamicPatterns),
-  publicWithoutStaticOrTemplateRef,
+  publicWithoutDetectedReference,
   unresolvedInternalImports: unresolvedInternal,
   interpretation: {
-    productionBundleReachable: 'Statically reachable from the real Vite/Worker entrypoints. Presence here proves shipping/bundle reachability, not current product approval.',
-    currentFeatureClosure: 'Statically reachable from LocalKontur.tsx or local-kontur-api.ts. This is the narrow current feature closure, not the complete transport/auth platform.',
-    productionOutsideNarrowFeature: 'Ships in the production bundle but is outside the narrow LocalKontur feature closure. Must be classified before deletion; do not call it dead code from this report alone.',
-    trackedSourceNotInProductionBundle: 'Tracked production-area source not statically reachable from either real production entrypoint. Candidate for further review only; dynamic/runtime references can still exist.',
-    deployedPublicAssets: 'Vite public/ files are copied to dist and therefore deployed regardless of literal source references.',
-    publicWithoutStaticOrTemplateRef: 'Deployed public asset with no detected literal or simple template reference. This is not proof that the asset is unused.',
+    productionRuntimeImportGraph: 'Static runtime-import graph from real Mini App and Worker entrypoints. It excludes imports that are provably type-only. It does NOT prove that every reachable module contributes emitted bytes after Vite/Rollup tree-shaking.',
+    productionSourceDependencyGraph: 'Static source-dependency graph including type-only imports. Useful for source handoff, not a runtime bundle claim.',
+    currentFeatureRuntimeGraph: 'Static runtime dependencies of LocalKontur.tsx + local-kontur-api.ts. This is the narrow current feature graph, not the complete platform/auth container.',
+    runtimeReachableOutsideCurrentFeature: 'Statically runtime-reachable from production entrypoints but outside the narrow current feature graph. Requires semantic/build evidence before classification or deletion.',
+    trackedSourceNotInProductionSourceGraph: 'Tracked production-area source absent even from the static production source graph. Candidate for review only; generated/dynamic/tool references can still exist.',
+    deployedPublicAssets: 'Vite public/ files are copied to dist independently of TypeScript import reachability.',
+    publicWithoutDetectedReference: 'Public asset with no detected literal/simple-template reference. This is not proof that the asset is unused.',
   },
 };
 
@@ -265,7 +310,7 @@ function markdownList(items, limit = 200) {
   const shown = items.slice(0, limit).map((item) => `- \`${item}\``).join('\n');
   return `${shown}${items.length > limit ? `\n- … ${items.length - limit} more` : ''}\n`;
 }
-const markdown = `# Kontur runtime reachability\n\nGenerated from tracked files at \`${result.gitHead}\`.\n\n## Counts\n\n${Object.entries(result.counts).map(([k, v]) => `- ${k}: **${v}**`).join('\n')}\n\n## Production bundle reachable outside narrow current feature closure\n\n${markdownList(productionOutsideNarrowFeature)}\n## Tracked source not statically reachable from production entrypoints\n\n${markdownList(trackedSourceNotInProductionBundle)}\n## Deployed public assets without detected literal/template reference\n\n${markdownList(publicWithoutStaticOrTemplateRef)}\n## Safety interpretation\n\nThis report is reachability evidence, not a deletion list. Static bundle reachability does not imply product approval, and absence from the static graph does not by itself prove runtime deadness.\n`;
+const markdown = `# Kontur runtime reachability\n\nGenerated from tracked files at \`${result.gitHead}\`.\n\n## Counts\n\n${Object.entries(result.counts).map(([key, value]) => `- ${key}: **${value}**`).join('\n')}\n\n## Static runtime-import graph outside narrow current feature\n\n${markdownList(runtimeReachableOutsideCurrentFeature)}\n## Source-dependency graph outside narrow current feature\n\n${markdownList(sourceReachableOutsideCurrentFeature)}\n## Tracked production-area source outside static production source graph\n\n${markdownList(trackedSourceNotInProductionSourceGraph)}\n## Public assets without detected literal/template reference\n\n${markdownList(publicWithoutDetectedReference)}\n## Safety interpretation\n\nThis report is evidence for classification, not a deletion list. Runtime-import reachability does not prove emitted bundle bytes, and static unreachability does not by itself prove runtime deadness.\n`;
 if (MARKDOWN_OUTPUT) {
   fs.mkdirSync(path.dirname(abs(MARKDOWN_OUTPUT)), { recursive: true });
   fs.writeFileSync(abs(MARKDOWN_OUTPUT), markdown);

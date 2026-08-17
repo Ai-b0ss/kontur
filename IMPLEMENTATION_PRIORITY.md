@@ -2,29 +2,43 @@
 
 ## P0 — закрыть доказательные хвосты без отката продукта
 
-1. **Exact preview provenance `5dabce57`** — отдельная forensic-задача:
-   `hostname -> immutable Cloudflare version -> exact bundle/assets -> exact source/worktree`.
-   Пока цепочка не доказана, запрещена только формулировка `byte-for-byte equals 5dabce57`; обычный handoff это не блокирует.
-2. **Exhaustive tracked-file classification / legacy reachability**:
-   каждый спорный runtime-файл получает одну категорию
-   `CURRENT | CURRENT_CANDIDATE | COMPATIBILITY | TEST_INFRA | ARCHIVE | PRIVATE_EXCLUDED | UNKNOWN`.
-   Удалять старый runtime только после доказанного reachability/provenance.
-3. **Текущий deployed generation proof**:
-   после incident 17.08 следующий live proof должен быть read-only/non-destructive и сначала доказать exact convergence свежего `dist/index.html` и двух approved egg assets. Не повторять production reset ради smoke.
+1. **Exact preview provenance `5dabce57`**
+   - дождаться/зафиксировать read-only `PUBLIC_PROVENANCE_READONLY` по root/referenced JS/CSS/egg 01/08;
+   - сопоставить measured frontend bytes с current build;
+   - отдельно восстановить `5dabce57 hostname -> immutable Cloudflare Version ID -> Worker identity`;
+   - только после полной доказательной цепочки использовать формулировку `byte-for-byte equals 5dabce57`.
 
-## P1 — довести одну handoff-базу до зелёного состояния
+2. **Runtime/build classification**
+   - `tools/runtime-reachability.mjs` v2: runtime-import graph отдельно от type-only source graph;
+   - `tools/miniapp-bundle-evidence.mjs`: Vite/Rollup `chunk.modules` + `renderedLength`, `build.write=false`;
+   - получить exact-head artifacts и классифицировать спорные frontend/Worker modules;
+   - удалять legacy только отдельным controlled diff после semantic/build/provenance proof.
+
+3. **Exact-head clean handoff CI**
+   - получить зелёный полный CI именно на финальном handoff commit;
+   - прочитать reachability/bundle/public-provenance artifacts;
+   - проверить share-safe ZIP + internal SHA manifest;
+   - зафиксировать один стабильный handoff commit.
+
+GitHub Actions connector сейчас отвечает 403 на runs/jobs, поэтому старый green не переносить на новый head.
+
+## P1 — единая handoff-база
 
 В PR #11 должны одновременно жить:
 
-1. `README.md` — входная точка для человека;
-2. `CURRENT_PRODUCT.md` — короткая продуктовая конституция;
-3. exact primary sources 13.08 в `docs/product/source/`;
-4. exact accepted execution evidence 14.08 в `docs/product/evidence/`;
-5. `PRODUCT_BRIEF_2026-08-13.md` + `DECISION_LOG_2026-08-14.md`;
-6. `ARCHITECTURE.md` / `CODEBASE_MAP.md` / `HANDOFF.md`;
-7. current runtime source A–E;
-8. staging/production release infrastructure с post-deploy convergence guard;
-9. clean-checkout CI + reproducible share-safe ZIP.
+1. current README/HANDOFF/authority docs;
+2. exact primary sources 13.08;
+3. exact accepted STEP E evidence 14.08;
+4. current A–E source;
+5. Worker/D1/core/contracts + compatibility/reference code;
+6. separated archive/provenance;
+7. clean-checkout CI;
+8. runtime/source reachability regression;
+9. emitted-module build evidence;
+10. read-only public provenance;
+11. reproducible share-safe packaging;
+12. guarded staging/production release infrastructure;
+13. fail-closed direct production deploy.
 
 Merge в `main` — только по отдельному явному разрешению owner.
 
@@ -32,51 +46,69 @@ Merge в `main` — только по отдельному явному разр
 
 Не начинать заново A/B/C/D/E.
 
-Доказанный статус:
-
+Доказано:
 - STEP A H3 — принят;
-- STEP B continuity одного hero egg — принят;
+- STEP B one-egg continuity — принят;
 - STEP C 8 physical crack states — принят;
-- STEP D first-time flow — интегрирован в current runtime source;
-- STEP E — принят и интегрирован: 5 backend roles / 6 visual results, отдельные owl и Kotosov, Kotosov только как presentation-only `vibe` subtype при strict unique coder secondary score;
-- исторический следующий STEP F после E был safe Worker Version без traffic switch;
-- 17.08 проект уже прошёл дальше исторического STEP F и был выложен guarded production workflow.
+- STEP D first-time flow — интегрирован;
+- STEP E — принят и интегрирован: 5 backend roles / 6 visual results; owl и Kotosov раздельны; Kotosov только presentation-only `vibe` subtype при strict unique coder secondary score;
+- 17.08 frozen handoff source прошёл guarded production deploy.
 
-Поэтому следующий продуктовый шаг сейчас — **не новые bird concepts**, а корректный read-only/public verification текущей версии и затем человеческий smoke. Любой новый visual polish или переработка птиц — отдельное owner decision.
+Следующий **продуктовый** шаг после инженерного handoff — человеческий smoke текущего продукта. Новые bird concepts/visual redesign — только отдельное owner decision.
 
-## P3 — инженерная чистота
+## P3 — production/public verification
 
-После определения reachability спорных модулей:
-- удалить/изолировать только доказанный dead legacy;
-- разделить production/runtime migrations и local/reference migrations там, где это действительно нужно;
-- устранить доказанные дубли/неиспользуемые entrypoints;
-- сохранять clean-clone reproducibility;
-- поддерживать share-safe source package;
-- CI должен проверять именно current MVP invariant и exact product evidence.
+### ЗАКРЫТО: propagation race
 
-## P4 — staging / deployment
+После incident run `32030041504` новый verifier многократно дал `PRODUCTION_READONLY_EXACT_PASS` без Cloudflare/D1 writes и с `attempts=1`.
 
-Release verification теперь обязана:
-- после deploy ждать exact SHA свежего `dist/index.html`, а не считать команду `wrangler deploy` достаточным доказательством propagation;
-- проверять egg assets по MIME `image/webp` + exact SHA, чтобы SPA fallback не маскировался под картинку;
-- использовать одинаковый convergence gate для staging и production;
-- не запускать destructive production reset ради повторной read-only проверки;
-- не переключать/не менять production без соответствующего owner разрешения.
+Подтверждённая стабильная серия public hashes:
+- root: `175b2900bbf05cf4426dce272043b2f3dee591d96054881d1d95f8fd1dccbead`;
+- egg 01: `ac5a7a4205b3cf55b8cea477b49794b48ded19cf084973fd87a642f56277b199`;
+- egg 08: `6a0da2124b06d7c6440cd236024c017e36776007c0a1f0d903b74c977802bdc7`.
 
-Incident и доказательство: `docs/provenance/PRODUCTION_RELEASE_2026-08-17.md`.
+Не повторять destructive production reset для проверки.
+
+### Текущий read-only proof
+
+`.github/workflows/production-readonly-verify.yml` теперь дополнительно снимает безопасную public provenance сводку для:
+- historical `5dabce57`;
+- current production.
+
+Она публикует только paths/status/bytes/SHA/exactCurrentDist/MIME-classification, без секретов/Cloudflare API/health payload.
+
+## P4 — инженерная чистота
+
+После exact reachability/build evidence:
+- отделить CURRENT / COMPATIBILITY / genuinely removable code;
+- не считать `import` доказательством product approval;
+- не считать static runtime reachability доказательством emitted bytes;
+- не считать static unreachability deletion permission;
+- разделить migration lineages только там, где это доказанно нужно;
+- сохранять clean-clone reproducibility и share-safe source package.
+
+Особый naming debt: `ZERO_SEASON_ENABLED` сейчас технически включает current `/api/v4/local/*`; не путать это с возвращением старого `ZeroSeason.tsx` продукта.
+
+## P5 — deployment safety
+
+- `pnpm cf:deploy` / worker `pnpm deploy` должны оставаться fail-closed до сети;
+- production — только guarded `.github/workflows/release-production.yml` после explicit owner authorization;
+- staging — только isolated staging workflow;
+- post-deploy verifier всегда ждёт exact fresh root generation и проверяет critical assets по MIME + SHA;
+- production destructive path не использовать как read-only verification mechanism.
 
 ## Запрещённый scope creep
 
 Не тратить время на tree/daily move/raid/forecast/Form II/inventory/storm/leaderboard/AI narrator и другие V4/V5 механики без нового явного решения owner.
 
-Не откатывать продукт на STEP E только потому, что более старый `FINAL_TZ` описывает E как следующий gate: exact accepted evidence 14.08 и current runtime source доказывают, что E уже прошёл.
+Не откатывать продукт на STEP E: exact accepted evidence 14.08 + current source доказывают, что E уже пройден.
 
 ## Главное правило
 
-Каждая следующая работа должна либо:
-1. снимать реальную неопределённость о source/deployment;
-2. улучшать уже принятый current funnel по отдельному owner decision;
-3. повышать воспроизводимость/безопасность передачи;
-4. доказывать тестом, что current invariant и exact evidence не сломаны.
+Следующая работа должна либо:
+1. снимать реальную неопределённость source/provenance/build;
+2. повышать воспроизводимость/безопасность handoff;
+3. доказывать current invariant тестом;
+4. выполнять отдельное новое owner-approved product decision.
 
 Всё остальное ниже по приоритету.

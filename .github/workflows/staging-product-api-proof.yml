@@ -1,0 +1,90 @@
+name: Kontur staging product API proof
+
+on:
+  push:
+    branches:
+      - test/cloudflare-staging-api-proof
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kontur-staging-product-api-proof
+  cancel-in-progress: true
+
+env:
+  CLOUDFLARE_ACCOUNT_ID: 7a5b709a066fca0ee563c42b3e5c4f10
+  CLOUDFLARE_STAGING_D1_DATABASE_ID: 22786b4b-99cc-4ca5-a18b-932e8781021b
+  CLOUDFLARE_STAGING_D1_DATABASE_NAME: kontur-staging
+  CLOUDFLARE_STAGING_WORKER_NAME: kontur-igor-staging
+  STAGING_ORIGIN: https://kontur-igor-staging.igorekglukhovskii43.workers.dev
+  STAGING_BOT_TOKEN: staging-disabled-not-a-telegram-token
+  STAGING_TG_ID: '987654321'
+  PROD_D1_ID: 91e39e7e-70fc-4551-8d3e-48235e70f985
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: Enable pnpm 11
+        run: |
+          corepack enable
+          corepack prepare pnpm@11 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        timeout-minutes: 5
+
+      - name: Static smoke syntax and isolation checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tools/cloudflare/live-staging-api-smoke.mjs
+          node tools/cloudflare/staging-config-check.mjs
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test "$CLOUDFLARE_STAGING_D1_DATABASE_ID" != "$PROD_D1_ID"
+          case "$STAGING_ORIGIN" in
+            https://kontur-igor-staging.*) ;;
+            *) echo 'Refusing non-staging origin'; exit 1 ;;
+          esac
+          echo 'STAGING_PRODUCT_PROOF_FAIL_CLOSED_PASS'
+
+      - name: Generate exact staging config
+        run: node tools/cloudflare/make-staging-config.mjs
+
+      - name: Verify exact staging D1 before write
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'Content-Type: application/json')
+          curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$CLOUDFLARE_STAGING_D1_DATABASE_ID" > "$RUNNER_TEMP/staging-d1.json"
+          node --input-type=module -e "import fs from 'node:fs'; const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/staging-d1.json','utf8')); if(!x.success||x.result?.uuid!==process.env.CLOUDFLARE_STAGING_D1_DATABASE_ID||x.result?.name!==process.env.CLOUDFLARE_STAGING_D1_DATABASE_NAME||x.result?.uuid===process.env.PROD_D1_ID) throw new Error('staging D1 identity mismatch'); console.log('STAGING_D1_EXACT_IDENTITY_PASS')"
+
+      - name: Seed one synthetic staging-only user
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_STAGING_D1_DATABASE_NAME" --remote --config wrangler.staging.generated.jsonc --command "DELETE FROM users WHERE tg_id = $STAGING_TG_ID;"
+          pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_STAGING_D1_DATABASE_NAME" --remote --config wrangler.staging.generated.jsonc --command "INSERT INTO users (tg_id, username, started_bot_at, is_member, member_checked_at) VALUES ($STAGING_TG_ID, 'staging_smoke_987654321', datetime('now'), 1, datetime('now'));"
+
+      - name: Real remote auth → questions → hatch → state
+        run: node tools/cloudflare/live-staging-api-smoke.mjs
+
+      - name: Cleanup synthetic staging user
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          if [ -f apps/worker/wrangler.staging.generated.jsonc ] && [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
+            pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_STAGING_D1_DATABASE_NAME" --remote --config wrangler.staging.generated.jsonc --command "DELETE FROM users WHERE tg_id = $STAGING_TG_ID;"
+          fi
+          rm -f "$RUNNER_TEMP/staging-d1.json"

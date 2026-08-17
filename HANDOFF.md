@@ -2,53 +2,54 @@
 
 ## Короткий ответ
 
-**Не отправлять случайный ZIP из Downloads и не отправлять старый `main` без пояснений.**
+**Предпочтительный способ передачи — ссылка на private GitHub repository и конкретный handoff commit/ветку.**
 
-Предпочтительный способ — дать доступ к private GitHub repository и отправить ссылку на чистую актуальную ветку/PR вместе с этим README.
+Не отправлять случайный ZIP из Downloads и не просить получателя угадывать, какая из старых V1–V5 папок актуальна.
 
-## Что отправить человеку
+## Текущая handoff-база
 
-Когда cleanup PR станет принятой базой:
+Пока `main` содержит историческое смешение поколений, рабочая база передачи:
 
-1. ссылка на репозиторий `Ai-b0ss/kontur`;
-2. конкретная ветка/commit, которые считаются handoff baseline;
-3. попросить начать с:
-   - `README.md`;
-   - `CURRENT_PRODUCT.md`;
-   - `docs/product/PRODUCT_BRIEF_2026-08-13.md`;
-   - `docs/product/DECISION_LOG_2026-08-14.md`;
-   - `ARCHITECTURE.md`;
-   - `IMPLEMENTATION_PRIORITY.md`;
-   - `CODEBASE_MAP.md`;
-4. только затем читать исходники.
+- repo: `Ai-b0ss/kontur`;
+- branch: `cleanup/repo-hygiene-shareable-source`;
+- PR: `#11`;
+- текущий owner-visible preview: `https://5dabce57-kontur-igor.igorekglukhovskii43.workers.dev`.
 
-## Если передавать прямо сейчас
+КРИТИЧЕСКАЯ ГРАНИЦА: exact byte-for-byte mapping `5dabce57 -> Worker version -> asset hashes -> Git source` ещё не доказан. Поэтому ветку можно называть **текущей полной рабочей кодовой базой/candidate handoff**, но нельзя называть exact recovered bytes конкретного preview, пока provenance gate не закрыт.
 
-Текущий `main` ещё содержит смешение current/legacy поколений.
+## Что уже доказано в самом исходнике
 
-До завершения cleanup безопаснее отправлять **PR #11 / ветку `cleanup/repo-hygiene-shareable-source`**, явно называя её cleanup candidate, а не окончательным production snapshot.
+Это не только документация. В текущей handoff-ветке реальный Mini App runtime содержит принятую 14.08 продуктовую линию:
 
-Нельзя обещать, что эта ветка byte-for-byte соответствует preview `5dabce57`, пока provenance gate не закрыт.
+- `App.tsx` default-route ведёт в `LocalKontur`;
+- `LocalKontur.tsx` содержит funnel `hook -> questions -> hatching -> reveal -> worm -> home`;
+- hook использует headline `Какая ты птица в IT?`;
+- hero/quiz используют один `QuizEgg` visual object;
+- `QuizEgg.tsx` детерминированно выбирает `egg-stage-01.webp` ... `egg-stage-08.webp`;
+- ring progress = 45° на вопрос, полный круг на q8;
+- community intro сохранён в source отдельным stage, но default stage = `hook`;
+- реальный reward-egg и текущие backend/API контракты не переписывались cleanup-веткой.
 
-## Что НЕ надо отправлять
+То есть Hook H3 / Step B / Step C реально присутствуют в source, а не только в историческом отчёте. Step D flow также представлен в `LocalKontur` stage machine; exact equivalence конкретному review-mock/preview остаётся provenance-задачей.
 
-Не включать в обычный handoff:
-- `.env`;
-- API tokens/secrets;
-- Telegram cookies/sessions/accounts;
-- Cloudflare credentials;
-- production D1 dumps;
-- локальные browser profiles;
-- runtime state;
-- private chat/research exports;
-- ключи шифрования;
-- случайные backup ZIP из Downloads.
+## Что читать получателю
 
-Если человеку реально нужен runtime credential, передавать отдельно через согласованный секретный канал и с минимальными правами.
+В таком порядке:
 
-## Что должно работать после clone
+1. `README.md`;
+2. `CURRENT_PRODUCT.md`;
+3. `docs/product/PRODUCT_BRIEF_2026-08-13.md`;
+4. `docs/product/DECISION_LOG_2026-08-14.md`;
+5. `ARCHITECTURE.md`;
+6. `CODEBASE_MAP.md`;
+7. `IMPLEMENTATION_PRIORITY.md`;
+8. затем `apps/miniapp`, `apps/worker`, `packages/core`, `packages/contracts`.
 
-Цель clean handoff:
+`docs/archive/` — история и provenance, не текущее ТЗ.
+
+## Как запустить
+
+После clone базовая проверка должна проходить без домашнего ПК владельца:
 
 ```bash
 git clone <repo>
@@ -57,22 +58,33 @@ pnpm install
 pnpm check
 ```
 
-И локальный запуск по README без скрытой зависимости от домашнего ПК владельца.
+Текущий GitHub CI для PR #11 проходит успешно. Production Cloudflare/D1/Telegram для локальной разработки не нужен.
 
-## Что сказать разработчику
+## Что НЕ отправлять отдельным сообщением/архивом
 
-Короткое сопроводительное сообщение:
+Не включать в обычный handoff:
+- `.env`;
+- API tokens/secrets;
+- Telegram cookies/sessions/accounts;
+- Cloudflare credentials;
+- production D1 dumps;
+- локальные browser profiles;
+- ключи шифрования;
+- private chat/research exports.
 
-> Это текущая рабочая база «Контура». В репозитории раньше накопилось несколько исторических поколений, поэтому сначала прочитай `README.md` и `CURRENT_PRODUCT.md`: они отделяют текущий продукт от V1–V5 архива. Полное актуальное ТЗ — `docs/product/PRODUCT_BRIEF_2026-08-13.md`, фактически пройденные визуальные гейты 14 августа — `docs/product/DECISION_LOG_2026-08-14.md`. Не считай существующий legacy-код утверждённой фичей. Текущий preview `5dabce57...workers.dev` используется как owner-visible reference, но exact Git provenance ещё должен быть доказан. Production без согласования не трогать.
+Зашифрованный runtime-state в repo не является заменой отдельной передачи ключа. Если получателю действительно нужны credentials, передавать их отдельно через согласованный секретный канал с минимальными правами.
+
+## Короткое сообщение разработчику
+
+> Это текущая рабочая база «Контура»: `Ai-b0ss/kontur`, ветка `cleanup/repo-hygiene-shareable-source` / PR #11. Начни с `README.md` и `CURRENT_PRODUCT.md`; там отделён текущий продукт от V1–V5 истории. Актуальный first-time flow уже есть в `apps/miniapp/src/screens/LocalKontur.tsx`: hook `Какая ты птица в IT?` → 8 вопросов с 8 стадиями яйца → bird reveal → `/worm` → Home. Старые механики в коде/архиве не считать утверждёнными фичами. Production без согласования не трогать. Preview `5dabce57...workers.dev` — текущий визуальный ориентир owner; exact byte provenance к Git ещё проверяется.
 
 ## Definition of handoff-ready
 
-Проект считается красиво сдаваемым, когда:
-- README объясняет запуск и структуру;
+Для практической передачи кода достаточно:
+- README объясняет продукт, запуск и структуру;
 - current product отделён от history;
-- exact current source/provenance понятен;
-- каждый tracked file классифицирован;
-- secrets/private state исключены;
-- clean-clone CI green;
-- share-safe archive воспроизводим из Git;
-- нет необходимости объяснять человеку «какую из 30 папок открыть».
+- кодовая линия H3/B/C/D присутствует и CI green;
+- secrets/private state не требуются для build/test;
+- получателю дана одна branch/commit, а не набор локальных папок.
+
+Для **forensic/exact-preview-ready** дополнительно требуется закрыть `5dabce57` provenance и exhaustive tracked-file classification. Это повышенная планка доказательности, а не блокер обычной передачи исходников разработчику.

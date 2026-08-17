@@ -7,14 +7,15 @@ $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $zipPath = Join-Path $root ($ArchiveName + '.zip')
 $shaPath = $zipPath + '.sha256'
+$script:tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 
 if (Test-Path -LiteralPath $zipPath) { throw "Archive already exists: $zipPath" }
 if (Test-Path -LiteralPath $shaPath) { throw "Checksum already exists: $shaPath" }
 
 $runId = [guid]::NewGuid().ToString('N')
-$stage = Join-Path $env:TEMP ("kontur-handoff-stage-$runId")
-$verify = Join-Path $env:TEMP ("kontur-handoff-verify-$runId")
-$tempZip = Join-Path $env:TEMP ($ArchiveName + "-$runId.zip")
+$stage = Join-Path $script:tempRoot ("kontur-handoff-stage-$runId")
+$verify = Join-Path $script:tempRoot ("kontur-handoff-verify-$runId")
+$tempZip = Join-Path $script:tempRoot ($ArchiveName + "-$runId.zip")
 $bundle = Join-Path $stage 'kontur'
 
 function Get-RelativePath([string]$basePath, [string]$targetPath) {
@@ -39,8 +40,7 @@ function Test-ShareSafeTrackedPath([string]$relative) {
 function Remove-SafeTemp([string]$path, [string]$prefix) {
     if (-not (Test-Path -LiteralPath $path)) { return }
     $resolved = [IO.Path]::GetFullPath($path)
-    $tempRoot = [IO.Path]::GetFullPath($env:TEMP)
-    if (-not $resolved.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase)) {
+    if (-not $resolved.StartsWith($script:tempRoot, [StringComparison]::OrdinalIgnoreCase)) {
         throw "Unsafe temp cleanup path: $resolved"
     }
     if (-not (Split-Path -Leaf $resolved).StartsWith($prefix, [StringComparison]::Ordinal)) {
@@ -155,7 +155,7 @@ try {
     Remove-SafeTemp $verify 'kontur-handoff-verify-'
     if (Test-Path -LiteralPath $tempZip) {
         $resolvedTempZip = [IO.Path]::GetFullPath($tempZip)
-        if (-not $resolvedTempZip.StartsWith([IO.Path]::GetFullPath($env:TEMP), [StringComparison]::OrdinalIgnoreCase)) {
+        if (-not $resolvedTempZip.StartsWith($script:tempRoot, [StringComparison]::OrdinalIgnoreCase)) {
             throw "Unsafe temporary archive path: $resolvedTempZip"
         }
         Remove-Item -LiteralPath $resolvedTempZip -Force

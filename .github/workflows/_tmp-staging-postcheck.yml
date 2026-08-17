@@ -1,0 +1,90 @@
+name: Temporary isolated staging validation
+
+on:
+  push:
+    branches:
+      - infra/cloudflare-staging-postcheck
+
+permissions:
+  contents: read
+
+env:
+  CLOUDFLARE_ACCOUNT_ID: 7a5b709a066fca0ee563c42b3e5c4f10
+  STAGING_WORKER_NAME: kontur-igor-staging
+  STAGING_D1_NAME: kontur-staging
+  CLOUDFLARE_STAGING_D1_DATABASE_ID: 22786b4b-99cc-4ca5-a18b-932e8781021b
+  STAGING_ORIGIN: https://kontur-igor-staging.igorekglukhovskii43.workers.dev
+  PROD_WORKER_NAME: kontur-igor
+  PROD_D1_NAME: kontur
+  PROD_D1_ID: 91e39e7e-70fc-4551-8d3e-48235e70f985
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: |
+          corepack enable
+          corepack prepare pnpm@11 --activate
+          pnpm install --frozen-lockfile
+      - name: Full verification
+        run: pnpm check
+      - name: Build
+        run: pnpm build
+      - name: Verify exact safe targets and snapshot production read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test "$STAGING_WORKER_NAME" != "$PROD_WORKER_NAME"
+          test "$STAGING_D1_NAME" != "$PROD_D1_NAME"
+          test "$CLOUDFLARE_STAGING_D1_DATABASE_ID" != "$PROD_D1_ID"
+          auth=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json")
+          curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$STAGING_D1_NAME" >/dev/null 2>&1 || true
+          curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$PROD_D1_ID" > "$RUNNER_TEMP/prod-d1-before.json"
+          curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$PROD_WORKER_NAME/deployments" > "$RUNNER_TEMP/prod-worker-before.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const r=process.env.RUNNER_TEMP;
+          const d=JSON.parse(fs.readFileSync(`${r}/prod-d1-before.json`,'utf8'));
+          const w=JSON.parse(fs.readFileSync(`${r}/prod-worker-before.json`,'utf8'));
+          if(!d.success||d.result?.uuid!==process.env.PROD_D1_ID||d.result?.name!==process.env.PROD_D1_NAME) throw new Error('prod d1 mismatch');
+          if(!w.success||!Array.isArray(w.result?.deployments)||!w.result.deployments.length) throw new Error('prod worker snapshot unavailable');
+          fs.writeFileSync(`${r}/prod-before.json`,JSON.stringify({d1:{uuid:d.result.uuid,name:d.result.name},worker:w.result.deployments.map(x=>({id:x.id,versions:x.versions,source:x.source,strategy:x.strategy}))}));
+          NODE
+      - name: Generate staging config
+        env:
+          CLOUDFLARE_STAGING_WORKER_NAME: kontur-igor-staging
+          CLOUDFLARE_STAGING_D1_DATABASE_NAME: kontur-staging
+        run: node tools/cloudflare/make-staging-config.mjs
+      - name: Dry run
+        run: pnpm -F @kontur/worker exec wrangler deploy --config wrangler.staging.generated.jsonc --dry-run
+      - name: Deploy isolated staging only
+        run: pnpm -F @kontur/worker exec wrangler deploy --config wrangler.staging.generated.jsonc
+      - name: Smoke and postcheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS "$STAGING_ORIGIN/" > "$RUNNER_TEMP/root.html"
+          grep -q '<div id="root">' "$RUNNER_TEMP/root.html"
+          curl -fsS "$STAGING_ORIGIN/api/v1/health" > "$RUNNER_TEMP/health.json"
+          node --input-type=module -e "import fs from 'node:fs';const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/health.json','utf8'));if(x.ok!==true||x.devMode!==false||x.driver!=='d1')throw new Error('bad staging health')"
+          auth=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json")
+          curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$PROD_D1_ID" > "$RUNNER_TEMP/prod-d1-after.json"
+          curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$PROD_WORKER_NAME/deployments" > "$RUNNER_TEMP/prod-worker-after.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const r=process.env.RUNNER_TEMP;
+          const b=JSON.parse(fs.readFileSync(`${r}/prod-before.json`,'utf8'));
+          const d=JSON.parse(fs.readFileSync(`${r}/prod-d1-after.json`,'utf8'));
+          const w=JSON.parse(fs.readFileSync(`${r}/prod-worker-after.json`,'utf8'));
+          const a={d1:{uuid:d.result?.uuid,name:d.result?.name},worker:(w.result?.deployments||[]).map(x=>({id:x.id,versions:x.versions,source:x.source,strategy:x.strategy}))};
+          if(JSON.stringify(a)!==JSON.stringify(b))throw new Error('forbidden production target changed');
+          console.log('STAGING_AND_PRODUCTION_POSTCHECK_PASS');
+          NODE

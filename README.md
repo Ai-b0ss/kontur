@@ -71,9 +71,9 @@ Current implementation:
 - `apps/api`, `apps/bot`, `packages/db` — local/reference/test/compatibility контур;
 - `tools` — проверки, migrations/release/backup/staging/provenance utilities.
 
-Старые V1–V5 runtime-модули пока сохранены внутри production bundle ради совместимости/recovery. Это важный нюанс: `App.tsx` и `worker/api.ts` всё ещё статически импортируют часть старых surfaces/routers, поэтому **наличие и даже bundle-reachability не означают product approval**, но и удалять их вслепую нельзя.
+Старые V1–V5 runtime-модули пока сохранены рядом с current source. `App.tsx` и Worker `api.ts` имеют runtime-imports/routes в часть старых surfaces, поэтому они **статически runtime-достижимы из production entrypoints** и удалять их по названию нельзя. Это ещё не доказательство, что каждый такой модуль оставил байты в финальном emitted bundle после tree-shaking, и тем более не product approval.
 
-`tools/runtime-reachability.mjs` строит воспроизводимый граф от реальных Mini App/Worker entrypoints и отдельно показывает narrow current LocalKontur feature closure.
+`tools/runtime-reachability.mjs` v2 отдельно строит runtime-import graph без `import type` и полный source-dependency graph с type-only зависимостями. Его результат — evidence для классификации, а не список на удаление.
 
 ## Что известно о происхождении source
 
@@ -112,7 +112,7 @@ Guarded release run `32030041504`:
 CI выполняет:
 - `pnpm install --frozen-lockfile`;
 - exact `Handoff safety gate`;
-- runtime reachability graph;
+- runtime/source reachability v2;
 - deployment-propagation regression;
 - unit/integration/Worker tests;
 - typecheck;
@@ -121,6 +121,8 @@ CI выполняет:
 - read-only public provenance probe;
 - reproducible share-safe archive;
 - изолированный Cloudflare staging dry-run.
+
+**Green считается доказанным только для exact commit, на котором реально завершился этот CI.** На текущем head статус пока не повышать: GitHub Actions connector временно не отдаёт runs/jobs.
 
 Локально базовый полный gate:
 

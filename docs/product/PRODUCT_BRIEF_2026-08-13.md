@@ -2,9 +2,10 @@
 
 **Статус:** OWNER-CANONICAL / исходное ТЗ текущего направления  
 **Дата фиксации:** 2026-08-17  
-**Источники:** `PRIMARY_SOURCE_IGOR_ZEZOKUK_2026-08-13.md`, `FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md`, письменное подтверждение 6 пунктов после разговора.
+**Exact primary sources:** [`PRIMARY_SOURCE_IGOR_ZEZOKUK_2026-08-13.md`](source/PRIMARY_SOURCE_IGOR_ZEZOKUK_2026-08-13.md), [`FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md`](source/FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md).  
+**Recovery proof / hashes:** [`source/README.md`](source/README.md).
 
-> Этот документ фиксирует продуктовый замысел и визуальный контракт. Он выше старых V1–V5 спецификаций. Наличие старой механики в коде не делает её частью текущего продукта.
+> Этот документ — human-readable каноническая интерпретация. При споре о формулировке или исходном намерении exact-файлы из `source/` имеют более высокий provenance-вес. Документ фиксирует продуктовый замысел и визуальный контракт и стоит выше старых V1–V5 спецификаций. Наличие старой механики в коде не делает её частью текущего продукта.
 
 ## 1. Что такое Контур
 
@@ -225,4 +226,4 @@ Reward egg:
 7. только после визуального approval — одна safe preview-version;
 8. cold human smoke — после alignment pass.
 
-Фактический прогресс 14.08 описан отдельно в `DECISION_LOG_2026-08-14.md`.
+Фактический прогресс 14.08 описан отдельно в [`DECISION_LOG_2026-08-14.md`](DECISION_LOG_2026-08-14.md).

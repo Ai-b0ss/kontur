@@ -39,6 +39,10 @@ jobs:
         timeout-minutes: 5
         run: pnpm install --frozen-lockfile
 
+      - name: Handoff safety gate
+        timeout-minutes: 1
+        run: node tools/handoff-safety-check.mjs
+
       - name: Cloudflare staging isolation gate
         timeout-minutes: 1
         run: node tools/cloudflare/staging-config-check.mjs

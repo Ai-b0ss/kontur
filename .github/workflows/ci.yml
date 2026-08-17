@@ -117,6 +117,21 @@ jobs:
         timeout-minutes: 5
         run: pnpm build
 
+      - name: Mini App Rollup emitted-module evidence
+        timeout-minutes: 3
+        env:
+          MINIAPP_BUNDLE_EVIDENCE_OUTPUT: ${{ runner.temp }}/kontur-miniapp-bundle-evidence.json
+        run: node tools/miniapp-bundle-evidence.mjs
+
+      - name: Upload Mini App bundle evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: kontur-miniapp-bundle-evidence-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/kontur-miniapp-bundle-evidence.json
+
       - name: Read-only public provenance probe
         timeout-minutes: 2
         env:

@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 
 function fail(message) {
@@ -20,6 +21,8 @@ const required = [
   'PROJECT_STATE.yaml',
   'docs/product/PRODUCT_BRIEF_2026-08-13.md',
   'docs/product/DECISION_LOG_2026-08-14.md',
+  'docs/product/source/PRIMARY_SOURCE_IGOR_ZEZOKUK_2026-08-13.md',
+  'docs/product/source/FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md',
   'apps/miniapp/src/App.tsx',
   'apps/miniapp/src/screens/LocalKontur.tsx',
   'apps/miniapp/src/components/QuizEgg.tsx',
@@ -27,6 +30,22 @@ const required = [
 for (const path of required) mustExist(path);
 for (let stage = 1; stage <= 8; stage += 1) {
   mustExist(`apps/miniapp/public/quiz/egg-stage-${String(stage).padStart(2, '0')}.webp`);
+}
+
+const exactProductSources = new Map([
+  [
+    'docs/product/source/PRIMARY_SOURCE_IGOR_ZEZOKUK_2026-08-13.md',
+    '1f519becf36a44e1761a50c359e9dca02473c81f2f24194bb3c4c704052a436f',
+  ],
+  [
+    'docs/product/source/FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md',
+    '7d092fa46a21de7931bf2f1a26aaea21df5926cd51c322d2b2ad420700074cbe',
+  ],
+]);
+for (const [path, expected] of exactProductSources) {
+  if (!existsSync(path)) continue;
+  const actual = createHash('sha256').update(readFileSync(path)).digest('hex');
+  if (actual !== expected) fail(`exact product source hash mismatch: ${path} expected=${expected} actual=${actual}`);
 }
 
 const legacyRootDocs = [
@@ -82,5 +101,5 @@ if (!egg.includes('Math.max(1, Math.min(8, stage))')) fail('quiz egg no longer c
 if (!egg.includes('safeStage * 45')) fail('quiz egg progress no longer maps 8 questions to a full circle');
 
 if (!process.exitCode) {
-  console.log(`HANDOFF_SAFETY_PASS tracked=${tracked.length} required=${required.length} eggStages=8`);
+  console.log(`HANDOFF_SAFETY_PASS tracked=${tracked.length} required=${required.length} eggStages=8 exactSources=${exactProductSources.size}`);
 }

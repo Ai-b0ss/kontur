@@ -18,7 +18,7 @@ jobs:
   check:
     name: remote verification
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -86,6 +86,15 @@ jobs:
       - name: Mini App production build
         timeout-minutes: 5
         run: pnpm build
+
+      - name: Reproducible share-safe handoff archive
+        timeout-minutes: 4
+        shell: pwsh
+        run: |
+          ./tools/package-handoff.ps1 -ArchiveName KONTUR_CI_HANDOFF
+          if (-not (Test-Path ./KONTUR_CI_HANDOFF.zip)) { throw 'handoff zip missing' }
+          if (-not (Test-Path ./KONTUR_CI_HANDOFF.zip.sha256)) { throw 'handoff checksum missing' }
+          Remove-Item ./KONTUR_CI_HANDOFF.zip, ./KONTUR_CI_HANDOFF.zip.sha256 -Force
 
       - name: Generate isolated staging config for Wrangler dry-run
         timeout-minutes: 1

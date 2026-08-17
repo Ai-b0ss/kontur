@@ -1,0 +1,169 @@
+name: Kontur emergency production recovery
+
+on:
+  push:
+    branches:
+      - release/kontur-2026-08-17
+    paths:
+      - .release-trigger/recover-production.txt
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: kontur-production-release
+  cancel-in-progress: false
+
+env:
+  CLOUDFLARE_ACCOUNT_ID: 7a5b709a066fca0ee563c42b3e5c4f10
+  PROD_D1_NAME: kontur
+  PROD_D1_ID: 91e39e7e-70fc-4551-8d3e-48235e70f985
+  PROD_ORIGIN: https://kontur-igor.igorekglukhovskii43.workers.dev
+  SOURCE_RUN_ID: '32030041504'
+  PLAINTEXT_ARTIFACT_ID: '9288611417'
+  PLAINTEXT_ARTIFACT_NAME: kontur-production-before-reset-32030041504
+
+jobs:
+  recover-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enable pnpm 11
+        run: |
+          corepack enable
+          corepack prepare pnpm@11 --activate
+          pnpm install --frozen-lockfile
+
+      - name: Download exact pre-reset rollback artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.PLAINTEXT_ARTIFACT_NAME }}
+          path: ${{ runner.temp }}/rollback
+          github-token: ${{ github.token }}
+          run-id: ${{ env.SOURCE_RUN_ID }}
+
+      - name: Verify rollback SQL and recorded pre-reset counts
+        shell: bash
+        run: |
+          set -euo pipefail
+          sql="$RUNNER_TEMP/rollback/kontur-production-before-reset.sql"
+          sums="$RUNNER_TEMP/rollback/kontur-production-before-reset.sha256"
+          counts="$RUNNER_TEMP/rollback/pre-reset-counts.json"
+          test -s "$sql"; test -s "$sums"; test -s "$counts"
+          expected=$(awk '{print $1}' "$sums" | head -n1)
+          actual=$(sha256sum "$sql" | awk '{print $1}')
+          test "$expected" = "$actual"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/rollback/pre-reset-counts.json','utf8'));
+          let row=null; const walk=v=>{if(row)return;if(Array.isArray(v))for(const y of v)walk(y);else if(v&&typeof v==='object'){if(Object.hasOwn(v,'users')&&Object.hasOwn(v,'hatched')){row=v;return;}for(const y of Object.values(v))walk(y);}}; walk(x);
+          if(!row) throw new Error('pre-reset counts missing from rollback artifact');
+          if(!Number.isFinite(Number(row.users))||!Number.isFinite(Number(row.hatched))) throw new Error('invalid rollback counts');
+          fs.writeFileSync(process.env.RUNNER_TEMP+'/rollback/expected-counts.json',JSON.stringify(row,null,2));
+          console.log(`ROLLBACK_ARTIFACT_VERIFIED users=${row.users} hatched=${row.hatched}`);
+          NODE
+
+      - name: Verify exact production D1 identity before recovery
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          pnpm -F @kontur/worker exec wrangler d1 info "$PROD_D1_NAME" --remote --config wrangler.jsonc --json > "$RUNNER_TEMP/current-d1.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs'; const text=fs.readFileSync(process.env.RUNNER_TEMP+'/current-d1.json','utf8');
+          if(!text.includes(process.env.PROD_D1_NAME)||!text.includes(process.env.PROD_D1_ID)) throw new Error('production D1 identity mismatch; refusing recovery');
+          console.log('RECOVERY_PRODUCTION_D1_IDENTITY_PASS');
+          NODE
+
+      - name: Replace post-reset schema with exact pre-reset SQL export
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler d1 execute "$PROD_D1_NAME" --remote --config wrangler.jsonc --json --command "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' ORDER BY name" > "$RUNNER_TEMP/current-tables.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const data=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/current-tables.json','utf8')); const names=[];
+          const walk=v=>{if(Array.isArray(v))v.forEach(walk);else if(v&&typeof v==='object'){if(typeof v.name==='string')names.push(v.name);Object.values(v).forEach(walk);}}; walk(data);
+          const uniq=[...new Set(names)].filter(n=>!n.startsWith('sqlite_')&&!n.startsWith('_cf_'));
+          if(!uniq.includes('users')||uniq.length<3) throw new Error('unexpected current production schema; refusing recovery wipe');
+          const q=s=>'"'+s.replaceAll('"','""')+'"';
+          fs.writeFileSync(process.env.RUNNER_TEMP+'/recovery-drop.sql',['PRAGMA foreign_keys=OFF;',...uniq.map(n=>`DROP TABLE IF EXISTS ${q(n)};`),'PRAGMA foreign_keys=ON;'].join('\n'));
+          console.log(`RECOVERY_DROP_PLAN_PASS tables=${uniq.length}`);
+          NODE
+          pnpm -F @kontur/worker exec wrangler d1 execute "$PROD_D1_NAME" --remote --config wrangler.jsonc --file "$RUNNER_TEMP/recovery-drop.sql"
+          pnpm -F @kontur/worker exec wrangler d1 execute "$PROD_D1_NAME" --remote --config wrangler.jsonc --file "$RUNNER_TEMP/rollback/kontur-production-before-reset.sql"
+          echo PRODUCTION_PRE_RESET_SQL_RESTORED
+
+      - name: Prove restored identity and hatch counts equal pre-reset state
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler d1 execute "$PROD_D1_NAME" --remote --config wrangler.jsonc --json --command "SELECT (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM profiles WHERE hatched_at IS NOT NULL) AS hatched;" > "$RUNNER_TEMP/restored-counts.raw.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs'; const root=process.env.RUNNER_TEMP;
+          const expected=JSON.parse(fs.readFileSync(`${root}/rollback/expected-counts.json`,'utf8')); const x=JSON.parse(fs.readFileSync(`${root}/restored-counts.raw.json`,'utf8'));
+          let row=null; const walk=v=>{if(row)return;if(Array.isArray(v))for(const y of v)walk(y);else if(v&&typeof v==='object'){if(Object.hasOwn(v,'users')&&Object.hasOwn(v,'hatched')){row=v;return;}for(const y of Object.values(v))walk(y);}}; walk(x);
+          if(!row) throw new Error('restored counts missing');
+          if(Number(row.users)!==Number(expected.users)||Number(row.hatched)!==Number(expected.hatched)) throw new Error(`recovery count mismatch expected users=${expected.users}/hatched=${expected.hatched} got users=${row.users}/hatched=${row.hatched}`);
+          fs.writeFileSync(`${root}/restored-counts.json`,JSON.stringify(row,null,2));
+          console.log(`PRODUCTION_RECOVERY_COUNTS_PASS users=${row.users} hatched=${row.hatched}`);
+          NODE
+
+      - name: Encrypt verified rollback copy for durable storage
+        env:
+          RUNTIME_STATE_KEY: ${{ secrets.RUNTIME_STATE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sql="$RUNNER_TEMP/rollback/kontur-production-before-reset.sql"
+          enc="$RUNNER_TEMP/kontur-production-before-reset-32030041504.sql.gpg"
+          key="$RUNNER_TEMP/runtime-key.txt"
+          verified="$RUNNER_TEMP/verified.sql"
+          test -n "$RUNTIME_STATE_KEY"
+          umask 077; printf '%s' "$RUNTIME_STATE_KEY" > "$key"
+          gpg --batch --yes --pinentry-mode loopback --passphrase-file "$key" --symmetric --cipher-algo AES256 --output "$enc" "$sql"
+          gpg --batch --yes --pinentry-mode loopback --passphrase-file "$key" --decrypt --output "$verified" "$enc"
+          cmp -s "$sql" "$verified"
+          sha256sum "$enc" > "$RUNNER_TEMP/rollback-encrypted.sha256"
+          rm -f "$key" "$verified"
+          echo RECOVERY_BACKUP_ENCRYPTED_VERIFIED_PASS
+
+      - name: Upload encrypted rollback and recovery evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: kontur-production-recovered-encrypted-32030041504
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/kontur-production-before-reset-32030041504.sql.gpg
+            ${{ runner.temp }}/rollback-encrypted.sha256
+            ${{ runner.temp }}/restored-counts.json
+            ${{ runner.temp }}/rollback/time-travel-before-reset.json
+
+      - name: Delete original plaintext rollback artifact after encrypted copy exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS -X DELETE -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$PLAINTEXT_ARTIFACT_ID"
+          echo PLAINTEXT_ROLLBACK_ARTIFACT_DELETED
+
+      - name: Remove local plaintext copies
+        if: ${{ always() }}
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rollback" "$RUNNER_TEMP/recovery-drop.sql" "$RUNNER_TEMP/current-tables.json"

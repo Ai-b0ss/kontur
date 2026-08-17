@@ -103,6 +103,31 @@ jobs:
           curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$CLOUDFLARE_STAGING_D1_DATABASE_ID" > "$RUNNER_TEMP/staging-d1.json"
           node --input-type=module -e "import fs from 'node:fs'; const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/staging-d1.json','utf8')); if(!x.success) throw new Error('Staging D1 is not readable'); if(x.result?.uuid!==process.env.CLOUDFLARE_STAGING_D1_DATABASE_ID) throw new Error('Staging D1 UUID mismatch'); if(x.result?.name!==process.env.STAGING_D1_NAME) throw new Error('Staging D1 name mismatch'); if(x.result?.uuid===process.env.PROD_D1_ID) throw new Error('Resolved production D1'); console.log('STAGING_D1_IDENTITY_PASS')"
 
+      - name: Snapshot forbidden production targets read-only
+        if: inputs.mode != 'preflight'
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json")
+          curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$PROD_D1_ID" > "$RUNNER_TEMP/prod-d1-before.json"
+          curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$PROD_WORKER_NAME/deployments" > "$RUNNER_TEMP/prod-worker-before.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import crypto from 'node:crypto';
+          const root = process.env.RUNNER_TEMP;
+          const d1 = JSON.parse(fs.readFileSync(`${root}/prod-d1-before.json`, 'utf8'));
+          const worker = JSON.parse(fs.readFileSync(`${root}/prod-worker-before.json`, 'utf8'));
+          if (!d1.success || d1.result?.uuid !== process.env.PROD_D1_ID || d1.result?.name !== process.env.PROD_D1_NAME) throw new Error('Production D1 identity mismatch before staging write');
+          if (!worker.success || !Array.isArray(worker.result?.deployments) || worker.result.deployments.length < 1) throw new Error('Production Worker deployment identity unavailable before staging write');
+          const snapshot = {
+            d1Uuid: d1.result.uuid,
+            d1Name: d1.result.name,
+            workerDeployments: worker.result.deployments.map((d) => ({ id: d.id, versions: d.versions, source: d.source, strategy: d.strategy })),
+          };
+          fs.writeFileSync(`${root}/prod-identity-before.json`, JSON.stringify(snapshot));
+          console.log('PRODUCTION_IDENTITY_SNAPSHOT_PASS');
+          NODE
+
       - name: Generate remote staging config
         if: inputs.mode != 'preflight'
         env:
@@ -145,7 +170,32 @@ jobs:
           node --input-type=module -e "import fs from 'node:fs'; const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/health.json','utf8')); if(x.ok!==true||x.devMode!==false||x.driver!=='d1') throw new Error('bad staging health'); console.log(JSON.stringify({ok:x.ok,devMode:x.devMode,driver:x.driver,startedBot:x.startedBot,hatched:x.hatched,grants:x.grants}));"
           echo 'STAGING_LIVE_SMOKE_PASS'
 
+      - name: Verify forbidden production targets stayed unchanged
+        if: inputs.mode != 'preflight'
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json")
+          curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$PROD_D1_ID" > "$RUNNER_TEMP/prod-d1-after.json"
+          curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$PROD_WORKER_NAME/deployments" > "$RUNNER_TEMP/prod-worker-after.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const root = process.env.RUNNER_TEMP;
+          const before = JSON.parse(fs.readFileSync(`${root}/prod-identity-before.json`, 'utf8'));
+          const d1 = JSON.parse(fs.readFileSync(`${root}/prod-d1-after.json`, 'utf8'));
+          const worker = JSON.parse(fs.readFileSync(`${root}/prod-worker-after.json`, 'utf8'));
+          if (!d1.success || d1.result?.uuid !== process.env.PROD_D1_ID || d1.result?.name !== process.env.PROD_D1_NAME) throw new Error('Production D1 identity changed after staging write');
+          if (!worker.success || !Array.isArray(worker.result?.deployments) || worker.result.deployments.length < 1) throw new Error('Production Worker deployment identity unavailable after staging write');
+          const after = {
+            d1Uuid: d1.result.uuid,
+            d1Name: d1.result.name,
+            workerDeployments: worker.result.deployments.map((d) => ({ id: d.id, versions: d.versions, source: d.source, strategy: d.strategy })),
+          };
+          if (JSON.stringify(after) !== JSON.stringify(before)) throw new Error('Forbidden production target changed during staging workflow');
+          console.log('PRODUCTION_UNCHANGED_AFTER_STAGING_PASS');
+          NODE
+
       - name: Cleanup transient evidence
         if: always()
         shell: bash
-        run: rm -f "$RUNNER_TEMP/token.json" "$RUNNER_TEMP/staging-d1.json" "$RUNNER_TEMP/root.html" "$RUNNER_TEMP/health.json"
+        run: rm -f "$RUNNER_TEMP/token.json" "$RUNNER_TEMP/staging-d1.json" "$RUNNER_TEMP/root.html" "$RUNNER_TEMP/health.json" "$RUNNER_TEMP/prod-d1-before.json" "$RUNNER_TEMP/prod-worker-before.json" "$RUNNER_TEMP/prod-identity-before.json" "$RUNNER_TEMP/prod-d1-after.json" "$RUNNER_TEMP/prod-worker-after.json"

@@ -1,0 +1,212 @@
+name: Kontur guarded production release
+
+on:
+  push:
+    branches:
+      - release/kontur-2026-08-17
+    paths:
+      - .release-trigger/production.txt
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kontur-production-release
+  cancel-in-progress: false
+
+env:
+  CLOUDFLARE_ACCOUNT_ID: 7a5b709a066fca0ee563c42b3e5c4f10
+  PROD_WORKER_NAME: kontur-igor
+  PROD_D1_NAME: kontur
+  PROD_D1_ID: 91e39e7e-70fc-4551-8d3e-48235e70f985
+  STAGING_D1_ID: 22786b4b-99cc-4ca5-a18b-932e8781021b
+  PROD_ORIGIN: https://kontur-igor.igorekglukhovskii43.workers.dev
+  HANDOFF_SHA: 85290a821bdd1a5ceb170480eccdba4243bea997
+
+jobs:
+  guarded-production-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enable pnpm 11
+        run: |
+          corepack enable
+          corepack prepare pnpm@11 --activate
+
+      - name: Prove runtime source is still the frozen handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$HANDOFF_SHA"
+          git diff --exit-code "$HANDOFF_SHA" HEAD -- apps packages package.json pnpm-lock.yaml pnpm-workspace.yaml tools/run-vite.mjs
+          echo FROZEN_HANDOFF_RUNTIME_SOURCE_PASS
+
+      - name: Install and verify frozen source
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm check
+          pnpm build
+
+      - name: Require Cloudflare credential
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$CLOUDFLARE_API_TOKEN"
+
+      - name: Generate guarded production config
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const src='apps/worker/wrangler.jsonc';
+          const out='apps/worker/wrangler.production.generated.jsonc';
+          const raw=fs.readFileSync(src,'utf8').replace(/^\uFEFF/,'');
+          const c=JSON.parse(raw);
+          if(c.name!==process.env.PROD_WORKER_NAME) throw new Error('production Worker identity mismatch in source config');
+          const db=(c.d1_databases||[]).find(x=>x?.binding==='DB');
+          if(!db||db.database_name!==process.env.PROD_D1_NAME||db.database_id!==process.env.PROD_D1_ID) throw new Error('production D1 binding mismatch in source config');
+          if(db.database_id===process.env.STAGING_D1_ID) throw new Error('staging D1 leaked into production config');
+          c.vars={
+            ...(c.vars||{}),
+            DEV_MODE:'false',
+            EXPERIENCE_V2_ENABLED:'false',
+            EXPERIENCE_V3_ENABLED:'false',
+            ZERO_SEASON_ENABLED:'true',
+            LIVE_CAMPAIGN_V5_ENABLED:'false',
+            LIVE_CAMPAIGN_V5_PUBLISH_ENABLED:'false',
+            V5_LLM_PROVIDER:'disabled'
+          };
+          fs.writeFileSync(out,JSON.stringify(c,null,2)+'\n');
+          console.log('PRODUCTION_CONFIG_PASS');
+          NODE
+
+      - name: Verify exact production D1 identity before any write
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler d1 info "$PROD_D1_NAME" --config wrangler.production.generated.jsonc --json > "$RUNNER_TEMP/prod-d1-info.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const text=fs.readFileSync(process.env.RUNNER_TEMP+'/prod-d1-info.json','utf8');
+          if(!text.includes(process.env.PROD_D1_NAME)||!text.includes(process.env.PROD_D1_ID)) throw new Error('production D1 identity mismatch');
+          if(text.includes(process.env.STAGING_D1_ID)) throw new Error('staging D1 appeared in production identity');
+          console.log('PRODUCTION_D1_IDENTITY_PASS');
+          NODE
+
+      - name: Capture pre-reset counts and Time Travel bookmark
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler d1 execute "$PROD_D1_NAME" --remote --config wrangler.production.generated.jsonc --json --command "SELECT (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM profiles WHERE hatched_at IS NOT NULL) AS hatched" > "$RUNNER_TEMP/pre-reset-counts.json"
+          pnpm -F @kontur/worker exec wrangler d1 time-travel info "$PROD_D1_NAME" --config wrangler.production.generated.jsonc --json > "$RUNNER_TEMP/time-travel-before-reset.json"
+          test -s "$RUNNER_TEMP/time-travel-before-reset.json"
+          echo PRODUCTION_ROLLBACK_BOOKMARK_PASS
+
+      - name: Export full production D1 before reset
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler d1 export "$PROD_D1_NAME" --remote --config wrangler.production.generated.jsonc --output="$RUNNER_TEMP/kontur-production-before-reset.sql" --skip-confirmation
+          test -s "$RUNNER_TEMP/kontur-production-before-reset.sql"
+          sha256sum "$RUNNER_TEMP/kontur-production-before-reset.sql" > "$RUNNER_TEMP/kontur-production-before-reset.sha256"
+          echo PRODUCTION_SQL_EXPORT_PASS
+
+      - name: Upload rollback artifact BEFORE destructive reset
+        uses: actions/upload-artifact@v4
+        with:
+          name: kontur-production-before-reset-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/kontur-production-before-reset.sql
+            ${{ runner.temp }}/kontur-production-before-reset.sha256
+            ${{ runner.temp }}/time-travel-before-reset.json
+            ${{ runner.temp }}/pre-reset-counts.json
+            ${{ runner.temp }}/prod-d1-info.json
+
+      - name: Reset production D1 to a truly fresh schema
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler d1 execute "$PROD_D1_NAME" --remote --config wrangler.production.generated.jsonc --json --command "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' ORDER BY name" > "$RUNNER_TEMP/prod-tables.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const data=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/prod-tables.json','utf8'));
+          const names=[];
+          const walk=v=>{ if(Array.isArray(v)) v.forEach(walk); else if(v&&typeof v==='object'){ if(typeof v.name==='string') names.push(v.name); Object.values(v).forEach(walk); } };
+          walk(data);
+          const uniq=[...new Set(names)].filter(n=>!n.startsWith('sqlite_')&&!n.startsWith('_cf_'));
+          if(!uniq.includes('users')||uniq.length<3) throw new Error('unexpected production schema; refusing reset');
+          const q=s=>'"'+s.replaceAll('"','""')+'"';
+          const sql=['PRAGMA foreign_keys=OFF;',...uniq.map(n=>`DROP TABLE IF EXISTS ${q(n)};`),'PRAGMA foreign_keys=ON;'].join('\n');
+          fs.writeFileSync(process.env.RUNNER_TEMP+'/prod-reset.sql',sql);
+          console.log(`PRODUCTION_RESET_PLAN_PASS tables=${uniq.length}`);
+          NODE
+          pnpm -F @kontur/worker exec wrangler d1 execute "$PROD_D1_NAME" --remote --config wrangler.production.generated.jsonc --file "$RUNNER_TEMP/prod-reset.sql"
+          pnpm -F @kontur/worker exec wrangler d1 migrations apply "$PROD_D1_NAME" --remote --config wrangler.production.generated.jsonc
+
+      - name: Deploy frozen handoff source to production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm -F @kontur/worker exec wrangler deploy --keep-vars --config wrangler.production.generated.jsonc
+
+      - name: Remote production HTTP and approved egg smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 20); do
+            if curl -fsS "$PROD_ORIGIN/" -o "$RUNNER_TEMP/prod-root.html"; then break; fi
+            sleep 3
+          done
+          grep -q '<div id="root"' "$RUNNER_TEMP/prod-root.html"
+          curl -fsS "$PROD_ORIGIN/api/v1/health" -o "$RUNNER_TEMP/prod-health.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/prod-health.json','utf8'));
+          if(x.ok!==true||x.devMode!==false||x.driver!=='d1'||x.hatched!==0) throw new Error('fresh production health mismatch');
+          console.log('PRODUCTION_HEALTH_PASS');
+          NODE
+          curl -fsS "$PROD_ORIGIN/quiz/egg-stage-01.webp" -o "$RUNNER_TEMP/prod-egg01.webp"
+          curl -fsS "$PROD_ORIGIN/quiz/egg-stage-08.webp" -o "$RUNNER_TEMP/prod-egg08.webp"
+          test -s "$RUNNER_TEMP/prod-egg01.webp"
+          test -s "$RUNNER_TEMP/prod-egg08.webp"
+          local01=$(sha256sum apps/miniapp/dist/quiz/egg-stage-01.webp | awk '{print $1}')
+          remote01=$(sha256sum "$RUNNER_TEMP/prod-egg01.webp" | awk '{print $1}')
+          local08=$(sha256sum apps/miniapp/dist/quiz/egg-stage-08.webp | awk '{print $1}')
+          remote08=$(sha256sum "$RUNNER_TEMP/prod-egg08.webp" | awk '{print $1}')
+          test "$local01" = "$remote01"
+          test "$local08" = "$remote08"
+          echo PRODUCTION_APPROVED_EGG_ASSETS_EXACT_PASS
+
+      - name: Upload post-release evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: kontur-production-release-evidence-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/prod-health.json
+            ${{ runner.temp }}/prod-root.html
+            ${{ runner.temp }}/prod-egg01.webp
+            ${{ runner.temp }}/prod-egg08.webp

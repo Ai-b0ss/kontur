@@ -91,6 +91,21 @@ jobs:
         timeout-minutes: 5
         run: pnpm build
 
+      - name: Read-only public provenance probe
+        timeout-minutes: 2
+        env:
+          PROVENANCE_OUTPUT: ${{ runner.temp }}/kontur-public-provenance.json
+        run: node tools/cloudflare/read-only-public-provenance.mjs
+
+      - name: Upload read-only public provenance evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: kontur-public-provenance-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/kontur-public-provenance.json
+
       - name: Reproducible share-safe handoff archive
         timeout-minutes: 4
         shell: pwsh

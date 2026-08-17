@@ -73,7 +73,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_STAGING_D1_DATABASE_NAME" --remote --config wrangler.staging.generated.jsonc --command "DELETE FROM users WHERE tg_id = $STAGING_TG_ID;"
+          pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_STAGING_D1_DATABASE_NAME" --remote --config wrangler.staging.generated.jsonc --command "DELETE FROM events WHERE user_id IN (SELECT id FROM users WHERE tg_id = $STAGING_TG_ID); DELETE FROM users WHERE tg_id = $STAGING_TG_ID;"
           pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_STAGING_D1_DATABASE_NAME" --remote --config wrangler.staging.generated.jsonc --command "INSERT INTO users (tg_id, username, started_bot_at, is_member, member_checked_at) VALUES ($STAGING_TG_ID, 'staging_smoke_987654321', datetime('now'), 1, datetime('now'));"
 
       - name: Real remote auth → questions → hatch → state
@@ -83,8 +83,9 @@ jobs:
         if: always()
         shell: bash
         run: |
-          set +e
+          set -euo pipefail
           if [ -f apps/worker/wrangler.staging.generated.jsonc ] && [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
-            pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_STAGING_D1_DATABASE_NAME" --remote --config wrangler.staging.generated.jsonc --command "DELETE FROM users WHERE tg_id = $STAGING_TG_ID;"
+            pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_STAGING_D1_DATABASE_NAME" --remote --config wrangler.staging.generated.jsonc --command "DELETE FROM events WHERE user_id IN (SELECT id FROM users WHERE tg_id = $STAGING_TG_ID); DELETE FROM users WHERE tg_id = $STAGING_TG_ID;"
+            echo 'STAGING_SYNTHETIC_USER_CLEANUP_PASS'
           fi
           rm -f "$RUNNER_TEMP/staging-d1.json"

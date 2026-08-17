@@ -8,7 +8,6 @@ const OUTPUT = process.env.RUNTIME_REACHABILITY_OUTPUT || '';
 const MARKDOWN_OUTPUT = process.env.RUNTIME_REACHABILITY_MARKDOWN || '';
 
 const normalize = (value) => value.replaceAll('\\', '/').replace(/^\.\//, '');
-const rel = (value) => normalize(path.relative(ROOT, value));
 const abs = (value) => path.resolve(ROOT, value);
 
 function fail(message) {
@@ -31,7 +30,7 @@ const sourceRoots = [
   'packages/core/src/',
   'packages/contracts/src/',
 ];
-const sourceExts = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.css']);
+const sourceExts = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts', '.css']);
 const sourceFiles = tracked.filter((file) => sourceRoots.some((root) => file.startsWith(root)) && sourceExts.has(path.extname(file)));
 const sourceSet = new Set(sourceFiles);
 
@@ -80,7 +79,7 @@ for (const packageJson of tracked.filter((file) => file.endsWith('/package.json'
   }
 }
 
-const candidateExtensions = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.css'];
+const candidateExtensions = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts', '.css'];
 function resolveCandidate(base) {
   const normalizedBase = normalize(base);
   const variants = new Set([normalizedBase]);
@@ -103,8 +102,7 @@ function resolveCandidate(base) {
 function resolveSpecifier(fromFile, specifier) {
   if (specifier.startsWith('.') || specifier.startsWith('/')) {
     if (specifier.startsWith('/')) return null;
-    const base = normalize(path.join(path.dirname(fromFile), specifier));
-    return resolveCandidate(base);
+    return resolveCandidate(normalize(path.join(path.dirname(fromFile), specifier)));
   }
   for (const [packageName, entry] of packageMap) {
     if (specifier === packageName) return resolveCandidate(entry);
@@ -154,34 +152,52 @@ function sorted(values) {
   return [...values].sort((a, b) => a.localeCompare(b));
 }
 
-const productionSourceFiles = sourceFiles.filter((file) => sourceRoots.some((root) => file.startsWith(root)));
 const productionBundleReachable = sorted([...productionReachable].filter((file) => sourceSet.has(file)));
 const currentFeatureClosure = sorted([...currentFeatureReachable].filter((file) => sourceSet.has(file)));
 const productionOutsideNarrowFeature = productionBundleReachable.filter((file) => !currentFeatureReachable.has(file));
-const trackedSourceNotInProductionBundle = productionSourceFiles.filter((file) => !productionReachable.has(file)).sort();
+const trackedSourceNotInProductionBundle = sourceFiles.filter((file) => !productionReachable.has(file)).sort();
+const publicAssets = tracked.filter((file) => file.startsWith('apps/miniapp/public/'));
+const publicAssetSet = new Set(publicAssets);
 
-function literalPublicRefs(files) {
+function publicRefs(files) {
   const refs = new Set();
+  const dynamicPatterns = new Set();
+  const ext = '(?:webp|png|jpe?g|svg|gif|ico|webm|mp4|woff2?|ttf|json)';
   for (const file of files) {
     if (!trackedSet.has(file)) continue;
     const text = fs.readFileSync(abs(file), 'utf8');
-    const patterns = [
-      /["'`]\/(?!api\/)([^"'`?#]+\.(?:webp|png|jpe?g|svg|gif|ico|webm|mp4|woff2?|ttf|json))[?#[^"'`]*["'`]/gi,
-      /url\(\s*["']?\/(?!api\/)([^)"'?#]+\.(?:webp|png|jpe?g|svg|gif|ico|webm|mp4|woff2?|ttf))[?#[^)"']]*["']?\s*\)/gi,
-    ];
-    for (const regex of patterns) for (const match of text.matchAll(regex)) {
+
+    const literal = new RegExp(`["'\\`]\\/(?!api\\/)([^"'\\`?#]+\\.${ext})(?:[?#][^"'\\`]*)?["'\\`]`, 'gi');
+    for (const match of text.matchAll(literal)) {
       const candidate = `apps/miniapp/public/${match[1]}`;
-      if (trackedSet.has(candidate)) refs.add(candidate);
+      if (publicAssetSet.has(candidate)) refs.add(candidate);
+    }
+
+    const cssUrl = new RegExp(`url\\(\\s*["']?\\/(?!api\\/)([^)"'?#]+\\.${ext})(?:[?#][^)"']*)?["']?\\s*\\)`, 'gi');
+    for (const match of text.matchAll(cssUrl)) {
+      const candidate = `apps/miniapp/public/${match[1]}`;
+      if (publicAssetSet.has(candidate)) refs.add(candidate);
+    }
+
+    for (const match of text.matchAll(/`(\/[^`]*\$\{[^`]+\}[^`]*)`/g)) {
+      const template = match[1];
+      if (!new RegExp(`\\.${ext}(?:[?#].*)?$`, 'i').test(template)) continue;
+      const pathOnly = template.split(/[?#]/, 1)[0];
+      const escaped = pathOnly
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        .replace(/\\\$\\\{[^}]+\\\}/g, '.*');
+      const matcher = new RegExp(`^apps/miniapp/public${escaped}$`);
+      dynamicPatterns.add(template);
+      for (const asset of publicAssets) if (matcher.test(asset)) refs.add(asset);
     }
   }
-  return refs;
+  return { refs, dynamicPatterns };
 }
 
-const publicAssets = tracked.filter((file) => file.startsWith('apps/miniapp/public/') && !file.endsWith('/'));
 const indexHtml = trackedSet.has('apps/miniapp/index.html') ? ['apps/miniapp/index.html'] : [];
-const productionPublicRefs = literalPublicRefs([...productionBundleReachable, ...indexHtml]);
-const currentPublicRefs = literalPublicRefs([...currentFeatureClosure, ...indexHtml]);
-const publicWithoutStaticLiteralRef = publicAssets.filter((file) => !productionPublicRefs.has(file)).sort();
+const productionPublic = publicRefs([...productionBundleReachable, ...indexHtml]);
+const currentPublic = publicRefs([...currentFeatureClosure, ...indexHtml]);
+const publicWithoutStaticOrTemplateRef = publicAssets.filter((file) => !productionPublic.refs.has(file)).sort();
 
 const expectedCurrent = [
   'apps/miniapp/src/screens/LocalKontur.tsx',
@@ -206,15 +222,15 @@ const result = {
   roots,
   counts: {
     tracked: tracked.length,
-    productionSourceFiles: productionSourceFiles.length,
+    productionSourceFiles: sourceFiles.length,
     productionBundleReachable: productionBundleReachable.length,
     currentFeatureClosure: currentFeatureClosure.length,
     productionOutsideNarrowFeature: productionOutsideNarrowFeature.length,
     trackedSourceNotInProductionBundle: trackedSourceNotInProductionBundle.length,
     deployedPublicAssets: publicAssets.length,
-    productionPublicLiteralRefs: productionPublicRefs.size,
-    currentPublicLiteralRefs: currentPublicRefs.size,
-    publicWithoutStaticLiteralRef: publicWithoutStaticLiteralRef.length,
+    productionPublicRefs: productionPublic.refs.size,
+    currentPublicRefs: currentPublic.refs.size,
+    publicWithoutStaticOrTemplateRef: publicWithoutStaticOrTemplateRef.length,
   },
   packageEntries: Object.fromEntries([...packageMap].sort(([a], [b]) => a.localeCompare(b))),
   productionBundleReachable,
@@ -222,9 +238,11 @@ const result = {
   productionOutsideNarrowFeature,
   trackedSourceNotInProductionBundle,
   deployedPublicAssets: publicAssets.sort(),
-  productionPublicLiteralRefs: sorted(productionPublicRefs),
-  currentPublicLiteralRefs: sorted(currentPublicRefs),
-  publicWithoutStaticLiteralRef,
+  productionPublicRefs: sorted(productionPublic.refs),
+  currentPublicRefs: sorted(currentPublic.refs),
+  productionDynamicPublicPatterns: sorted(productionPublic.dynamicPatterns),
+  currentDynamicPublicPatterns: sorted(currentPublic.dynamicPatterns),
+  publicWithoutStaticOrTemplateRef,
   unresolvedInternalImports: unresolvedInternal,
   interpretation: {
     productionBundleReachable: 'Statically reachable from the real Vite/Worker entrypoints. Presence here proves shipping/bundle reachability, not current product approval.',
@@ -232,7 +250,7 @@ const result = {
     productionOutsideNarrowFeature: 'Ships in the production bundle but is outside the narrow LocalKontur feature closure. Must be classified before deletion; do not call it dead code from this report alone.',
     trackedSourceNotInProductionBundle: 'Tracked production-area source not statically reachable from either real production entrypoint. Candidate for further review only; dynamic/runtime references can still exist.',
     deployedPublicAssets: 'Vite public/ files are copied to dist and therefore deployed regardless of literal source references.',
-    publicWithoutStaticLiteralRef: 'Deployed public asset with no detected static literal reference. This is not proof that the asset is unused.',
+    publicWithoutStaticOrTemplateRef: 'Deployed public asset with no detected literal or simple template reference. This is not proof that the asset is unused.',
   },
 };
 
@@ -247,7 +265,7 @@ function markdownList(items, limit = 200) {
   const shown = items.slice(0, limit).map((item) => `- \`${item}\``).join('\n');
   return `${shown}${items.length > limit ? `\n- … ${items.length - limit} more` : ''}\n`;
 }
-const markdown = `# Kontur runtime reachability\n\nGenerated from tracked files at \`${result.gitHead}\`.\n\n## Counts\n\n${Object.entries(result.counts).map(([k, v]) => `- ${k}: **${v}**`).join('\n')}\n\n## Production bundle reachable outside narrow current feature closure\n\n${markdownList(productionOutsideNarrowFeature)}\n## Tracked source not statically reachable from production entrypoints\n\n${markdownList(trackedSourceNotInProductionBundle)}\n## Deployed public assets without a detected static literal reference\n\n${markdownList(publicWithoutStaticLiteralRef)}\n## Safety interpretation\n\nThis report is reachability evidence, not a deletion list. Static bundle reachability does not imply product approval, and absence from the static graph does not by itself prove runtime deadness.\n`;
+const markdown = `# Kontur runtime reachability\n\nGenerated from tracked files at \`${result.gitHead}\`.\n\n## Counts\n\n${Object.entries(result.counts).map(([k, v]) => `- ${k}: **${v}**`).join('\n')}\n\n## Production bundle reachable outside narrow current feature closure\n\n${markdownList(productionOutsideNarrowFeature)}\n## Tracked source not statically reachable from production entrypoints\n\n${markdownList(trackedSourceNotInProductionBundle)}\n## Deployed public assets without detected literal/template reference\n\n${markdownList(publicWithoutStaticOrTemplateRef)}\n## Safety interpretation\n\nThis report is reachability evidence, not a deletion list. Static bundle reachability does not imply product approval, and absence from the static graph does not by itself prove runtime deadness.\n`;
 if (MARKDOWN_OUTPUT) {
   fs.mkdirSync(path.dirname(abs(MARKDOWN_OUTPUT)), { recursive: true });
   fs.writeFileSync(abs(MARKDOWN_OUTPUT), markdown);

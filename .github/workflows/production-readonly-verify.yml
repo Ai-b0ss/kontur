@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   verify:
@@ -38,19 +39,42 @@ jobs:
         run: pnpm build
 
       - name: Verify current production without writes
+        id: production_verify
+        continue-on-error: true
         env:
           RELEASE_ORIGIN: https://kontur-igor.igorekglukhovskii43.workers.dev
           RELEASE_PROPAGATION_TIMEOUT_MS: '60000'
           RELEASE_PROPAGATION_INTERVAL_MS: '3000'
           RELEASE_EVIDENCE_DIR: production-readonly-evidence
           RELEASE_EVIDENCE_PREFIX: production
-        run: node tools/cloudflare/wait-for-deployed-assets.mjs
+        run: node tools/cloudflare/wait-for-deployed-assets.mjs 2>&1 | tee production-readonly.log
+
+      - name: Report result to PR
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          VERIFY_OUTCOME: ${{ steps.production_verify.outcome }}
+        run: |
+          if [ "$VERIFY_OUTCOME" = "success" ]; then
+            PROOF=$(grep 'DEPLOYED_ASSET_GENERATION_EXACT_PASS' production-readonly.log | tail -1)
+            gh pr comment "$PR_NUMBER" --body "PRODUCTION_READONLY_EXACT_PASS — ${PROOF}"
+          else
+            TAIL=$(tail -12 production-readonly.log | sed 's/`/\`/g')
+            gh pr comment "$PR_NUMBER" --body "PRODUCTION_READONLY_EXACT_FAIL — read-only check only; no Cloudflare/D1 writes.\n\n\`\`\`\n${TAIL}\n\`\`\`"
+          fi
 
       - name: Upload read-only evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: kontur-production-readonly-${{ github.run_id }}
-          path: production-readonly-evidence/
+          path: |
+            production-readonly-evidence/
+            production-readonly.log
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Preserve verification verdict
+        if: steps.production_verify.outcome != 'success'
+        run: exit 1

@@ -7,6 +7,7 @@ const PROD_DB_ID = '91e39e7e-70fc-4551-8d3e-48235e70f985';
 const STAGING_WORKER_NAME = process.env.CLOUDFLARE_STAGING_WORKER_NAME || 'kontur-igor-staging';
 const STAGING_DB_NAME = process.env.CLOUDFLARE_STAGING_D1_DATABASE_NAME || 'kontur-staging';
 const STAGING_DB_ID = String(process.env.CLOUDFLARE_STAGING_D1_DATABASE_ID || '').trim();
+const STAGING_PUBLIC_URL = process.env.CLOUDFLARE_STAGING_PUBLIC_URL || 'https://kontur-igor-staging.igorekglukhovskii43.workers.dev';
 
 const sourcePath = process.argv[2] || 'apps/worker/wrangler.jsonc';
 const outputPath = process.argv[3] || 'apps/worker/wrangler.staging.generated.jsonc';
@@ -22,6 +23,7 @@ if (!uuid.test(STAGING_DB_ID)) fail('staging D1 database id is not a UUID');
 if (STAGING_DB_ID === PROD_DB_ID) fail('staging D1 id equals production D1 id');
 if (STAGING_WORKER_NAME === PROD_WORKER_NAME) fail('staging Worker name equals production Worker name');
 if (STAGING_DB_NAME === PROD_DB_NAME) fail('staging D1 name equals production D1 name');
+if (!STAGING_PUBLIC_URL.startsWith('https://')) fail('staging public URL must use https');
 
 let raw = fs.readFileSync(sourcePath, 'utf8').replace(/^\uFEFF/, '');
 let config;
@@ -59,6 +61,9 @@ staging.d1_databases = staging.d1_databases.map((entry) => {
 staging.vars = {
   ...(staging.vars || {}),
   DEV_MODE: 'false',
+  MAIN_CHAT_ID: '-1000000000000',
+  MINIAPP_URL: STAGING_PUBLIC_URL,
+  V5_MINIAPP_URL: STAGING_PUBLIC_URL,
   LIVE_CAMPAIGN_V5_ENABLED: 'false',
   LIVE_CAMPAIGN_V5_PUBLISH_ENABLED: 'false',
   V5_LLM_PROVIDER: 'disabled',
@@ -71,6 +76,8 @@ if (!stageDb || stageDb.database_name !== STAGING_DB_NAME || stageDb.database_id
 }
 if ('triggers' in staging) fail('staging config must not contain cron triggers');
 if ('route' in staging || 'routes' in staging) fail('staging config must not contain production/custom routes');
+if (staging.vars?.DEV_MODE !== 'false') fail('staging DEV_MODE must stay false');
+if (staging.vars?.MINIAPP_URL !== STAGING_PUBLIC_URL) fail('staging Mini App URL mismatch');
 if (staging.vars?.LIVE_CAMPAIGN_V5_ENABLED !== 'false') fail('live campaign must stay disabled');
 if (staging.vars?.LIVE_CAMPAIGN_V5_PUBLISH_ENABLED !== 'false') fail('live campaign publish must stay disabled');
 if (staging.vars?.V5_LLM_PROVIDER !== 'disabled') fail('LLM provider must stay disabled');

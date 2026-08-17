@@ -1,4 +1,4 @@
-name: Kontur Cloudflare runtime discovery
+name: Kontur Cloudflare staging bootstrap
 
 on:
   push:
@@ -8,157 +8,185 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: kontur-cloudflare-staging-bootstrap
+  cancel-in-progress: false
+
+env:
+  CLOUDFLARE_ACCOUNT_ID: 7a5b709a066fca0ee563c42b3e5c4f10
+  PROD_D1_ID: 91e39e7e-70fc-4551-8d3e-48235e70f985
+  PROD_D1_NAME: kontur
+  PROD_WORKER_NAME: kontur-igor
+  STAGING_D1_NAME: kontur-staging
+  STAGING_WORKER_NAME: kontur-igor-staging
+  STAGING_ORIGIN: https://kontur-igor-staging.igorekglukhovskii43.workers.dev
+
 jobs:
-  discover:
+  bootstrap:
+    name: verify + create isolated staging + deploy + smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 40
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
     steps:
-      - name: Checkout with LFS
+      - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
         with:
-          lfs: true
+          node-version: '22'
 
-      - name: Verify encrypted runtime object
+      - name: Enable pnpm 11
+        run: |
+          corepack enable
+          corepack prepare pnpm@11 --activate
+          pnpm --version
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        timeout-minutes: 5
+
+      - name: Require token without printing it
         shell: bash
         run: |
           set -euo pipefail
-          test -f .runtime-state/kontur-runtime-state.tar.gz.gpg
-          bytes=$(wc -c < .runtime-state/kontur-runtime-state.tar.gz.gpg)
-          test "$bytes" -gt 256 || { echo "Encrypted runtime object was not materialized from LFS"; exit 1; }
-          echo "RUNTIME_LFS_OBJECT_PASS size=$bytes"
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo 'CLOUDFLARE_API_TOKEN missing'; exit 1; }
+          echo 'CLOUDFLARE_API_TOKEN_PRESENT'
 
-      - name: Decrypt runtime state to runner temp
-        env:
-          RUNTIME_STATE_KEY: ${{ secrets.RUNTIME_STATE_KEY }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "$RUNTIME_STATE_KEY" || { echo "RUNTIME_STATE_KEY is unavailable"; exit 1; }
-          umask 077
-          gpg --batch --yes --pinentry-mode loopback \
-            --passphrase "$RUNTIME_STATE_KEY" \
-            --output "$RUNNER_TEMP/kontur-runtime.tar.gz" \
-            --decrypt .runtime-state/kontur-runtime-state.tar.gz.gpg
-          gzip -t "$RUNNER_TEMP/kontur-runtime.tar.gz"
-          mkdir -p "$RUNNER_TEMP/kontur-runtime"
-          tar -xzf "$RUNNER_TEMP/kontur-runtime.tar.gz" -C "$RUNNER_TEMP/kontur-runtime"
-          echo "RUNTIME_DECRYPT_PASS"
+      - name: Offline staging isolation gate
+        run: node tools/cloudflare/staging-config-check.mjs
 
-      - name: Discover Cloudflare credential names without exposing values
-        shell: python
-        run: |
-          import json, os, re
-          from pathlib import Path
+      - name: Full project verification before Cloudflare writes
+        run: pnpm check
+        timeout-minutes: 15
 
-          root = Path(os.environ['RUNNER_TEMP']) / 'kontur-runtime'
-          wanted = {
-              'CLOUDFLARE_API_TOKEN', 'CF_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
-              'CF_ACCOUNT_ID', 'CLOUDFLARE_API_KEY', 'CLOUDFLARE_EMAIL'
-          }
-          found = {}
+      - name: Build Mini App assets
+        run: pnpm build
+        timeout-minutes: 5
 
-          def record(k, v, source):
-              k = str(k).strip()
-              if k not in wanted or k in found or v is None:
-                  return
-              v = str(v).strip().strip('"').strip("'")
-              if v:
-                  found[k] = (v, source)
-
-          for p in root.rglob('*'):
-              if not p.is_file() or p.stat().st_size > 2_000_000:
-                  continue
-              try:
-                  text = p.read_text(encoding='utf-8', errors='ignore')
-              except Exception:
-                  continue
-              rel = str(p.relative_to(root))
-              for line in text.splitlines():
-                  m = re.match(r'^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$', line)
-                  if m:
-                      record(m.group(1), m.group(2), rel)
-              try:
-                  obj = json.loads(text)
-              except Exception:
-                  obj = None
-              def walk(x):
-                  if isinstance(x, dict):
-                      for k, v in x.items():
-                          if isinstance(v, (str, int)):
-                              record(k, v, rel)
-                          walk(v)
-                  elif isinstance(x, list):
-                      for v in x:
-                          walk(v)
-              if obj is not None:
-                  walk(obj)
-
-          token = found.get('CLOUDFLARE_API_TOKEN') or found.get('CF_API_TOKEN')
-          account = found.get('CLOUDFLARE_ACCOUNT_ID') or found.get('CF_ACCOUNT_ID')
-          print('CLOUDFLARE_TOKEN_PRESENT=' + ('true' if token else 'false'))
-          print('CLOUDFLARE_ACCOUNT_ID_PRESENT=' + ('true' if account else 'false'))
-          for k, (_, source) in sorted(found.items()):
-              print(f'FOUND_NAME {k} source={source}')
-
-          envfile = Path(os.environ['GITHUB_ENV'])
-          if token:
-              value = token[0]
-              print(f'::add-mask::{value}')
-              with envfile.open('a', encoding='utf-8') as f:
-                  f.write('DISCOVERED_CLOUDFLARE_API_TOKEN<<__CF_TOKEN__\n')
-                  f.write(value + '\n__CF_TOKEN__\n')
-          if account:
-              with envfile.open('a', encoding='utf-8') as f:
-                  f.write(f'DISCOVERED_CLOUDFLARE_ACCOUNT_ID={account[0]}\n')
-
-      - name: Verify preserved Cloudflare token read-only
-        if: env.DISCOVERED_CLOUDFLARE_API_TOKEN != ''
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ env.DISCOVERED_CLOUDFLARE_API_TOKEN }}
-          EXPLICIT_ACCOUNT_ID: ${{ env.DISCOVERED_CLOUDFLARE_ACCOUNT_ID }}
-          PROD_D1_ID: 91e39e7e-70fc-4551-8d3e-48235e70f985
+      - name: Verify token and production identity read-only
         shell: bash
         run: |
           set -euo pipefail
           auth=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json")
-          curl -fsS "${auth[@]}" https://api.cloudflare.com/client/v4/user/tokens/verify > "$RUNNER_TEMP/token-verify.json"
-          node --input-type=module -e "const fs=require('fs'); const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/token-verify.json','utf8')); if(!x.success) process.exit(1); console.log('CLOUDFLARE_TOKEN_VERIFY_PASS')"
-
-          curl -fsS "${auth[@]}" 'https://api.cloudflare.com/client/v4/accounts?per_page=50' > "$RUNNER_TEMP/accounts.json"
-          node --input-type=module <<'NODE'
+          curl -fsS "${auth[@]}" https://api.cloudflare.com/client/v4/user/tokens/verify > "$RUNNER_TEMP/token.json"
+          node --input-type=module - <<'NODE'
           import fs from 'node:fs';
-          const x = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/accounts.json', 'utf8'));
-          if (!x.success || !Array.isArray(x.result) || x.result.length === 0) throw new Error('No accessible Cloudflare accounts');
-          console.log(`CLOUDFLARE_ACCESSIBLE_ACCOUNTS=${x.result.length}`);
-          fs.writeFileSync(process.env.RUNNER_TEMP + '/account-ids.txt', x.result.map(a => a.id).join('\n') + '\n');
+          const x = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/token.json', 'utf8'));
+          if (!x.success || x.result?.status !== 'active') throw new Error('Cloudflare token is not active');
+          console.log('CLOUDFLARE_TOKEN_VERIFY_PASS');
           NODE
 
-          target=""
-          if [ -n "${EXPLICIT_ACCOUNT_ID:-}" ]; then
-            ids="$EXPLICIT_ACCOUNT_ID"
-          else
-            ids="$(cat "$RUNNER_TEMP/account-ids.txt")"
-          fi
-          while IFS= read -r account_id; do
-            [ -n "$account_id" ] || continue
-            code=$(curl -sS -o "$RUNNER_TEMP/d1-check.json" -w '%{http_code}' "${auth[@]}" \
-              "https://api.cloudflare.com/client/v4/accounts/$account_id/d1/database/$PROD_D1_ID")
-            if [ "$code" = "200" ]; then
-              ok=$(node --input-type=module -e "const fs=require('fs'); const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/d1-check.json','utf8')); process.stdout.write(x.success?'yes':'no')")
-              if [ "$ok" = "yes" ]; then
-                if [ -n "$target" ] && [ "$target" != "$account_id" ]; then
-                  echo "Production D1 resolved in more than one account"; exit 1
-                fi
-                target="$account_id"
-              fi
-            fi
-          done <<< "$ids"
-          test -n "$target" || { echo "Could not resolve account containing the known production D1"; exit 1; }
-          echo "CLOUDFLARE_TARGET_ACCOUNT_ID=$target"
-          echo "CLOUDFLARE_PRODUCTION_D1_READONLY_PROOF_PASS"
+          curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$PROD_D1_ID" > "$RUNNER_TEMP/prod-d1.json"
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          const x = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/prod-d1.json', 'utf8'));
+          if (!x.success) throw new Error('Known production D1 is not readable');
+          if (x.result?.uuid !== process.env.PROD_D1_ID) throw new Error('Production D1 UUID mismatch');
+          if (x.result?.name !== process.env.PROD_D1_NAME) throw new Error('Production D1 name mismatch');
+          console.log('PRODUCTION_D1_IDENTITY_READONLY_PASS');
+          NODE
 
-      - name: Cleanup decrypted runtime
+      - name: Resolve or create staging D1 only
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json")
+          curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database?per_page=100" > "$RUNNER_TEMP/d1-list.json"
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          const x = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/d1-list.json', 'utf8'));
+          if (!x.success || !Array.isArray(x.result)) throw new Error('Cannot list D1 databases');
+          const staging = x.result.filter(d => d.name === process.env.STAGING_D1_NAME);
+          if (staging.length > 1) throw new Error('More than one staging D1 with expected name');
+          if (staging.length === 1) {
+            const id = staging[0].uuid;
+            if (!id || id === process.env.PROD_D1_ID) throw new Error('Staging D1 resolved to production UUID');
+            fs.appendFileSync(process.env.GITHUB_ENV, `CLOUDFLARE_STAGING_D1_DATABASE_ID=${id}\n`);
+            fs.appendFileSync(process.env.GITHUB_ENV, 'STAGING_D1_CREATED=false\n');
+            console.log('STAGING_D1_EXISTING_PASS');
+          }
+          NODE
+
+          if [ -z "${CLOUDFLARE_STAGING_D1_DATABASE_ID:-}" ]; then
+            curl -fsS -X POST "${auth[@]}" \
+              --data "{\"name\":\"$STAGING_D1_NAME\"}" \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database" > "$RUNNER_TEMP/d1-create.json"
+            node --input-type=module - <<'NODE'
+            import fs from 'node:fs';
+            const x = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/d1-create.json', 'utf8'));
+            if (!x.success) throw new Error('Staging D1 create failed');
+            const id = x.result?.uuid;
+            if (!id || id === process.env.PROD_D1_ID) throw new Error('Created D1 UUID is invalid or production');
+            if (x.result?.name !== process.env.STAGING_D1_NAME) throw new Error('Created D1 name mismatch');
+            fs.appendFileSync(process.env.GITHUB_ENV, `CLOUDFLARE_STAGING_D1_DATABASE_ID=${id}\n`);
+            fs.appendFileSync(process.env.GITHUB_ENV, 'STAGING_D1_CREATED=true\n');
+            console.log('STAGING_D1_CREATE_PASS');
+            NODE
+          fi
+
+      - name: Generate isolated staging config
+        env:
+          CLOUDFLARE_STAGING_WORKER_NAME: ${{ env.STAGING_WORKER_NAME }}
+          CLOUDFLARE_STAGING_D1_DATABASE_NAME: ${{ env.STAGING_D1_NAME }}
+        run: node tools/cloudflare/make-staging-config.mjs
+
+      - name: Verify generated config cannot point at production
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          const text = fs.readFileSync('apps/worker/wrangler.staging.generated.jsonc', 'utf8');
+          if (text.includes(process.env.PROD_D1_ID)) throw new Error('Generated staging config contains production D1 UUID');
+          if (!text.includes(process.env.CLOUDFLARE_STAGING_D1_DATABASE_ID)) throw new Error('Generated staging config lacks resolved staging D1 UUID');
+          if (!text.includes(process.env.STAGING_WORKER_NAME)) throw new Error('Generated staging config lacks staging Worker name');
+          console.log('GENERATED_STAGING_CONFIG_FAIL_CLOSED_PASS');
+          NODE
+
+      - name: Wrangler staging dry-run
+        run: pnpm -F @kontur/worker exec wrangler deploy --config wrangler.staging.generated.jsonc --dry-run
+
+      - name: Apply migrations to staging D1 only
+        run: pnpm -F @kontur/worker exec wrangler d1 migrations apply "$STAGING_D1_NAME" --remote --config wrangler.staging.generated.jsonc
+        timeout-minutes: 5
+
+      - name: Deploy staging Worker only
+        run: pnpm -F @kontur/worker exec wrangler deploy --config wrangler.staging.generated.jsonc
+        timeout-minutes: 8
+
+      - name: Live smoke on staging only
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            code=$(curl -sS -o "$RUNNER_TEMP/root.html" -w '%{http_code}' "$STAGING_ORIGIN/" || true)
+            if [ "$code" = "200" ]; then break; fi
+            sleep 2
+          done
+          test "$code" = "200" || { echo "Staging root did not become healthy: HTTP $code"; exit 1; }
+          grep -q '<div id="root">' "$RUNNER_TEMP/root.html" || { echo 'Mini App root marker missing'; exit 1; }
+
+          health_code=$(curl -sS -o "$RUNNER_TEMP/health.json" -w '%{http_code}' "$STAGING_ORIGIN/api/health" || true)
+          test "$health_code" = "200" || { echo "Staging /api/health failed: HTTP $health_code"; cat "$RUNNER_TEMP/health.json"; exit 1; }
+          echo 'STAGING_LIVE_SMOKE_PASS'
+
+      - name: Report safe staging identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$CLOUDFLARE_STAGING_D1_DATABASE_ID" != "$PROD_D1_ID"
+          echo "STAGING_WORKER=$STAGING_WORKER_NAME"
+          echo "STAGING_D1=$STAGING_D1_NAME"
+          echo "STAGING_D1_ID=$CLOUDFLARE_STAGING_D1_DATABASE_ID"
+          echo "STAGING_D1_CREATED=$STAGING_D1_CREATED"
+          echo "STAGING_URL=$STAGING_ORIGIN"
+          echo 'PRODUCTION_TARGETS_UNTOUCHED_BY_COMMAND_SET=true'
+
+      - name: Cleanup transient files
         if: always()
         shell: bash
         run: |
-          rm -rf "$RUNNER_TEMP/kontur-runtime" "$RUNNER_TEMP/kontur-runtime.tar.gz" "$RUNNER_TEMP/token-verify.json" "$RUNNER_TEMP/accounts.json" "$RUNNER_TEMP/d1-check.json" "$RUNNER_TEMP/account-ids.txt"
+          rm -f "$RUNNER_TEMP/token.json" "$RUNNER_TEMP/prod-d1.json" "$RUNNER_TEMP/d1-list.json" "$RUNNER_TEMP/d1-create.json" "$RUNNER_TEMP/root.html" "$RUNNER_TEMP/health.json"

@@ -2,6 +2,11 @@
 
 **Назначение:** зафиксировать, что произошло ПОСЛЕ исходного ТЗ 13.08, чтобы новый агент не откатывал проект к состоянию «STEP A ещё не сделан».
 
+**Exact source layer 13.08:** [`PRIMARY_SOURCE_IGOR_ZEZOKUK_2026-08-13.md`](source/PRIMARY_SOURCE_IGOR_ZEZOKUK_2026-08-13.md) + [`FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md`](source/FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md).  
+**Byte-recovery proof / hashes:** [`source/README.md`](source/README.md).
+
+Этот журнал — более свежий execution-state поверх исходного FINAL_TZ; он не переписывает первичник задним числом.
+
 ## 1. Контекст
 
 После разговора 13.08 и письменного alignment был запущен визуальный проход через Codex. Были подготовлены три hook-направления с большим фиолетовым яйцом:

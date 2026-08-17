@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: kontur-ci-${{ github.event.pull_request.number || github.ref }}
@@ -167,3 +168,19 @@ jobs:
       - name: Cloudflare staging Wrangler dry-run
         timeout-minutes: 2
         run: pnpm -F @kontur/worker exec wrangler deploy --config wrangler.staging.generated.jsonc --dry-run
+
+      - name: Report exact-head CI verdict to control issue
+        if: ${{ always() && github.event_name == 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          MERGE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          if [ "$JOB_STATUS" = "success" ]; then
+            MARKER="KONTUR_CI_EXACT_HEAD_PASS"
+          else
+            MARKER="KONTUR_CI_EXACT_HEAD_FAIL"
+          fi
+          gh issue comment 9 --repo "$GITHUB_REPOSITORY" --body "$MARKER head=${HEAD_SHA} merge=${MERGE_SHA} run=${GITHUB_RUN_ID} status=${JOB_STATUS} — clean checkout/frozen install + handoff safety + direct-deploy refusal + runtime reachability regression/evidence + staging isolation + propagation regression + unit/Worker/API/typecheck/economy/D1 + production build + Rollup bundle evidence + read-only public provenance + reproducible share-safe package + staging Wrangler dry-run. This report performs no Cloudflare/D1 writes and does not authorize merge/deploy."

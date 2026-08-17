@@ -43,6 +43,24 @@ jobs:
         timeout-minutes: 1
         run: node tools/handoff-safety-check.mjs
 
+      - name: Runtime reachability graph
+        timeout-minutes: 1
+        env:
+          RUNTIME_REACHABILITY_OUTPUT: ${{ runner.temp }}/kontur-runtime-reachability.json
+          RUNTIME_REACHABILITY_MARKDOWN: ${{ runner.temp }}/kontur-runtime-reachability.md
+        run: node tools/runtime-reachability.mjs
+
+      - name: Upload runtime reachability evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: kontur-runtime-reachability-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/kontur-runtime-reachability.json
+            ${{ runner.temp }}/kontur-runtime-reachability.md
+
       - name: Cloudflare staging isolation gate
         timeout-minutes: 1
         run: node tools/cloudflare/staging-config-check.mjs

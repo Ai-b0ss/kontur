@@ -30,7 +30,11 @@ const required = [
   'apps/miniapp/src/components/QuizEgg.tsx',
   'apps/miniapp/src/result-taxonomy.ts',
   'tools/runtime-reachability.mjs',
+  'tools/runtime-reachability.test.mjs',
   'tools/cloudflare/refuse-direct-production-deploy.mjs',
+  'tools/cloudflare/read-only-public-provenance.mjs',
+  'tools/cloudflare/wait-for-deployed-assets.mjs',
+  'tools/cloudflare/wait-for-deployed-assets.test.mjs',
   '.github/workflows/release-staging.yml',
   '.github/workflows/release-production.yml',
 ];

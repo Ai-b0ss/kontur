@@ -10,7 +10,7 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
+  issues: write
 
 jobs:
   verify:
@@ -49,19 +49,18 @@ jobs:
           RELEASE_EVIDENCE_PREFIX: production
         run: node tools/cloudflare/wait-for-deployed-assets.mjs 2>&1 | tee production-readonly.log
 
-      - name: Report result to PR
-        if: always() && github.event_name == 'pull_request'
+      - name: Report result to control issue
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
           VERIFY_OUTCOME: ${{ steps.production_verify.outcome }}
         run: |
           if [ "$VERIFY_OUTCOME" = "success" ]; then
             PROOF=$(grep 'DEPLOYED_ASSET_GENERATION_EXACT_PASS' production-readonly.log | tail -1)
-            gh pr comment "$PR_NUMBER" --body "PRODUCTION_READONLY_EXACT_PASS — ${PROOF}"
+            gh issue comment 9 --repo "$GITHUB_REPOSITORY" --body "PRODUCTION_READONLY_EXACT_PASS commit=${GITHUB_SHA} — ${PROOF} — no Cloudflare/D1 writes."
           else
             TAIL=$(tail -12 production-readonly.log | sed 's/`/\`/g')
-            gh pr comment "$PR_NUMBER" --body "PRODUCTION_READONLY_EXACT_FAIL — read-only check only; no Cloudflare/D1 writes.\n\n\`\`\`\n${TAIL}\n\`\`\`"
+            gh issue comment 9 --repo "$GITHUB_REPOSITORY" --body "PRODUCTION_READONLY_EXACT_FAIL commit=${GITHUB_SHA} — read-only check only; no Cloudflare/D1 writes.\n\n\`\`\`\n${TAIL}\n\`\`\`"
           fi
 
       - name: Upload read-only evidence

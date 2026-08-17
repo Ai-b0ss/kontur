@@ -1,4 +1,4 @@
-name: Kontur Cloudflare live staging discovery
+name: Kontur Cloudflare live staging provision
 
 on:
   push:
@@ -10,14 +10,17 @@ permissions:
 
 env:
   CLOUDFLARE_ACCOUNT_ID: 7a5b709a066fca0ee563c42b3e5c4f10
+  STAGING_WORKER_NAME: kontur-igor-staging
   STAGING_D1_NAME: kontur-staging
+  STAGING_PUBLIC_URL: https://kontur-igor-staging.igorekglukhovskii43.workers.dev
+  PROD_WORKER_NAME: kontur-igor
   PROD_D1_NAME: kontur
   PROD_D1_ID: 91e39e7e-70fc-4551-8d3e-48235e70f985
 
 jobs:
-  discover:
+  provision:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
 
@@ -33,49 +36,135 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Verify Cloudflare token and account
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "$CLOUDFLARE_API_TOKEN"
-          pnpm -F @kontur/worker exec wrangler whoami
+      - name: Offline staging isolation gate
+        run: node tools/cloudflare/staging-config-check.mjs
 
-      - name: Read D1 inventory only
+      - name: Full project verification before remote writes
+        run: pnpm check
+
+      - name: Build Mini App assets
+        run: pnpm build
+
+      - name: Verify Cloudflare token and exact account
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          pnpm -F @kontur/worker exec wrangler d1 list --json > "$RUNNER_TEMP/d1-list.json"
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo 'CLOUDFLARE_API_TOKEN missing'; exit 1; }
+          pnpm -F @kontur/worker exec wrangler whoami | tee "$RUNNER_TEMP/whoami.txt"
+          grep -F "$CLOUDFLARE_ACCOUNT_ID" "$RUNNER_TEMP/whoami.txt" >/dev/null
+
+      - name: Resolve or create staging D1 only
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler d1 list --json > "$RUNNER_TEMP/d1-before.json"
           node --input-type=module - <<'NODE'
           import fs from 'node:fs';
-          const rows = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/d1-list.json', 'utf8'));
-          if (!Array.isArray(rows)) throw new Error('Unexpected wrangler d1 list JSON shape');
+          const rows = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/d1-before.json', 'utf8'));
+          if (!Array.isArray(rows)) throw new Error('Unexpected D1 list shape');
           const prod = rows.find((x) => x.name === process.env.PROD_D1_NAME);
-          if (!prod) throw new Error('Production D1 not visible to token');
+          if (!prod) throw new Error('Production D1 not visible');
           const prodId = prod.uuid ?? prod.id;
-          if (prodId !== process.env.PROD_D1_ID) throw new Error(`Production D1 identity mismatch: ${prodId}`);
-          const staging = rows.filter((x) => x.name === process.env.STAGING_D1_NAME);
-          if (staging.length > 1) throw new Error('More than one staging D1 with expected name');
-          if (staging.length === 1) {
-            const id = staging[0].uuid ?? staging[0].id;
-            if (id === process.env.PROD_D1_ID) throw new Error('Staging name resolves to production UUID');
-            console.log(`STAGING_D1_PRESENT id=${id}`);
+          if (prodId !== process.env.PROD_D1_ID) throw new Error(`Production D1 mismatch: ${prodId}`);
+          const stage = rows.filter((x) => x.name === process.env.STAGING_D1_NAME);
+          if (stage.length > 1) throw new Error('Duplicate staging D1 names');
+          if (stage.length === 1) {
+            const id = stage[0].uuid ?? stage[0].id;
+            if (id === process.env.PROD_D1_ID) throw new Error('Staging resolves to production UUID');
+            fs.writeFileSync(process.env.RUNNER_TEMP + '/need-create', 'no');
+            console.log(`STAGING_D1_ALREADY_PRESENT id=${id}`);
           } else {
-            console.log('STAGING_D1_ABSENT');
+            fs.writeFileSync(process.env.RUNNER_TEMP + '/need-create', 'yes');
+            console.log('STAGING_D1_CREATE_REQUIRED');
           }
-          console.log(`D1_INVENTORY_PASS count=${rows.length}`);
+          NODE
+          if [ "$(cat "$RUNNER_TEMP/need-create")" = yes ]; then
+            pnpm -F @kontur/worker exec wrangler d1 create "$STAGING_D1_NAME"
+          fi
+          pnpm -F @kontur/worker exec wrangler d1 list --json > "$RUNNER_TEMP/d1-after.json"
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          const rows = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/d1-after.json', 'utf8'));
+          const stage = rows.filter((x) => x.name === process.env.STAGING_D1_NAME);
+          if (stage.length !== 1) throw new Error(`Expected exactly one staging D1, got ${stage.length}`);
+          const id = stage[0].uuid ?? stage[0].id;
+          if (!id || id === process.env.PROD_D1_ID) throw new Error('Unsafe staging D1 identity');
+          fs.appendFileSync(process.env.GITHUB_ENV, `CLOUDFLARE_STAGING_D1_DATABASE_ID=${id}\n`);
+          console.log(`STAGING_D1_IDENTITY_PASS id=${id}`);
           NODE
 
-      - name: Capture current Wrangler command contracts
+      - name: Generate isolated staging config
+        env:
+          CLOUDFLARE_STAGING_WORKER_NAME: ${{ env.STAGING_WORKER_NAME }}
+          CLOUDFLARE_STAGING_D1_DATABASE_NAME: ${{ env.STAGING_D1_NAME }}
+          CLOUDFLARE_STAGING_PUBLIC_URL: ${{ env.STAGING_PUBLIC_URL }}
+        run: node tools/cloudflare/make-staging-config.mjs
+
+      - name: Validate staging bundle before write
+        run: pnpm -F @kontur/worker exec wrangler deploy --config wrangler.staging.generated.jsonc --dry-run
+
+      - name: Apply migrations to staging D1 only
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm -F @kontur/worker exec wrangler d1 migrations apply "$STAGING_D1_NAME" --remote --config wrangler.staging.generated.jsonc
+
+      - name: Generate non-production staging secrets
         shell: bash
         run: |
           set -euo pipefail
-          echo '--- d1 create help ---'
-          pnpm -F @kontur/worker exec wrangler d1 create --help
-          echo '--- d1 migrations apply help ---'
-          pnpm -F @kontur/worker exec wrangler d1 migrations apply --help
-          echo '--- deploy help ---'
-          pnpm -F @kontur/worker exec wrangler deploy --help | head -n 120
+          umask 077
+          {
+            echo 'BOT_TOKEN=0:staging-disabled-no-telegram-access'
+            echo "JWT_SECRET=$(openssl rand -hex 32)"
+            echo "WEBHOOK_SECRET=$(openssl rand -hex 32)"
+            echo "ADMIN_SECRET=$(openssl rand -hex 32)"
+          } > "$RUNNER_TEMP/staging-secrets.env"
+          echo 'STAGING_SECRETS_READY (values not printed)'
+
+      - name: Deploy staging Worker only
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm -F @kontur/worker exec wrangler deploy --config wrangler.staging.generated.jsonc --secrets-file "$RUNNER_TEMP/staging-secrets.env"
+
+      - name: Smoke staging public URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 20); do
+            if curl --fail --silent --show-error "$STAGING_PUBLIC_URL/api/v1/health" > "$RUNNER_TEMP/health.json"; then
+              break
+            fi
+            sleep 3
+          done
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          const data = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/health.json', 'utf8'));
+          if (data.ok !== true) throw new Error('staging health is not ok');
+          if (data.devMode !== false) throw new Error('staging unexpectedly runs in DEV_MODE');
+          if (data.driver !== 'd1') throw new Error('staging is not using D1');
+          console.log(`STAGING_HEALTH_PASS started=${data.startedBot} hatched=${data.hatched} grants=${data.grants}`);
+          NODE
+          curl --fail --silent --show-error "$STAGING_PUBLIC_URL/" > "$RUNNER_TEMP/index.html"
+          grep -F '<div id="root">' "$RUNNER_TEMP/index.html" >/dev/null
+          echo "STAGING_PUBLIC_SMOKE_PASS url=$STAGING_PUBLIC_URL"
+
+      - name: Verify production identity was not replaced
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler d1 list --json > "$RUNNER_TEMP/d1-final.json"
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          const rows = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/d1-final.json', 'utf8'));
+          const prod = rows.find((x) => x.name === process.env.PROD_D1_NAME);
+          const stage = rows.find((x) => x.name === process.env.STAGING_D1_NAME);
+          if ((prod?.uuid ?? prod?.id) !== process.env.PROD_D1_ID) throw new Error('Production D1 identity changed');
+          if (!stage || (stage.uuid ?? stage.id) === process.env.PROD_D1_ID) throw new Error('Staging D1 identity invalid');
+          console.log('POST_DEPLOY_D1_ISOLATION_PASS');
+          NODE

@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 const output = 'apps/worker/wrangler.staging.generated.jsonc';
 const fakeId = '00000000-0000-4000-8000-000000000001';
 const prodId = '91e39e7e-70fc-4551-8d3e-48235e70f985';
+const stagingUrl = 'https://kontur-igor-staging.igorekglukhovskii43.workers.dev';
 
 try {
   const result = spawnSync(process.execPath, ['tools/cloudflare/make-staging-config.mjs'], {
@@ -13,6 +14,7 @@ try {
       CLOUDFLARE_STAGING_D1_DATABASE_ID: fakeId,
       CLOUDFLARE_STAGING_D1_DATABASE_NAME: 'kontur-staging',
       CLOUDFLARE_STAGING_WORKER_NAME: 'kontur-igor-staging',
+      CLOUDFLARE_STAGING_PUBLIC_URL: stagingUrl,
     },
     encoding: 'utf8',
   });
@@ -32,6 +34,10 @@ try {
   if (db?.database_id === prodId) failures.push('production D1 selected');
   if ('triggers' in cfg) failures.push('cron triggers leaked into staging');
   if ('route' in cfg || 'routes' in cfg) failures.push('routes leaked into staging');
+  if (cfg.vars?.DEV_MODE !== 'false') failures.push('DEV_MODE must stay false');
+  if (cfg.vars?.MAIN_CHAT_ID !== '-1000000000000') failures.push('staging MAIN_CHAT_ID is not isolated');
+  if (cfg.vars?.MINIAPP_URL !== stagingUrl) failures.push('staging MINIAPP_URL mismatch');
+  if (cfg.vars?.V5_MINIAPP_URL !== stagingUrl) failures.push('staging V5_MINIAPP_URL mismatch');
   if (cfg.vars?.LIVE_CAMPAIGN_V5_ENABLED !== 'false') failures.push('live campaign enabled');
   if (cfg.vars?.LIVE_CAMPAIGN_V5_PUBLISH_ENABLED !== 'false') failures.push('live publish enabled');
   if (cfg.vars?.V5_LLM_PROVIDER !== 'disabled') failures.push('LLM provider enabled');

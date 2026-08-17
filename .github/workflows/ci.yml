@@ -43,6 +43,10 @@ jobs:
         timeout-minutes: 1
         run: node tools/handoff-safety-check.mjs
 
+      - name: Direct production deploy refusal regression
+        timeout-minutes: 1
+        run: node --test tools/cloudflare/refuse-direct-production-deploy.test.mjs
+
       - name: Runtime reachability regression
         timeout-minutes: 1
         run: node --test tools/runtime-reachability.test.mjs

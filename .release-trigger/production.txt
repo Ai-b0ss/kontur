@@ -1,0 +1,4 @@
+trigger=guarded-production-release-1
+source=handoff/kontur-2026-08-17@85290a821bdd1a5ceb170480eccdba4243bea997
+intent=backup-prod-d1-reset-all-user-state-deploy-frozen-source-verify-approved-eggs
+rollback=sql-export-plus-time-travel-bookmark-required-before-reset

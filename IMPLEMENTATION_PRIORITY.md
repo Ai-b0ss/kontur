@@ -1,68 +1,82 @@
 # Контур — приоритеты реализации
 
-## P0 — восстановить точную текущую базу
+## P0 — закрыть доказательные хвосты без отката продукта
 
-1. Доказать provenance preview `5dabce57`:
-   `hostname → Cloudflare version → exact bundle/assets → exact source/worktree`.
-2. Найти и сохранить Codex lineage 14.08:
-   H3, Step B/C/D, review screens 01–08, WebM, flow board, assets/source/prompts.
-3. Обновить file audit: каждый tracked file получает одну категорию:
+1. **Exact preview provenance `5dabce57`** — отдельная forensic-задача:
+   `hostname -> immutable Cloudflare version -> exact bundle/assets -> exact source/worktree`.
+   Пока цепочка не доказана, запрещена только формулировка `byte-for-byte equals 5dabce57`; обычный handoff это не блокирует.
+2. **Exhaustive tracked-file classification / legacy reachability**:
+   каждый спорный runtime-файл получает одну категорию
    `CURRENT | CURRENT_CANDIDATE | COMPATIBILITY | TEST_INFRA | ARCHIVE | PRIVATE_EXCLUDED | UNKNOWN`.
+   Удалять старый runtime только после доказанного reachability/provenance.
+3. **Текущий deployed generation proof**:
+   после incident 17.08 следующий live proof должен быть read-only/non-destructive и сначала доказать exact convergence свежего `dist/index.html` и двух approved egg assets. Не повторять production reset ради smoke.
 
-До закрытия P0 не удалять спорный runtime/design code по имени версии.
+## P1 — довести одну handoff-базу до зелёного состояния
 
-## P1 — привести репозиторий к одной понятной истории
+В PR #11 должны одновременно жить:
 
-1. `README.md` — входная точка для человека.
-2. `CURRENT_PRODUCT.md` — короткая продуктовая конституция.
-3. `docs/product/PRODUCT_BRIEF_2026-08-13.md` — полное исходное ТЗ.
-4. `docs/product/DECISION_LOG_2026-08-14.md` — что уже реально сделано и принято.
-5. `ARCHITECTURE.md` — технические границы.
-6. `CODEBASE_MAP.md` — классификация живого/архивного кода.
-7. `HANDOFF.md` — как передать проект другому разработчику.
+1. `README.md` — входная точка для человека;
+2. `CURRENT_PRODUCT.md` — короткая продуктовая конституция;
+3. exact primary sources 13.08 в `docs/product/source/`;
+4. exact accepted execution evidence 14.08 в `docs/product/evidence/`;
+5. `PRODUCT_BRIEF_2026-08-13.md` + `DECISION_LOG_2026-08-14.md`;
+6. `ARCHITECTURE.md` / `CODEBASE_MAP.md` / `HANDOFF.md`;
+7. current runtime source A–E;
+8. staging/production release infrastructure с post-deploy convergence guard;
+9. clean-checkout CI + reproducible share-safe ZIP.
 
-Исторические V1–V5 docs → `docs/archive/` с понятным индексом; не держать их рядом с current source-of-truth.
+Merge в `main` — только по отдельному явному разрешению owner.
 
-## P2 — текущая продуктовая реализация
+## P2 — текущая продуктовая линия
 
-После provenance восстановления продолжать НЕ с нового hook-concept, а с фактической точки 14.08:
+Не начинать заново A/B/C/D/E.
+
+Доказанный статус:
 
 - STEP A H3 — принят;
-- STEP B continuity — принят;
-- STEP C 8 crack states — принят;
-- STEP D executable first-time flow — был собран и локально проверен, требует сверки с exact source/current preview;
-- следующий продуктовый gate: **STEP E — Bird Character Direction, 1–2 real UI concepts**.
+- STEP B continuity одного hero egg — принят;
+- STEP C 8 physical crack states — принят;
+- STEP D first-time flow — интегрирован в current runtime source;
+- STEP E — принят и интегрирован: 5 backend roles / 6 visual results, отдельные owl и Kotosov, Kotosov только как presentation-only `vibe` subtype при strict unique coder secondary score;
+- исторический следующий STEP F после E был safe Worker Version без traffic switch;
+- 17.08 проект уже прошёл дальше исторического STEP F и был выложен guarded production workflow.
 
-При этом, если exact `5dabce57` показывает более позднее owner-approved состояние, оно имеет приоритет после доказательства provenance.
+Поэтому следующий продуктовый шаг сейчас — **не новые bird concepts**, а корректный read-only/public verification текущей версии и затем человеческий smoke. Любой новый visual polish или переработка птиц — отдельное owner decision.
 
 ## P3 — инженерная чистота
 
-После определения exact current source:
-- удалить или физически изолировать только доказанный dead legacy;
-- разделить production/runtime migrations и local/reference migrations;
-- устранить дублирующие/неиспользуемые entrypoints;
-- сделать clean-clone reproducibility gate;
-- собрать share-safe source package;
-- оставить CI, который проверяет current MVP invariant.
+После определения reachability спорных модулей:
+- удалить/изолировать только доказанный dead legacy;
+- разделить production/runtime migrations и local/reference migrations там, где это действительно нужно;
+- устранить доказанные дубли/неиспользуемые entrypoints;
+- сохранять clean-clone reproducibility;
+- поддерживать share-safe source package;
+- CI должен проверять именно current MVP invariant и exact product evidence.
 
 ## P4 — staging / deployment
 
-Только после чистой базы:
-- staging proof;
-- mobile smoke 430×1000 и 320×568;
-- safe preview upload;
-- никакого production traffic switch без отдельного owner decision.
+Release verification теперь обязана:
+- после deploy ждать exact SHA свежего `dist/index.html`, а не считать команду `wrangler deploy` достаточным доказательством propagation;
+- проверять egg assets по MIME `image/webp` + exact SHA, чтобы SPA fallback не маскировался под картинку;
+- использовать одинаковый convergence gate для staging и production;
+- не запускать destructive production reset ради повторной read-only проверки;
+- не переключать/не менять production без соответствующего owner разрешения.
+
+Incident и доказательство: `docs/provenance/PRODUCTION_RELEASE_2026-08-17.md`.
 
 ## Запрещённый scope creep
 
 Не тратить время на tree/daily move/raid/forecast/Form II/inventory/storm/leaderboard/AI narrator и другие V4/V5 механики без нового явного решения owner.
 
+Не откатывать продукт на STEP E только потому, что более старый `FINAL_TZ` описывает E как следующий gate: exact accepted evidence 14.08 и current runtime source доказывают, что E уже прошёл.
+
 ## Главное правило
 
 Каждая следующая работа должна либо:
-1. снимать неопределённость о current source;
-2. улучшать current approved funnel;
+1. снимать реальную неопределённость о source/deployment;
+2. улучшать уже принятый current funnel по отдельному owner decision;
 3. повышать воспроизводимость/безопасность передачи;
-4. доказывать реальным тестом, что current invariant не сломан.
+4. доказывать тестом, что current invariant и exact evidence не сломаны.
 
 Всё остальное ниже по приоритету.

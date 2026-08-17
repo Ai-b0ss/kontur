@@ -1,4 +1,4 @@
-schema_version: 5
+schema_version: 6
 updated_at: "2026-08-17"
 status: "handoff_candidate_exact_head_ci_pending"
 
@@ -42,9 +42,15 @@ runtime_architecture:
   worker_production_entry: "apps/worker/src/index.ts -> api.ts"
   current_frontend_root: "apps/miniapp/src/screens/LocalKontur.tsx"
   current_backend_root: "apps/worker/src/local-kontur-api.ts"
-  compatibility_still_shipping: true
-  rule: "bundle reachability != product approval; absence from static graph != deletion proof"
+  compatibility_static_runtime_reachable_candidates: true
+  final_emitted_bundle_module_inclusion: "NOT_YET_PROVEN_FOR_EACH_MODULE"
+  reachability_semantics:
+    runtime_graph: "runtime imports/exports only; type-only imports excluded"
+    source_graph: "runtime plus type-only source dependencies"
+    rule: "static runtime reachability != current product and != proof of emitted bundle bytes"
+    deletion_rule: "static unreachability alone is not deletion proof"
   reachability_tool: "tools/runtime-reachability.mjs"
+  reachability_schema: "kontur-runtime-reachability-v2"
   reachability_ci_artifact: "kontur-runtime-reachability-${github.run_id}"
   reachability_latest_exact_head_evidence: "PENDING_ACTIONS_VISIBILITY"
   zero_season_flag_naming_debt:
@@ -119,9 +125,10 @@ preview_provenance:
 
 repository_policy:
   code_presence_is_not_product_approval: true
-  bundle_reachability_is_not_product_approval: true
+  static_runtime_reachability_is_not_product_approval: true
+  static_runtime_reachability_is_not_emitted_bundle_proof: true
   static_unreachability_is_not_deletion_proof: true
-  legacy_runtime_removal_requires_reachability_and_provenance_proof: true
+  legacy_runtime_removal_requires_reachability_build_and_provenance_proof: true
   historical_docs_root: "docs/archive/legacy/"
   provenance_root: "docs/provenance/"
   product_evidence_root: "docs/product/evidence/"

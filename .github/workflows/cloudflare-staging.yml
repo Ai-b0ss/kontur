@@ -113,7 +113,6 @@ jobs:
           curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$PROD_WORKER_NAME/deployments" > "$RUNNER_TEMP/prod-worker-before.json"
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
-          import crypto from 'node:crypto';
           const root = process.env.RUNNER_TEMP;
           const d1 = JSON.parse(fs.readFileSync(`${root}/prod-d1-before.json`, 'utf8'));
           const worker = JSON.parse(fs.readFileSync(`${root}/prod-worker-before.json`, 'utf8'));

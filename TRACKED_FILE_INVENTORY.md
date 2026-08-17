@@ -1,105 +1,116 @@
 # Контур — tracked-file inventory
 
-**Статус:** поэтапный доказательный аудит · 2026-08-17  
+**Статус:** практический handoff-аудит · 2026-08-17  
 **Ветка:** `cleanup/repo-hygiene-shareable-source`
 
-Этот файл — постоянный журнал классификации tracked-файлов. Категория описывает роль файла в передаваемой кодовой базе, а не автоматически его продуктовую актуальность.
+Этот документ классифицирует слои передаваемой базы. Полная forensic-классификация каждого отдельного исторического runtime blob остаётся отдельной задачей и **не блокирует передачу исходников разработчику**, пока эти слои сохранены и не выдаются за текущие фичи.
 
-Допустимые категории:
+Категории: `CURRENT | CURRENT_CANDIDATE | COMPATIBILITY | TEST_INFRA | ARCHIVE | PRIVATE_EXCLUDED | UNKNOWN`.
 
-- `CURRENT` — канонический текущий слой;
-- `CURRENT_CANDIDATE` — вероятно относится к текущему состоянию, но provenance ещё не закрыт;
-- `COMPATIBILITY` — нужен для совместимости/воспроизведения, но не задаёт продукт;
-- `TEST_INFRA` — проверки, CI, локальные инструменты, backup/restore;
-- `ARCHIVE` — историческое доказательство, не текущая инструкция;
-- `PRIVATE_EXCLUDED` — не входит во внешний source handoff;
-- `UNKNOWN` — доказательств пока недостаточно.
+## 1. Текущий управляющий слой — CURRENT
 
-Главный запрет: до exact-gate `5dabce57 -> immutable Worker version -> bundle/assets -> source/worktree` нельзя удалять runtime только по имени V1–V5 или по предположению о его возрасте.
+- `README.md`
+- `CURRENT_PRODUCT.md`
+- `PROJECT_STATE.yaml`
+- `AGENTS.md`
+- `AI_PROJECT_NAVIGATOR.md`
+- `ARCHITECTURE.md`
+- `IMPLEMENTATION_PRIORITY.md`
+- `CODEBASE_MAP.md`
+- `HANDOFF.md`
+- `BACKLOG.md`
+- `SHARE_SAFE_SOURCE.md`
+- `TRACKED_FILE_INVENTORY.md`
 
-## 1. Корневой control-plane
+Эти файлы — входная точка. Старые V1–V5 документы не имеют над ними продуктового приоритета.
 
-| Path | Категория | Решение |
-|---|---|---|
-| `CURRENT_PRODUCT.md` | CURRENT | текущая продуктовая конституция |
-| `PROJECT_STATE.yaml` | CURRENT | машинный указатель состояния и provenance gate |
-| `README.md` | CURRENT | человеческая точка входа |
-| `AGENTS.md` | CURRENT | обязательные правила для агентов |
-| `AI_PROJECT_NAVIGATOR.md` | CURRENT | навигация по актуальной базе |
-| `ARCHITECTURE.md` | CURRENT | текущая архитектурная карта |
-| `IMPLEMENTATION_PRIORITY.md` | CURRENT | порядок реализации и гейтов |
-| `CODEBASE_MAP.md` | CURRENT | карта слоёв кода |
-| `HANDOFF.md` | CURRENT | инструкция передачи проекта |
-| `BACKLOG.md` | CURRENT | текущие доказанные следующие задачи |
-| `SHARE_SAFE_SOURCE.md` | CURRENT | контракт безопасной передачи исходников |
-| `TRACKED_FILE_INVENTORY.md` | CURRENT | этот журнал классификации |
+## 2. Текущая продуктовая линия
 
-## 2. Product provenance
+### CURRENT / доказано в source
 
-| Path | Категория | Решение |
-|---|---|---|
-| `docs/product/PRODUCT_BRIEF_2026-08-13.md` | CURRENT | удобное производное изложение ТЗ; не заменяет exact primary source |
-| `docs/product/DECISION_LOG_2026-08-14.md` | CURRENT | решения и visual-gates после ТЗ |
-| `docs/product/source/README.md` | CURRENT | fail-closed правила импорта exact primary sources |
-| `docs/product/source/PRIMARY_SOURCE_IGOR_ZEZOKUK_2026-08-13.md` | UNKNOWN | обязательный exact snapshot ещё не импортирован: нужен byte-preserving source + size + SHA-256 |
-| `docs/product/source/FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md` | UNKNOWN | обязательный exact 475-line snapshot ещё не импортирован по той же причине |
-| Codex H3/B/C/D, review `01–08`, WebM, flow-board, assets/source/prompts 14.08 | CURRENT_CANDIDATE | текущая lineage; запрещено архивировать до восстановления exact provenance |
+- `apps/miniapp/src/App.tsx` — default surface = `LocalKontur`; V5 только по explicit `?campaign=v5`.
+- `apps/miniapp/src/screens/LocalKontur.tsx` — stage machine `hook -> questions -> hatching -> reveal -> worm -> home`, community сохранён отдельной не-default стадией.
+- `apps/miniapp/src/components/QuizEgg.tsx` — 8 deterministic stages, 45° progress/question.
+- `apps/miniapp/public/quiz/egg-stage-01.webp` … `egg-stage-08.webp` — физические стадии яйца.
+- `apps/miniapp/src/local-kontur-model.ts`, `apps/miniapp/src/local-kontur.css`, result/bird assets, используемые `LocalKontur` — current product path.
+- `docs/product/PRODUCT_BRIEF_2026-08-13.md` — каноническое удобное изложение ТЗ.
+- `docs/product/DECISION_LOG_2026-08-14.md` — зафиксированный прогресс H3/B/C/D после ТЗ.
 
-## 3. Runtime-каталоги
+### CURRENT_CANDIDATE / полный рабочий runtime
 
-| Path | Категория | Решение |
-|---|---|---|
-| `apps/miniapp/` | CURRENT_CANDIDATE | содержит Mini App и исторические поверхности; точный deployed subset пока не доказан |
-| `apps/worker/` | CURRENT_CANDIDATE | Cloudflare Worker/D1 runtime; exact связь с preview пока не доказана |
-| `packages/core/` | CURRENT_CANDIDATE | содержит нужную и потенциально старую игровую логику; требуется reachability-аудит |
-| `packages/contracts/` | CURRENT_CANDIDATE | общие контракты; точный current subset требует проверки |
-| `apps/api/` | COMPATIBILITY | локальный/reference-контур; не считать вторым production runtime без доказательства |
-| `apps/bot/` | COMPATIBILITY | локальный/reference Telegram-контур |
-| `packages/db/` | COMPATIBILITY | локальная/reference DB-часть и совместимость |
-| `tools/` | TEST_INFRA | локальные проверки, миграции, backup/restore и служебные инструменты; пофайловая проверка продолжается |
+- `apps/miniapp/`
+- `apps/worker/`
+- `packages/core/`
+- `packages/contracts/`
 
-## 4. Git/CI/runtime state
+Причина `CURRENT_CANDIDATE`, а не byte-exact current: owner preview `5dabce57...` ещё не связан доказательной цепочкой с exact Cloudflare assets/source. При этом текущий Git export доказанно взят из изолированного `v86-local-candidate/.../verification/result/source/kontur`, а не из случайной старой Downloads/K:-папки.
 
-| Path | Категория | Решение |
-|---|---|---|
-| `.github/workflows/ci.yml` | TEST_INFRA | основной CI |
-| `.github/workflows/cloudflare-staging.yml` | TEST_INFRA | staging-only инфраструктура; production write не разрешает |
-| `.github/ISSUE_TEMPLATE/` | TEST_INFRA | инженерный процесс |
-| `.github/pull_request_template.md` | TEST_INFRA | инженерный процесс |
-| `.env.example` | TEST_INFRA | только шаблон; проверить отсутствие реальных секретов в secret-scan gate |
-| `.env.telegram-test.example` | TEST_INFRA | тестовый шаблон, не live credentials |
-| `.runtime-state/` | PRIVATE_EXCLUDED | зашифрованное runtime-состояние хранится отдельно от share-safe source |
-| `RESTORE_RUNTIME_STATE.ps1` | TEST_INFRA | восстановление локального encrypted runtime-state |
-| `RESTORE_RUNTIME_STATE.sh` | TEST_INFRA | восстановление локального encrypted runtime-state |
+Исторические routes/modules внутри этих каталогов не удаляются при обычном handoff: они могут быть нужны совместимости и воспроизводимости. Их наличие **не делает механику current**.
 
-## 5. Очевидная историческая документация, ещё встречающаяся в корне
+## 3. Compatibility / local reference
 
-Эти файлы не являются источником текущих требований. Физическое перемещение допустимо отдельным cleanup-коммитом после проверки ссылок; сама классификация уже запрещает агентам принимать их за current.
+- `apps/api/` — COMPATIBILITY.
+- `apps/bot/` — COMPATIBILITY.
+- `packages/db/` — COMPATIBILITY.
 
-| Path | Категория |
-|---|---|
-| `COMMUNITY_RESEARCH_STAGE1_INTERIM.md` | ARCHIVE |
-| `CURSOR_HANDOFF_2026-08-07.md` | ARCHIVE |
-| `DESIGN.md` | ARCHIVE |
-| `EXPERIENCE_SPEC_V1.md` | ARCHIVE |
-| `HANDOVER.md` | ARCHIVE |
-| `IMPLEMENTATION_PLAN_V1.md` | ARCHIVE |
-| `PRODUCT_REDESIGN_BRIEF.md` | ARCHIVE |
-| `PROJECT_PASSPORT.md` | ARCHIVE |
-| `RESEARCH_SCOPE_V1.md` | ARCHIVE |
-| `RESTORED_PRODUCT_V3.md` | ARCHIVE |
+Они входят в передаваемую полную кодовую базу, потому что используются тестами/reference-сценариями и помогают воспроизводить систему. Они не объявляются вторым production runtime.
 
-## 6. Пока не классифицировано окончательно
+## 4. TEST_INFRA
 
-`DERIVED_CANDIDATE_README.md`, `INTEGRATION_README_2026-08-14.md`, `NEXT_CHAT_PROMPT.md`, `SHA256SUMS.txt`, `SNAPSHOT_INFO.txt`, `SOURCE_PROVENANCE_LOCAL.json` и остальные tracked-файлы, не перечисленные выше, остаются `UNKNOWN` до проверки содержимого и ссылочной достижимости. `UNKNOWN` не означает «мусор» и не разрешает удаление.
+- `.github/`
+- `tools/`
+- `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`
+- `.env.example`, `.env.telegram-test.example`
+- `RESTORE_RUNTIME_STATE.ps1`, `RESTORE_RUNTIME_STATE.sh`
 
-## 7. Что завершает аудит
+CI теперь отдельно запускает `tools/handoff-safety-check.mjs`: он контролирует current entrypoints/assets, отсутствие legacy authority в корне и опасных plaintext/private файлов.
 
-1. получить полный машинный список tracked paths для exact head;
-2. каждому blob назначить одну из категорий выше с кратким основанием;
-3. доказать preview/version/source provenance;
-4. проверить ссылки на `ARCHIVE` перед физическим перемещением;
-5. прогнать fresh-clone install/check + secret scan;
-6. после этого сформировать воспроизводимый share-safe manifest/package.
+## 5. PRIVATE_EXCLUDED
 
-До выполнения этих пунктов этот inventory считается **частично заполненным, fail-closed**.
+- `.runtime-state/` — в Git допускается только зашифрованный `.gpg`; ключ в repo отсутствует.
+- реальные `.env`/секреты/Cloudflare credentials/Telegram sessions/cookies/browser profiles/D1 dumps/private research — не входят в обычный handoff.
+
+## 6. ARCHIVE
+
+Весь исторический продуктовый шум физически отделён от рабочего корня в `docs/archive/legacy/`.
+
+Туда перенесены без переписывания содержимого:
+- прежние README/state/navigator/backlog/product direction/V5 specs;
+- Stage 1/5/6/7 документы;
+- старые handoff/design/research документы;
+- большой исторический `WORKLOG.md`;
+- `art-direction/`;
+- `stage5-prototype/`;
+- `direction-candidates-2026-08-07/`;
+- `mvp-core-2026-08-08/`;
+- старый `kontur-brief.html`.
+
+Это архив, а не корзина: он сохранён для истории/recovery и не должен использоваться как текущее ТЗ.
+
+## 7. PROVENANCE
+
+`docs/provenance/` хранит доказательства происхождения экспортированного source:
+- `SOURCE_PROVENANCE_LOCAL.json`;
+- `INTEGRATION_README_2026-08-14.md`;
+- `DERIVED_CANDIDATE_README.md`;
+- `SNAPSHOT_INFO.txt`;
+- `INITIAL_SHA256SUMS.txt`.
+
+Первичные документы 13.08 найдены в ChatGPT File Library, но старый Library object не предоставляет нам доказанно byte-preserving raw download. Поэтому `docs/product/source/README.md` честно оставляет exact-byte import незакрытым. Это не препятствует передаче кода и канонического ТЗ, но запрещает называть производный текст byte-exact оригиналом.
+
+## 8. Что можно сказать получателю честно
+
+**Да:** это полная текущая рабочая Git-база, экспортированная из проверенного изолированного v86 candidate, содержащая актуальный H3/B/C/D product path, backend, migrations, reference-контур, tests и release utilities.
+
+**Нет:** пока нельзя обещать, что HEAD этой ветки byte-for-byte равен immutable preview `5dabce57`.
+
+## 9. Практический handoff gate
+
+Перед передачей требуется:
+1. current README/HANDOFF;
+2. H3/B/C/D source + assets присутствуют;
+3. clean GitHub checkout/install/tests/typecheck/build green;
+4. `Handoff safety gate` green;
+5. одна зафиксированная handoff branch + commit.
+
+Exact `5dabce57` provenance и построчная forensic-классификация каждого legacy runtime blob — отдельный повышенный audit gate, не блокирующий обычную передачу разработчику.

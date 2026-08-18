@@ -1,33 +1,29 @@
 {
   "schema_version": 1,
-  "state_revision": 4,
+  "state_revision": 5,
   "lane": "KONTUR",
-  "updated_at_utc": "2026-08-18T22:28:11Z",
+  "updated_at_utc": "2026-08-18T22:30:00Z",
   "authority": {"policy": "autopilot/v2/POLICY.md", "acceptance_version": "kontur-owner-tz-20260818"},
   "repo": "Ai-b0ss/kontur",
   "pr": 12,
   "branch": "fix/kontur-core-visual-continuity-20260818",
   "current_head": "864d435310cdbfbfea83fbeb1e6acd5b6d091509",
-  "phase": "Q8_TIMELINE_PRODUCT_FIX",
-  "active_claim": {
-    "pulse_id": "CHIEF-20260818T222811Z-KONTUR-Q8",
-    "work_packet": "fix proven q8 reveal-timer epoch and answer-lock ownership on exact head; add executable pure timeline model regression, no backend/API/D1 changes",
-    "started_at_utc": "2026-08-18T22:28:11Z",
-    "expires_at_utc": "2026-08-18T22:40:11Z",
-    "expected_head": "864d435310cdbfbfea83fbeb1e6acd5b6d091509"
-  },
+  "phase": "Q8_TIMELINE_FIX_READY",
+  "active_claim": null,
   "in_flight_external": [],
+  "evidence_refs": [
+    "autopilot/v2/evidence/kontur-q8-timer-lock-864d4353.json"
+  ],
   "proven": [
     "source:q1-q8 explicit visualQuestionIndex ordering",
-    "source:q8 gesture/result gate",
     "source:persistent QuizEgg scene through hatch/reveal",
     "source:physical shell regression forbids SVG/path/line crack overpaint",
     "artifact:BIRD_CHARACTER_DIRECTION present",
     "inherited:backend scoring/D1/reward flow where unchanged",
-    "executor-localization:PR#12 exact head remains 864d435310cdbfbfea83fbeb1e6acd5b6d091509; the available ChatGPT Chromium executor cannot navigate the staging workers.dev origin and fails before page load with net::ERR_BLOCKED_BY_ADMINISTRATOR"
+    "FAIL_PRODUCT K-Q1-Q8-TIMELINE on 864d4353: reveal timer starts at result readiness before semantic HATCHING; hatch finally can release answerLock before gesture owner"
   ],
   "verify_pending": [
-    "K-Q1-Q8-TIMELINE: q8 hatch reveal timer currently starts when network result becomes ready rather than at semantic HATCHING; hatch finally can release answerLock before 260ms gesture completes",
+    "K-Q1-Q8-TIMELINE: patch exact q8 timer epoch + answerLock ownership, then executable state/timeline regression",
     "K-DOM-CONTINUITY: runtime DOM/component identity and fast/slow q8 ordering",
     "K-RESPONSIVE-WEBVIEW: 320x568 and 430x1000 rendered evidence; reduced-motion/skip convergence",
     "K-REVIEW-ARTIFACTS: required screenshot/WebM review artifacts",
@@ -39,9 +35,10 @@
     "GitHub Actions steps=null is product failure",
     "BIRD_CHARACTER_DIRECTION artifact is missing",
     "the current ChatGPT container/browser is a viable direct workers.dev visual executor",
-    "hatchReady gate alone proves the visible hatch receives the full reveal duration"
+    "hatchReady gate alone proves full hatch duration",
+    "hatch completion may safely own answerLock release"
   ],
-  "blocker": "Runtime/staging visual proof remains externally blocked, but source inspection on exact head proves an independent q8 timer-epoch/answer-lock defect that can be fixed without external traffic.",
-  "first_next_action": "Patch only q8 semantic transition timer epoch and answerLock ownership on exact product head, add executable timeline regression, then release claim and leave staging/browser rows pending.",
+  "blocker": "No external blocker for the source fix. Runtime/staging visual proof remains blocked on a real executor after the product correction.",
+  "first_next_action": "Acquire KONTUR claim on exact 864d4353 and patch LocalKontur only: move reveal timer arming to semantic HATCHING entry, remove answerLock release from hatch finally, add an executable non-regex timeline regression used by product logic. Then leave runtime/browser/staging rows open.",
   "user_needed": false
 }

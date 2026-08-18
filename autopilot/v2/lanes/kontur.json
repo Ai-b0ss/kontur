@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "state_revision": 1,
+  "lane": "KONTUR",
+  "updated_at_utc": "2026-08-18T21:46:00Z",
+  "authority": {"policy": "autopilot/v2/POLICY.md", "acceptance_version": "kontur-owner-tz-20260818"},
+  "repo": "Ai-b0ss/kontur",
+  "pr": 12,
+  "branch": "fix/kontur-core-visual-continuity-20260818",
+  "current_head": "864d435310cdbfbfea83fbeb1e6acd5b6d091509",
+  "phase": "EXECUTABLE_AND_VISUAL_ACCEPTANCE",
+  "active_claim": null,
+  "in_flight_external": [],
+  "proven": [
+    "source:q1-q8 explicit visualQuestionIndex ordering",
+    "source:q8 gesture/result gate",
+    "source:persistent QuizEgg scene through hatch/reveal",
+    "source:physical shell regression forbids SVG/path/line crack overpaint",
+    "artifact:BIRD_CHARACTER_DIRECTION present",
+    "inherited:backend scoring/D1/reward flow where unchanged"
+  ],
+  "verify_pending": [
+    "runtime DOM/component identity and fast/slow q8 ordering",
+    "320x568 and 430x1000 rendered evidence",
+    "reduced-motion and skip semantic convergence",
+    "required screenshot/WebM review artifacts",
+    "exact-head non-destructive kontur-igor-staging convergence",
+    "Telegram WebView smoke"
+  ],
+  "known_false_hypotheses": [
+    "current head is still CSS-only q8 continuity",
+    "GitHub Actions steps=null is product failure",
+    "BIRD_CHARACTER_DIRECTION artifact is missing"
+  ],
+  "blocker": "No executable/current staging visual proof yet; GitHub-hosted Actions admission is unusable.",
+  "first_next_action": "Use a real zero-cost executor/Cloudflare staging path to produce behavioral DOM/browser evidence for current head. Do not add more source-string contracts unless a new runtime defect is first demonstrated.",
+  "user_needed": false
+}

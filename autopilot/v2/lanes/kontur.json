@@ -1,15 +1,21 @@
 {
   "schema_version": 1,
-  "state_revision": 3,
+  "state_revision": 4,
   "lane": "KONTUR",
-  "updated_at_utc": "2026-08-18T22:16:30Z",
+  "updated_at_utc": "2026-08-18T22:28:11Z",
   "authority": {"policy": "autopilot/v2/POLICY.md", "acceptance_version": "kontur-owner-tz-20260818"},
   "repo": "Ai-b0ss/kontur",
   "pr": 12,
   "branch": "fix/kontur-core-visual-continuity-20260818",
   "current_head": "864d435310cdbfbfea83fbeb1e6acd5b6d091509",
-  "phase": "EXECUTABLE_AND_VISUAL_ACCEPTANCE",
-  "active_claim": null,
+  "phase": "Q8_TIMELINE_PRODUCT_FIX",
+  "active_claim": {
+    "pulse_id": "CHIEF-20260818T222811Z-KONTUR-Q8",
+    "work_packet": "fix proven q8 reveal-timer epoch and answer-lock ownership on exact head; add executable pure timeline model regression, no backend/API/D1 changes",
+    "started_at_utc": "2026-08-18T22:28:11Z",
+    "expires_at_utc": "2026-08-18T22:40:11Z",
+    "expected_head": "864d435310cdbfbfea83fbeb1e6acd5b6d091509"
+  },
   "in_flight_external": [],
   "proven": [
     "source:q1-q8 explicit visualQuestionIndex ordering",
@@ -21,20 +27,21 @@
     "executor-localization:PR#12 exact head remains 864d435310cdbfbfea83fbeb1e6acd5b6d091509; the available ChatGPT Chromium executor cannot navigate the staging workers.dev origin and fails before page load with net::ERR_BLOCKED_BY_ADMINISTRATOR"
   ],
   "verify_pending": [
-    "runtime DOM/component identity and fast/slow q8 ordering",
-    "320x568 and 430x1000 rendered evidence",
-    "reduced-motion and skip semantic convergence",
-    "required screenshot/WebM review artifacts",
-    "exact-head non-destructive kontur-igor-staging convergence",
-    "Telegram WebView smoke"
+    "K-Q1-Q8-TIMELINE: q8 hatch reveal timer currently starts when network result becomes ready rather than at semantic HATCHING; hatch finally can release answerLock before 260ms gesture completes",
+    "K-DOM-CONTINUITY: runtime DOM/component identity and fast/slow q8 ordering",
+    "K-RESPONSIVE-WEBVIEW: 320x568 and 430x1000 rendered evidence; reduced-motion/skip convergence",
+    "K-REVIEW-ARTIFACTS: required screenshot/WebM review artifacts",
+    "K-STAGING-EXACT-HEAD: non-destructive kontur-igor-staging convergence",
+    "K-TELEGRAM-SMOKE: Telegram WebView smoke"
   ],
   "known_false_hypotheses": [
     "current head is still CSS-only q8 continuity",
     "GitHub Actions steps=null is product failure",
     "BIRD_CHARACTER_DIRECTION artifact is missing",
-    "the current ChatGPT container/browser is a viable direct workers.dev visual executor"
+    "the current ChatGPT container/browser is a viable direct workers.dev visual executor",
+    "hatchReady gate alone proves the visible hatch receives the full reveal duration"
   ],
-  "blocker": "No executable/current staging visual proof yet. GitHub-hosted Actions admission is already known unusable, and the available ChatGPT Chromium path is independently blocked from workers.dev by administrator policy before navigation; retrying either path without new executor information would not add evidence.",
-  "first_next_action": "Use a different already-authorized zero-cost executor that can reach workers.dev (preferred: connected Cloudflare execution/deployment surface or an already-linked external CI) to deploy/identify exact head 864d4353 and run the behavioral browser oracle. Do not mutate product code or add source-string contracts unless that runtime proof reproduces a defect.",
+  "blocker": "Runtime/staging visual proof remains externally blocked, but source inspection on exact head proves an independent q8 timer-epoch/answer-lock defect that can be fixed without external traffic.",
+  "first_next_action": "Patch only q8 semantic transition timer epoch and answerLock ownership on exact product head, add executable timeline regression, then release claim and leave staging/browser rows pending.",
   "user_needed": false
 }

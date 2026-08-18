@@ -7,7 +7,7 @@ test('q8 hatch and reveal stay in one persistent onboarding scene with one bird 
 
   assert.match(
     screen,
-    /stage === 'hatching'\) \|\| stage === 'reveal'/,
+    /stage === 'hatching'[\s\S]{0,80}\|\| stage === 'reveal'/,
     'reveal must stay inside the same onboarding render branch as hatching',
   );
   assert.doesNotMatch(

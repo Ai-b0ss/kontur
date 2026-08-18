@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "state_revision": 1,
+  "lane": "GLOBAL",
+  "updated_at_utc": "2026-08-18T22:34:00Z",
+  "phase": "DYNAMIC_SCHEDULING",
+  "active_claim": null,
+  "provider_live_lease": null,
+  "provider_pressure_circuit": null,
+  "in_flight_external": [],
+  "known_done_frozen": ["AI_MIRRORS"],
+  "scheduling_policy": "critical_path_ready_first",
+  "first_next_action": "Keep live-provider lease empty until QWEN/NOTION offline and executor gates justify exactly one bounded live proof; allocate writers dynamically from lane state.",
+  "user_needed": false
+}

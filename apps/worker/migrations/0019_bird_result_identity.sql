@@ -6,6 +6,8 @@ ALTER TABLE profiles ADD COLUMN bird_result_id TEXT
 
 -- Восстанавливаем идентичность уже вылупившихся пользователей из сохранённых
 -- role + scores. Для неполного/повреждённого vibe-профиля безопасный fallback — owl.
+-- JSON-функциям всегда передаётся валидный объект: одного `json_valid(...) AND ...`
+-- недостаточно, потому что SQLite не обещает короткое замыкание выражений AND.
 UPDATE profiles
 SET bird_result_id = CASE role
   WHEN 'designer' THEN 'magpie'
@@ -18,13 +20,13 @@ SET bird_result_id = CASE role
       FROM onboarding_answers oa
       WHERE oa.user_id = profiles.user_id
         AND json_valid(oa.scores)
-        AND json_type(oa.scores, '$.coder') IN ('integer','real')
-        AND json_type(oa.scores, '$.designer') IN ('integer','real')
-        AND json_type(oa.scores, '$.creative') IN ('integer','real')
-        AND json_type(oa.scores, '$.manager') IN ('integer','real')
-        AND CAST(json_extract(oa.scores, '$.coder') AS REAL) > CAST(json_extract(oa.scores, '$.designer') AS REAL)
-        AND CAST(json_extract(oa.scores, '$.coder') AS REAL) > CAST(json_extract(oa.scores, '$.creative') AS REAL)
-        AND CAST(json_extract(oa.scores, '$.coder') AS REAL) > CAST(json_extract(oa.scores, '$.manager') AS REAL)
+        AND json_type(CASE WHEN json_valid(oa.scores) THEN oa.scores ELSE '{}' END, '$.coder') IN ('integer','real')
+        AND json_type(CASE WHEN json_valid(oa.scores) THEN oa.scores ELSE '{}' END, '$.designer') IN ('integer','real')
+        AND json_type(CASE WHEN json_valid(oa.scores) THEN oa.scores ELSE '{}' END, '$.creative') IN ('integer','real')
+        AND json_type(CASE WHEN json_valid(oa.scores) THEN oa.scores ELSE '{}' END, '$.manager') IN ('integer','real')
+        AND CAST(json_extract(CASE WHEN json_valid(oa.scores) THEN oa.scores ELSE '{}' END, '$.coder') AS REAL) > CAST(json_extract(CASE WHEN json_valid(oa.scores) THEN oa.scores ELSE '{}' END, '$.designer') AS REAL)
+        AND CAST(json_extract(CASE WHEN json_valid(oa.scores) THEN oa.scores ELSE '{}' END, '$.coder') AS REAL) > CAST(json_extract(CASE WHEN json_valid(oa.scores) THEN oa.scores ELSE '{}' END, '$.creative') AS REAL)
+        AND CAST(json_extract(CASE WHEN json_valid(oa.scores) THEN oa.scores ELSE '{}' END, '$.coder') AS REAL) > CAST(json_extract(CASE WHEN json_valid(oa.scores) THEN oa.scores ELSE '{}' END, '$.manager') AS REAL)
     ) THEN 'kotosov'
     ELSE 'owl'
   END
@@ -44,13 +46,13 @@ CREATE TRIGGER hatch_apply AFTER INSERT ON onboarding_answers BEGIN
            WHEN 'manager' THEN 'crane'
            WHEN 'vibe' THEN CASE
              WHEN json_valid(NEW.scores)
-              AND json_type(NEW.scores, '$.coder') IN ('integer','real')
-              AND json_type(NEW.scores, '$.designer') IN ('integer','real')
-              AND json_type(NEW.scores, '$.creative') IN ('integer','real')
-              AND json_type(NEW.scores, '$.manager') IN ('integer','real')
-              AND CAST(json_extract(NEW.scores, '$.coder') AS REAL) > CAST(json_extract(NEW.scores, '$.designer') AS REAL)
-              AND CAST(json_extract(NEW.scores, '$.coder') AS REAL) > CAST(json_extract(NEW.scores, '$.creative') AS REAL)
-              AND CAST(json_extract(NEW.scores, '$.coder') AS REAL) > CAST(json_extract(NEW.scores, '$.manager') AS REAL)
+              AND json_type(CASE WHEN json_valid(NEW.scores) THEN NEW.scores ELSE '{}' END, '$.coder') IN ('integer','real')
+              AND json_type(CASE WHEN json_valid(NEW.scores) THEN NEW.scores ELSE '{}' END, '$.designer') IN ('integer','real')
+              AND json_type(CASE WHEN json_valid(NEW.scores) THEN NEW.scores ELSE '{}' END, '$.creative') IN ('integer','real')
+              AND json_type(CASE WHEN json_valid(NEW.scores) THEN NEW.scores ELSE '{}' END, '$.manager') IN ('integer','real')
+              AND CAST(json_extract(CASE WHEN json_valid(NEW.scores) THEN NEW.scores ELSE '{}' END, '$.coder') AS REAL) > CAST(json_extract(CASE WHEN json_valid(NEW.scores) THEN NEW.scores ELSE '{}' END, '$.designer') AS REAL)
+              AND CAST(json_extract(CASE WHEN json_valid(NEW.scores) THEN NEW.scores ELSE '{}' END, '$.coder') AS REAL) > CAST(json_extract(CASE WHEN json_valid(NEW.scores) THEN NEW.scores ELSE '{}' END, '$.creative') AS REAL)
+              AND CAST(json_extract(CASE WHEN json_valid(NEW.scores) THEN NEW.scores ELSE '{}' END, '$.coder') AS REAL) > CAST(json_extract(CASE WHEN json_valid(NEW.scores) THEN NEW.scores ELSE '{}' END, '$.manager') AS REAL)
              THEN 'kotosov'
              ELSE 'owl'
            END

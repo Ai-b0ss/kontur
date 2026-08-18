@@ -1,0 +1,4 @@
+head-product=cd0197ed8ec2f11b6a3da1dd7760db867fbe4035
+purpose=isolated-staging-worker-assets-and-auth-boundary
+production-writes=forbidden
+staging-d1-mutation=forbidden

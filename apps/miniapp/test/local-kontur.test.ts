@@ -3,6 +3,7 @@ import { readFile, stat } from 'node:fs/promises';
 import test from 'node:test';
 import type { Role } from '@kontur/core';
 import { fitBirdAsset, LOCAL_BIRD_ASSETS, resolveBirdRole } from '../src/components/local-bird-assets.ts';
+import { quizEggStageModel } from '../src/components/QuizEgg.tsx';
 import { initialLocalStage, needsLocalQuestions, reconcileColoring, shouldReduceMotion, wormWord } from '../src/local-kontur-model.ts';
 import { QUESTIONS, resolveRole } from '../../../packages/core/src/roles.ts';
 import { RESULT_ASSETS } from '../src/components/result-bird-assets.ts';
@@ -15,7 +16,7 @@ import {
 
 const ROLES: Role[] = ['designer', 'coder', 'creative', 'manager', 'vibe'];
 
-test('Russian worm plurals cover singular, paucal and teens', () => {
+ test('Russian worm plurals cover singular, paucal and teens', () => {
   const cases = new Map<number, string>([
     [0, 'червяков'], [1, 'червяк'], [2, 'червяка'], [4, 'червяка'], [5, 'червяков'],
     [11, 'червяков'], [14, 'червяков'], [21, 'червяк'], [22, 'червяка'], [25, 'червяков'],
@@ -97,7 +98,7 @@ test('successful mutations can reconcile colorings without a second blocking req
   assert.equal(refreshed[1]?.title, 'Сумеречный 2');
 });
 
-test('asset manifest covers every role and null falls back to owl', () => {
+test('legacy raster evidence remains bounded and decodable', () => {
   assert.deepEqual(Object.keys(LOCAL_BIRD_ASSETS).sort(), [...ROLES].sort());
   assert.equal(resolveBirdRole(null), 'vibe');
   for (const role of ROLES) {
@@ -109,7 +110,7 @@ test('asset manifest covers every role and null falls back to owl', () => {
   }
 });
 
-test('asset fit never exceeds the product box at supported sizes', () => {
+test('legacy asset fit never exceeds the product box at supported sizes', () => {
   for (const role of ROLES) {
     for (const size of [88, 252, 292]) {
       const fit = fitBirdAsset(role, size);
@@ -121,7 +122,7 @@ test('asset fit never exceeds the product box at supported sizes', () => {
   }
 });
 
-test('production WebP assets are valid and stay under the mobile budget', async () => {
+test('legacy WebP evidence stays valid and within its mobile budget', async () => {
   let total = 0;
   for (const role of ROLES) {
     const asset = LOCAL_BIRD_ASSETS[role];
@@ -136,7 +137,50 @@ test('production WebP assets are valid and stay under the mobile budget', async 
   assert.ok(total < 100_000, `series is ${total} bytes`);
 });
 
-test('approved quiz and six-result assets are decodable WebP files', async () => {
+test('current product has exactly six unique canonical identities and no /birds mapping', async () => {
+  const ids = ['magpie', 'woodpecker', 'jay', 'crane', 'owl', 'kotosov'];
+  assert.deepEqual(Object.keys(RESULT_ASSETS).sort(), [...ids].sort());
+  assert.equal(new Set(Object.values(RESULT_ASSETS).map((asset) => asset.src)).size, 6);
+  for (const asset of Object.values(RESULT_ASSETS)) assert.doesNotMatch(asset.src, /^\/birds\//);
+  assert.equal(RESULT_ASSETS.kotosov.src, '/results/kotosov.webp');
+  assert.equal(RESULT_ASSETS.crane.src, '/results/crane-collectible.svg');
+
+  const currentRenderer = await readFile(new URL('../src/components/LocalBirdVisual.tsx', import.meta.url), 'utf8');
+  assert.match(currentRenderer, /CanonicalBirdVisual/);
+  assert.match(currentRenderer, /kontur:bird-result:/);
+  assert.doesNotMatch(currentRenderer, /LocalBirdAsset|<LocalBird/);
+});
+
+test('quiz crack/progress mapping is exactly q1=stage1 through q8=stage8', () => {
+  for (let stage = 1; stage <= 8; stage += 1) {
+    const model = quizEggStageModel(stage);
+    assert.equal(model.stage, stage);
+    assert.equal(model.asset, `/quiz/egg-stage-${String(stage).padStart(2, '0')}.webp`);
+    assert.equal(model.progressDegrees, stage * 45);
+  }
+});
+
+test('q8 hatch reuses shell art inside QuizEgg and delays visible hatch until response gesture ends', async () => {
+  const egg = await readFile(new URL('../src/components/QuizEgg.tsx', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
+  assert.match(egg, /lk-quiz-egg__hatch-shells/);
+  assert.equal((egg.match(/src="\/quiz\/egg-stage-08\.webp"/g) ?? []).length, 3);
+  assert.match(css, /is-egg-responding[\s\S]*animation-delay: 260ms/);
+  assert.match(css, /legacy hatch sibling supplies only glow\/bird/i);
+});
+
+test('responsive QA contract covers 320x568, 430x1000, safe area and reduced motion', async () => {
+  const baseCss = await readFile(new URL('../src/local-kontur.css', import.meta.url), 'utf8');
+  const correctionCss = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
+  assert.match(correctionCss, /@media \(max-width: 360px\), \(max-height: 650px\)/);
+  assert.match(correctionCss, /@media \(min-width: 361px\) and \(min-height: 651px\)/);
+  assert.match(baseCss, /env\(safe-area-inset-bottom\)/);
+  assert.match(correctionCss, /\.lk-reduced-motion/);
+  assert.ok(320 <= 360 && 568 <= 650);
+  assert.ok(430 >= 361 && 1000 >= 651);
+});
+
+test('approved quiz and six-result assets are decodable production assets', async () => {
   const paths = [
     ...Array.from({ length: 8 }, (_, index) => `/quiz/egg-stage-${String(index + 1).padStart(2, '0')}.webp`),
     '/quiz/egg-crack-light.webp',
@@ -146,7 +190,11 @@ test('approved quiz and six-result assets are decodable WebP files', async () =>
     const file = new URL(`../public${relativePath}`, import.meta.url);
     const bytes = await readFile(file);
     assert.ok(bytes.length > 1_000, relativePath);
-    assert.equal(bytes.subarray(0, 4).toString('ascii'), 'RIFF', relativePath);
-    assert.equal(bytes.subarray(8, 12).toString('ascii'), 'WEBP', relativePath);
+    if (relativePath.endsWith('.svg')) {
+      assert.match(bytes.toString('utf8'), /<svg[\s>]/, relativePath);
+    } else {
+      assert.equal(bytes.subarray(0, 4).toString('ascii'), 'RIFF', relativePath);
+      assert.equal(bytes.subarray(8, 12).toString('ascii'), 'WEBP', relativePath);
+    }
   }
 });

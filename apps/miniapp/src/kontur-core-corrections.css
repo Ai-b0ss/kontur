@@ -87,6 +87,26 @@
 }
 
 /*
+ * q8 may receive its API/replay result before the response gesture finishes.
+ * In that overlap the React stage is already "hatching", but the visible state
+ * must remain the answered q8 screen. Once eggResponding clears, the existing
+ * hatch state becomes visible. If the result is slower than the gesture, React
+ * remains on questions until the result arrives. Therefore visible hatching is
+ * gated by both conditions without delaying the network request.
+ */
+.lk-first-time--hatching.is-egg-responding .lk-question--egg {
+  opacity: 1;
+  transform: none;
+  pointer-events: none;
+}
+.lk-first-time--hatching.is-egg-responding .lk-hatching-label,
+.lk-first-time--hatching.is-egg-responding .lk-skip-motion {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/*
  * q1..q7 response phase: the tapped question remains mounted for 260 ms, while
  * every progress signal already targets N+1. This keeps the top line, ring and
  * crack change in one gesture instead of advancing only after the timeout.

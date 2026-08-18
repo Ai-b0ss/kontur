@@ -50,10 +50,10 @@ Important correction: the formal/corporate strings in `packages/core/src/roles.t
 | Hook CTA has no system `↗` glyph | PASS | hook button is plain `начать`; regression test rejects `↗` inside hook action |
 | Hook -> quiz keeps same egg object/visual continuity | PASS_HISTORICAL | accepted STEP B + current shared `QuizEgg` stage; exact current-head visual runner pending |
 | q1..q8 map deterministically to egg stages 01..08 | PASS | `quizEggStageModel` + exact regression |
-| top progress/ring/crack advance together during the answer gesture | PASS | response CSS targets N+1 while the committed question stays mounted; `kontur-response-motion.test.ts` checks all q1..q7 mappings |
-| q8 visible hatch cannot overtake answer gesture or result readiness | PASS | fast-result overlap keeps answered q8 visible and pauses hatch animations while `eggResponding`; slow-result path stays on questions until `localHatch` resolves; dedicated ordering regression |
+| top progress/ring/crack advance together during the answer gesture | VERIFY_PENDING | current source now uses explicit `visualQuestionIndex`; CSS N+1 impersonation removed; exact-head executable proof still required |
+| q8 visible hatch cannot overtake answer gesture or result readiness | VERIFY_PENDING | current source gates `stage='hatching'` on `!eggResponding && hatchReady`; exact-head executable proof still required |
 | 320x568 and 430x1000 layouts are explicitly covered | PASS | correction CSS media contracts + unit assertion |
-| reduced-motion path keeps the same ordering without an extra fixed wait | PASS | response timer collapses to 0; hatch gating is `animation-play-state`, not a second 260 ms delay; reduced-motion animation contract remains |
+| reduced-motion path keeps the same ordering without an extra fixed wait | VERIFY_PENDING | same React gate is used and response delay collapses to 0; exact-head executable/visual proof pending |
 | white-glove hand concept remains deferred | NOT_APPLICABLE | explicitly deferred by FINAL_TZ; no implementation required |
 
 ## D. 2026-08-17 live-review correction pass
@@ -62,10 +62,10 @@ Important correction: the formal/corporate strings in `packages/core/src/roles.t
 |---|---|---|
 | Hook bravado/system arrow removed | PASS | current head + `owner-copy-regression.test.ts` |
 | Quiz egg is one integrated bounded object | PASS | `QuizEgg` owns stage/ring/shell layers; compact/regular viewport rules |
-| progress/ring/crack react on one synchronized gesture | PASS | q1..q7 immediately target N+1 while selected question remains mounted; q8 hatch visibility is gated by response state |
-| q8 hatch reuses q8 shell and shows result bird in same composition | PASS | q8 shell fragments live inside `QuizEgg`; physical crack asset remains source of the shell/light composition |
-| Hatch -> result is one continuous mounted scene/object, without remount/hard-cut | FAIL | current `LocalKontur.tsx` still renders hatching and reveal as separate top-level branches and mounts a second `ResultBird`; new `hatch-reveal-persistence.test.ts` locks the required contract and must stay red until implementation changes |
-| Hatch -> result final identity is the same `BirdResultId` | PASS | `revealResultId` is stable across both phases; identity is not the blocker, render continuity is |
+| progress/ring/crack react on one synchronized gesture | VERIFY_PENDING | explicit React visual target now drives egg/progress; current-head executor pending |
+| q8 hatch reuses q8 shell and shows result bird in same composition | VERIFY_PENDING | `QuizEgg` now receives `hatching` + `revealResultId`; executable/visual proof pending |
+| Hatch -> result is one continuous mounted scene/object, without remount/hard-cut | VERIFY_PENDING | hatching and reveal now share one onboarding branch and one persistent `QuizEgg`; second reveal `ResultBird` removed; regression/executor pending |
+| Hatch -> result final identity is the same `BirdResultId` | PASS | `revealResultId` remains stable through both phases |
 | Result/Home/drop/collection use one six-character family | PASS | `RESULT_ASSETS` + canonical renderer; no current `/birds/*` mapping |
 | Coloration changes cosmetics rather than character identity | PASS | `LocalBirdVisual` resolves canonical identity and applies palette overlay |
 | Crane is compact/friendly/managerial rather than epic | PASS | delegated redraw `/results/crane-collectible.svg`; six-character board records bounded art decision |
@@ -88,7 +88,7 @@ The original §16 named files were part of the mandatory human visual-review seq
 | `08-home.png` | SUPERSEDED | named screenshot gate replaced; Home canonical-character proof retained |
 | WebM 1: hook→start→egg shrink→q1 | SUPERSEDED | named clip replaced; continuity still needs exact-head executable/staging proof |
 | WebM 2: q1→q4→q8 progressive cracking | SUPERSEDED | named clip replaced; deterministic cracking/synchronized response remains mandatory |
-| WebM 3: q8→bird reveal | SUPERSEDED | named clip replaced; q8 hatch/reveal continuity remains mandatory and is currently FAIL until the persistent-scene regression passes |
+| WebM 3: q8→bird reveal | SUPERSEDED | named clip replaced; q8 hatch/reveal continuity remains mandatory and is now source-implemented but VERIFY_PENDING |
 | `BIRD_CHARACTER_DIRECTION.md` | SUPERSEDED | owner delegated final art choice; current bounded replacement is `KONTUR_SIX_CHARACTER_BOARD_2026-08-18.md` |
 
 ## F. FINAL_TZ §18 release contract — exhaustive classification
@@ -112,18 +112,18 @@ The old §18 preview mechanism is not silently discarded. It is classified again
 
 | Gate | Status | Evidence / next proof |
 |---|---|---|
-| targeted Mini App tests | VERIFY_PENDING | new persistent-scene regression is intentionally red on the pre-fix implementation; implementation must make it green before any staging claim |
-| full relevant CI/typecheck/build | VERIFY_PENDING | hosted Actions pre-step incident; do not interpret admission failure as product failure |
+| targeted Mini App tests | VERIFY_PENDING | answer-state and persistent-scene source regressions now match the repaired source; a real executor is still required |
+| full relevant CI/typecheck/build | VERIFY_PENDING | hosted Actions quota/admission incident; do not interpret admission failure as product failure |
 | broken approved assets = 0 | PASS_HISTORICAL | existing asset decoder tests; exact current-head runner pending |
 | responsive/reduced-motion automated contract | PASS_HISTORICAL | source tests present; exact current-head runner pending |
-| isolated non-destructive staging exact-head proof | VERIFY_PENDING | blocked until the persistent-scene defect is fixed and exact-head source tests are green |
+| isolated non-destructive staging exact-head proof | VERIFY_PENDING | latest known Cloudflare bot result was failure on pre-repair `ead99a8d`; wait for current-head build evidence, never production |
 | Telegram owner smoke of this candidate | VERIFY_PENDING | follows exact-head staging convergence; not a production deploy |
 | merge to `main` | NOT_APPLICABLE | explicitly forbidden without new owner approval |
 | production promotion / destructive D1 reset | NOT_APPLICABLE | explicitly forbidden without new owner approval |
 
 ## Current mandatory blockers
 
-1. Fix the q8 `hatching -> reveal` hard-cut: one persistent `QuizEgg`/bird render must survive the state transition; the new regression must pass, including skip/timer cleanup and reduced-motion final-state equivalence.
-2. Run successful exact-head targeted/full checks. Hosted Actions for this lane have been failing before the first step; do not rerun-storm—use the existing Cloudflare/external executor path when source is ready.
-3. After green source checks, perform the already-defined **non-destructive isolated staging** proof for the exact head, then Telegram smoke against that candidate.
+1. Obtain a successful exact-head targeted/full test + typecheck/build execution for the explicit React motion and persistent-scene repair.
+2. Perform the already-defined **non-destructive isolated staging** proof for that exact head and verify 320x568 / 430x1000 / reduced-motion behavior.
+3. Telegram smoke against the same candidate.
 4. Do not add backend/D1 persistence for Kotosov, and do not touch production/main without a new explicit owner authorization.

@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "evidence_id": "KONTUR-Q8-TIMELINE-41e1243",
+  "lane": "KONTUR",
+  "acceptance_row": "K-Q1-Q8-TIMELINE",
+  "result": "TARGETED_LOGIC_PASS_SOURCE_BOUND_RUNTIME_PENDING",
+  "exact_sha": "41e1243b91a4b0a65989c605046d7b6d4854ac5a",
+  "proof_surface": "q8 gesture/result gate, hatch timer epoch, answer submission lock ownership",
+  "oracle": "exact-current-source inspection + executable pure timeline model",
+  "source": {
+    "path": "apps/miniapp/src/screens/LocalKontur.tsx",
+    "blob_sha": "d8a40a59d0918086e1daa464577192f1158d277e"
+  },
+  "executable_regression": {
+    "path": "apps/miniapp/test/q8-hatch-timeline.test.ts",
+    "runtime": "Node v22.16.0 --experimental-strip-types --test",
+    "result": "PASS 3/3",
+    "cases": [
+      "fast result waits until gesture completion",
+      "slow result waits until result readiness",
+      "gesture lock and action/network lock remain independently fail-closed"
+    ]
+  },
+  "verified_facts": [
+    "shouldEnterQ8Hatching only permits transition from questions when gesture is complete and result is ready",
+    "the reveal timer is armed only by the effect whose precondition is stage === hatching and hatchReady",
+    "neither replay result nor API result arms the reveal timer",
+    "hatch().finally no longer releases answerLock",
+    "pick() checks gesture lock plus immediate actionLock plus rendered busy state before accepting another answer",
+    "skip and reduced motion still converge through finishHatchReveal"
+  ],
+  "invalidation_dependencies": [
+    "apps/miniapp/src/screens/LocalKontur.tsx q8 pick/hatch/effects",
+    "apps/miniapp/src/q8-hatch-timeline.ts"
+  ],
+  "does_not_prove": [
+    "React DOM/component identity under a browser runtime",
+    "actual timer duration in browser/WebView",
+    "Telegram WebView behavior",
+    "responsive rendered visuals"
+  ],
+  "next_oracle": "runtime DOM/browser fake-fast and fake-slow q8 ordering on exact current head; keep K-DOM-CONTINUITY and browser/WebView rows open"
+}

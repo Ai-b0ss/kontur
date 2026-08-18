@@ -51,7 +51,7 @@ export async function loadPlayer(db: D1Database, userId: number): Promise<Player
     `SELECT u.id, u.tg_id, u.username, u.started_bot_at, u.is_member,
             u.member_checked_at, u.banned_at, u.push_enabled,
             u.quiet_from_hour, u.quiet_to_hour, u.push_misses,
-            p.user_id, p.role, p.coloring, p.hatched_at, p.bird_name,
+            p.user_id, p.role, p.bird_result_id, p.coloring, p.hatched_at, p.bird_name,
             w.wallet, w.reputation, w.passive_collected_day
        FROM users u
        JOIN profiles p ON p.user_id = u.id
@@ -112,6 +112,7 @@ export async function buildState(
       userId,
       username: player.username,
       role,
+      birdResultId: hatched ? player.bird_result_id : null,
       roleTitle: role ? ROLES[role].title : null,
       roleTagline: role ? ROLES[role].tagline : null,
       birdName: player.bird_name,

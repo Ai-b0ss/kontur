@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "evidence_id": "NOTION-NCM28-ATOMIC-CLASSIFIER-6856f3c",
+  "lane": "NOTION",
+  "acceptance_row": "N-NCM28-WINDOWS",
+  "result": "PRODUCT_LOCALIZATION_GUARD_PRESENT_CALLER_INTEGRATED",
+  "exact_sha": "6856f3c7ba82b9428d2fe93c1124861cccdfc18f",
+  "current_branch_head_when_harvested": "980f248272860ce5c92d8812bf830cb30021b8b1",
+  "executor": "CircleCI Windows server-2022 / Python 3.13.9",
+  "workflow_id": "08b9d1b7-f453-4a89-b432-0760a4e0eb0e",
+  "proof_surface": "first failing atomic_write invocation: trusted parent_guard presence and direct caller module category",
+  "oracle": "intentionally inverted predicates: CI FAILURE means predicate matched; CI SUCCESS means predicate absent",
+  "statuses": {
+    "atomic_parent_guard_none": "SUCCESS_NO_MATCH",
+    "atomic_parent_guard_present": "FAILURE_MATCH",
+    "atomic_caller_integrated": "FAILURE_MATCH",
+    "atomic_caller_auth": "SUCCESS_NO_MATCH",
+    "atomic_caller_migration": "SUCCESS_NO_MATCH"
+  },
+  "classification": "PRODUCT_LOCALIZATION_WITHOUT_FIX",
+  "verified_facts": [
+    "the first failing atomic_write invocation has a non-None parent_guard",
+    "the direct caller module for that invocation is integrated_upgrade.py",
+    "auth.py/auth_rotation.py is not the direct caller for the first failing atomic_write",
+    "migration_contract.py/stable_runtime_state.py is not the direct caller for the first failing atomic_write",
+    "the hypothesis that this failure is caused merely by failure to propagate parent_guard into atomic_write is disproved"
+  ],
+  "does_not_prove": [
+    "which exact integrated_upgrade.py callsite fails",
+    "whether the held parent handle is valid/alive at the failing operation",
+    "whether atomic_write actually uses the held handle for every rename/open step",
+    "whether Windows access/share flags are correct",
+    "NCM28 Windows correctness"
+  ],
+  "invalidation_dependencies": [
+    "tools/circleci_probe_ncm28_happy_outcome.py classifier semantics",
+    "materialized v20 integrated_upgrade.py atomic_write call graph",
+    "materialized v20 atomic_write implementation and ParentBoundOps/parent guard lifetime"
+  ],
+  "next_oracle": "Materialize/inspect the exact v20 source offline and identify the exact integrated_upgrade.py atomic_write callsite plus the guard/handle operation that raises PermissionError. Do not add v21 or alter product before that mechanism is isolated."
+}

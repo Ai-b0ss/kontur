@@ -1,18 +1,9 @@
 import type { Palette } from '@kontur/contracts';
 import type { CSSProperties } from 'react';
 import type { BirdResultId } from '../result-taxonomy.js';
+import { quizEggStageModel } from '../quiz-egg-model.js';
 import { CanonicalBirdVisual } from './CanonicalBirdVisual.js';
 import '../kontur-core-corrections.css';
-
-export function quizEggStageModel(stage: number) {
-  const safeStage = Math.max(1, Math.min(8, Math.trunc(stage)));
-  const number = String(safeStage).padStart(2, '0');
-  return Object.freeze({
-    stage: safeStage,
-    asset: `/quiz/egg-stage-${number}.webp`,
-    progressDegrees: safeStage * 45,
-  });
-}
 
 export function QuizEgg({
   stage,

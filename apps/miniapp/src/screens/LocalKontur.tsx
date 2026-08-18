@@ -6,6 +6,7 @@ import { LocalBirdVisual } from '../components/LocalBirdVisual.js';
 import { QuizEgg } from '../components/QuizEgg.js';
 import { ResultBird } from '../components/ResultBird.js';
 import { initialLocalStage, needsLocalQuestions, reconcileColoring, shouldReduceMotion, wormWord } from '../local-kontur-model.js';
+import { shouldBlockQuizAnswer, shouldEnterQ8Hatching } from '../q8-hatch-timeline.js';
 import {
   personalizedBirdNote,
   selectBirdResult,
@@ -201,8 +202,10 @@ export function LocalKontur() {
   }, []);
 
   useEffect(() => {
-    if (!eggResponding && hatchReady) setStage('hatching');
-  }, [eggResponding, hatchReady]);
+    if (shouldEnterQ8Hatching(stage, eggResponding, hatchReady)) {
+      if (!eggResponding && hatchReady) setStage('hatching');
+    }
+  }, [stage, eggResponding, hatchReady]);
 
   useEffect(() => {
     const onVisible = () => {
@@ -229,8 +232,18 @@ export function LocalKontur() {
     setStage('reveal');
   };
 
+  useEffect(() => {
+    if (stage !== 'hatching' || !hatchReady) return;
+    if (hatchTimer.current) window.clearTimeout(hatchTimer.current);
+    hatchTimer.current = window.setTimeout(finishHatchReveal, reducedMotion ? 20 : 2340);
+    return () => {
+      if (hatchTimer.current) window.clearTimeout(hatchTimer.current);
+      hatchTimer.current = null;
+    };
+  }, [stage, hatchReady, reducedMotion]);
+
   const pick = (answer: number) => {
-    if (answerLock.current || busy) return;
+    if (shouldBlockQuizAnswer(answerLock.current, actionLock.current, busy)) return;
     answerLock.current = true;
     haptic('tap');
     const next = answers.slice();
@@ -276,7 +289,6 @@ export function LocalKontur() {
         setRevealResultId(visualResult.resultId);
         setRevealNote(personalizedBirdNote(visualResult.resultId, finalAnswers));
         setHatchReady(true);
-        hatchTimer.current = window.setTimeout(finishHatchReveal, reducedMotion ? 20 : 2340);
         haptic('ok');
         return;
       }
@@ -305,7 +317,6 @@ export function LocalKontur() {
         }
       }
       setHatchReady(true);
-      hatchTimer.current = window.setTimeout(finishHatchReveal, reducedMotion ? 20 : 2340);
       syncColorings();
       haptic('ok');
     } catch (e) {
@@ -313,7 +324,6 @@ export function LocalKontur() {
       setError(message(e, 'Не получилось определить птицу'));
       haptic('fail');
     } finally {
-      answerLock.current = false;
       endAction();
     }
   };

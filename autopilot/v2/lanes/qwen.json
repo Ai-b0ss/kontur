@@ -1,19 +1,32 @@
 {
-  "schema_version":1,"state_revision":9,"lane":"QWEN","updated_at_utc":"2026-08-18T22:18:00Z",
+  "schema_version":1,"state_revision":10,"lane":"QWEN","updated_at_utc":"2026-08-18T22:23:00Z",
   "authority":{"policy":"autopilot/v2/POLICY.md","acceptance_version":"qwen-full-20260818"},
-  "repo":"Ai-b0ss/qwen-free-api","pr":6,"branch":"autopilot/qwen-runtime-preflight-20260818","current_head":"19796709fe9152fdd0ae81302d7a116136753814",
-  "phase":"LONG_SOAK_HARNESS_SAFETY_REWRITE",
-  "active_claim":{"pulse_id":"CHIEF-20260818T2218Z-QWEN-SOAK-HARNESS","work_packet":"replace hosted/WAF-rotating long-soak workflow with manual exact-sha ephemeral-self-hosted fail-closed harness; zero provider calls during patch","started_at_utc":"2026-08-18T22:18:00Z","expires_at_utc":"2026-08-18T22:30:00Z","expected_head":"19796709fe9152fdd0ae81302d7a116136753814"},
-  "provider_live_lease":null,
+  "repo":"Ai-b0ss/qwen-free-api","pr":6,"branch":"autopilot/qwen-runtime-preflight-20260818","current_head":"e2e281994ecf098582ca23e8049b610f652322c0",
+  "phase":"OFFLINE_DIAGNOSTICS_AND_EXECUTOR_HARVEST",
+  "active_claim":null,"provider_live_lease":null,
   "in_flight_external":[
     {"kind":"SECRET_BRIDGE_PREFLIGHT","trigger_sha":"543f208aaca4a198ccd24d576a687ae0bb868a76","launched_for_sha":"716b16dda7b1bbeab34dfbfdbfa0d5d77b0eac9f","status":"TRIGGERED_AWAIT_CALLBACK","duplicate_forbidden":true},
-    {"kind":"PROVIDER_SAFETY_OFFLINE_V1","trigger_sha":"a40f18cbdbeef87cca326ff164718ccd599915cb","launched_for_sha":"01668a8d37960840bf2489f21b8a8d04bc7e63eb","status":"FAIL","provider_calls":0},
-    {"kind":"PROVIDER_SAFETY_OFFLINE_V2","trigger_sha":"fcddd53f4898cad464a9a1b9efc67e57e2a1aa4c","launched_for_sha":"affed5651fcb15a13f1c6adaf801624507a6c781","status":"FAIL_AFTER_TARGETED_PASS","provider_calls":0},
+    {"kind":"PROVIDER_SAFETY_OFFLINE_V1","trigger_sha":"a40f18cbdbeef87cca326ff164718ccd599915cb","launched_for_sha":"01668a8d37960840bf2489f21b8a8d04bc7e63eb","status":"FAIL_LOCALIZED_AND_FIXED","provider_calls":0},
+    {"kind":"PROVIDER_SAFETY_OFFLINE_V2","trigger_sha":"fcddd53f4898cad464a9a1b9efc67e57e2a1aa4c","launched_for_sha":"affed5651fcb15a13f1c6adaf801624507a6c781","status":"TARGETED_PASS_FULL_NPM_FAIL","last_success_stage":"targeted_pass","provider_calls":0},
     {"kind":"RESTORE_SECURITY_OFFLINE","trigger_sha":"ca451f03f2615797ddd9eab2413721796f53dfb2","launched_for_sha":"19796709fe9152fdd0ae81302d7a116136753814","status":"FAIL_UNLOCALIZED","provider_calls":0,"decrypt_calls":0}
   ],
-  "proven":["inherited:encrypted runtime recovery","inherited:11-account pool and real tool-result continuation/restart where dependencies unchanged","current:workspace confinement/non-sandbox docs","source:provider circuit no-sibling semantics targeted regression PASS at affed565","source:root restore non-argv changes present","bridge-source:manual exact-sha scrubbed child environment"],
-  "verify_pending":["rewrite long-soak workflow so WAF/trust/provider pressure never rotates and executor is self-hosted exact-sha","localize full npm regression after provider targeted PASS","localize restore-security offline FAIL","harvest secret bridge","OpenCode current provider wiring provenance","single 35-45m sparse soak only after safety gates","Windows parity"],
-  "known_false_hypotheses":["hosted qwen-long-soak workflow is safe to execute as-is","WAF may be treated like account cooldown in soak harness","targeted provider-safety FAILs on current provider source"],
-  "blocker":"Old long-soak workflow itself violates provider-safety policy and hosted-executor constraint; live use forbidden.",
-  "first_next_action":"Rewrite qwen-long-soak.yml on exact PR6 head, then release claim; no live dispatch.","user_needed":false
+  "proven":[
+    "inherited:encrypted runtime recovery and 11-account/product tool-result/restart evidence where dependencies unchanged",
+    "current:workspace confinement and truthful non-sandbox shell docs",
+    "provider-safety targeted oracle PASS at affed565: WAF/trust/provider-pressure blocks sibling candidates while rate limit remains bounded failover",
+    "source:root Bash/PowerShell restore non-argv/env-removal changes present",
+    "bridge-source:manual exact-sha workflow with scrubbed child environment",
+    "current-long-soak-source:workflow_dispatch only; exact expected_sha; ephemeral self-hosted label; immutable checkout/setup-node; WAF/trust/timeout/network/upstream pressure STOP with sibling_probe=0; only rate-limit may use one global extra attempt; step-scoped runtime secret removed from environment before gpg"
+  ],
+  "verify_pending":[
+    "localize which legacy/full npm subtest fails after provider targeted PASS; do not reopen targeted provider semantics",
+    "localize restore-security offline FAIL",
+    "harvest secret bridge",
+    "actual current OpenCode v59 provider baseURL/auth provenance",
+    "single 35-45m sparse live soak only after offline/executor gates PASS and provider-live lease acquired",
+    "native Windows parity including PowerShell restore and real tool-result continuation"
+  ],
+  "known_false_hypotheses":["hosted/WAF-rotating long soak is safe","WAF may rotate in soak harness","provider-safety targeted oracle is red on affed565","old v28 config is current OpenCode provider authority"],
+  "blocker":"Live traffic remains disabled. Provider targeted semantics are green, but full regression/restore proof and bridge readiness are not yet green; OpenCode v59 baseURL/auth provenance remains unresolved.",
+  "first_next_action":"Prefer NOTION critical path while Qwen diagnostics are independent; Qwen harvester should localize full npm/restore failures and bridge callback. Do not launch live soak.","user_needed":false
 }

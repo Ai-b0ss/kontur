@@ -6,6 +6,13 @@ export CLOUDFLARE_STAGING_D1_DATABASE_NAME='kontur-staging'
 export CLOUDFLARE_STAGING_D1_DATABASE_ID='22786b4b-99cc-4ca5-a18b-932e8781021b'
 export CLOUDFLARE_STAGING_ORIGIN='https://kontur-igor-staging.igorekglukhovskii43.workers.dev'
 
+node_major="$(node -p "process.versions.node.split('.')[0]")"
+if [ "$node_major" != '22' ]; then
+  echo "CLOUDFLARE_WORKERS_BUILD_FAIL unexpected_node=$(node --version) expected_major=22" >&2
+  exit 1
+fi
+echo "CLOUDFLARE_WORKERS_BUILD_NODE_PASS version=$(node --version)"
+
 corepack enable
 corepack prepare pnpm@11 --activate
 pnpm install --frozen-lockfile

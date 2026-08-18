@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Workers Builds staging entrypoint. This comment intentionally marks the first
+# Cloudflare-native staging trigger; runtime behavior below is unchanged.
+
 export CLOUDFLARE_STAGING_WORKER_NAME='kontur-igor-staging'
 export CLOUDFLARE_STAGING_D1_DATABASE_NAME='kontur-staging'
 export CLOUDFLARE_STAGING_D1_DATABASE_ID='22786b4b-99cc-4ca5-a18b-932e8781021b'

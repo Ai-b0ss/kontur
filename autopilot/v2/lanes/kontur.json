@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "state_revision": 9,
+  "state_revision": 10,
   "lane": "KONTUR",
-  "updated_at_utc": "2026-08-18T22:45:00Z",
+  "updated_at_utc": "2026-08-18T23:24:00Z",
   "authority": {"policy": "autopilot/v2/POLICY.md", "acceptance_version": "kontur-owner-tz-20260818"},
   "repo": "Ai-b0ss/kontur",
   "pr": 12,
   "branch": "fix/kontur-core-visual-continuity-20260818",
   "current_head": "41e1243b91a4b0a65989c605046d7b6d4854ac5a",
-  "phase": "Q8_RUNTIME_VERIFY_READY",
+  "phase": "Q8_BROWSER_EXECUTOR_PROVISIONING_READY",
   "active_claim": null,
   "in_flight_external": [],
   "evidence_refs": [
@@ -22,10 +22,11 @@
     "artifact:BIRD_CHARACTER_DIRECTION present",
     "inherited:backend scoring/D1/reward flow where unchanged",
     "historical FAIL_PRODUCT K-Q1-Q8-TIMELINE on 864d4353 localized timer/lock ownership defect",
-    "TARGETED_LOGIC_PASS_SOURCE_BOUND_RUNTIME_PENDING on 41e1243: executable fast/slow latch + independent lock regression PASS 3/3; source shows reveal timer only at semantic hatching entry and hatch finally no gesture unlock"
+    "TARGETED_LOGIC_PASS_SOURCE_BOUND_RUNTIME_PENDING on 41e1243: executable fast/slow latch + independent lock regression PASS 3/3; source shows reveal timer only at semantic hatching entry and hatch finally no gesture unlock",
+    "EXECUTOR_FACT: direct ChatGPT Chromium -> workers.dev is blocked before page load by ERR_BLOCKED_BY_ADMINISTRATOR; this is not product evidence"
   ],
   "verify_pending": [
-    "K-Q1-Q8-TIMELINE: exact-head runtime DOM/browser fast-result + slow-result event-order proof before row PASS",
+    "K-Q1-Q8-TIMELINE: exact-head local/runtime browser fast-result + slow-result event-order proof",
     "K-DOM-CONTINUITY: runtime DOM/component identity, timer cleanup and StrictMode/idempotency",
     "K-RESPONSIVE-WEBVIEW: 320x568 and 430x1000 rendered evidence; reduced-motion/skip convergence",
     "K-REVIEW-ARTIFACTS: required screenshot/WebM review artifacts",
@@ -37,11 +38,12 @@
     "GitHub Actions steps=null is product failure",
     "BIRD_CHARACTER_DIRECTION artifact is missing",
     "the current ChatGPT container/browser is a viable direct workers.dev visual executor",
+    "lack of an immediately available browser executor means KONTUR should remain idle",
     "hatchReady gate alone proves full hatch duration",
     "hatch completion may safely own answerLock release",
     "source-regex assertions alone prove q8 runtime timing"
   ],
-  "blocker": "Source/logic defect is corrected. Remaining q8 acceptance needs a real runtime/browser oracle; do not reopen backend or scoring.",
-  "first_next_action": "Use the cheapest real runtime executor on exact 41e1243 to exercise q8 with fast-result and slow-result fakes plus timer/skip/reduced-motion cleanup; bind result to K-Q1-Q8-TIMELINE/K-DOM-CONTINUITY. If no executor is immediately available, pivot to NOTION/QWEN rather than waiting.",
+  "blocker": "No product blocker is currently known. The gap is an EXECUTOR gap: exact-head runtime/browser evidence is missing.",
+  "first_next_action": "Do not park KONTUR. Provision/reuse a zero-cost durable browser executor for exact 41e1243 (prefer an existing/generalized ephemeral self-hosted bridge or other already-authorized CI executor). First run local exact-head Mini App/Vite browser oracle with fast/slow q8 fakes, DOM identity, timer/skip/reduced-motion and 320x568 + 430x1000; this requires no production write. If green, use the same executor for staging-only convergence and Telegram/WebView smoke. Pivot only while an external run is actually in flight, not because executor provisioning has not been attempted.",
   "user_needed": false
 }

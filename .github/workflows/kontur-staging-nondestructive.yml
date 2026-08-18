@@ -76,6 +76,6 @@ jobs:
           test "$(sha256sum apps/miniapp/public/results/kotosov.webp | awk '{print $1}')" = "$(sha256sum "$RUNNER_TEMP/kotosov.webp" | awk '{print $1}')"
           test "$(sha256sum apps/miniapp/public/results/crane-collectible.svg | awk '{print $1}')" = "$(sha256sum "$RUNNER_TEMP/crane.svg" | awk '{print $1}')"
           grep -q '<svg' "$RUNNER_TEMP/crane.svg"
-          code="$(curl -sS -o "$RUNNER_TEMP/unauth.json" -w '%{http_code}' "$STAGING_ORIGIN/api/local/state")"
+          code="$(curl -sS -o "$RUNNER_TEMP/unauth.json" -w '%{http_code}' "$STAGING_ORIGIN/api/v4/local/state")"
           test "$code" = "401"
           echo "KONTUR_STAGING_NONDESTRUCTIVE_PASS head=$GITHUB_SHA origin=$STAGING_ORIGIN d1=$STAGING_D1_ID production_d1_untouched=$PROD_D1_ID"

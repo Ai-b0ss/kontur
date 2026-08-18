@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-08-18T22:33:00Z",
+  "updated_at_utc": "2026-08-18T23:18:00Z",
   "rule": "Acceptance manifests interpret these sources. Tests, handoffs, CI labels and evidence artifacts are not product authority unless explicitly registered here.",
   "refs": {
     "OWNER-AUTONOMY-20260819": {
@@ -8,6 +8,12 @@
       "source": "Ai-b0ss/kontur#9 issuecomment-5334904498",
       "scope": ["AUTOPILOT", "KONTUR", "QWEN", "NOTION", "PHONE_MODE"],
       "summary": "Chief-engineer autonomy; reversible free dev/candidate/staging/control-plane work defaults USER_NEEDED=NO; architecture may be rebuilt; hard safety boundaries remain."
+    },
+    "OWNER-CAPTCHA-ROTATION-20260819": {
+      "kind": "owner_decision",
+      "source": "Ai-b0ss/kontur#9 issuecomment-5335242123",
+      "scope": ["AUTOPILOT", "QWEN", "NOTION"],
+      "summary": "Ordinary account/session CAPTCHA is account-local temporary unavailability and may bounded-failover to another eligible legitimate account unattended. Explicit provider-wide WAF/block, trust/restriction and ambiguous post-send remain global stop/circuit. Rotation must never bypass explicit restrictions."
     },
     "KONTUR-OWNER-AUTHORITY-20260818": {
       "kind": "owner_decision",
@@ -45,9 +51,9 @@
     },
     "QWEN-PROVIDER-SAFETY": {
       "kind": "owner_safety_boundary",
-      "source": "OWNER-AUTONOMY-20260819 + NOTION-QWEN-FULL-CONTRACT-20260818",
+      "source": "OWNER-AUTONOMY-20260819 + NOTION-QWEN-FULL-CONTRACT-20260818 + OWNER-CAPTCHA-ROTATION-20260819",
       "scope": ["QWEN"],
-      "summary": "WAF/CAPTCHA/trust/explicit restriction/ambiguous post-send cannot cause sibling probing; no provider fan-out."
+      "summary": "CAPTCHA challenge is account-local cooldown/bounded failover. Explicit WAF/block, trust/restriction and ambiguous post-send are provider-wide stop/circuit; no fan-out or restriction-bypass rotation."
     }
   }
 }

@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 LANES = ROOT / "lanes"
 ACCEPTANCE = ROOT / "acceptance"
+AUTHORITY = ROOT / "authority" / "registry.json"
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 UNRESOLVED = {"PENDING", "QUEUED", "RUNNING", "TRIGGERED", "TRIGGERED_AWAIT_CALLBACK", "PENDING_LAST_HANDOFF", "WAIT_EXTERNAL"}
 
@@ -27,19 +28,36 @@ def acceptance_file(version: str) -> Path:
     return ACCEPTANCE / f"{version}.json"
 
 
+def load_json(path: Path):
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def main() -> int:
     errors = []
     warnings = []
+
+    try:
+        registry = load_json(AUTHORITY)
+        authority_refs = set((registry.get("refs") or {}).keys())
+        if not authority_refs:
+            errors.append("authority registry has no refs")
+    except Exception as exc:
+        authority_refs = set()
+        errors.append(f"authority registry invalid/missing: {exc}")
+
     seen_provider_leases = []
+    global_seen = False
 
     for path in sorted(LANES.glob("*.json")):
         try:
-            lane = json.loads(path.read_text(encoding="utf-8"))
+            lane = load_json(path)
         except Exception as exc:
             errors.append(f"{path.name}: invalid JSON: {exc}")
             continue
 
         name = lane.get("lane", path.stem.upper())
+        is_global = name == "GLOBAL"
+        global_seen = global_seen or is_global
         rev = lane.get("state_revision")
         if not isinstance(rev, int) or rev < 1:
             errors.append(f"{name}: state_revision must be positive integer")
@@ -55,18 +73,37 @@ def main() -> int:
 
         authority = lane.get("authority") or {}
         version = authority.get("acceptance_version")
+        manifest = None
+        rows_by_id = {}
         if version:
             apath = acceptance_file(version)
             if not apath.exists():
                 errors.append(f"{name}: missing acceptance manifest {apath.relative_to(ROOT)}")
             else:
                 try:
-                    manifest = json.loads(apath.read_text(encoding="utf-8"))
+                    manifest = load_json(apath)
                     if manifest.get("acceptance_version") != version:
                         errors.append(f"{name}: acceptance_version mismatch in {apath.name}")
-                    row_ids = [r.get("id") for r in manifest.get("rows", [])]
+                    rows = manifest.get("rows", [])
+                    row_ids = [r.get("id") for r in rows]
                     if len(row_ids) != len(set(row_ids)) or any(not x for x in row_ids):
                         errors.append(f"{name}: acceptance manifest has missing/duplicate row ids")
+                    rows_by_id = {r["id"]: r for r in rows if r.get("id")}
+                    declared = manifest.get("authority_refs")
+                    if not isinstance(declared, list) or not declared:
+                        errors.append(f"{name}: acceptance manifest must declare non-empty authority_refs")
+                    else:
+                        unknown = sorted(set(declared) - authority_refs)
+                        if unknown:
+                            errors.append(f"{name}: manifest has unknown authority refs {unknown}")
+                    for row in rows:
+                        refs = row.get("authority_refs")
+                        if not isinstance(refs, list) or not refs:
+                            errors.append(f"{name}:{row.get('id')}: row requires authority_refs")
+                        else:
+                            unknown = sorted(set(refs) - authority_refs)
+                            if unknown:
+                                errors.append(f"{name}:{row.get('id')}: unknown authority refs {unknown}")
                 except Exception as exc:
                     errors.append(f"{name}: invalid acceptance manifest: {exc}")
 
@@ -82,19 +119,42 @@ def main() -> int:
                 if head and expected != head:
                     errors.append(f"{name}: active claim expected_head != current_head")
             except Exception as exc:
-                errors.append(f"{name}: invalid active_claim: {exc}")
+                errors.append(f"{name}: invalid active_claim lease/head: {exc}")
+
+            if version:
+                row_id = claim.get("acceptance_row")
+                if row_id not in rows_by_id:
+                    errors.append(f"{name}: product claim must name a valid acceptance_row")
+                refs = claim.get("authority_refs")
+                if not isinstance(refs, list) or not refs:
+                    errors.append(f"{name}: product claim requires non-empty authority_refs")
+                else:
+                    unknown = sorted(set(refs) - authority_refs)
+                    if unknown:
+                        errors.append(f"{name}: product claim has unknown authority refs {unknown}")
+                    if row_id in rows_by_id and not (set(refs) & set(rows_by_id[row_id].get("authority_refs") or [])):
+                        errors.append(f"{name}: product claim authority_refs do not bind acceptance row {row_id}")
+                allowed = claim.get("allowed_paths")
+                if not isinstance(allowed, list) or not allowed:
+                    errors.append(f"{name}: product claim requires non-empty allowed_paths")
+                forbidden = claim.get("forbidden_surfaces")
+                if not isinstance(forbidden, list):
+                    errors.append(f"{name}: product claim requires forbidden_surfaces list")
+                if not str(claim.get("hypothesis") or "").strip():
+                    errors.append(f"{name}: product claim requires hypothesis")
+                if not str(claim.get("new_information_expected") or "").strip():
+                    errors.append(f"{name}: product claim requires new_information_expected")
 
         lease = lane.get("provider_live_lease")
         if lease:
             seen_provider_leases.append((name, lease))
+            if not is_global:
+                errors.append(f"{name}: provider_live_lease is global-only; store it in lanes/global.json")
 
         unresolved_keys = set()
         for i, run in enumerate(lane.get("in_flight_external") or []):
             status = str(run.get("status", "")).upper()
-            key = (
-                run.get("kind") or run.get("proof_surface") or run.get("executor"),
-                run.get("launched_for_sha"),
-            )
+            key = (run.get("kind") or run.get("proof_surface") or run.get("executor"), run.get("launched_for_sha"))
             if any(token in status for token in UNRESOLVED):
                 if key in unresolved_keys:
                     errors.append(f"{name}: duplicate unresolved external proof {key}")
@@ -102,18 +162,20 @@ def main() -> int:
             launched = run.get("launched_for_sha")
             if launched is not None and not HEX40.match(str(launched)):
                 errors.append(f"{name}: in_flight_external[{i}].launched_for_sha is not exact SHA")
+            if version and run.get("acceptance_row") is None:
+                warnings.append(f"{name}: in_flight_external[{i}] is legacy/unbound; harvest it but do not let it newly close a row without acceptance_row binding")
 
         if lane.get("phase") != "CORE_DONE_FROZEN" and not lane.get("first_next_action"):
             errors.append(f"{name}: missing first_next_action")
-
         if claim and lane.get("phase") == "WAIT_EXTERNAL":
             errors.append(f"{name}: WAIT_EXTERNAL may not retain mutable claim")
-
         if lane.get("core_done") and version:
             warnings.append(f"{name}: structural validator cannot prove acceptance rows; CORE_DONE still requires row-bound evidence")
 
-    if len(seen_provider_leases) > 2:
-        warnings.append("More than two provider live leases exist; verify they are for distinct providers and not fan-out")
+    if not global_seen:
+        errors.append("GLOBAL: missing lanes/global.json")
+    if len(seen_provider_leases) > 1:
+        errors.append("GLOBAL: more than one provider-live lease exists")
 
     if errors:
         print("CONTROL_STATE_INVALID")

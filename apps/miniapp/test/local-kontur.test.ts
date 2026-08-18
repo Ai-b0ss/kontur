@@ -3,7 +3,7 @@ import { readFile, stat } from 'node:fs/promises';
 import test from 'node:test';
 import type { Role } from '@kontur/core';
 import { fitBirdAsset, LOCAL_BIRD_ASSETS, resolveBirdRole } from '../src/components/local-bird-assets.ts';
-import { quizEggStageModel } from '../src/components/QuizEgg.tsx';
+import { quizEggStageModel } from '../src/quiz-egg-model.ts';
 import { initialLocalStage, needsLocalQuestions, reconcileColoring, shouldReduceMotion, wormWord } from '../src/local-kontur-model.ts';
 import { QUESTIONS, resolveRole } from '../../../packages/core/src/roles.ts';
 import { RESULT_ASSETS } from '../src/components/result-bird-assets.ts';
@@ -16,7 +16,7 @@ import {
 
 const ROLES: Role[] = ['designer', 'coder', 'creative', 'manager', 'vibe'];
 
- test('Russian worm plurals cover singular, paucal and teens', () => {
+test('Russian worm plurals cover singular, paucal and teens', () => {
   const cases = new Map<number, string>([
     [0, 'червяков'], [1, 'червяк'], [2, 'червяка'], [4, 'червяка'], [5, 'червяков'],
     [11, 'червяков'], [14, 'червяков'], [21, 'червяк'], [22, 'червяка'], [25, 'червяков'],

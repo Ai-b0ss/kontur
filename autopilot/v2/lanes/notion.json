@@ -1,41 +1,32 @@
 {
   "schema_version": 1,
-  "state_revision": 2,
+  "state_revision": 3,
   "lane": "NOTION",
-  "updated_at_utc": "2026-08-18T22:03:00Z",
+  "updated_at_utc": "2026-08-18T22:49:00Z",
   "authority": {"policy": "autopilot/v2/POLICY.md", "acceptance_version": "notion-codex-rotation-20260818"},
   "repo": "Ai-b0ss/notion-agent-bridge",
   "pr": 7,
   "branch": "candidate/ncm28-windows-fixed-v1",
   "current_head": "0e4cdb2b89c38df4c32616b0e5906bb2de6c1103",
-  "phase": "NCM28_ATOMIC_WRITE_DIAGNOSTIC",
+  "phase": "NCM28_CALLSITE_INVENTORY_READY",
   "active_claim": null,
-  "provider_live_lease": null,
-  "in_flight_external": [
-    {
-      "executor": "CircleCI Windows",
-      "workflow_id": "d8282dcf-9794-4ba7-bf05-bbf006898b70",
-      "launched_for_sha": "b6259ea50fbeb742f68357af1d30abc5a1803511",
-      "probe_source_sha": "ba0b815fca829eb5cce25db1516121b6a701a6ff",
-      "guard_restored_sha": "9462c882046c98b222e64a22dcfee745b0e7a0b9",
-      "proof_surface": "native Windows atomic-write exception subframe",
-      "status": "PENDING_LAST_HANDOFF",
-      "duplicate_forbidden": true
-    }
-  ],
+  "in_flight_external": [],
+  "evidence_refs": ["autopilot/v2/evidence/notion-ncm28-frame-diagnostic-b6259ea.json"],
   "proven": [
     "current:first failing classified frame is atomic_write; runtime-root/auth-read candidates disproved for first exception",
+    "current:CircleCI d8282dcf completed; preflight/build green and all four guessed subframes absent under inverted-predicate oracle",
+    "classification:EVIDENCE/HARNESS_GAP — four hypotheses disproved, no new product patch justified",
     "current:restore scripts use non-argv passphrase channel at source",
     "current:restore success output no longer emits plaintext restored path; static verifier rejects path-output regression",
     "inherited:strict-share/held-parent primitives and selected recovery invariants where source unchanged",
     "source:active same-workspace account-pool/rotation architecture exists"
   ],
   "verify_pending": [
-    "harvest exact atomic-write subframe from the in-flight CircleCI workflow",
-    "minimal handle-relative fix only for the proven route",
+    "N-NCM28-WINDOWS: derive exhaustive actual atomic_write caller inventory from materialized v20 source; one bounded native Windows classifier, not another guessed-frame sequence",
+    "root-cause product change only after deterministic caller evidence",
     "targeted native Windows then full NCM28 recovery/auth/state/rollback gates",
     "execute secret-channel verifier on current head",
-    "materialize a clean canonical NCM28 candidate after Windows correctness is green",
+    "materialize a clean canonical NCM28 candidate after Windows correctness is green; archive v2..v20 patch builders from promoted architecture",
     "Responses streaming/call-id/tool-result/correction fail-closed semantics",
     "real multi-round Codex local tool execution and complete tool matrix",
     "active independent-turn account load-balancing with unfinished-loop account/thread stickiness",
@@ -47,9 +38,14 @@
     "runtime root or auth read is the first current exception",
     "lexical canonical path equality is sufficient after namespace freeze",
     "green NCM28 alone means NOTION_CORE_DONE",
-    "rotation is emergency-only standby"
+    "rotation is emergency-only standby",
+    "the first atomic_write exception traverses ncm28_atomic_write_from_snapshot",
+    "the first atomic_write exception traverses ncm28_capture_ownership_snapshot",
+    "the first atomic_write exception traverses managed_target_parent_guard",
+    "the first atomic_write exception traverses restore_files_guarded",
+    "green inverted diagnostic contexts mean Windows product PASS"
   ],
-  "blocker": "One bounded CircleCI Windows diagnostic is already in flight; the three commits after the prior lane head touch restore observability/verifier only and do not invalidate the atomic-write diagnostic dependency.",
-  "first_next_action": "Harvest workflow d8282dcf-9794-4ba7-bf05-bbf006898b70. Do not duplicate. If atomic_write subframe matches, inspect trusted parent handle/temp/replace lifetime and patch that exact route only; then targeted native Windows verification.",
+  "blocker": "Exact remaining atomic_write caller/root cause is not yet identified. Iterative guessed-frame diagnostics are banned; no v21 product patch is justified yet.",
+  "first_next_action": "Build a deterministic actual-callsite inventory from the fully materialized v20 candidate source, then replace the four guessed CircleCI frame jobs with one bounded exhaustive classifier that can identify the real caller category without paths/secrets. If current source can localize the bug offline, patch only after recording that evidence.",
   "user_needed": false
 }

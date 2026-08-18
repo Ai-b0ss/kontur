@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "state_revision": 1,
+  "lane": "QWEN",
+  "updated_at_utc": "2026-08-18T21:46:00Z",
+  "authority": {"policy": "autopilot/v2/POLICY.md", "acceptance_version": "qwen-full-20260818"},
+  "repo": "Ai-b0ss/qwen-free-api",
+  "pr": 6,
+  "branch": "autopilot/qwen-runtime-preflight-20260818",
+  "current_head": "9af48b2bca393c75f6951b9704d84207a04efbb1",
+  "phase": "EXECUTOR_READY_THEN_LONG_SOAK",
+  "active_claim": null,
+  "provider_live_lease": null,
+  "in_flight_external": [],
+  "proven": [
+    "inherited:encrypted runtime recovery",
+    "inherited:11-account pool 1 active/10 standby",
+    "inherited:real local tool execution -> tool result -> model continuation",
+    "inherited:restart/state",
+    "inherited:conservative distinct-account failover and cooldown",
+    "current:workspace cwd/symlink confinement",
+    "current:truthful arbitrary-shell non-sandbox docs",
+    "current:PR6 decrypt paths use non-argv passphrase channel",
+    "current:bridge workflow source uses non-argv passphrase channel"
+  ],
+  "verify_pending": [
+    "sanitized self-hosted bridge execution result",
+    "scrub CircleCI bootstrap secrets from runner child environment",
+    "bridge default-off/manual semantics",
+    "actual current OpenCode provider wiring provenance",
+    "provider-safe WAF/CAPTCHA/trust taxonomy with no sibling probing",
+    "one 35-45m sparse Linux soak",
+    "native Windows parity including real tool-result continuation",
+    "current-head hardening/security/reproducibility package"
+  ],
+  "known_false_hypotheses": [
+    "runtime/auth is unavailable to automation",
+    "bounded three-step soak is final acceptance",
+    ".qwen-v28/opencode-v28.json currently proves provider/baseURL/model",
+    "GitHub-hosted Actions red admission is product failure"
+  ],
+  "blocker": "Executor bridge has not yet produced a sanitized PASS; live soak is forbidden until bridge isolation and WAF semantics are safe.",
+  "first_next_action": "Inspect and harden the CircleCI -> self-hosted bridge without provider traffic: default OFF, scrub child environment, immutable trusted workflow/ref. Then harvest exactly one preflight result.",
+  "user_needed": false
+}

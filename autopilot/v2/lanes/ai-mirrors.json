@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "state_revision": 1,
+  "lane": "AI_MIRRORS",
+  "updated_at_utc": "2026-08-18T21:46:00Z",
+  "phase": "CORE_DONE_FROZEN",
+  "active_claim": null,
+  "core_done": true,
+  "reopen_condition": "Only a new post-control mandatory regression backed by current evidence may reopen this lane.",
+  "first_next_action": "None while frozen.",
+  "user_needed": false
+}

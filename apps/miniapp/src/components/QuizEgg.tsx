@@ -31,15 +31,17 @@ export function QuizEgg({
       <span className="lk-quiz-egg__ring" style={{ '--lk-egg-progress': `${model.progressDegrees}deg` } as CSSProperties} aria-hidden="true" />
       <span className="lk-quiz-egg__glow" aria-hidden="true" />
       <img className="lk-quiz-egg__base" src={model.asset} alt="" width="1101" height="1429" draggable={false} />
+      <div className="lk-quiz-egg__hatch-shells" aria-hidden="true">
+        <img className="lk-quiz-egg__shell lk-quiz-egg__shell--one" src="/quiz/egg-stage-08.webp" alt="" />
+        <img className="lk-quiz-egg__shell lk-quiz-egg__shell--two" src="/quiz/egg-stage-08.webp" alt="" />
+        <img className="lk-quiz-egg__shell lk-quiz-egg__shell--three" src="/quiz/egg-stage-08.webp" alt="" />
+        <img className="lk-quiz-egg__hatch-light" src="/quiz/egg-crack-light.webp" alt="" />
+      </div>
       {hatching && resultId && (
         <div className="lk-quiz-hatch" aria-hidden="true">
           <span className="lk-quiz-hatch__glow" />
           <span className="lk-quiz-hatch__core" />
           <CanonicalBirdVisual resultId={resultId} palette={palette} className="lk-quiz-hatch__bird" />
-          <img className="lk-quiz-hatch__shell lk-quiz-hatch__shell--one" src="/quiz/egg-stage-08.webp" alt="" />
-          <img className="lk-quiz-hatch__shell lk-quiz-hatch__shell--two" src="/quiz/egg-stage-08.webp" alt="" />
-          <img className="lk-quiz-hatch__shell lk-quiz-hatch__shell--three" src="/quiz/egg-stage-08.webp" alt="" />
-          <img className="lk-quiz-hatch__light" src="/quiz/egg-crack-light.webp" alt="" />
         </div>
       )}
     </div>

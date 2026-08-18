@@ -1,15 +1,21 @@
 {
   "schema_version": 1,
-  "state_revision": 2,
+  "state_revision": 3,
   "lane": "QWEN",
-  "updated_at_utc": "2026-08-18T21:53:00Z",
+  "updated_at_utc": "2026-08-18T21:59:00Z",
   "authority": {"policy": "autopilot/v2/POLICY.md", "acceptance_version": "qwen-full-20260818"},
   "repo": "Ai-b0ss/qwen-free-api",
   "pr": 6,
   "branch": "autopilot/qwen-runtime-preflight-20260818",
   "current_head": "9af48b2bca393c75f6951b9704d84207a04efbb1",
-  "phase": "WAIT_SECRET_BRIDGE_PREFLIGHT",
-  "active_claim": null,
+  "phase": "PROVIDER_SAFETY_PATCH_WHILE_BRIDGE_RUNS",
+  "active_claim": {
+    "pulse_id": "CHIEF-20260818T2159Z-QWEN-PROVIDER-SAFETY",
+    "work_packet": "persistent provider-pressure circuit + WAF/CAPTCHA/trust no-sibling semantics + offline regression",
+    "started_at_utc": "2026-08-18T21:59:00Z",
+    "expires_at_utc": "2026-08-18T22:13:00Z",
+    "expected_head": "9af48b2bca393c75f6951b9704d84207a04efbb1"
+  },
   "provider_live_lease": null,
   "in_flight_external": [
     {
@@ -55,7 +61,7 @@
     ".qwen-v28/opencode-v28.json currently proves provider/baseURL/model",
     "GitHub-hosted Actions red admission is product failure"
   ],
-  "blocker": "Bridge execution result is pending. Even after executor PASS, live long soak remains forbidden until WAF/CAPTCHA/trust semantics are fail-closed against sibling probing.",
-  "first_next_action": "Harvest exactly the one-shot bridge callback. Do not duplicate it. On PASS, next mutation is offline provider-error taxonomy/WAF regression before any long soak; on FAIL, repair only the exact executor stage.",
+  "blocker": "Bridge execution result is pending and current WAF/CAPTCHA handling can still rotate active account after a challenge.",
+  "first_next_action": "Implement provider-safety circuit and offline regression on exact PR6 head; no provider calls. Then release claim and harvest bridge separately.",
   "user_needed": false
 }

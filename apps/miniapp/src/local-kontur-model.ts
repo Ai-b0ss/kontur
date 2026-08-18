@@ -1,4 +1,4 @@
-import type { ColoringDto } from '@kontur/contracts';
+import type { BirdResultId, ColoringDto } from '@kontur/contracts';
 
 export function wormWord(value: number) {
   const n = Math.abs(value) % 100;
@@ -22,10 +22,38 @@ export function needsLocalQuestions(
 
 export type InitialLocalStage = 'hook' | 'community' | 'home';
 
+type PersistedBirdState = {
+  hatched: boolean;
+  player?: {
+    userId: number;
+    role: string | null;
+    birdResultId?: BirdResultId | null;
+  };
+};
+
+/**
+ * Сервер — источник визуальной идентичности после вылупления. Локальное
+ * хранилище остаётся только совместимым кэшем для старых компонентов и
+ * заполняется заново при каждом открытии Mini App, в том числе на новом
+ * WebView/устройстве.
+ */
+export function hydrateBirdResultIdentity(state: PersistedBirdState): void {
+  const player = state.player;
+  if (!state.hatched || !player || player.role !== 'vibe') return;
+  if (player.birdResultId !== 'owl' && player.birdResultId !== 'kotosov') return;
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(`kontur:bird-result:${player.userId}`, player.birdResultId);
+  } catch {
+    // Серверное состояние остаётся каноном; localStorage — только ускоряющий кэш.
+  }
+}
+
 export function initialLocalStage(
-  state: { hatched: boolean },
+  state: PersistedBirdState,
   search = '',
 ): InitialLocalStage {
+  hydrateBirdResultIdentity(state);
   const params = new URLSearchParams(search);
   if (state.hatched) return params.get('replay') === '1' ? 'hook' : 'home';
   return params.get('community') === '1' ? 'community' : 'hook';

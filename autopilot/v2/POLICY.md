@@ -1,18 +1,26 @@
 # AUTOPILOT CONTROL v2.2
 
+## CURRENT OPERATING MODE — PROCESS_STABILIZATION
+- Until this mode is explicitly lifted by the owner, all product repositories and product branches for KONTUR/QWEN/NOTION/AI_MIRRORS are READ-ONLY to ChatGPT Tasks.
+- The active job is to improve the development system itself: scheduling, state/evidence/authority modeling, claims/leases, CI/executor architecture, deterministic tooling, handoffs, safety and reproducibility.
+- Product defects may be investigated and packaged as exact READY work packets, but Tasks must NOT modify product source, product tests, product workflows, product branches, provider behavior, staging or production.
+- Existing external runs may be harvested read-only; do not launch new product/live-provider runs during PROCESS_STABILIZATION.
+- `USER_NEEDED=NO` remains the default for reversible control-plane improvements under `autopilot/v2/**`.
+- This section overrides any later generic permission in this file to perform PRODUCT mutations. Product-write claims are disabled while this mode is active.
+
 Authority order: current explicit owner requirements > reproducible current-source evidence > versioned acceptance manifest > current lane state > historical evidence > audit log.
 
 ## Execution model
 - A ChatGPT Task invocation is a SHORT PULSE. Assume it may end at any time; elapsed time and loop count are never success criteria.
-- A pulse should complete one atomic engineering result: localize one exact failure; implement one evidence-backed fix plus targeted regression; launch one durable external proof and persist its identity; or harvest/classify one external proof.
-- Work expected to exceed ~90 seconds belongs to a durable external executor. Persist executor/run identity and release the mutable claim instead of waiting.
+- A pulse should complete one atomic process result: localize one control/executor/evidence failure; improve one deterministic control tool; reconcile one stale state/evidence item; or harvest/classify one already-existing external proof.
+- Work expected to exceed ~90 seconds belongs to a durable external executor only when it is process/control-plane work and does not launch product/provider activity. Persist executor/run identity instead of waiting.
 - Scheduler allocates by READY critical-path value, not historical project ownership or fairness. A DONE/frozen lane donates capacity immediately.
 
 ## Authority and mutation contracts
 - `Ai-b0ss/kontur#9` is AUDIT LOG / provenance only. It is never current machine state and old comments never outrank current state/authority.
 - Canonical authority references are registered in `autopilot/v2/authority/registry.json`. Acceptance manifests are a versioned executable interpretation of those sources, not an independent source of product requirements.
-- Every PRODUCT mutation requires an `active_claim` that names: `acceptance_row`, non-empty `authority_refs`, exact `expected_head`, `allowed_paths`, `forbidden_surfaces`, `hypothesis`, and `new_information_expected`, plus a <=15m lease.
-- Every `authority_ref` in a claim must exist in the registry and the acceptance row must exist in the lane's current manifest. No authority reference => no product write.
+- Outside PROCESS_STABILIZATION, every PRODUCT mutation requires an `active_claim` that names: `acceptance_row`, non-empty `authority_refs`, exact `expected_head`, `allowed_paths`, `forbidden_surfaces`, `hypothesis`, and `new_information_expected`, plus a <=15m lease.
+- During PROCESS_STABILIZATION no PRODUCT mutation claim is valid, even if structurally complete.
 - A requirement inferred only from a test, old handoff, evidence checklist, CI label, or prior agent opinion may create an investigation packet, but may not create product behavior.
 - If source/evidence disproves a historical claim, reclassify the claim/evidence; do not preserve the old architecture out of inertia.
 
@@ -26,40 +34,36 @@ Authority order: current explicit owner requirements > reproducible current-sour
 - Invalidation is narrow: reopen only rows whose named dependencies/proof surfaces changed.
 
 ## Claims / WIP / retries
-- One mutable writer per lane. Claim lease maximum 15 minutes.
-- A pulse ending or entering WAIT_EXTERNAL releases the mutable claim.
-- One unresolved external proof per lane unless the proofs are explicitly independent and non-overlapping.
+- During PROCESS_STABILIZATION there are no product mutable claims.
+- Control-plane writes use normal GitHub blob-SHA/CAS protection and must stay under `autopilot/v2/**`.
 - No duplicate run while an equivalent external proof is unresolved.
 - Every retry must state `new_information_expected`; identical failure fingerprint with no changed variable => no retry, pivot.
-- A claim pins expected product head and state revision. Before every mutation re-read branch HEAD and relevant blob SHA; abort/replan on drift.
+- Before every control-plane mutation re-read the relevant blob SHA; abort/replan on drift.
 
 ## Provider safety
-- Exactly ONE global provider-live lease exists across Autopilot, stored in `autopilot/v2/lanes/global.json`. Lane-local live leases are not authority to call a provider.
-- Rate/quota may cool an account and permit eligible failover when that semantics is explicitly accepted for the product.
-- An ordinary CAPTCHA/challenge that is bound to one account/session is ACCOUNT-LOCAL temporary unavailability: cool/defer that exact account and continue with another eligible account within the bounded failover budget. This is required for unattended operation; no human CAPTCHA click is required to keep unrelated eligible accounts working.
-- Explicit provider-wide WAF/block, trust/explicit restriction, or ambiguous post-send state are GLOBAL STOP/CIRCUIT conditions: do not probe sibling accounts.
-- Never rotate to bypass provider restrictions. Classifiers and tests must distinguish account-local CAPTCHA from explicit provider restriction rather than collapsing them into one category. Offline failure-injection does not require the global live lease.
+- No live provider traffic is allowed from ChatGPT Tasks during PROCESS_STABILIZATION.
+- The single global provider-live lease in `autopilot/v2/lanes/global.json` remains reserved for a later implementation/acceptance phase; it is not authority to call a provider now.
+- Never rotate to bypass provider restrictions.
 
 ## Writes and branches
-- Never write default/main or production merely for proof.
-- Keep unrelated work out of product branches. Diff must fit `allowed_paths` and must not touch `forbidden_surfaces`.
-- A proven product defect may have at most one extra test-only diagnostic commit before product patch or explicit reclassification.
-- Archaeological patch towers are temporary evidence machinery, not promoted architecture. After root cause is green on the strongest required oracle, materialize a clean canonical candidate and prove equivalence before promotion.
+- Allowed Task writes in PROCESS_STABILIZATION: `autopilot/v2/**` on the dedicated control branch only.
+- Forbidden: product source, product tests, product workflows, product branches, staging, production, default/main, destructive data writes.
+- Product findings become evidence plus READY work packets, not product commits.
+- Archaeological patch towers may be analyzed and a clean migration plan prepared, but not rewritten during this mode.
 
 ## Secrets and executors
 - No secret in argv/log/hash/fingerprint/artifact.
 - Use stdin/passphrase-fd or equivalent non-argv channel; disable trace; restrictive temp permissions; always cleanup/unset.
-- Secret-bearing self-hosted runners must run with a scrubbed child environment and immutable trusted workflow/ref. Prefer a simpler direct executor when it removes the bridge without weakening isolation.
-- Long jobs belong to durable external executors; ChatGPT stores run identity and pivots. Waiting is not work.
+- Secret-bearing self-hosted runners must run with a scrubbed child environment and immutable trusted workflow/ref.
+- Waiting is not work; existing external results should be harvested rather than polled.
 
 ## DONE
 - DONE is row-by-row acceptance, not nearest-gate green.
 - Source/string tests can prove SOURCE_INVARIANT only; runtime/visual behavior needs the appropriate oracle.
 - `CORE_DONE` must include exact acceptance version and evidence refs for every mandatory row.
-- AI_MIRRORS remains frozen CORE_DONE unless a new post-control mandatory regression appears.
-- PHONE_MODE begins only after true QWEN_CORE_DONE + NOTION_CORE_DONE.
+- PROCESS_STABILIZATION itself is done only when the control plane is reproducible, authority-safe, short-pulse tolerant, deterministic where possible, and no longer causes accidental product churn.
 
 ## Deterministic guards
 - `autopilot/v2/tools/validate_control_state.py` is the fail-fast structural check for lane/manifest/claim consistency.
-- Any structural validation error blocks new mutable work until reconciled.
+- Any structural validation error blocks control-plane mutation until reconciled.
 - Repeated reasoning loops should become deterministic tools when feasible; prefer machine checks for authority binding, secret leakage, branch scope, exact-head evidence and external-run harvesting.

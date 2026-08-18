@@ -1,21 +1,15 @@
 {
   "schema_version": 1,
-  "state_revision": 2,
+  "state_revision": 3,
   "lane": "KONTUR",
-  "updated_at_utc": "2026-08-18T22:10:30Z",
+  "updated_at_utc": "2026-08-18T22:16:30Z",
   "authority": {"policy": "autopilot/v2/POLICY.md", "acceptance_version": "kontur-owner-tz-20260818"},
   "repo": "Ai-b0ss/kontur",
   "pr": 12,
   "branch": "fix/kontur-core-visual-continuity-20260818",
   "current_head": "864d435310cdbfbfea83fbeb1e6acd5b6d091509",
   "phase": "EXECUTABLE_AND_VISUAL_ACCEPTANCE",
-  "active_claim": {
-    "pulse_id": "WRITER-A-20260818T2210Z-KONTUR-BROWSER-PROOF",
-    "work_packet": "Prepare and launch one zero-cost executable browser proof for current Kontur head covering DOM identity, q8 fast/slow ordering, reduced-motion/skip convergence and 320x568 + 430x1000 render evidence; no product mutation unless runtime defect is reproduced",
-    "started_at_utc": "2026-08-18T22:10:30Z",
-    "expires_at_utc": "2026-08-18T22:24:30Z",
-    "expected_head": "864d435310cdbfbfea83fbeb1e6acd5b6d091509"
-  },
+  "active_claim": null,
   "in_flight_external": [],
   "proven": [
     "source:q1-q8 explicit visualQuestionIndex ordering",
@@ -23,7 +17,8 @@
     "source:persistent QuizEgg scene through hatch/reveal",
     "source:physical shell regression forbids SVG/path/line crack overpaint",
     "artifact:BIRD_CHARACTER_DIRECTION present",
-    "inherited:backend scoring/D1/reward flow where unchanged"
+    "inherited:backend scoring/D1/reward flow where unchanged",
+    "executor-localization:PR#12 exact head remains 864d435310cdbfbfea83fbeb1e6acd5b6d091509; the available ChatGPT Chromium executor cannot navigate the staging workers.dev origin and fails before page load with net::ERR_BLOCKED_BY_ADMINISTRATOR"
   ],
   "verify_pending": [
     "runtime DOM/component identity and fast/slow q8 ordering",
@@ -36,9 +31,10 @@
   "known_false_hypotheses": [
     "current head is still CSS-only q8 continuity",
     "GitHub Actions steps=null is product failure",
-    "BIRD_CHARACTER_DIRECTION artifact is missing"
+    "BIRD_CHARACTER_DIRECTION artifact is missing",
+    "the current ChatGPT container/browser is a viable direct workers.dev visual executor"
   ],
-  "blocker": "No executable/current staging visual proof yet; GitHub-hosted Actions admission is unusable.",
-  "first_next_action": "Use a real zero-cost executor/Cloudflare staging path to produce behavioral DOM/browser evidence for current head. Do not add more source-string contracts unless a new runtime defect is first demonstrated.",
+  "blocker": "No executable/current staging visual proof yet. GitHub-hosted Actions admission is already known unusable, and the available ChatGPT Chromium path is independently blocked from workers.dev by administrator policy before navigation; retrying either path without new executor information would not add evidence.",
+  "first_next_action": "Use a different already-authorized zero-cost executor that can reach workers.dev (preferred: connected Cloudflare execution/deployment surface or an already-linked external CI) to deploy/identify exact head 864d4353 and run the behavioral browser oracle. Do not mutate product code or add source-string contracts unless that runtime proof reproduces a defect.",
   "user_needed": false
 }

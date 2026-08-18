@@ -4,7 +4,7 @@ export const RESULT_ASSETS: Readonly<Record<BirdResultId, { src: string; width: 
   magpie: { src: '/results/magpie.webp', width: 1067, height: 1271, label: 'Сорока' },
   woodpecker: { src: '/results/woodpecker.webp', width: 952, height: 1463, label: 'Дятел' },
   jay: { src: '/results/jay.webp', width: 1073, height: 1364, label: 'Сойка' },
-  crane: { src: '/results/crane-character-v4.webp', width: 750, height: 1500, label: 'Журавль' },
+  crane: { src: '/results/crane-collectible.svg', width: 512, height: 512, label: 'Журавль' },
   owl: { src: '/results/owl.webp', width: 171, height: 212, label: 'Сова' },
   kotosov: { src: '/results/kotosov.webp', width: 799, height: 1381, label: 'Котосов' },
 });

@@ -1,15 +1,27 @@
 {
   "schema_version": 1,
-  "state_revision": 3,
+  "state_revision": 4,
   "lane": "NOTION",
-  "updated_at_utc": "2026-08-18T22:49:00Z",
+  "updated_at_utc": "2026-08-18T22:52:00Z",
   "authority": {"policy": "autopilot/v2/POLICY.md", "acceptance_version": "notion-codex-rotation-20260818"},
   "repo": "Ai-b0ss/notion-agent-bridge",
   "pr": 7,
   "branch": "candidate/ncm28-windows-fixed-v1",
   "current_head": "0e4cdb2b89c38df4c32616b0e5906bb2de6c1103",
-  "phase": "NCM28_CALLSITE_INVENTORY_READY",
-  "active_claim": null,
+  "phase": "NCM28_DETERMINISTIC_CLASSIFIER_IN_PROGRESS",
+  "active_claim": {
+    "claim_id": "CHIEF-20260818T225200Z-N-NCM28-WINDOWS-HARNESS",
+    "acceptance_row": "N-NCM28-WINDOWS",
+    "authority_refs": ["NOTION-QWEN-FULL-CONTRACT-20260818", "NOTION-PROJECT-STATE"],
+    "expected_head": "0e4cdb2b89c38df4c32616b0e5906bb2de6c1103",
+    "expected_state_revision": 3,
+    "allowed_paths": ["tools/circleci_probe_ncm28_happy_outcome.py", ".circleci/config.yml"],
+    "forbidden_surfaces": ["materialized product source", "auth/account data", "runtime state", "provider traffic", "main", "production"],
+    "hypothesis": "The remaining native Windows PermissionError is inside atomic_write, but iterative guessed wrapper-frame predicates hide whether the failing invocation has a trusted parent guard and which product module directly called it. Runtime traceback locals and normalized caller basename can classify those facts without paths or secrets.",
+    "new_information_expected": "Exactly one bounded Windows workflow distinguishes parent_guard present vs absent and caller module category for the first atomic_write exception; no product code is changed.",
+    "started_at_utc": "2026-08-18T22:52:00Z",
+    "expires_at_utc": "2026-08-18T23:07:00Z"
+  },
   "in_flight_external": [],
   "evidence_refs": ["autopilot/v2/evidence/notion-ncm28-frame-diagnostic-b6259ea.json"],
   "proven": [
@@ -22,7 +34,7 @@
     "source:active same-workspace account-pool/rotation architecture exists"
   ],
   "verify_pending": [
-    "N-NCM28-WINDOWS: derive exhaustive actual atomic_write caller inventory from materialized v20 source; one bounded native Windows classifier, not another guessed-frame sequence",
+    "N-NCM28-WINDOWS: one deterministic native Windows atomic_write invocation classifier",
     "root-cause product change only after deterministic caller evidence",
     "targeted native Windows then full NCM28 recovery/auth/state/rollback gates",
     "execute secret-channel verifier on current head",
@@ -45,7 +57,7 @@
     "the first atomic_write exception traverses restore_files_guarded",
     "green inverted diagnostic contexts mean Windows product PASS"
   ],
-  "blocker": "Exact remaining atomic_write caller/root cause is not yet identified. Iterative guessed-frame diagnostics are banned; no v21 product patch is justified yet.",
-  "first_next_action": "Build a deterministic actual-callsite inventory from the fully materialized v20 candidate source, then replace the four guessed CircleCI frame jobs with one bounded exhaustive classifier that can identify the real caller category without paths/secrets. If current source can localize the bug offline, patch only after recording that evidence.",
+  "blocker": "Harness classification gap only; no product patch is justified until the atomic_write invocation is classified.",
+  "first_next_action": "Atomically replace guessed predicates with sanitized atomic_write parent_guard/caller-module facts, launch one bounded CircleCI Windows classifier, immediately return automatic execution to disabled, persist run identity, release claim.",
   "user_needed": false
 }

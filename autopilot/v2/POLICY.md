@@ -36,8 +36,9 @@ Authority order: current explicit owner requirements > reproducible current-sour
 ## Provider safety
 - Exactly ONE global provider-live lease exists across Autopilot, stored in `autopilot/v2/lanes/global.json`. Lane-local live leases are not authority to call a provider.
 - Rate/quota may cool an account and permit eligible failover when that semantics is explicitly accepted for the product.
-- WAF/CAPTCHA/trust/explicit restriction/ambiguous post-send state must not probe sibling accounts; stop and open the provider-pressure circuit.
-- Never rotate to bypass provider restrictions. Offline failure-injection does not require the global live lease.
+- An ordinary CAPTCHA/challenge that is bound to one account/session is ACCOUNT-LOCAL temporary unavailability: cool/defer that exact account and continue with another eligible account within the bounded failover budget. This is required for unattended operation; no human CAPTCHA click is required to keep unrelated eligible accounts working.
+- Explicit provider-wide WAF/block, trust/explicit restriction, or ambiguous post-send state are GLOBAL STOP/CIRCUIT conditions: do not probe sibling accounts.
+- Never rotate to bypass provider restrictions. Classifiers and tests must distinguish account-local CAPTCHA from explicit provider restriction rather than collapsing them into one category. Offline failure-injection does not require the global live lease.
 
 ## Writes and branches
 - Never write default/main or production merely for proof.

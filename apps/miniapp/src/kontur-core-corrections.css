@@ -79,20 +79,24 @@
 .lk-first-time--hatching > .lk-quiz-hatch .lk-quiz-hatch__light { display: none; }
 .lk-first-time--hatching > .lk-quiz-hatch { z-index: 42; }
 
-/* While q8's 260 ms response gesture is still playing, hatch effects wait. */
+/*
+ * A fast q8 API/replay result can put React in the hatching stage while the
+ * answer gesture is still active. Pause every hatch animation at its first
+ * frame until eggResponding clears. This is state-based rather than a second
+ * fixed timer, so reduced-motion keeps the same order without inheriting a
+ * 260 ms animation delay.
+ */
 .lk-first-time--hatching.is-egg-responding > .lk-quiz-hatch,
 .lk-first-time--hatching.is-egg-responding .lk-quiz-egg__shell,
 .lk-first-time--hatching.is-egg-responding .lk-quiz-egg__hatch-light {
-  animation-delay: 260ms !important;
+  animation-play-state: paused !important;
 }
 
 /*
- * q8 may receive its API/replay result before the response gesture finishes.
- * In that overlap the React stage is already "hatching", but the visible state
- * must remain the answered q8 screen. Once eggResponding clears, the existing
- * hatch state becomes visible. If the result is slower than the gesture, React
- * remains on questions until the result arrives. Therefore visible hatching is
- * gated by both conditions without delaying the network request.
+ * During that overlap the visible state remains the answered q8 screen. Once
+ * eggResponding clears, the existing hatch state becomes visible. If the
+ * result is slower than the gesture, React stays on questions until it arrives.
+ * Thus visible hatching requires both gesture completion and result readiness.
  */
 .lk-first-time--hatching.is-egg-responding .lk-question--egg {
   opacity: 1;
@@ -184,12 +188,5 @@
 .lk-reduced-motion .lk-quiz-egg__shell,
 .lk-reduced-motion .lk-quiz-egg__hatch-light {
   animation-duration: .001ms !important;
-  animation-delay: 0ms !important;
-}
-
-/* The q8 wait selector is more specific, so reduced motion needs an equally explicit override. */
-.lk-reduced-motion.lk-first-time--hatching.is-egg-responding > .lk-quiz-hatch,
-.lk-reduced-motion.lk-first-time--hatching.is-egg-responding .lk-quiz-egg__shell,
-.lk-reduced-motion.lk-first-time--hatching.is-egg-responding .lk-quiz-egg__hatch-light {
   animation-delay: 0ms !important;
 }

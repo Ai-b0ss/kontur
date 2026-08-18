@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "evidence_id": "NOTION-NCM28-FRAME-DIAGNOSTIC-b6259ea",
+  "lane": "NOTION",
+  "acceptance_row": "N-NCM28-WINDOWS",
+  "result": "HARNESS_GAP_FOUR_HYPOTHESES_DISPROVED",
+  "exact_sha": "b6259ea50fbeb742f68357af1d30abc5a1803511",
+  "current_product_head_when_harvested": "0e4cdb2b89c38df4c32616b0e5906bb2de6c1103",
+  "executor": "CircleCI Windows server-2022 / Python 3.13.9",
+  "workflow_id": "d8282dcf-9794-4ba7-bf05-bbf006898b70",
+  "proof_surface": "native Windows first-exception stack classification inside the previously proven atomic_write route",
+  "oracle": "intentionally inverted frame predicates: predicate match exits 23/CI failure; CI success means that guessed frame was absent",
+  "statuses": {
+    "preflight": "SUCCESS",
+    "build": "SUCCESS",
+    "frame_ncm28_atomic_write_from_snapshot": "SUCCESS_NO_MATCH",
+    "frame_ncm28_capture_ownership_snapshot": "SUCCESS_NO_MATCH",
+    "frame_managed_target_parent_guard": "SUCCESS_NO_MATCH",
+    "frame_restore_files_guarded": "SUCCESS_NO_MATCH"
+  },
+  "classification": "EVIDENCE/HARNESS",
+  "verified_facts": [
+    "the promoted v20 candidate builds on the native Windows executor",
+    "none of the four guessed subframes appears in the first exception stack under this probe",
+    "the earlier atomic_write localization is not refined by this workflow",
+    "green diagnostic contexts are not a product PASS because this probe uses inverted semantics"
+  ],
+  "disproved_hypotheses": [
+    "first exception traverses ncm28_atomic_write_from_snapshot",
+    "first exception traverses ncm28_capture_ownership_snapshot",
+    "first exception traverses managed_target_parent_guard",
+    "first exception traverses restore_files_guarded"
+  ],
+  "does_not_prove": [
+    "NCM28 Windows correctness",
+    "which remaining atomic_write callsite is the first failing caller",
+    "that another product patch is justified"
+  ],
+  "invalidation_dependencies": [
+    "tools/circleci_probe_ncm28_happy_outcome.py predicate semantics",
+    "tools/build_ncm28_windows_fixed_candidate_v20.py and its inherited patch chain",
+    "native Windows first-exception behavior"
+  ],
+  "next_oracle": "Replace iterative guessed-frame jobs with one deterministic exhaustive callsite inventory derived from the materialized v20 source, then run a single bounded Windows classifier over actual caller categories. Do not create v21 before the caller/root cause is identified."
+}

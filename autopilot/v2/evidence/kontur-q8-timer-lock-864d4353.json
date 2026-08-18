@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "evidence_id": "KONTUR-Q8-TIMER-LOCK-864d4353",
+  "lane": "KONTUR",
+  "acceptance_row": "K-Q1-Q8-TIMELINE",
+  "result": "FAIL_PRODUCT",
+  "exact_sha": "864d435310cdbfbfea83fbeb1e6acd5b6d091509",
+  "source_path": "apps/miniapp/src/screens/LocalKontur.tsx",
+  "source_blob_sha": "fd0b27f4e0f389dd2a62c94dced6ba43df8a91d5",
+  "oracle": "current-source event-order proof",
+  "proof_surface": "q8 response gesture -> result readiness -> semantic hatching -> reveal timer",
+  "facts": [
+    "pick() sets eggResponding=true and owns answerLock through a 0/260ms answerTimer",
+    "q8 starts hatch(next) concurrently before the answer gesture completes",
+    "hatch() sets hatchReady=true when replay/API result is ready",
+    "hatch() starts the 20/2340ms reveal timer immediately at result readiness",
+    "the React effect changes stage to hatching only when eggResponding is false and hatchReady is true",
+    "therefore a fast result can consume part or all of reveal delay before semantic HATCHING starts",
+    "hatch().finally sets answerLock=false even when the answerTimer gesture window is still active; lock ownership is split and a fast result can release it early"
+  ],
+  "required_fix_invariant": [
+    "network/replay completion may set resultReady/hatchReady only",
+    "semantic HATCHING begins exactly once only after both gesture completion and result readiness",
+    "the reveal timer is armed at semantic HATCHING entry, never at result readiness",
+    "answerLock is released only by the answer-gesture owner; hatch completion must not release it",
+    "slow result, fast result, reduced motion and skip converge to the same semantic final state"
+  ],
+  "invalidation_dependencies": [
+    "LocalKontur q8 pick/hatch state machine",
+    "hatching/reveal timer ownership",
+    "answerLock ownership"
+  ],
+  "does_not_invalidate": ["backend scoring","D1","worm/reward flow","bird taxonomy","collection/equip persistence"],
+  "new_information_expected_for_retry": "A changed LocalKontur state machine or executable runtime oracle; another source-regex assertion is not new information."
+}

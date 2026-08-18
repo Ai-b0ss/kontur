@@ -1,18 +1,19 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "acceptance_version": "qwen-full-20260818",
   "project": "QWEN",
+  "authority_refs": ["OWNER-AUTONOMY-20260819","NOTION-QWEN-FULL-CONTRACT-20260818","QWEN-PROVIDER-SAFETY"],
   "done_rule": "QWEN_CORE_DONE requires all mandatory rows PASS. Historical live/product evidence may be inherited only when its named product dependencies are unchanged; executor-only changes do not force provider reproof.",
   "rows": [
-    {"id":"Q-RUNTIME-RESTORE","mandatory":true,"oracle":"security+integration","surfaces":["encrypted runtime restore","no secret argv/log/artifact","cleanup","restart state"]},
-    {"id":"Q-REAL-TOOL-ROUNDTRIP","mandatory":true,"oracle":"live integration","surfaces":["real model response","tool_call","actual local tool execution","tool result continuation"]},
-    {"id":"Q-OPENCODE-WIRING","mandatory":true,"oracle":"config provenance+integration","surfaces":["current provider/base URL/model provenance","OpenCode-compatible end-to-end"]},
-    {"id":"Q-ACCOUNT-POOL","mandatory":true,"oracle":"integration","surfaces":["eligible account pool","cooldown","bounded reservation","fair independent-task allocation"]},
-    {"id":"Q-PROVIDER-SAFETY","mandatory":true,"oracle":"failure-injection","surfaces":["rate/quota cooldown failover","WAF/CAPTCHA/trust stop/circuit","ambiguous post-send fail-closed","no sibling restriction probes","no provider fan-out"]},
-    {"id":"Q-SECRET-BRIDGE","mandatory":true,"oracle":"executor security","surfaces":["manual/exact-sha trusted trigger","scrubbed child environment","ephemeral runner or equivalent isolation","immutable action refs","sanitized callback"]},
-    {"id":"Q-LONG-SOAK","mandatory":true,"oracle":"single bounded live soak","surfaces":["35-45m sparse timeline","checkpoint/restart","one provider-live lease","kill-switch","no retry storm"]},
-    {"id":"Q-WINDOWS-PARITY","mandatory":true,"oracle":"native Windows integration","surfaces":["startup","paths/cwd/symlink","shell/process","runtime restore","tool roundtrip","restart/cleanup/API"]},
-    {"id":"Q-REPRODUCIBILITY-SECURITY","mandatory":true,"oracle":"offline security regression","surfaces":["workspace boundary truthfulness","secret leak scan","branch contamination","exact-head evidence"]}
+    {"id":"Q-RUNTIME-RESTORE","mandatory":true,"authority_refs":["NOTION-QWEN-FULL-CONTRACT-20260818","OWNER-AUTONOMY-20260819"],"oracle":"security+integration","surfaces":["encrypted runtime restore","no secret argv/log/artifact","cleanup","restart state"]},
+    {"id":"Q-REAL-TOOL-ROUNDTRIP","mandatory":true,"authority_refs":["NOTION-QWEN-FULL-CONTRACT-20260818"],"oracle":"live integration","surfaces":["real model response","tool_call","actual local tool execution","tool result continuation"]},
+    {"id":"Q-OPENCODE-WIRING","mandatory":true,"authority_refs":["NOTION-QWEN-FULL-CONTRACT-20260818"],"oracle":"config provenance+integration","surfaces":["current provider/base URL/model provenance","OpenCode-compatible end-to-end"]},
+    {"id":"Q-ACCOUNT-POOL","mandatory":true,"authority_refs":["NOTION-QWEN-FULL-CONTRACT-20260818","QWEN-PROVIDER-SAFETY"],"oracle":"integration","surfaces":["eligible account pool","cooldown","bounded reservation","fair independent-task allocation"]},
+    {"id":"Q-PROVIDER-SAFETY","mandatory":true,"authority_refs":["QWEN-PROVIDER-SAFETY","OWNER-AUTONOMY-20260819"],"oracle":"failure-injection","surfaces":["rate/quota cooldown failover","WAF/CAPTCHA/trust stop/circuit","ambiguous post-send fail-closed","no sibling restriction probes","no provider fan-out"]},
+    {"id":"Q-SECRET-BRIDGE","mandatory":true,"authority_refs":["NOTION-QWEN-FULL-CONTRACT-20260818","OWNER-AUTONOMY-20260819"],"oracle":"executor security","surfaces":["manual/exact-sha trusted trigger","scrubbed child environment","ephemeral runner or equivalent isolation","immutable action refs","sanitized callback"]},
+    {"id":"Q-LONG-SOAK","mandatory":true,"authority_refs":["NOTION-QWEN-FULL-CONTRACT-20260818","QWEN-PROVIDER-SAFETY"],"oracle":"single bounded live soak","surfaces":["35-45m sparse timeline","checkpoint/restart","global provider-live lease","kill-switch","no retry storm"]},
+    {"id":"Q-WINDOWS-PARITY","mandatory":true,"authority_refs":["NOTION-QWEN-FULL-CONTRACT-20260818"],"oracle":"native Windows integration","surfaces":["startup","paths/cwd/symlink","shell/process","runtime restore","tool roundtrip","restart/cleanup/API"]},
+    {"id":"Q-REPRODUCIBILITY-SECURITY","mandatory":true,"authority_refs":["NOTION-QWEN-FULL-CONTRACT-20260818","OWNER-AUTONOMY-20260819"],"oracle":"offline security regression","surfaces":["workspace boundary truthfulness","secret leak scan","branch contamination","exact-head evidence"]}
   ],
   "explicitly_forbidden_shortcuts": ["rerun live evidence only for freshness","treat WAF as cooldown and probe siblings","claim arbitrary shell is a sandbox","use hosted long-soak workflow when executor is unavailable"]
 }

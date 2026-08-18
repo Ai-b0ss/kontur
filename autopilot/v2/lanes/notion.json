@@ -1,51 +1,35 @@
 {
   "schema_version": 1,
-  "state_revision": 5,
+  "state_revision": 6,
   "lane": "NOTION",
-  "updated_at_utc": "2026-08-18T22:56:00Z",
+  "updated_at_utc": "2026-08-18T23:12:00Z",
   "authority": {"policy": "autopilot/v2/POLICY.md", "acceptance_version": "notion-codex-rotation-20260818"},
   "repo": "Ai-b0ss/notion-agent-bridge",
   "pr": 7,
   "branch": "candidate/ncm28-windows-fixed-v1",
   "current_head": "980f248272860ce5c92d8812bf830cb30021b8b1",
-  "phase": "WAIT_EXTERNAL",
+  "phase": "NCM28_GUARDED_WRITE_ROOT_CAUSE_READY",
   "active_claim": null,
-  "in_flight_external": [
-    {
-      "executor": "CircleCI Windows server-2022 / Python 3.13.9",
-      "workflow_id": "08b9d1b7-f453-4a89-b432-0760a4e0eb0e",
-      "launched_for_sha": "6856f3c7ba82b9428d2fe93c1124861cccdfc18f",
-      "acceptance_row": "N-NCM28-WINDOWS",
-      "proof_surface": "first failing atomic_write invocation: parent_guard presence + direct caller module category",
-      "oracle": "inverted predicate statuses; failure means predicate matched",
-      "status": "RUNNING",
-      "duplicate_forbidden": true,
-      "expected_outcomes": {
-        "parent_guard_none_failure": "failing invocation entered atomic_write without trusted parent guard",
-        "parent_guard_present_failure": "failing invocation had trusted parent guard; investigate implementation/lifetime instead of propagation",
-        "caller_integrated_failure": "direct caller module integrated_upgrade.py",
-        "caller_auth_failure": "direct caller module auth.py/auth_rotation.py",
-        "caller_migration_failure": "direct caller migration_contract.py/stable_runtime_state.py",
-        "all_three_caller_contexts_success": "caller is another materialized module; do not guess a product patch"
-      }
-    }
+  "in_flight_external": [],
+  "evidence_refs": [
+    "autopilot/v2/evidence/notion-ncm28-frame-diagnostic-b6259ea.json",
+    "autopilot/v2/evidence/notion-ncm28-atomic-classifier-6856f3c.json"
   ],
-  "evidence_refs": ["autopilot/v2/evidence/notion-ncm28-frame-diagnostic-b6259ea.json"],
   "proven": [
     "current:first failing classified frame is atomic_write; runtime-root/auth-read candidates disproved for first exception",
-    "current:CircleCI d8282dcf completed; preflight/build green and all four guessed subframes absent under inverted-predicate oracle",
-    "classification:EVIDENCE/HARNESS_GAP — four hypotheses disproved, no new product patch justified",
-    "current:deterministic classifier inspects only parent_guard presence and normalized caller basename; it does not emit local values, paths, exception text or payloads",
-    "current:automatic NCM28 classifier default returned to false on head 980f2482 immediately after bounded trigger commit 6856f3c7",
+    "current:four guessed wrapper/subframes were absent; iterative guessed-frame diagnostics are not an acceptable next oracle",
+    "current:deterministic Windows classifier on 6856f3c proves first failing atomic_write has parent_guard PRESENT and direct caller integrated_upgrade.py",
+    "disproved: missing parent_guard propagation is the cause of this first failure; do not add another guard parameter or v21 layer on that hypothesis",
+    "current:automatic NCM28 classifier default is false on head 980f2482",
     "current:restore scripts use non-argv passphrase channel at source",
     "current:restore success output no longer emits plaintext restored path; static verifier rejects path-output regression",
     "inherited:strict-share/held-parent primitives and selected recovery invariants where source unchanged",
     "source:active same-workspace account-pool/rotation architecture exists"
   ],
   "verify_pending": [
-    "harvest workflow 08b9d1b7-f453-4a89-b432-0760a4e0eb0e; do not duplicate while unresolved",
-    "root-cause product change only after deterministic caller evidence",
-    "targeted native Windows then full NCM28 recovery/auth/state/rollback gates",
+    "N-NCM28-WINDOWS: materialize exact v20 source offline; identify exact integrated_upgrade.py atomic_write callsite and guard/handle operation raising PermissionError",
+    "inspect parent handle lifetime, actual handle-relative rename/open path and Windows access/share flags before any product patch",
+    "after exact root cause: one architectural product fix, targeted native Windows, then full NCM28 recovery/auth/state/rollback gates",
     "execute secret-channel verifier on current head",
     "materialize a clean canonical NCM28 candidate after Windows correctness is green; archive v2..v20 patch builders from promoted architecture",
     "Responses streaming/call-id/tool-result/correction fail-closed semantics",
@@ -64,9 +48,10 @@
     "the first atomic_write exception traverses ncm28_capture_ownership_snapshot",
     "the first atomic_write exception traverses managed_target_parent_guard",
     "the first atomic_write exception traverses restore_files_guarded",
-    "green inverted diagnostic contexts mean Windows product PASS"
+    "green inverted diagnostic contexts mean Windows product PASS",
+    "the first current failure is caused by parent_guard being absent at atomic_write"
   ],
-  "blocker": "One bounded deterministic Windows classifier is running for 6856f3c7. Automatic reruns are disabled on current head 980f2482; waiting holds no mutable claim.",
-  "first_next_action": "Harvest CircleCI workflow 08b9d1b7-f453-4a89-b432-0760a4e0eb0e. If still pending, pivot immediately to QWEN offline/executor harvesting or KONTUR runtime proof; do not poll or launch another Notion run.",
+  "blocker": "The failure is localized to a guarded atomic_write directly called from integrated_upgrade.py, but the exact callsite/handle operation is not yet identified. Product mutation remains unjustified until offline materialized-source inspection isolates it.",
+  "first_next_action": "Materialize the exact v20 candidate source from current builders without changing product, then inspect integrated_upgrade.py atomic_write callsites and atomic_write/ParentBoundOps handle lifetime/rename semantics. Record exact callsite evidence before taking a product claim.",
   "user_needed": false
 }

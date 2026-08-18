@@ -186,3 +186,10 @@
   animation-duration: .001ms !important;
   animation-delay: 0ms !important;
 }
+
+/* The q8 wait selector is more specific, so reduced motion needs an equally explicit override. */
+.lk-reduced-motion.lk-first-time--hatching.is-egg-responding > .lk-quiz-hatch,
+.lk-reduced-motion.lk-first-time--hatching.is-egg-responding .lk-quiz-egg__shell,
+.lk-reduced-motion.lk-first-time--hatching.is-egg-responding .lk-quiz-egg__hatch-light {
+  animation-delay: 0ms !important;
+}

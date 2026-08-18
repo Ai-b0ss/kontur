@@ -1,17 +1,30 @@
 {
   "schema_version": 1,
-  "state_revision": 1,
+  "state_revision": 2,
   "lane": "QWEN",
-  "updated_at_utc": "2026-08-18T21:46:00Z",
+  "updated_at_utc": "2026-08-18T21:53:00Z",
   "authority": {"policy": "autopilot/v2/POLICY.md", "acceptance_version": "qwen-full-20260818"},
   "repo": "Ai-b0ss/qwen-free-api",
   "pr": 6,
   "branch": "autopilot/qwen-runtime-preflight-20260818",
   "current_head": "9af48b2bca393c75f6951b9704d84207a04efbb1",
-  "phase": "EXECUTOR_READY_THEN_LONG_SOAK",
+  "phase": "WAIT_SECRET_BRIDGE_PREFLIGHT",
   "active_claim": null,
   "provider_live_lease": null,
-  "in_flight_external": [],
+  "in_flight_external": [
+    {
+      "executor": "CircleCI -> ephemeral GitHub self-hosted runner",
+      "kind": "SECRET_BRIDGE_PREFLIGHT",
+      "trigger_branch": "autopilot/qwen-secret-bridge-trigger-20260819",
+      "trigger_sha": "543f208aaca4a198ccd24d576a687ae0bb868a76",
+      "trusted_workflow_branch": "autopilot/qwen-secret-bridge-20260818",
+      "launched_for_sha": "716b16dda7b1bbeab34dfbfdbfa0d5d77b0eac9f",
+      "proof_surface": "executor/runtime-secret readiness only; zero provider calls",
+      "status": "TRIGGERED_AWAIT_CALLBACK",
+      "duplicate_forbidden": true,
+      "expected_result_prefix": "AUTOPILOT_V2_EXTERNAL_RESULT lane=QWEN kind=SECRET_BRIDGE_PREFLIGHT"
+    }
+  ],
   "proven": [
     "inherited:encrypted runtime recovery",
     "inherited:11-account pool 1 active/10 standby",
@@ -21,17 +34,20 @@
     "current:workspace cwd/symlink confinement",
     "current:truthful arbitrary-shell non-sandbox docs",
     "current:PR6 decrypt paths use non-argv passphrase channel",
-    "current:bridge workflow source uses non-argv passphrase channel"
+    "bridge-source:default OFF on reusable bridge branch",
+    "bridge-source:CircleCI broad GitHub token removed from child runner environment via env allowlist",
+    "bridge-source:GitHub API auth header is file-fed rather than secret argv and broad token is removed from exported environment",
+    "bridge-source:RUNTIME_STATE_KEY copied locally then removed from environment before gpg and supplied via passphrase-fd",
+    "bridge-source:workflow requires expected_sha and checkout is pinned to immutable actions/checkout commit 11d5960a326750d5838078e36cf38b85af677262"
   ],
   "verify_pending": [
-    "sanitized self-hosted bridge execution result",
-    "scrub CircleCI bootstrap secrets from runner child environment",
-    "bridge default-off/manual semantics",
+    "harvest sanitized self-hosted bridge execution result for exact workflow sha 716b16d",
     "actual current OpenCode provider wiring provenance",
     "provider-safe WAF/CAPTCHA/trust taxonomy with no sibling probing",
     "one 35-45m sparse Linux soak",
     "native Windows parity including real tool-result continuation",
-    "current-head hardening/security/reproducibility package"
+    "current-head hardening/security/reproducibility package",
+    "delete/archive one-shot trigger branch after result is durably harvested"
   ],
   "known_false_hypotheses": [
     "runtime/auth is unavailable to automation",
@@ -39,7 +55,7 @@
     ".qwen-v28/opencode-v28.json currently proves provider/baseURL/model",
     "GitHub-hosted Actions red admission is product failure"
   ],
-  "blocker": "Executor bridge has not yet produced a sanitized PASS; live soak is forbidden until bridge isolation and WAF semantics are safe.",
-  "first_next_action": "Inspect and harden the CircleCI -> self-hosted bridge without provider traffic: default OFF, scrub child environment, immutable trusted workflow/ref. Then harvest exactly one preflight result.",
+  "blocker": "Bridge execution result is pending. Even after executor PASS, live long soak remains forbidden until WAF/CAPTCHA/trust semantics are fail-closed against sibling probing.",
+  "first_next_action": "Harvest exactly the one-shot bridge callback. Do not duplicate it. On PASS, next mutation is offline provider-error taxonomy/WAF regression before any long soak; on FAIL, repair only the exact executor stage.",
   "user_needed": false
 }

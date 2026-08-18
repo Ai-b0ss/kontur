@@ -1,0 +1,47 @@
+name: Kontur core bounded correction
+
+on:
+  push:
+    branches:
+      - fix/kontur-core-visual-continuity-20260818
+    paths:
+      - .autopilot-trigger/kontur-core-fix.txt
+
+permissions:
+  contents: write
+
+jobs:
+  apply-test-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/kontur-core-visual-continuity-20260818
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Enable pnpm 11
+        run: |
+          corepack enable
+          corepack prepare pnpm@11 --activate
+      - name: Apply bounded correction
+        run: node tools/kontur-core-fix.mjs
+      - name: Install exact dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Targeted and full validation
+        run: |
+          pnpm -F @kontur/miniapp test
+          pnpm -F @kontur/worker test
+          pnpm check
+          pnpm build
+      - name: Remove one-shot applicator and commit only reviewed product delta
+        run: |
+          rm -f tools/kontur-core-fix.mjs .autopilot-trigger/kontur-core-fix.txt .github/workflows/kontur-core-fix-once.yml
+          git config user.name "kontur-autopilot"
+          git config user.email "kontur-autopilot@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "fix: unify Kontur bird identity and hatch continuity"
+          git push origin HEAD:fix/kontur-core-visual-continuity-20260818

@@ -2,71 +2,38 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-test('q1..q7 response phase advances line, ring and crack to N+1 before question index changes', async () => {
-  const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
-
-  const nextProgress = ['25%', '37.5%', '50%', '62.5%', '75%', '87.5%', '100%'];
-  for (let stage = 1; stage <= 7; stage += 1) {
-    const nextStage = stage + 1;
-    const nextDegrees = nextStage * 45;
-    const padded = String(nextStage).padStart(2, '0');
-
-    assert.match(
-      css,
-      new RegExp(`is-egg-responding:has\\(\\.lk-quiz-egg\\[data-stage="${stage}"\\]\\)[\\s\\S]*?width: ${nextProgress[stage - 1]!.replace('.', '\\.')}`),
-      `top progress must target q${nextStage} while q${stage} response is active`,
-    );
-    assert.match(
-      css,
-      new RegExp(`is-egg-responding \\.lk-quiz-egg\\[data-stage="${stage}"\\] \\.lk-quiz-egg__ring \\{ --lk-egg-progress: ${nextDegrees}deg`),
-      `ring must target q${nextStage} while q${stage} response is active`,
-    );
-    assert.match(
-      css,
-      new RegExp(`is-egg-responding \\.lk-quiz-egg\\[data-stage="${stage}"\\] \\.lk-quiz-egg__base \\{ content: url\\('/quiz/egg-stage-${padded}\\.webp'\\)`),
-      `egg art must target stage ${nextStage} while q${stage} response is active`,
-    );
-  }
-});
-
-test('q8 visible hatch cannot overtake either the response gesture or hatch result', async () => {
-  const [css, screen] = await Promise.all([
-    readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8'),
+test('q1..q7 response phase advances line, ring and crack through the explicit React visual target', async () => {
+  const [screen, css] = await Promise.all([
     readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8'),
   ]);
 
-  // The response gesture starts before the concurrent final hatch request.
+  assert.match(screen, /const \[visualQuestionIndex, setVisualQuestionIndex\] = useState\(0\);/);
+  assert.match(screen, /setVisualQuestionIndex\(Math\.min\(questions\.length - 1, index \+ 1\)\);/);
+  assert.match(screen, /const eggStage = stage === 'hook' \? 1 : Math\.min\(8, visualQuestionIndex \+ 1\);/);
+  assert.match(screen, /\(\(visualQuestionIndex \+ 1\) \/ questions\.length\) \* 100/);
+  assert.doesNotMatch(css, /is-egg-responding:has\(\.lk-quiz-egg\[data-stage=/);
+  assert.doesNotMatch(css, /is-egg-responding \.lk-quiz-egg\[data-stage=.*?content:\s*url\('/s);
+});
+
+test('q8 visible hatch requires both response completion and hatch result readiness', async () => {
+  const screen = await readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8');
+
   const respondingAt = screen.indexOf('setEggResponding(true);');
-  const hatchRequestAt = screen.indexOf('if (index + 1 >= questions.length) void hatch(next);');
+  const hatchRequestAt = screen.indexOf('void hatch(next);');
   assert.ok(respondingAt >= 0 && hatchRequestAt > respondingAt);
+  assert.match(screen, /const \[hatchReady, setHatchReady\] = useState\(false\);/);
+  assert.match(screen, /if \(!eggResponding && hatchReady\) setStage\('hatching'\);/);
   assert.match(screen, /setEggResponding\(false\);[\s\S]*?reducedMotion \? 0 : 260/);
+  assert.match(screen, /setHatchReady\(true\);/);
+});
 
-  // Fast result: React may enter hatching while the gesture is still active,
-  // but the visible q8 surface remains and every hatch animation is paused at t=0.
-  assert.match(
-    css,
-    /\.lk-first-time--hatching\.is-egg-responding \.lk-question--egg \{[\s\S]*?opacity: 1;[\s\S]*?pointer-events: none;/,
-  );
-  assert.match(
-    css,
-    /\.lk-first-time--hatching\.is-egg-responding \.lk-hatching-label,[\s\S]*?\.lk-skip-motion \{[\s\S]*?visibility: hidden;/,
-  );
-  assert.match(
-    css,
-    /\.lk-first-time--hatching\.is-egg-responding > \.lk-quiz-hatch,[\s\S]*?animation-play-state: paused !important;/,
-  );
-  assert.doesNotMatch(
-    css,
-    /\.lk-first-time--hatching\.is-egg-responding[\s\S]{0,500}?animation-delay: 260ms/,
-    'q8 ordering must be state-gated, not implemented as a second fixed delay',
-  );
+test('reduced motion keeps the same state ordering while collapsing animation time', async () => {
+  const [screen, css] = await Promise.all([
+    readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8'),
+  ]);
 
-  // Slow result: LocalKontur does not enter hatching until hatch() has a result;
-  // therefore the q8 question remains the visible state after the gesture too.
-  const apiAwaitAt = screen.indexOf('const result = await api.localHatch(finalAnswers);');
-  const visibleHatchAt = screen.indexOf("setStage('hatching');", apiAwaitAt);
-  assert.ok(apiAwaitAt >= 0 && visibleHatchAt > apiAwaitAt);
-
-  // Reduced motion keeps the same gate but collapses animation duration/delay.
+  assert.match(screen, /reducedMotion \? 0 : 260/);
   assert.match(css, /\.lk-reduced-motion \.lk-quiz-hatch,[\s\S]*?animation-duration: \.001ms !important;[\s\S]*?animation-delay: 0ms !important;/);
 });

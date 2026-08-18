@@ -1,15 +1,21 @@
 {
   "schema_version": 1,
-  "state_revision": 4,
+  "state_revision": 5,
   "lane": "QWEN",
-  "updated_at_utc": "2026-08-18T22:04:00Z",
+  "updated_at_utc": "2026-08-18T22:06:00Z",
   "authority": {"policy": "autopilot/v2/POLICY.md", "acceptance_version": "qwen-full-20260818"},
   "repo": "Ai-b0ss/qwen-free-api",
   "pr": 6,
   "branch": "autopilot/qwen-runtime-preflight-20260818",
   "current_head": "01668a8d37960840bf2489f21b8a8d04bc7e63eb",
-  "phase": "WAIT_TWO_OFFLINE_EXECUTOR_PROOFS",
-  "active_claim": null,
+  "phase": "PROVIDER_SAFETY_FAILURE_LOCALIZED",
+  "active_claim": {
+    "pulse_id": "CHIEF-20260818T2206Z-QWEN-TAXONOMY",
+    "work_packet": "Fix deterministic 504 classification ordering exposed by provider-safety offline FAIL, then relaunch offline proof with new product SHA",
+    "started_at_utc": "2026-08-18T22:06:00Z",
+    "expires_at_utc": "2026-08-18T22:18:00Z",
+    "expected_head": "01668a8d37960840bf2489f21b8a8d04bc7e63eb"
+  },
   "provider_live_lease": null,
   "in_flight_external": [
     {
@@ -31,9 +37,11 @@
       "trigger_sha": "a40f18cbdbeef87cca326ff164718ccd599915cb",
       "launched_for_sha": "01668a8d37960840bf2489f21b8a8d04bc7e63eb",
       "proof_surface": "WAF/CAPTCHA/trust/provider-pressure no-sibling semantics + full offline regression; provider_calls=0",
-      "status": "TRIGGERED_AWAIT_CALLBACK",
-      "duplicate_forbidden": true,
-      "expected_result_prefix": "AUTOPILOT_V2_EXTERNAL_RESULT lane=QWEN kind=PROVIDER_SAFETY_OFFLINE"
+      "status": "FAIL",
+      "result_evidence": "kontur#9 AUTOPILOT_V2_EXTERNAL_RESULT result=FAIL",
+      "failure_localization": "Deterministic source/test mismatch: classifyUpstreamFailure checks timeout text before explicit HTTP 504, so '<html>gateway timeout</html>' returns ambiguous_timeout instead of provider_pressure.",
+      "duplicate_forbidden": false,
+      "new_information_expected_for_retry": "new product SHA after classification-order fix"
     }
   ],
   "proven": [
@@ -51,26 +59,26 @@
     "bridge-source:RUNTIME_STATE_KEY copied locally then removed from environment before gpg and supplied via passphrase-fd",
     "bridge-source:workflow requires expected_sha and checkout is pinned to immutable actions/checkout commit 11d5960a326750d5838078e36cf38b85af677262",
     "source:provider circuit persists WAF/trust/provider-pressure safety state and blocks sibling candidates",
-    "source:WAF exact-account challenge keeps active account; rate-limit remains eligible failover",
-    "source:generic 504 is provider pressure rather than automatic WAF and account attempts are bounded"
+    "source:WAF exact-account challenge keeps active account; rate-limit remains eligible failover"
   ],
   "verify_pending": [
+    "fix and rerun provider-safety offline proof on new exact product head",
     "harvest sanitized self-hosted bridge execution result for exact workflow sha 716b16d",
-    "harvest provider-safety targeted + full offline regression for exact product head 01668a8",
+    "repair full shipped root runtime restore secret surface and extend its regression",
     "actual current OpenCode provider wiring provenance",
-    "one 35-45m sparse Linux soak after both safety proofs PASS",
+    "one 35-45m sparse Linux soak after safety proofs PASS",
     "native Windows parity including real tool-result continuation",
-    "current-head hardening/security/reproducibility package",
-    "delete/archive one-shot trigger branches after results are durably harvested"
+    "current-head hardening/security/reproducibility package"
   ],
   "known_false_hypotheses": [
     "runtime/auth is unavailable to automation",
     "bounded three-step soak is final acceptance",
     ".qwen-v28/opencode-v28.json currently proves provider/baseURL/model",
     "GitHub-hosted Actions red admission is product failure",
-    "WAF challenge is an ordinary account failure eligible for immediate sibling rotation"
+    "WAF challenge is an ordinary account failure eligible for immediate sibling rotation",
+    "the first provider-safety offline FAIL requires a blind retry"
   ],
-  "blocker": "Two zero-provider external proofs are pending. No live soak until both bridge readiness and provider-safety regression are green.",
-  "first_next_action": "Harvest the two exact callbacks; do not duplicate either run. If provider-safety FAIL, repair exact test/product defect. If both PASS, locate current OpenCode provider wiring and then prepare the single sparse long soak.",
+  "blocker": "Provider-safety gate found an exact taxonomy ordering defect; bridge callback also pending. No provider traffic is permitted yet.",
+  "first_next_action": "Reorder explicit HTTP provider-pressure classification ahead of textual timeout detection, then launch one offline proof for the new exact head.",
   "user_needed": false
 }

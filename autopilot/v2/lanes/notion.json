@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "state_revision": 1,
+  "lane": "NOTION",
+  "updated_at_utc": "2026-08-18T21:46:00Z",
+  "authority": {"policy": "autopilot/v2/POLICY.md", "acceptance_version": "notion-codex-rotation-20260818"},
+  "repo": "Ai-b0ss/notion-agent-bridge",
+  "pr": 7,
+  "branch": "candidate/ncm28-windows-fixed-v1",
+  "current_head": "daa8ff0ae47e17b5588ce72acfa7d517c6e43ead",
+  "phase": "NCM28_ATOMIC_WRITE_DIAGNOSTIC",
+  "active_claim": null,
+  "provider_live_lease": null,
+  "in_flight_external": [
+    {
+      "executor": "CircleCI Windows",
+      "workflow_id": "d8282dcf-9794-4ba7-bf05-bbf006898b70",
+      "launched_for_sha": "b6259ea50fbeb742f68357af1d30abc5a1803511",
+      "probe_source_sha": "ba0b815fca829eb5cce25db1516121b6a701a6ff",
+      "guard_restored_sha": "9462c882046c98b222e64a22dcfee745b0e7a0b9",
+      "proof_surface": "native Windows atomic-write exception subframe",
+      "status": "PENDING_LAST_HANDOFF",
+      "duplicate_forbidden": true
+    }
+  ],
+  "proven": [
+    "current:first failing classified frame is atomic_write; runtime-root/auth-read candidates disproved for first exception",
+    "current:restore scripts use non-argv passphrase channel at source",
+    "inherited:strict-share/held-parent primitives and selected recovery invariants where source unchanged",
+    "source:active same-workspace account-pool/rotation architecture exists"
+  ],
+  "verify_pending": [
+    "harvest exact atomic-write subframe from the in-flight CircleCI workflow",
+    "minimal handle-relative fix only for the proven route",
+    "targeted native Windows then full NCM28 recovery/auth/state/rollback gates",
+    "sanitize restore-script success output and execute secret-channel verifier",
+    "materialize a clean canonical NCM28 candidate after Windows correctness is green",
+    "Responses streaming/call-id/tool-result/correction fail-closed semantics",
+    "real multi-round Codex local tool execution and complete tool matrix",
+    "active independent-turn account load-balancing with unfinished-loop account/thread stickiness",
+    "clean-thread classified failover, reservations, cooldown, circuits and background spare capacity",
+    ">=2-account bounded live smoke, restart/crash recovery and long Codex soak"
+  ],
+  "known_false_hypotheses": [
+    "StableRuntimeStateError label alone identifies the current first root cause",
+    "runtime root or auth read is the first current exception",
+    "lexical canonical path equality is sufficient after namespace freeze",
+    "green NCM28 alone means NOTION_CORE_DONE",
+    "rotation is emergency-only standby"
+  ],
+  "blocker": "One bounded CircleCI Windows diagnostic is already in flight; the next product mutation must be derived from its exact matched subframe, not from a top-level label.",
+  "first_next_action": "Harvest workflow d8282dcf-9794-4ba7-bf05-bbf006898b70. Do not duplicate. If atomic_write subframe matches, inspect trusted parent handle/temp/replace lifetime and patch that exact route only; then targeted native Windows verification.",
+  "user_needed": false
+}

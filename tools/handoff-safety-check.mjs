@@ -28,6 +28,7 @@ const required = [
   'apps/miniapp/src/App.tsx',
   'apps/miniapp/src/screens/LocalKontur.tsx',
   'apps/miniapp/src/components/QuizEgg.tsx',
+  'apps/miniapp/src/quiz-egg-model.ts',
   'apps/miniapp/src/result-taxonomy.ts',
   'tools/runtime-reachability.mjs',
   'tools/runtime-reachability.test.mjs',
@@ -121,6 +122,7 @@ if (workerPackage.scripts?.deploy !== 'node ../../tools/cloudflare/refuse-direct
 const app = readFileSync('apps/miniapp/src/App.tsx', 'utf8');
 const local = readFileSync('apps/miniapp/src/screens/LocalKontur.tsx', 'utf8');
 const egg = readFileSync('apps/miniapp/src/components/QuizEgg.tsx', 'utf8');
+const eggModel = readFileSync('apps/miniapp/src/quiz-egg-model.ts', 'utf8');
 const taxonomy = readFileSync('apps/miniapp/src/result-taxonomy.ts', 'utf8');
 const productionWorkflow = readFileSync('.github/workflows/release-production.yml', 'utf8');
 const stagingWorkflow = readFileSync('.github/workflows/release-staging.yml', 'utf8');
@@ -134,8 +136,10 @@ if (!local.includes("type Stage = 'community' | 'hook' | 'questions' | 'hatching
 if (!local.includes('Какая ты<br />птица <em>в IT?</em>')) fail('canonical hook headline missing');
 if (!local.includes("kotosov: { name: 'котосов'")) fail('accepted Kotosov visual result missing from current presentation');
 if (!local.includes('selectBirdResult({')) fail('current hatch flow no longer selects the accepted visual taxonomy');
-if (!egg.includes('Math.max(1, Math.min(8, stage))')) fail('quiz egg no longer clamps to 8 deterministic stages');
-if (!egg.includes('safeStage * 45')) fail('quiz egg progress no longer maps 8 questions to a full circle');
+if (!egg.includes("import { quizEggStageModel } from '../quiz-egg-model.js'")) fail('QuizEgg no longer consumes the deterministic stage model');
+if (!eggModel.includes('Math.max(1, Math.min(8, Math.trunc(stage)))')) fail('quiz egg no longer clamps integer stages to 1..8 deterministically');
+if (!eggModel.includes('progressDegrees: safeStage * 45')) fail('quiz egg progress no longer maps 8 questions to a full circle');
+if (!eggModel.includes('asset: `/quiz/egg-stage-${number}.webp`')) fail('quiz egg stage model no longer maps to the approved 8 WebP assets');
 if (!taxonomy.includes("BirdResultId = 'magpie' | 'woodpecker' | 'jay' | 'crane' | 'owl' | 'kotosov'")) {
   fail('accepted six-result visual taxonomy changed unexpectedly');
 }

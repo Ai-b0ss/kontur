@@ -28,12 +28,12 @@
   mask-size: contain;
 }
 
-/* The current collection/drop path now renders the same canonical masters. */
 .lk-color-visual > .lk-canonical-bird,
 .lk-bird-stage--drop > .lk-canonical-bird { display: inline-grid; }
 
-/* Keep the q8 QuizEgg itself visible into hatch. */
-.lk-first-time--hatching .lk-quiz-egg-stage {
+/* q8 shell and bird stay inside one QuizEgg from opening through result. */
+.lk-first-time--hatching .lk-quiz-egg-stage,
+.lk-first-time--reveal .lk-quiz-egg-stage {
   top: 50%;
   width: min(61vw, 260px);
   opacity: 1;
@@ -41,9 +41,9 @@
   transform: translate(-50%, -50%);
   z-index: 41;
 }
-.lk-first-time--hatching .lk-quiz-egg__ring { opacity: 1; }
+.lk-first-time--hatching .lk-quiz-egg__ring,
+.lk-first-time--reveal .lk-quiz-egg__ring { opacity: 1; }
 
-/* Shell fragments live in QuizEgg at all times and activate only in hatch. */
 .lk-quiz-egg__hatch-shells {
   position: absolute;
   z-index: 8;
@@ -68,78 +68,13 @@
   opacity: 0;
   filter: drop-shadow(0 0 8px #fff) drop-shadow(0 0 22px rgba(181,112,255,.9));
 }
-.lk-first-time--hatching .lk-quiz-egg__hatch-shells { opacity: 1; }
+.lk-first-time--hatching .lk-quiz-egg__hatch-shells,
+.lk-first-time--reveal .lk-quiz-egg__hatch-shells { opacity: 1; }
 .lk-first-time--hatching .lk-quiz-egg__shell--one { animation: lk-shell-left 2.3s cubic-bezier(.2,.8,.2,1) both; }
 .lk-first-time--hatching .lk-quiz-egg__shell--two { animation: lk-shell-right 2.3s cubic-bezier(.2,.8,.2,1) both; }
 .lk-first-time--hatching .lk-quiz-egg__shell--three { animation: lk-shell-bottom 2.3s cubic-bezier(.2,.8,.2,1) both; }
 .lk-first-time--hatching .lk-quiz-egg__hatch-light { animation: lk-hatch-light 2.3s ease both; }
 
-/* The legacy hatch sibling supplies only glow/bird. It no longer replaces the egg. */
-.lk-first-time--hatching > .lk-quiz-hatch .lk-quiz-hatch__shell,
-.lk-first-time--hatching > .lk-quiz-hatch .lk-quiz-hatch__light { display: none; }
-.lk-first-time--hatching > .lk-quiz-hatch { z-index: 42; }
-
-/*
- * A fast q8 API/replay result can put React in the hatching stage while the
- * answer gesture is still active. Pause every hatch animation at its first
- * frame until eggResponding clears. This is state-based rather than a second
- * fixed timer, so reduced-motion keeps the same order without inheriting a
- * 260 ms animation delay.
- */
-.lk-first-time--hatching.is-egg-responding > .lk-quiz-hatch,
-.lk-first-time--hatching.is-egg-responding .lk-quiz-egg__shell,
-.lk-first-time--hatching.is-egg-responding .lk-quiz-egg__hatch-light {
-  animation-play-state: paused !important;
-}
-
-/*
- * During that overlap the visible state remains the answered q8 screen. Once
- * eggResponding clears, the existing hatch state becomes visible. If the
- * result is slower than the gesture, React stays on questions until it arrives.
- * Thus visible hatching requires both gesture completion and result readiness.
- */
-.lk-first-time--hatching.is-egg-responding .lk-question--egg {
-  opacity: 1;
-  transform: none;
-  pointer-events: none;
-}
-.lk-first-time--hatching.is-egg-responding .lk-hatching-label,
-.lk-first-time--hatching.is-egg-responding .lk-skip-motion {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-/*
- * q1..q7 response phase: the tapped question remains mounted for 260 ms, while
- * every progress signal already targets N+1. This keeps the top line, ring and
- * crack change in one gesture instead of advancing only after the timeout.
- */
-.is-egg-responding:has(.lk-quiz-egg[data-stage="1"]) .lk-progress > span { width: 25% !important; }
-.is-egg-responding:has(.lk-quiz-egg[data-stage="2"]) .lk-progress > span { width: 37.5% !important; }
-.is-egg-responding:has(.lk-quiz-egg[data-stage="3"]) .lk-progress > span { width: 50% !important; }
-.is-egg-responding:has(.lk-quiz-egg[data-stage="4"]) .lk-progress > span { width: 62.5% !important; }
-.is-egg-responding:has(.lk-quiz-egg[data-stage="5"]) .lk-progress > span { width: 75% !important; }
-.is-egg-responding:has(.lk-quiz-egg[data-stage="6"]) .lk-progress > span { width: 87.5% !important; }
-.is-egg-responding:has(.lk-quiz-egg[data-stage="7"]) .lk-progress > span { width: 100% !important; }
-
-.is-egg-responding .lk-quiz-egg[data-stage="1"] .lk-quiz-egg__ring { --lk-egg-progress: 90deg !important; }
-.is-egg-responding .lk-quiz-egg[data-stage="2"] .lk-quiz-egg__ring { --lk-egg-progress: 135deg !important; }
-.is-egg-responding .lk-quiz-egg[data-stage="3"] .lk-quiz-egg__ring { --lk-egg-progress: 180deg !important; }
-.is-egg-responding .lk-quiz-egg[data-stage="4"] .lk-quiz-egg__ring { --lk-egg-progress: 225deg !important; }
-.is-egg-responding .lk-quiz-egg[data-stage="5"] .lk-quiz-egg__ring { --lk-egg-progress: 270deg !important; }
-.is-egg-responding .lk-quiz-egg[data-stage="6"] .lk-quiz-egg__ring { --lk-egg-progress: 315deg !important; }
-.is-egg-responding .lk-quiz-egg[data-stage="7"] .lk-quiz-egg__ring { --lk-egg-progress: 360deg !important; }
-
-.is-egg-responding .lk-quiz-egg[data-stage="1"] .lk-quiz-egg__base { content: url('/quiz/egg-stage-02.webp'); }
-.is-egg-responding .lk-quiz-egg[data-stage="2"] .lk-quiz-egg__base { content: url('/quiz/egg-stage-03.webp'); }
-.is-egg-responding .lk-quiz-egg[data-stage="3"] .lk-quiz-egg__base { content: url('/quiz/egg-stage-04.webp'); }
-.is-egg-responding .lk-quiz-egg[data-stage="4"] .lk-quiz-egg__base { content: url('/quiz/egg-stage-05.webp'); }
-.is-egg-responding .lk-quiz-egg[data-stage="5"] .lk-quiz-egg__base { content: url('/quiz/egg-stage-06.webp'); }
-.is-egg-responding .lk-quiz-egg[data-stage="6"] .lk-quiz-egg__base { content: url('/quiz/egg-stage-07.webp'); }
-.is-egg-responding .lk-quiz-egg[data-stage="7"] .lk-quiz-egg__base { content: url('/quiz/egg-stage-08.webp'); }
-
-/* Future inline path: if LocalKontur passes hatching/resultId, keep it inside QuizEgg. */
 .lk-quiz-egg.is-hatching > .lk-quiz-hatch {
   inset: 0;
   top: 0;
@@ -165,23 +100,40 @@
 .lk-first-time--hatching .lk-quiz-hatch__bird.lk-canonical-bird {
   animation: lk-hatch-bird 2.3s cubic-bezier(.16,.9,.28,1.08) both;
 }
+.lk-first-time--reveal .lk-quiz-hatch,
+.lk-first-time--reveal .lk-quiz-hatch__bird.lk-canonical-bird {
+  opacity: 1;
+  transform: none;
+}
+.lk-first-time--reveal .lk-quiz-egg__shell--one { transform: translate(-48%, -38%) rotate(-19deg); opacity: 0; }
+.lk-first-time--reveal .lk-quiz-egg__shell--two { transform: translate(48%, -34%) rotate(17deg); opacity: 0; }
+.lk-first-time--reveal .lk-quiz-egg__shell--three { transform: translateY(45%); opacity: 0; }
+.lk-first-time--reveal .lk-quiz-egg__hatch-light { opacity: 0; }
+.lk-reveal--inline {
+  position: absolute;
+  z-index: 55;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  left: max(18px, env(safe-area-inset-left));
+  text-align: center;
+}
 @keyframes lk-hatch-inline-stage {
   0% { opacity: 0; transform: scale(.96); }
   17%, 100% { opacity: 1; transform: scale(1); }
 }
 
-/* 320×568 contract. */
 @media (max-width: 360px), (max-height: 650px) {
-  .lk-first-time--hatching .lk-quiz-egg-stage { width: 172px; }
+  .lk-first-time--hatching .lk-quiz-egg-stage,
+  .lk-first-time--reveal .lk-quiz-egg-stage { width: 172px; }
+  .lk-reveal--inline { bottom: max(8px, env(safe-area-inset-bottom)); }
 }
 
-/* 430×1000 and larger phone contract. */
 @media (min-width: 361px) and (min-height: 651px) {
   .lk-first-time { min-height: 100dvh; }
-  .lk-first-time--hatching .lk-quiz-egg-stage { width: min(61vw, 260px); }
+  .lk-first-time--hatching .lk-quiz-egg-stage,
+  .lk-first-time--reveal .lk-quiz-egg-stage { width: min(61vw, 260px); }
 }
 
-/* Reduced motion preserves the same state order without waits. */
 .lk-reduced-motion .lk-canonical-bird,
 .lk-reduced-motion .lk-quiz-hatch,
 .lk-reduced-motion .lk-quiz-hatch__bird,

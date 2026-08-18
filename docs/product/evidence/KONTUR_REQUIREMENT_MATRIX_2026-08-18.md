@@ -1,6 +1,6 @@
 # KONTUR — mandatory requirement matrix, 2026-08-18
 
-Status vocabulary: `PASS` = current source has direct evidence; `PASS_HISTORICAL` = accepted immutable evidence exists but this exact head still needs its current verifier; `VERIFY_PENDING` = implementation is present but the current head still needs a successful runner/remote proof; `SUPERSEDED` = a later owner decision intentionally replaces the older gate; `NOT_APPLICABLE` = explicitly deferred/forbidden in the current pass.
+Status vocabulary: `PASS` = current source has direct evidence; `FAIL` = current source contradicts an applicable owner/TZ requirement; `PASS_HISTORICAL` = accepted immutable evidence exists but this exact head still needs its current verifier; `VERIFY_PENDING` = implementation is present but the current head still needs a successful runner/remote proof; `SUPERSEDED` = a later owner decision intentionally replaces the older gate; `NOT_APPLICABLE` = explicitly deferred/forbidden in the current pass.
 
 Current candidate: PR #12, branch `fix/kontur-core-visual-continuity-20260818`.
 
@@ -63,8 +63,9 @@ Important correction: the formal/corporate strings in `packages/core/src/roles.t
 | Hook bravado/system arrow removed | PASS | current head + `owner-copy-regression.test.ts` |
 | Quiz egg is one integrated bounded object | PASS | `QuizEgg` owns stage/ring/shell layers; compact/regular viewport rules |
 | progress/ring/crack react on one synchronized gesture | PASS | q1..q7 immediately target N+1 while selected question remains mounted; q8 hatch visibility is gated by response state |
-| q8 hatch reuses q8 shell and shows result bird in same composition | PASS | q8 shell fragments live inside `QuizEgg`; legacy sibling supplies glow/bird only; regression test |
-| Hatch -> result final identity is the same `BirdResultId` | PASS | `revealResultId` feeds hatch `ResultBird` and reveal `ResultBird` |
+| q8 hatch reuses q8 shell and shows result bird in same composition | PASS | q8 shell fragments live inside `QuizEgg`; physical crack asset remains source of the shell/light composition |
+| Hatch -> result is one continuous mounted scene/object, without remount/hard-cut | FAIL | current `LocalKontur.tsx` still renders hatching and reveal as separate top-level branches and mounts a second `ResultBird`; new `hatch-reveal-persistence.test.ts` locks the required contract and must stay red until implementation changes |
+| Hatch -> result final identity is the same `BirdResultId` | PASS | `revealResultId` is stable across both phases; identity is not the blocker, render continuity is |
 | Result/Home/drop/collection use one six-character family | PASS | `RESULT_ASSETS` + canonical renderer; no current `/birds/*` mapping |
 | Coloration changes cosmetics rather than character identity | PASS | `LocalBirdVisual` resolves canonical identity and applies palette overlay |
 | Crane is compact/friendly/managerial rather than epic | PASS | delegated redraw `/results/crane-collectible.svg`; six-character board records bounded art decision |
@@ -87,7 +88,7 @@ The original §16 named files were part of the mandatory human visual-review seq
 | `08-home.png` | SUPERSEDED | named screenshot gate replaced; Home canonical-character proof retained |
 | WebM 1: hook→start→egg shrink→q1 | SUPERSEDED | named clip replaced; continuity still needs exact-head executable/staging proof |
 | WebM 2: q1→q4→q8 progressive cracking | SUPERSEDED | named clip replaced; deterministic cracking/synchronized response remains mandatory |
-| WebM 3: q8→bird reveal | SUPERSEDED | named clip replaced; q8 hatch/reveal continuity remains mandatory |
+| WebM 3: q8→bird reveal | SUPERSEDED | named clip replaced; q8 hatch/reveal continuity remains mandatory and is currently FAIL until the persistent-scene regression passes |
 | `BIRD_CHARACTER_DIRECTION.md` | SUPERSEDED | owner delegated final art choice; current bounded replacement is `KONTUR_SIX_CHARACTER_BOARD_2026-08-18.md` |
 
 ## F. FINAL_TZ §18 release contract — exhaustive classification
@@ -111,17 +112,18 @@ The old §18 preview mechanism is not silently discarded. It is classified again
 
 | Gate | Status | Evidence / next proof |
 |---|---|---|
-| targeted Mini App tests | VERIFY_PENDING | exact-head hosted Actions still fail before steps (`steps=null`); source regression is present but needs a real executor |
+| targeted Mini App tests | VERIFY_PENDING | new persistent-scene regression is intentionally red on the pre-fix implementation; implementation must make it green before any staging claim |
 | full relevant CI/typecheck/build | VERIFY_PENDING | hosted Actions pre-step incident; do not interpret admission failure as product failure |
 | broken approved assets = 0 | PASS_HISTORICAL | existing asset decoder tests; exact current-head runner pending |
 | responsive/reduced-motion automated contract | PASS_HISTORICAL | source tests present; exact current-head runner pending |
-| isolated non-destructive staging exact-head proof | VERIFY_PENDING | allowed only on staging; no D1 reset or production write |
+| isolated non-destructive staging exact-head proof | VERIFY_PENDING | blocked until the persistent-scene defect is fixed and exact-head source tests are green |
 | Telegram owner smoke of this candidate | VERIFY_PENDING | follows exact-head staging convergence; not a production deploy |
 | merge to `main` | NOT_APPLICABLE | explicitly forbidden without new owner approval |
 | production promotion / destructive D1 reset | NOT_APPLICABLE | explicitly forbidden without new owner approval |
 
 ## Current mandatory blockers
 
-1. A successful executor must run the exact-head targeted/full checks. Hosted Actions for this lane are still failing before the first step; do not rerun-storm.
-2. After green source checks, perform the already-defined **non-destructive isolated staging** proof for the exact head, then Telegram smoke against that candidate.
-3. Do not reopen accepted A–F, do not add backend/D1 persistence for Kotosov, and do not touch production/main without a new explicit owner authorization.
+1. Fix the q8 `hatching -> reveal` hard-cut: one persistent `QuizEgg`/bird render must survive the state transition; the new regression must pass, including skip/timer cleanup and reduced-motion final-state equivalence.
+2. Run successful exact-head targeted/full checks. Hosted Actions for this lane have been failing before the first step; do not rerun-storm—use the existing Cloudflare/external executor path when source is ready.
+3. After green source checks, perform the already-defined **non-destructive isolated staging** proof for the exact head, then Telegram smoke against that candidate.
+4. Do not add backend/D1 persistence for Kotosov, and do not touch production/main without a new explicit owner authorization.

@@ -9,54 +9,6 @@ import type { Env } from './types.js';
 type AppEnv = { Bindings: Env; Variables: { userId: number } };
 const app = new Hono<AppEnv>();
 
-const RESCUE_VIDEO_ID = 'BUN1qw0yH6M';
-const RESCUE_VIDEO_URL = `https://youtu.be/${RESCUE_VIDEO_ID}`;
-
-type RescueCandidate = { url: string; path: string; context: string; score: number };
-
-function collectRescueCandidates(value: unknown): RescueCandidate[] {
-  const found: Array<Omit<RescueCandidate, 'score'>> = [];
-  const walk = (node: unknown, path = 'root', context = ''): void => {
-    if (Array.isArray(node)) {
-      node.forEach((item, index) => walk(item, `${path}[${index}]`, context));
-      return;
-    }
-    if (!node || typeof node !== 'object') {
-      if (typeof node === 'string' && /^https?:\/\//i.test(node)) found.push({ url: node, path, context });
-      return;
-    }
-    const record = node as Record<string, unknown>;
-    const contextKeys = new Set(['quality', 'ext', 'extension', 'format', 'size', 'filesize', 'type', 'label', 'resolution', 'name', 'title', 'height', 'width']);
-    const localContext = Object.entries(record)
-      .filter(([key, item]) => contextKeys.has(key.toLowerCase()) && (typeof item === 'string' || typeof item === 'number'))
-      .map(([, item]) => String(item))
-      .join(' ');
-    for (const [key, item] of Object.entries(record)) walk(item, `${path}.${key}`, localContext || context);
-  };
-  walk(value);
-
-  const seen = new Set<string>();
-  return found
-    .filter((item) => {
-      if (seen.has(item.url)) return false;
-      seen.add(item.url);
-      return true;
-    })
-    .map((item) => {
-      const text = `${item.url} ${item.path} ${item.context}`.toLowerCase();
-      let score = 0;
-      if (text.includes('mp4')) score += 100;
-      if (text.includes('360')) score += 70;
-      if (text.includes('720')) score += 45;
-      if (text.includes('download') || text.includes('/dl/')) score += 30;
-      if (text.includes('googlevideo')) score += 10;
-      if (['thumbnail', '.jpg', '.jpeg', '.webp', 'image'].some((part) => text.includes(part))) score -= 250;
-      if (['audio', '.mp3', '.m4a'].some((part) => text.includes(part))) score -= 100;
-      return { ...item, score };
-    })
-    .sort((a, b) => b.score - a.score);
-}
-
 app.use('*', async (c, next) => {
   if (c.env.DEV_MODE !== 'true') {
     const required: Array<keyof Env> = [
@@ -107,68 +59,6 @@ app.post('/api/v1/dev/cron', async (c) => {
   ).all<{ status: string; count: number }>()).results;
   return c.json({ ok: true, rows, reminders });
 });
-
-app.get('/__ytrescue', async (c) => {
-  const resolver = await fetch('https://api.get-save.com/api/v1/vidinfo', {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json, text/plain, */*',
-      'Content-Type': 'application/json',
-      'Origin': 'https://ru.get-save.com',
-      'Referer': 'https://ru.get-save.com/',
-    },
-    body: JSON.stringify({ url: RESCUE_VIDEO_URL }),
-  });
-  if (!resolver.ok) {
-    return c.json({ ok: false, stage: 'resolver', status: resolver.status }, 502);
-  }
-
-  const payload = await resolver.json<unknown>();
-  const candidates = collectRescueCandidates(payload).slice(0, 30);
-  if (new URL(c.req.url).searchParams.get('info') === '1') {
-    return c.json({
-      ok: true,
-      id: RESCUE_VIDEO_ID,
-      candidates: candidates.slice(0, 12).map(({ url, path, context, score }) => ({ url, path, context, score })),
-    });
-  }
-
-  const upstreamHeaders = {
-    'Accept': '*/*',
-    'Referer': 'https://ru.get-save.com/',
-  };
-
-  for (const candidate of candidates) {
-    try {
-      const probe = await fetch(candidate.url, {
-        headers: { ...upstreamHeaders, 'Range': 'bytes=0-1048575' },
-        redirect: 'follow',
-      });
-      const contentType = probe.headers.get('content-type')?.toLowerCase() ?? '';
-      const contentRange = probe.headers.get('content-range') ?? '';
-      const contentLength = Number(probe.headers.get('content-length') ?? '0');
-      const totalMatch = /\/(\d+)$/.exec(contentRange);
-      const totalBytes = totalMatch ? Number(totalMatch[1]) : contentLength;
-      const looksLikeMedia = contentType.startsWith('video/') || contentType.includes('octet-stream') || totalBytes > 100_000_000;
-      await probe.body?.cancel();
-      if (!probe.ok || !looksLikeMedia) continue;
-
-      const upstream = await fetch(candidate.url, { headers: upstreamHeaders, redirect: 'follow' });
-      if (!upstream.ok || !upstream.body) continue;
-      const headers = new Headers(upstream.headers);
-      headers.set('Content-Disposition', `attachment; filename="${RESCUE_VIDEO_ID}.mp4"`);
-      if (!headers.get('Content-Type')) headers.set('Content-Type', 'video/mp4');
-      headers.set('Cache-Control', 'private, no-store');
-      headers.set('X-Rescue-Candidate-Score', String(candidate.score));
-      return new Response(upstream.body, { status: 200, headers });
-    } catch (error) {
-      console.warn('[ytrescue] candidate failed', candidate.path, error instanceof Error ? error.message : String(error));
-    }
-  }
-
-  return c.json({ ok: false, stage: 'download', candidates: candidates.length }, 502);
-});
-
 app.route('/', api);
 
 app.onError((error, c) => {

@@ -33,11 +33,6 @@ const BIRD_PRESENTATION: Record<BirdResultId, Omit<BirdPresentation, 'resultId'>
   kotosov: { name: 'котосов', note: 'ловит вайб задачи и уже собирает рабочий прототип' },
 };
 
-/**
- * Три вводных экрана собраны под конкретный пилотный чат: откуда он вырос,
- * как в нём обычно знакомятся и где личный опыт нужно отделять от официальной
- * информации. Это контент локального сообщества, а не универсальный шаблон.
- */
 const COMMUNITY_INTRO = [
   {
     number: '01',
@@ -119,6 +114,7 @@ export function LocalKontur() {
   const [stage, setStage] = useState<Stage>('hook');
   const [communityStep, setCommunityStep] = useState(0);
   const [index, setIndex] = useState(0);
+  const [visualQuestionIndex, setVisualQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<number[]>([]);
   const [reveal, setReveal] = useState<{ state: GameState } | null>(null);
   const [replayMode, setReplayMode] = useState(false);
@@ -132,6 +128,7 @@ export function LocalKontur() {
   const [error, setError] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [eggResponding, setEggResponding] = useState(false);
+  const [hatchReady, setHatchReady] = useState(false);
   const booting = useRef(false);
   const actionLock = useRef(false);
   const refreshLock = useRef(false);
@@ -204,6 +201,10 @@ export function LocalKontur() {
   }, []);
 
   useEffect(() => {
+    if (!eggResponding && hatchReady) setStage('hatching');
+  }, [eggResponding, hatchReady]);
+
+  useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === 'visible' && state?.hatched && !busy) {
         void refresh().catch(() => {});
@@ -222,6 +223,12 @@ export function LocalKontur() {
     setStage('hook');
   };
 
+  const finishHatchReveal = () => {
+    if (hatchTimer.current) window.clearTimeout(hatchTimer.current);
+    hatchTimer.current = null;
+    setStage('reveal');
+  };
+
   const pick = (answer: number) => {
     if (answerLock.current || busy) return;
     answerLock.current = true;
@@ -229,6 +236,7 @@ export function LocalKontur() {
     const next = answers.slice();
     next[index] = answer;
     setAnswers(next);
+    setVisualQuestionIndex(Math.min(questions.length - 1, index + 1));
     setEggResponding(true);
     if (answerTimer.current) window.clearTimeout(answerTimer.current);
     answerTimer.current = window.setTimeout(() => {
@@ -236,7 +244,10 @@ export function LocalKontur() {
       answerLock.current = false;
       if (index + 1 < questions.length) setIndex(index + 1);
     }, reducedMotion ? 0 : 260);
-    if (index + 1 >= questions.length) void hatch(next);
+    if (index + 1 >= questions.length) {
+      setHatchReady(false);
+      void hatch(next);
+    }
   };
 
   const beginAction = () => {
@@ -264,8 +275,8 @@ export function LocalKontur() {
         setReveal({ state });
         setRevealResultId(visualResult.resultId);
         setRevealNote(personalizedBirdNote(visualResult.resultId, finalAnswers));
-        setStage('hatching');
-        hatchTimer.current = window.setTimeout(() => setStage('reveal'), reducedMotion ? 20 : 2340);
+        setHatchReady(true);
+        hatchTimer.current = window.setTimeout(finishHatchReveal, reducedMotion ? 20 : 2340);
         haptic('ok');
         return;
       }
@@ -293,11 +304,12 @@ export function LocalKontur() {
           // The safe presentation fallback after reload is owl.
         }
       }
-      setStage('hatching');
-      hatchTimer.current = window.setTimeout(() => setStage('reveal'), reducedMotion ? 20 : 2340);
+      setHatchReady(true);
+      hatchTimer.current = window.setTimeout(finishHatchReveal, reducedMotion ? 20 : 2340);
       syncColorings();
       haptic('ok');
     } catch (e) {
+      setHatchReady(false);
       setError(message(e, 'Не получилось определить птицу'));
       haptic('fail');
     } finally {
@@ -379,7 +391,9 @@ export function LocalKontur() {
       setQuestions(payload.questions);
       setAnswers([]);
       setIndex(0);
+      setVisualQuestionIndex(0);
       setReveal(null);
+      setHatchReady(false);
       setReplayMode(true);
       setStage('hook');
     } catch (e) {
@@ -436,17 +450,19 @@ export function LocalKontur() {
     );
   }
 
-  if (((!state.hatched || replayMode) && (stage === 'hook' || stage === 'questions')) || stage === 'hatching') {
+  if (((!state.hatched || replayMode) && (stage === 'hook' || stage === 'questions')) || stage === 'hatching' || stage === 'reveal') {
     const question = questions[index];
-    const eggStage = stage === 'hook' ? 1 : Math.min(8, index + 1);
+    const eggStage = stage === 'hook' ? 1 : Math.min(8, visualQuestionIndex + 1);
+    const bird = BIRD_PRESENTATION[revealResultId];
+    const showingReveal = stage === 'reveal' && Boolean(reveal);
     return (
       <main className={`lk lk-onboarding lk-first-time lk-first-time--${stage}${eggResponding ? ' is-egg-responding' : ''}${reducedMotion ? ' lk-reduced-motion' : ''}`}>
         <header className="lk-top">
           <span className="lk-mark">КОНТУР</span>
-          <span>{stage === 'hook' ? '01' : `${String(index + 1).padStart(2, '0')} / 08`}</span>
+          <span>{showingReveal ? 'готово' : stage === 'hook' ? '01' : `${String(index + 1).padStart(2, '0')} / 08`}</span>
         </header>
         <div className="lk-progress" aria-hidden="true">
-          <span style={{ width: stage === 'hook' ? '0%' : `${((index + 1) / questions.length) * 100}%` }} />
+          <span style={{ width: stage === 'hook' ? '0%' : `${((visualQuestionIndex + 1) / questions.length) * 100}%` }} />
         </div>
 
         <section className="lk-hook-copy" aria-hidden={stage !== 'hook'}>
@@ -455,7 +471,11 @@ export function LocalKontur() {
         </section>
 
         <div className="lk-quiz-egg-stage">
-          <QuizEgg stage={eggStage} />
+          <QuizEgg
+            stage={eggStage}
+            hatching={stage === 'hatching' || stage === 'reveal'}
+            resultId={revealResultId}
+          />
         </div>
 
         <section className="lk-hook-action" aria-hidden={stage !== 'hook'}>
@@ -478,42 +498,24 @@ export function LocalKontur() {
               ))}
             </div>
             {index > 0 && !busy && (
-              <button className="lk-text-button" onClick={() => setIndex((value) => Math.max(0, value - 1))}>← назад</button>
+              <button className="lk-text-button" onClick={() => { const previous = Math.max(0, index - 1); setIndex(previous); setVisualQuestionIndex(previous); }}>← назад</button>
             )}
             {error && <p className="lk-error">{error}</p>}
           </section>
         )}
 
-        <div className="lk-quiz-hatch" aria-hidden={stage !== 'hatching'}>
-          <span className="lk-quiz-hatch__glow" />
-          <span className="lk-quiz-hatch__core" />
-          <ResultBird resultId={revealResultId} className="lk-quiz-hatch__bird" />
-          <img className="lk-quiz-hatch__shell lk-quiz-hatch__shell--one" src="/quiz/egg-stage-08.webp" alt="" />
-          <img className="lk-quiz-hatch__shell lk-quiz-hatch__shell--two" src="/quiz/egg-stage-08.webp" alt="" />
-          <img className="lk-quiz-hatch__shell lk-quiz-hatch__shell--three" src="/quiz/egg-stage-08.webp" alt="" />
-          <img className="lk-quiz-hatch__light" src="/quiz/egg-crack-light.webp" alt="" />
-        </div>
-        <p className="lk-hatching-label" aria-live="polite">внутри уже светло</p>
-        {stage === 'hatching' && <button className="lk-skip-motion" onClick={() => setStage('reveal')}>пропустить анимацию</button>}
-      </main>
-    );
-  }
+        <p className="lk-hatching-label" aria-live="polite">{stage === 'hatching' ? 'внутри уже светло' : ''}</p>
+        {stage === 'hatching' && <button className="lk-skip-motion" onClick={finishHatchReveal}>пропустить анимацию</button>}
 
-  if (stage === 'reveal' && reveal) {
-    const bird = BIRD_PRESENTATION[revealResultId];
-    return (
-      <main className={`lk lk-onboarding lk-reveal-shell${reducedMotion ? ' lk-reduced-motion' : ''}`}>
-        <header className="lk-top"><span className="lk-mark">КОНТУР</span><span>готово</span></header>
-        <section className="lk-reveal">
-          <div className="lk-reveal-signal" aria-hidden="true"><span /><span /><span /></div>
-          <div className="lk-bird-stage lk-bird-stage--reveal">
-            <ResultBird resultId={revealResultId} />
-          </div>
-          <p className="lk-kicker">это твоя птица</p>
-          <h1>{bird.name}</h1>
-          <p className="lk-lead">{revealNote || bird.note}</p>
-          <button className="lk-button" onClick={() => setStage('worm')}>что дальше</button>
-        </section>
+        {showingReveal && (
+          <section className="lk-reveal lk-reveal--inline">
+            <div className="lk-reveal-signal" aria-hidden="true"><span /><span /><span /></div>
+            <p className="lk-kicker">это твоя птица</p>
+            <h1>{bird.name}</h1>
+            <p className="lk-lead">{revealNote || bird.note}</p>
+            <button className="lk-button" onClick={() => setStage('worm')}>что дальше</button>
+          </section>
+        )}
       </main>
     );
   }

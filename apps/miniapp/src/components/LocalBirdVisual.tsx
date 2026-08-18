@@ -1,5 +1,5 @@
 import type { Role } from '@kontur/core';
-import type { LocalBirdAssetProps } from './LocalBirdAsset.js';
+import type { Palette } from '@kontur/contracts';
 import type { BirdResultId } from '../result-taxonomy.js';
 import { getInitData } from '../telegram.js';
 import { CanonicalBirdVisual } from './CanonicalBirdVisual.js';
@@ -41,6 +41,15 @@ function resultForRole(role: Role | null): BirdResultId {
  * Current-product collection/drop renderer. Character identity comes from the
  * same six-result taxonomy as hatch/result/Home; palette only changes cosmetics.
  */
-export function LocalBirdVisual({ role, palette, size = 240 }: LocalBirdAssetProps) {
+export function LocalBirdVisual({
+  role,
+  palette,
+  size = 240,
+}: {
+  role: Role | null;
+  palette: Palette;
+  size?: number;
+  mood?: 'idle' | 'happy' | 'achieved' | 'rare';
+}) {
   return <CanonicalBirdVisual resultId={resultForRole(role)} palette={palette} size={size} />;
 }

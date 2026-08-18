@@ -1,49 +1,42 @@
 {
   "schema_version": 1,
-  "state_revision": 12,
+  "state_revision": 13,
   "lane": "QWEN",
-  "updated_at_utc": "2026-08-18T23:02:00Z",
+  "updated_at_utc": "2026-08-18T23:07:00Z",
   "authority": {"policy":"autopilot/v2/POLICY.md","acceptance_version":"qwen-full-20260818"},
   "repo":"Ai-b0ss/qwen-free-api",
   "pr":6,
   "branch":"autopilot/qwen-runtime-preflight-20260818",
-  "current_head":"e2e281994ecf098582ca23e8049b610f652322c0",
-  "phase":"SECRET_CHANNEL_HARDENING_IN_PROGRESS",
-  "active_claim":{
-    "claim_id":"CHIEF-20260818T230200Z-Q-RUNTIME-RESTORE",
-    "acceptance_row":"Q-RUNTIME-RESTORE",
-    "authority_refs":["NOTION-QWEN-FULL-CONTRACT-20260818","OWNER-AUTONOMY-20260819"],
-    "expected_head":"e2e281994ecf098582ca23e8049b610f652322c0",
-    "expected_state_revision":11,
-    "allowed_paths":[".circleci/config.yml","scripts/runtime-secret-channel-test.js"],
-    "forbidden_surfaces":["provider client","account scheduler","account credentials/runtime contents","live provider traffic","main","production"],
-    "hypothesis":"Current CircleCI preflight passes GPG secret via stdin but leaves RUNTIME_STATE_KEY exported to child processes and places AUTOPILOT_HANDOFF_TOKEN in curl argv; copy/unset + header-file transport removes those exposure surfaces without changing product behavior.",
-    "new_information_expected":"Static executable regression proves all current restore/preflight GPG surfaces are non-argv, CircleCI unsets runtime key before first gpg, and handoff token is absent from curl argv while callback remains configured.",
-    "started_at_utc":"2026-08-18T23:02:00Z",
-    "expires_at_utc":"2026-08-18T23:17:00Z"
-  },
+  "current_head":"33b6cda8cd300194311de4dd9f84cddf6fb02173",
+  "phase":"OFFLINE_PROVENANCE_AND_EXECUTOR_HARVEST",
+  "active_claim":null,
   "provider_live_lease":null,
   "in_flight_external":[
     {"kind":"SECRET_BRIDGE_PREFLIGHT","trigger_sha":"543f208aaca4a198ccd24d576a687ae0bb868a76","launched_for_sha":"716b16dda7b1bbeab34dfbfdbfa0d5d77b0eac9f","status":"TRIGGERED_AWAIT_CALLBACK","duplicate_forbidden":true},
     {"kind":"PROVIDER_SAFETY_OFFLINE_V1","trigger_sha":"a40f18cbdbeef87cca326ff164718ccd599915cb","launched_for_sha":"01668a8d37960840bf2489f21b8a8d04bc7e63eb","status":"FAIL_LOCALIZED_AND_FIXED","provider_calls":0},
     {"kind":"PROVIDER_SAFETY_OFFLINE_V2","trigger_sha":"fcddd53f4898cad464a9a1b9efc67e57e2a1aa4c","launched_for_sha":"affed5651fcb15a13f1c6adaf801624507a6c781","status":"TARGETED_PASS_FULL_NPM_FAIL","last_success_stage":"targeted_pass","provider_calls":0},
-    {"kind":"RESTORE_SECURITY_OFFLINE","trigger_sha":"ca451f03f2615797ddd9eab2413721796f53dfb2","launched_for_sha":"19796709fe9152fdd0ae81302d7a116136753814","status":"FAIL_UNLOCALIZED","provider_calls":0,"decrypt_calls":0}
+    {"kind":"RESTORE_SECURITY_OFFLINE","trigger_sha":"ca451f03f2615797ddd9eab2413721796f53dfb2","launched_for_sha":"19796709fe9152fdd0ae81302d7a116136753814","status":"SUPERSEDED_BY_SOURCE_FIX_CURRENT_EXECUTION_PENDING","provider_calls":0,"decrypt_calls":0}
   ],
-  "evidence_refs":["autopilot/v2/evidence/qwen-retire-legacy-circleci-9d31b2e7.json"],
+  "evidence_refs":[
+    "autopilot/v2/evidence/qwen-retire-legacy-circleci-9d31b2e7.json",
+    "autopilot/v2/evidence/qwen-circleci-secret-channel-33b6cda.json"
+  ],
   "proven":[
     "inherited:encrypted runtime recovery and 11-account/product tool-result/restart evidence where dependencies unchanged",
     "current:workspace confinement and truthful non-sandbox shell docs",
     "provider-safety targeted oracle PASS at affed565: WAF/trust/provider-pressure blocks sibling candidates while rate limit remains bounded failover",
-    "dependency-map: affed565->e2e281 changes only long-soak workflow + restore scripts + runtime secret regression; targeted provider-safety source remains inheritable",
-    "current-long-soak-source:workflow_dispatch only; exact expected_sha; ephemeral self-hosted label; immutable checkout/setup-node; WAF/trust/timeout/network/upstream pressure STOP with sibling_probe=0; only rate-limit may use one global extra attempt",
+    "dependency-map: affed565->33b6cda changed only executor/restore/secret surfaces, so targeted provider-safety proof remains inheritable",
+    "current-long-soak-source:manual exact-SHA self-hosted; immutable checkout/setup-node; WAF/CAPTCHA/trust/timeout/network/upstream pressure STOP sibling_probe=0; only rate-limit has one bounded eligible failover",
+    "SOURCE_SECURITY_PASS_EXECUTOR_PENDING on 33b6cda: CircleCI runtime key is unset before gpg child; handoff token absent from curl argv; private header-file transport + regression added",
+    "bridge-source current branch: default-off, broad GitHub token removed from child runner environment via env -i, handoff uses private header file",
     "main-safety:legacy direct CircleCI soak retired at main 9d31b2e700d29fcb48135b191457444508aa35ca"
   ],
   "verify_pending":[
-    "Q-RUNTIME-RESTORE: remove CircleCI child-env/argv token exposure and prove via executable static regression",
-    "harvest secret bridge; current branch source is default-off with scrubbed child runner, but no sanitized callback is recorded yet",
-    "actual current OpenCode v59 provider baseURL/auth provenance",
-    "single 35-45m sparse live soak only after offline/executor gates PASS and global provider-live lease acquired",
-    "native Windows parity including PowerShell restore and real tool-result continuation"
+    "Q-RUNTIME-RESTORE/Q-REPRODUCIBILITY-SECURITY: execute current-head npm/security regression offline; no provider traffic",
+    "Q-SECRET-BRIDGE: harvest secret bridge; source is hardened/default-off but no sanitized callback marker is recorded",
+    "Q-OPENCODE-WIRING: locate actual current OpenCode v59 provider baseURL/auth/model provenance",
+    "Q-LONG-SOAK: one 35-45m sparse live soak only after offline/executor rows pass and global provider-live lease acquired",
+    "Q-WINDOWS-PARITY: native Windows including PowerShell restore and real tool-result continuation"
   ],
   "known_false_hypotheses":[
     "hosted/WAF-rotating long soak is safe",
@@ -51,9 +44,10 @@
     "provider-safety targeted oracle is red on affed565",
     "old v28 config is current OpenCode provider authority",
     "a default-off unsafe executor is harmless enough to retain indefinitely",
-    "passphrase-fd alone removes a secret from child process environment"
+    "passphrase-fd alone removes a secret from child process environment",
+    "executor/restore-only changes require rerunning already-green provider-safety semantics"
   ],
-  "blocker":"Live traffic remains disabled. Current offline security defect is local and fixable without provider access; secret-bridge callback and OpenCode provenance remain separate gaps.",
-  "first_next_action":"Atomically harden current CircleCI runtime key/handoff token channels with regression; no provider call. Then release claim and continue harvesting/localizing offline evidence.",
+  "blocker":"No live provider action is justified yet. Remaining work is offline execution/provenance + bridge harvest; provider-live lease stays empty.",
+  "first_next_action":"Resolve Q-OPENCODE-WIRING from current source/config provenance and harvest any existing offline/bridge result. If an offline executor is needed, launch only a provider-free current-head npm/security run; do not start soak.",
   "user_needed":false
 }

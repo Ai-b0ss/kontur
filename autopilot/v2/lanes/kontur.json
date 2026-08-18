@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "state_revision": 6,
+  "state_revision": 7,
   "lane": "KONTUR",
-  "updated_at_utc": "2026-08-18T22:36:00Z",
+  "updated_at_utc": "2026-08-18T22:38:00Z",
   "authority": {"policy": "autopilot/v2/POLICY.md", "acceptance_version": "kontur-owner-tz-20260818"},
   "repo": "Ai-b0ss/kontur",
   "pr": 12,
@@ -14,15 +14,17 @@
     "acceptance_row": "K-Q1-Q8-TIMELINE",
     "authority_refs": ["KONTUR-OWNER-AUTHORITY-20260818", "KONTUR-FINAL-TZ"],
     "expected_head": "864d435310cdbfbfea83fbeb1e6acd5b6d091509",
-    "expected_state_revision": 5,
+    "expected_state_revision": 6,
     "allowed_paths": [
       "apps/miniapp/src/screens/LocalKontur.tsx",
       "apps/miniapp/src/q8-hatch-timeline.ts",
-      "apps/miniapp/test/q8-hatch-timeline.test.ts"
+      "apps/miniapp/test/q8-hatch-timeline.test.ts",
+      "apps/miniapp/test/answer-state-timeline.test.ts",
+      "apps/miniapp/test/hatch-reveal-persistence.test.ts"
     ],
     "forbidden_surfaces": ["backend", "API contract", "scoring", "D1", "reward economy", "worm mechanics", "Telegram bot/runtime", "production"],
     "hypothesis": "q8 result readiness currently starts the reveal timer before semantic HATCHING and hatch completion can release the gesture lock; timer/lock ownership must follow the semantic transition instead.",
-    "new_information_expected": "Executable regression proves fast-result and slow-result converge to exactly one HATCHING transition, reveal delay begins only at HATCHING, and network completion never releases the q8 gesture lock.",
+    "new_information_expected": "Executable regression used by product logic proves fast-result and slow-result converge to exactly one HATCHING transition, reveal delay begins only at HATCHING, and network completion never releases the q8 gesture lock; legacy source tests are narrowed to source-only invariants.",
     "started_at_utc": "2026-08-18T22:36:00Z",
     "expires_at_utc": "2026-08-18T22:49:00Z"
   },

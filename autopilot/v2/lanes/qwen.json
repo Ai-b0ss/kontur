@@ -1,71 +1,40 @@
 {
   "schema_version": 1,
-  "state_revision": 6,
+  "state_revision": 7,
   "lane": "QWEN",
-  "updated_at_utc": "2026-08-18T22:09:00Z",
+  "updated_at_utc": "2026-08-18T22:10:00Z",
   "authority": {"policy": "autopilot/v2/POLICY.md", "acceptance_version": "qwen-full-20260818"},
   "repo": "Ai-b0ss/qwen-free-api",
   "pr": 6,
   "branch": "autopilot/qwen-runtime-preflight-20260818",
   "current_head": "affed5651fcb15a13f1c6adaf801624507a6c781",
-  "phase": "WAIT_PROVIDER_SAFETY_PROOF_V2",
-  "active_claim": null,
+  "phase": "ROOT_RUNTIME_RESTORE_SECURITY_PATCH",
+  "active_claim": {
+    "pulse_id": "CHIEF-20260818T2210Z-QWEN-RESTORE",
+    "work_packet": "Remove runtime key from argv/exported env in shipped root restore scripts, sanitize output, extend static regression",
+    "started_at_utc": "2026-08-18T22:10:00Z",
+    "expires_at_utc": "2026-08-18T22:22:00Z",
+    "expected_head": "affed5651fcb15a13f1c6adaf801624507a6c781"
+  },
   "provider_live_lease": null,
   "in_flight_external": [
-    {
-      "executor": "CircleCI -> ephemeral GitHub self-hosted runner",
-      "kind": "SECRET_BRIDGE_PREFLIGHT",
-      "trigger_branch": "autopilot/qwen-secret-bridge-trigger-20260819",
-      "trigger_sha": "543f208aaca4a198ccd24d576a687ae0bb868a76",
-      "trusted_workflow_branch": "autopilot/qwen-secret-bridge-20260818",
-      "launched_for_sha": "716b16dda7b1bbeab34dfbfdbfa0d5d77b0eac9f",
-      "proof_surface": "executor/runtime-secret readiness only; zero provider calls",
-      "status": "TRIGGERED_AWAIT_CALLBACK",
-      "duplicate_forbidden": true,
-      "expected_result_prefix": "AUTOPILOT_V2_EXTERNAL_RESULT lane=QWEN kind=SECRET_BRIDGE_PREFLIGHT"
-    },
-    {
-      "executor": "CircleCI Linux",
-      "kind": "PROVIDER_SAFETY_OFFLINE_V1",
-      "trigger_branch": "autopilot/qwen-provider-safety-proof-20260819",
-      "trigger_sha": "a40f18cbdbeef87cca326ff164718ccd599915cb",
-      "launched_for_sha": "01668a8d37960840bf2489f21b8a8d04bc7e63eb",
-      "status": "FAIL",
-      "failure_localization": "HTTP 504 classification was shadowed by textual timeout detection; deterministic source/test mismatch.",
-      "provider_calls": 0
-    },
-    {
-      "executor": "CircleCI Linux",
-      "kind": "PROVIDER_SAFETY_OFFLINE_V2",
-      "trigger_branch": "autopilot/qwen-provider-safety-proof2-20260819",
-      "trigger_sha": "fcddd53f4898cad464a9a1b9efc67e57e2a1aa4c",
-      "launched_for_sha": "affed5651fcb15a13f1c6adaf801624507a6c781",
-      "proof_surface": "targeted provider taxonomy + full offline npm test; staged diagnostics; provider_calls=0",
-      "status": "TRIGGERED_AWAIT_CALLBACK",
-      "duplicate_forbidden": true,
-      "expected_result_prefix": "AUTOPILOT_V2_EXTERNAL_RESULT lane=QWEN kind=PROVIDER_SAFETY_OFFLINE"
-    }
+    {"executor":"CircleCI -> ephemeral GitHub self-hosted runner","kind":"SECRET_BRIDGE_PREFLIGHT","trigger_branch":"autopilot/qwen-secret-bridge-trigger-20260819","trigger_sha":"543f208aaca4a198ccd24d576a687ae0bb868a76","trusted_workflow_branch":"autopilot/qwen-secret-bridge-20260818","launched_for_sha":"716b16dda7b1bbeab34dfbfdbfa0d5d77b0eac9f","proof_surface":"executor/runtime-secret readiness only; zero provider calls","status":"TRIGGERED_AWAIT_CALLBACK","duplicate_forbidden":true},
+    {"executor":"CircleCI Linux","kind":"PROVIDER_SAFETY_OFFLINE_V1","trigger_sha":"a40f18cbdbeef87cca326ff164718ccd599915cb","launched_for_sha":"01668a8d37960840bf2489f21b8a8d04bc7e63eb","status":"FAIL","failure_localization":"HTTP 504 classification was shadowed by textual timeout detection","provider_calls":0},
+    {"executor":"CircleCI Linux","kind":"PROVIDER_SAFETY_OFFLINE_V2","trigger_branch":"autopilot/qwen-provider-safety-proof2-20260819","trigger_sha":"fcddd53f4898cad464a9a1b9efc67e57e2a1aa4c","launched_for_sha":"affed5651fcb15a13f1c6adaf801624507a6c781","proof_surface":"targeted provider taxonomy + full offline npm test; staged diagnostics; provider_calls=0","status":"TRIGGERED_AWAIT_CALLBACK","duplicate_forbidden":true}
   ],
   "proven": [
     "inherited:encrypted runtime recovery",
-    "inherited:11-account pool 1 active/10 standby",
-    "inherited:real local tool execution -> tool result -> model continuation",
-    "inherited:restart/state",
-    "inherited:conservative distinct-account failover and cooldown",
-    "current:workspace cwd/symlink confinement",
-    "current:truthful arbitrary-shell non-sandbox docs",
-    "current:PR6 CI decrypt paths use non-argv passphrase channel",
-    "bridge-source:default OFF and exact-sha/manual workflow",
-    "bridge-source:CircleCI broad GitHub token scrubbed from child runner environment",
-    "bridge-source:RUNTIME_STATE_KEY removed from workflow environment before gpg and supplied via passphrase-fd",
-    "source:provider circuit persists WAF/trust/provider-pressure safety state and blocks sibling candidates",
-    "source:WAF exact-account challenge keeps active account; rate-limit remains eligible failover",
-    "source:explicit HTTP 408/504/5xx classification now precedes generic timeout text"
+    "inherited:11-account pool and real tool-result continuation/restart evidence where source unchanged",
+    "current:workspace cwd/symlink confinement and truthful non-sandbox shell docs",
+    "current:CI decrypt paths use non-argv passphrase channel",
+    "bridge-source:default OFF, exact-sha/manual, scrubbed child env, non-argv runtime key",
+    "source:provider circuit blocks sibling probes for WAF/trust/provider pressure and rate-limit remains eligible failover",
+    "source:explicit HTTP 408/504/5xx classification precedes generic timeout text"
   ],
   "verify_pending": [
+    "repair and verify shipped root runtime restore scripts + runtime-secret-channel-test",
     "harvest provider-safety offline V2 for exact product head affed565",
     "harvest sanitized self-hosted bridge execution result for exact workflow sha 716b16d",
-    "repair full shipped root runtime restore secret surface and extend its regression",
     "actual current OpenCode provider wiring provenance",
     "one 35-45m sparse Linux soak after all safety proofs PASS",
     "native Windows parity including real tool-result continuation",
@@ -75,11 +44,10 @@
     "runtime/auth is unavailable to automation",
     "bounded three-step soak is final acceptance",
     ".qwen-v28/opencode-v28.json currently proves provider/baseURL/model",
-    "GitHub-hosted Actions red admission is product failure",
-    "WAF challenge is an ordinary account failure eligible for immediate sibling rotation",
-    "the first provider-safety offline FAIL requires a blind retry"
+    "WAF challenge is ordinary account failover",
+    "prior runtime-secret-channel PASS covered the shipped root restore scripts"
   ],
-  "blocker": "Provider-safety V2 and secret-bridge external proofs are pending. Root shipped restore scripts still require separate current-head security repair before live soak.",
-  "first_next_action": "While external proofs run, repair root RESTORE_RUNTIME_STATE.sh/.ps1 and extend runtime-secret-channel-test on exact current head; no provider calls.",
+  "blocker": "Root restore scripts demonstrably pass the key via argv and print a plaintext restore path; live soak remains forbidden.",
+  "first_next_action": "Patch the three exact root restore/security-test files on current head; no decrypt/provider call. Then launch one offline regression for the new exact head.",
   "user_needed": false
 }

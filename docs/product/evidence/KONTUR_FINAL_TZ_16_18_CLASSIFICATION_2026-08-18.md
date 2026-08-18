@@ -1,29 +1,29 @@
 # KONTUR — FINAL_TZ §16 / §18 classification, 2026-08-18
 
-This note closes the completeness gap identified by the independent audit of `FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md`. It classifies every explicit §16 review artifact and §18 release-contract item against later owner authority. It does **not** authorize `main`, production, destructive D1 writes, Telegram configuration changes, or a traffic switch.
+This note classifies every explicit §16 review artifact and §18 release-contract item against later owner authority. It does **not** authorize `main`, production, destructive D1 writes, Telegram configuration changes, or a traffic switch.
 
 Status vocabulary follows `KONTUR_REQUIREMENT_MATRIX_2026-08-18.md`.
 
 ## §16 — required review artifacts
 
-The original §16 files were artifacts for a mandatory human visual-approval sequence. On 2026-08-18 the owner explicitly delegated the final visual choice/redraw and removed that human visual gate. The product behaviors represented by the artifacts remain mandatory; the exact screenshot/WebM filenames no longer gate this candidate. Exact-head automated checks plus isolated staging and Telegram smoke are the replacement proof path.
+Auditor correction: FINAL_TZ names these as `REQUIRED REVIEW ARTIFACTS`. The 2026-08-18 owner correction delegates final visual choice/redraw to AUTOPILOT and removes the need to wait for human visual approval; it does **not** explicitly waive the required screenshot/WebM evidence. Therefore these artifacts remain `VERIFY_PENDING` until generated from the exact candidate, or until a later explicit owner decision waives them. They may be generated/reviewed autonomously and do not require a new human approval gate.
 
-| Original §16 item | Status | Current authority / replacement evidence |
+| Original §16 item | Status | Current authority / required evidence |
 |---|---|---|
-| `01-hook.png` | SUPERSEDED | Human screenshot gate removed by owner delegation; hook source + responsive contract + exact-head staging/Telegram smoke remain mandatory. |
-| `02-hook-start-before.png` | SUPERSEDED | Same authority; continuity is verified as product behavior rather than by a named screenshot file. |
-| `03-quiz-q1.png` | SUPERSEDED | Same authority; q1 stage/progress/crack remains mandatory and source-tested. |
-| `04-quiz-q4.png` | SUPERSEDED | Same authority; q4 stage/progress/crack remains mandatory and source-tested. |
-| `05-quiz-q8.png` | SUPERSEDED | Same authority; q8 pre-hatch state and response/hatch ordering remain mandatory. |
-| `06-bird-reveal.png` | SUPERSEDED | Same authority; reveal identity/layout remains mandatory and covered by the six-character evidence path. |
-| `07-worm-loop.png` | SUPERSEDED | Same authority; `/worm` semantics remain unchanged and are still tested. |
-| `08-home.png` | SUPERSEDED | Same authority; Home uses the canonical six-character family and still requires exact-head smoke. |
-| WebM 1: hook → start → egg shrink → q1 | SUPERSEDED | Named human-review clip is no longer a gate; same-object continuity remains mandatory and moves to exact-head executable/staging/Telegram proof. |
-| WebM 2: q1 → q4 → q8 progressive cracking | SUPERSEDED | Named clip is no longer a gate; deterministic 8-stage cracking and synchronized response motion remain mandatory. |
-| WebM 3: q8 → bird reveal | SUPERSEDED | Named clip is no longer a gate; q8 visible hatch ordering and reveal continuity remain mandatory. |
-| `BIRD_CHARACTER_DIRECTION.md` | SUPERSEDED | The owner delegated final art selection/redraw; `KONTUR_SIX_CHARACTER_BOARD_2026-08-18.md` is the current bounded six-character decision/evidence artifact. |
+| `01-hook.png` | VERIFY_PENDING | Exact-head hook capture at the required mobile layout. |
+| `02-hook-start-before.png` | VERIFY_PENDING | Exact-head same-object hook→quiz transition evidence. |
+| `03-quiz-q1.png` | VERIFY_PENDING | Exact-head q1 egg/progress/crack capture. |
+| `04-quiz-q4.png` | VERIFY_PENDING | Exact-head q4 egg/progress/crack capture. |
+| `05-quiz-q8.png` | VERIFY_PENDING | Exact-head q8 pre-hatch/order capture. |
+| `06-bird-reveal.png` | VERIFY_PENDING | Exact-head reveal identity/layout capture. |
+| `07-worm-loop.png` | VERIFY_PENDING | Exact-head `/worm` loop capture. |
+| `08-home.png` | VERIFY_PENDING | Exact-head Home canonical-character capture. |
+| WebM 1: hook → start → egg shrink → q1 | VERIFY_PENDING | Rendered continuity recording; source assertions alone do not replace it. |
+| WebM 2: q1 → q4 → q8 progressive cracking | VERIFY_PENDING | Rendered progressive-crack/synchronized-motion recording. |
+| WebM 3: q8 → bird reveal | VERIFY_PENDING | Rendered same-scene hatch→reveal recording. |
+| `BIRD_CHARACTER_DIRECTION.md` | VERIFY_PENDING | Produce the named artifact or prove that `KONTUR_SIX_CHARACTER_BOARD_2026-08-18.md` contains every required §10 direction field for every role. |
 
-`SUPERSEDED` here means only the **named human-review artifact requirement** was replaced. It does not turn the underlying visual behavior into optional work.
+The human approval dependency is `SUPERSEDED`; the evidence obligation is not.
 
 ## §18 — original release contract
 
@@ -47,6 +47,7 @@ The original §18 described a very specific v84-era preview mechanism: one undep
 The classification itself does not make the candidate done. The mandatory sequence remains:
 
 1. executable targeted/full verification for the exact PR head;
-2. isolated non-destructive staging proof for that exact head;
-3. Telegram smoke against the staging candidate;
-4. only after a new explicit owner authorization may production/main/destructive-data actions be considered.
+2. generate the required §16 exact-head visual evidence (or obtain an explicit owner waiver), including the direction artifact/equivalent-field proof;
+3. isolated non-destructive staging proof for that exact head;
+4. Telegram smoke against the staging candidate;
+5. only after a new explicit owner authorization may production/main/destructive-data actions be considered.

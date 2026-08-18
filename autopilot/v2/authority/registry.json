@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "updated_at_utc": "2026-08-18T22:33:00Z",
+  "rule": "Acceptance manifests interpret these sources. Tests, handoffs, CI labels and evidence artifacts are not product authority unless explicitly registered here.",
+  "refs": {
+    "OWNER-AUTONOMY-20260819": {
+      "kind": "owner_decision",
+      "source": "Ai-b0ss/kontur#9 issuecomment-5334904498",
+      "scope": ["AUTOPILOT", "KONTUR", "QWEN", "NOTION", "PHONE_MODE"],
+      "summary": "Chief-engineer autonomy; reversible free dev/candidate/staging/control-plane work defaults USER_NEEDED=NO; architecture may be rebuilt; hard safety boundaries remain."
+    },
+    "KONTUR-OWNER-AUTHORITY-20260818": {
+      "kind": "owner_decision",
+      "source": "Ai-b0ss/kontur#9 issuecomment-5332869250",
+      "scope": ["KONTUR"],
+      "summary": "Full KONTUR_CORE_DONE authority stack and explicit preservation of backend/API/scoring/D1/Telegram unless independently required."
+    },
+    "KONTUR-PRIMARY-SOURCE-20260813": {
+      "kind": "product_source",
+      "source": "Ai-b0ss/kontur:docs/product/source/PRIMARY_SOURCE_IGOR_ZEZOKUK_2026-08-13.md",
+      "scope": ["KONTUR"]
+    },
+    "KONTUR-FINAL-TZ": {
+      "kind": "product_source",
+      "source": "Ai-b0ss/kontur:docs/product/source/FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md; Library:FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md",
+      "scope": ["KONTUR"],
+      "summary": "Hook -> 8Q progressive physical cracks -> personalized bird -> /worm -> Home; review artifacts; scoring/D1/worm preservation."
+    },
+    "NOTION-QWEN-FULL-CONTRACT-20260818": {
+      "kind": "owner_decision",
+      "source": "Ai-b0ss/kontur#9 issuecomment-5332988360",
+      "scope": ["NOTION", "QWEN"],
+      "summary": "Full contracts; nearest green gate is insufficient; changed surfaces require current proof; Codex is Notion final execution client."
+    },
+    "NOTION-ROTATION-20260818": {
+      "kind": "owner_decision",
+      "source": "Ai-b0ss/kontur#9 issuecomment-5333164358; Library:PROJECT_STATE_NOTION_AGENT_BRIDGE(20260814-143153)(1).md",
+      "scope": ["NOTION"],
+      "summary": "Active legitimate same-workspace load balancing for independent turns; unfinished tool loop is exact account/thread sticky; restrictions are never bypassed."
+    },
+    "NOTION-PROJECT-STATE": {
+      "kind": "project_state",
+      "source": "Library:PROJECT_STATE_NOTION_AGENT_BRIDGE(20260814-143153)(1).md",
+      "scope": ["NOTION"]
+    },
+    "QWEN-PROVIDER-SAFETY": {
+      "kind": "owner_safety_boundary",
+      "source": "OWNER-AUTONOMY-20260819 + NOTION-QWEN-FULL-CONTRACT-20260818",
+      "scope": ["QWEN"],
+      "summary": "WAF/CAPTCHA/trust/explicit restriction/ambiguous post-send cannot cause sibling probing; no provider fan-out."
+    }
+  }
+}

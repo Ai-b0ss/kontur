@@ -459,9 +459,9 @@ export function LocalKontur() {
         </div>
 
         <section className="lk-hook-action" aria-hidden={stage !== 'hook'}>
-          <p>Узнай, кто ты в команде —<br />без сорока минут занудства.</p>
+          <p>8 вопросов. Пара минут —<br />и узнаешь свою птицу.</p>
           <button className="lk-button lk-button--arrow" onClick={() => { haptic('tap'); setStage('questions'); }}>
-            начать <span aria-hidden="true">↗</span>
+            начать
           </button>
         </section>
 

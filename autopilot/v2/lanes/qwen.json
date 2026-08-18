@@ -1,20 +1,20 @@
 {
   "schema_version": 1,
-  "state_revision": 14,
+  "state_revision": 15,
   "lane": "QWEN",
-  "updated_at_utc": "2026-08-18T23:19:00Z",
+  "updated_at_utc": "2026-08-18T23:21:00Z",
   "authority": {"policy":"autopilot/v2/POLICY.md","acceptance_version":"qwen-full-20260818"},
   "repo":"Ai-b0ss/qwen-free-api",
   "pr":6,
   "branch":"autopilot/qwen-runtime-preflight-20260818",
-  "current_head":"33b6cda8cd300194311de4dd9f84cddf6fb02173",
+  "current_head":"36e1be7e012d5bba1ae6fc5640b10d265cf9d10f",
   "phase":"CAPTCHA_ROTATION_OWNER_CORRECTION",
   "active_claim":{
     "claim_id":"CHIEF-20260818T231900Z-Q-CAPTCHA-ROTATION",
     "acceptance_row":"Q-PROVIDER-SAFETY",
     "authority_refs":["OWNER-CAPTCHA-ROTATION-20260819","QWEN-PROVIDER-SAFETY"],
-    "expected_head":"33b6cda8cd300194311de4dd9f84cddf6fb02173",
-    "expected_state_revision":13,
+    "expected_head":"36e1be7e012d5bba1ae6fc5640b10d265cf9d10f",
+    "expected_state_revision":14,
     "allowed_paths":["src/account-store.js","src/qwen-client.js","server.js","scripts/provider-safety-test.js",".github/workflows/qwen-long-soak.yml"],
     "forbidden_surfaces":["runtime secrets","account tokens/profile bytes","provider live traffic","main","production"],
     "hypothesis":"Current source incorrectly collapses ordinary account CAPTCHA into provider-wide WAF circuit, preventing unattended legitimate-account failover.",
@@ -29,36 +29,26 @@
     {"kind":"PROVIDER_SAFETY_OFFLINE_V2","trigger_sha":"fcddd53f4898cad464a9a1b9efc67e57e2a1aa4c","launched_for_sha":"affed5651fcb15a13f1c6adaf801624507a6c781","status":"TARGETED_PASS_INVALIDATED_BY_OWNER_CAPTCHA_CORRECTION","last_success_stage":"targeted_pass","provider_calls":0},
     {"kind":"RESTORE_SECURITY_OFFLINE","trigger_sha":"ca451f03f2615797ddd9eab2413721796f53dfb2","launched_for_sha":"19796709fe9152fdd0ae81302d7a116136753814","status":"SUPERSEDED_BY_SOURCE_FIX_CURRENT_EXECUTION_PENDING","provider_calls":0,"decrypt_calls":0}
   ],
-  "evidence_refs":[
-    "autopilot/v2/evidence/qwen-retire-legacy-circleci-9d31b2e7.json",
-    "autopilot/v2/evidence/qwen-circleci-secret-channel-33b6cda.json"
-  ],
+  "evidence_refs":["autopilot/v2/evidence/qwen-retire-legacy-circleci-9d31b2e7.json","autopilot/v2/evidence/qwen-circleci-secret-channel-33b6cda.json"],
   "proven":[
     "inherited:encrypted runtime recovery and 11-account/product tool-result/restart evidence where dependencies unchanged",
     "current:workspace confinement and truthful non-sandbox shell docs",
     "owner-correction: ordinary account/session CAPTCHA must be account-local cooldown + bounded eligible failover; explicit WAF/block/trust/restriction and ambiguous post-send remain global stop/circuit",
+    "source-progress: account-store now has explicit account-local markCaptchaChallenge without provider circuit at 36e1be7",
     "current:SOURCE_SECURITY_PASS_EXECUTOR_PENDING on 33b6cda: CircleCI runtime key is unset before gpg child; handoff token absent from curl argv; private header-file transport + regression added",
     "bridge-source current branch: default-off, broad GitHub token removed from child runner environment via env -i, handoff uses private header file",
     "main-safety:legacy direct CircleCI soak retired at main 9d31b2e700d29fcb48135b191457444508aa35ca"
   ],
   "verify_pending":[
-    "Q-PROVIDER-SAFETY: implement and offline-prove corrected CAPTCHA-vs-explicit-restriction taxonomy",
+    "Q-PROVIDER-SAFETY: finish classifier/stream/soak semantics and offline-prove corrected CAPTCHA-vs-explicit-restriction taxonomy",
     "Q-RUNTIME-RESTORE/Q-REPRODUCIBILITY-SECURITY: execute current-head npm/security regression offline; no provider traffic",
-    "Q-SECRET-BRIDGE: harvest secret bridge; source is hardened/default-off but no sanitized callback marker is recorded",
+    "Q-SECRET-BRIDGE: harvest secret bridge",
     "Q-OPENCODE-WIRING: locate actual current OpenCode v59 provider baseURL/auth/model provenance",
     "Q-LONG-SOAK: one 35-45m sparse live soak only after offline/executor rows pass and global provider-live lease acquired",
     "Q-WINDOWS-PARITY: native Windows including PowerShell restore and real tool-result continuation"
   ],
-  "known_false_hypotheses":[
-    "ordinary CAPTCHA is equivalent to explicit provider-wide WAF restriction",
-    "unattended CAPTCHA must halt the whole legitimate account pool",
-    "hosted/WAF-rotating long soak is safe",
-    "provider-safety targeted oracle at affed565 remains authoritative after the owner CAPTCHA correction",
-    "old v28 config is current OpenCode provider authority",
-    "a default-off unsafe executor is harmless enough to retain indefinitely",
-    "passphrase-fd alone removes a secret from child process environment"
-  ],
-  "blocker":"Owner-corrected CAPTCHA semantics are not yet implemented in product source; no live provider action is justified until the offline taxonomy regression is green.",
-  "first_next_action":"Patch only the current CAPTCHA classifier/account cooldown/long-soak semantics and targeted failure-injection test; run provider-free verification, then release claim.",
+  "known_false_hypotheses":["ordinary CAPTCHA is equivalent to explicit provider-wide WAF restriction","unattended CAPTCHA must halt the whole legitimate account pool","hosted/WAF-rotating long soak is safe","provider-safety targeted oracle at affed565 remains authoritative after the owner CAPTCHA correction","old v28 config is current OpenCode provider authority","a default-off unsafe executor is harmless enough to retain indefinitely","passphrase-fd alone removes a secret from child process environment"],
+  "blocker":"Owner-corrected CAPTCHA semantics are only partially implemented; classifier/current-request retry/soak regression remain before offline proof.",
+  "first_next_action":"Patch current classifier and bounded retry semantics, then provider-safety regression; no live traffic.",
   "user_needed":false
 }

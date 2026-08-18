@@ -1,5 +1,5 @@
 head-product=cd0197ed8ec2f11b6a3da1dd7760db867fbe4035
-workflow=c79e3b49fdc99114f1bf6a1865f4dbd5add7c61a
+workflow=0f104ff78bf254923606543c78b36fbb245035da
 purpose=isolated-staging-worker-assets-and-auth-boundary
 production-writes=forbidden
 staging-d1-mutation=forbidden

@@ -1,40 +1,49 @@
 {
   "schema_version": 1,
-  "state_revision": 4,
+  "state_revision": 5,
   "lane": "NOTION",
-  "updated_at_utc": "2026-08-18T22:52:00Z",
+  "updated_at_utc": "2026-08-18T22:56:00Z",
   "authority": {"policy": "autopilot/v2/POLICY.md", "acceptance_version": "notion-codex-rotation-20260818"},
   "repo": "Ai-b0ss/notion-agent-bridge",
   "pr": 7,
   "branch": "candidate/ncm28-windows-fixed-v1",
-  "current_head": "0e4cdb2b89c38df4c32616b0e5906bb2de6c1103",
-  "phase": "NCM28_DETERMINISTIC_CLASSIFIER_IN_PROGRESS",
-  "active_claim": {
-    "claim_id": "CHIEF-20260818T225200Z-N-NCM28-WINDOWS-HARNESS",
-    "acceptance_row": "N-NCM28-WINDOWS",
-    "authority_refs": ["NOTION-QWEN-FULL-CONTRACT-20260818", "NOTION-PROJECT-STATE"],
-    "expected_head": "0e4cdb2b89c38df4c32616b0e5906bb2de6c1103",
-    "expected_state_revision": 3,
-    "allowed_paths": ["tools/circleci_probe_ncm28_happy_outcome.py", ".circleci/config.yml"],
-    "forbidden_surfaces": ["materialized product source", "auth/account data", "runtime state", "provider traffic", "main", "production"],
-    "hypothesis": "The remaining native Windows PermissionError is inside atomic_write, but iterative guessed wrapper-frame predicates hide whether the failing invocation has a trusted parent guard and which product module directly called it. Runtime traceback locals and normalized caller basename can classify those facts without paths or secrets.",
-    "new_information_expected": "Exactly one bounded Windows workflow distinguishes parent_guard present vs absent and caller module category for the first atomic_write exception; no product code is changed.",
-    "started_at_utc": "2026-08-18T22:52:00Z",
-    "expires_at_utc": "2026-08-18T23:07:00Z"
-  },
-  "in_flight_external": [],
+  "current_head": "980f248272860ce5c92d8812bf830cb30021b8b1",
+  "phase": "WAIT_EXTERNAL",
+  "active_claim": null,
+  "in_flight_external": [
+    {
+      "executor": "CircleCI Windows server-2022 / Python 3.13.9",
+      "workflow_id": "08b9d1b7-f453-4a89-b432-0760a4e0eb0e",
+      "launched_for_sha": "6856f3c7ba82b9428d2fe93c1124861cccdfc18f",
+      "acceptance_row": "N-NCM28-WINDOWS",
+      "proof_surface": "first failing atomic_write invocation: parent_guard presence + direct caller module category",
+      "oracle": "inverted predicate statuses; failure means predicate matched",
+      "status": "RUNNING",
+      "duplicate_forbidden": true,
+      "expected_outcomes": {
+        "parent_guard_none_failure": "failing invocation entered atomic_write without trusted parent guard",
+        "parent_guard_present_failure": "failing invocation had trusted parent guard; investigate implementation/lifetime instead of propagation",
+        "caller_integrated_failure": "direct caller module integrated_upgrade.py",
+        "caller_auth_failure": "direct caller module auth.py/auth_rotation.py",
+        "caller_migration_failure": "direct caller migration_contract.py/stable_runtime_state.py",
+        "all_three_caller_contexts_success": "caller is another materialized module; do not guess a product patch"
+      }
+    }
+  ],
   "evidence_refs": ["autopilot/v2/evidence/notion-ncm28-frame-diagnostic-b6259ea.json"],
   "proven": [
     "current:first failing classified frame is atomic_write; runtime-root/auth-read candidates disproved for first exception",
     "current:CircleCI d8282dcf completed; preflight/build green and all four guessed subframes absent under inverted-predicate oracle",
     "classification:EVIDENCE/HARNESS_GAP — four hypotheses disproved, no new product patch justified",
+    "current:deterministic classifier inspects only parent_guard presence and normalized caller basename; it does not emit local values, paths, exception text or payloads",
+    "current:automatic NCM28 classifier default returned to false on head 980f2482 immediately after bounded trigger commit 6856f3c7",
     "current:restore scripts use non-argv passphrase channel at source",
     "current:restore success output no longer emits plaintext restored path; static verifier rejects path-output regression",
     "inherited:strict-share/held-parent primitives and selected recovery invariants where source unchanged",
     "source:active same-workspace account-pool/rotation architecture exists"
   ],
   "verify_pending": [
-    "N-NCM28-WINDOWS: one deterministic native Windows atomic_write invocation classifier",
+    "harvest workflow 08b9d1b7-f453-4a89-b432-0760a4e0eb0e; do not duplicate while unresolved",
     "root-cause product change only after deterministic caller evidence",
     "targeted native Windows then full NCM28 recovery/auth/state/rollback gates",
     "execute secret-channel verifier on current head",
@@ -57,7 +66,7 @@
     "the first atomic_write exception traverses restore_files_guarded",
     "green inverted diagnostic contexts mean Windows product PASS"
   ],
-  "blocker": "Harness classification gap only; no product patch is justified until the atomic_write invocation is classified.",
-  "first_next_action": "Atomically replace guessed predicates with sanitized atomic_write parent_guard/caller-module facts, launch one bounded CircleCI Windows classifier, immediately return automatic execution to disabled, persist run identity, release claim.",
+  "blocker": "One bounded deterministic Windows classifier is running for 6856f3c7. Automatic reruns are disabled on current head 980f2482; waiting holds no mutable claim.",
+  "first_next_action": "Harvest CircleCI workflow 08b9d1b7-f453-4a89-b432-0760a4e0eb0e. If still pending, pivot immediately to QWEN offline/executor harvesting or KONTUR runtime proof; do not poll or launch another Notion run.",
   "user_needed": false
 }

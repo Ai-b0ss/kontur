@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "evidence_id": "QWEN-CAPTCHA-FAILOVER-afaf698",
+  "lane": "QWEN",
+  "acceptance_row": "Q-PROVIDER-SAFETY",
+  "result": "PASS",
+  "exact_sha": "afaf698104e7a0f0abeed6efa6cdc024f8dd5a37",
+  "proof_surface": "provider-free failure-injection for account-local CAPTCHA/rate-limit failover versus provider-wide restriction stop, including initial SSE gate",
+  "oracle": "CircleCI build 20 on trigger fb3cf68c7aa1e1508ca93bba5474ac9351e1d028; callback targeted_pass=true provider_calls=0",
+  "run_identity": {
+    "executor": "CircleCI",
+    "build": 20,
+    "trigger_sha": "fb3cf68c7aa1e1508ca93bba5474ac9351e1d028",
+    "callback_issue": "Ai-b0ss/kontur#9",
+    "callback_comment": 5335384829
+  },
+  "verified_facts": [
+    "FAIL_SYS_USER_VALIDATE, RGV587_ERROR and WAF_CAPTCHA_CHALLENGE classify as captcha_challenge rather than provider-wide WAF restriction",
+    "initial SSE CAPTCHA is intercepted before any downstream model bytes and is eligible for bounded sibling failover",
+    "initial SSE RateLimited is intercepted before downstream model bytes and is eligible for bounded sibling failover",
+    "normal first model SSE bytes are released unchanged and are not replayed",
+    "CAPTCHA cooldown makes only the challenged account temporarily unavailable and leaves an eligible sibling usable",
+    "explicit provider-wide WAF restriction opens the provider circuit and blocks sibling candidates",
+    "rate-limit cooldown remains account-local",
+    "MAX_ACCOUNTS_PER_OPERATION remains 2",
+    "the proof made zero provider calls"
+  ],
+  "invalidation_dependencies": [
+    "src/account-store.js CAPTCHA/restriction classification and cooldown",
+    "src/qwen-client.js classifyUpstreamFailure/inspectInitialSSE/gateInitialStream/sendChatRequest",
+    "scripts/provider-safety-test.js",
+    "MAX_ACCOUNTS_PER_OPERATION"
+  ],
+  "does_not_prove": [
+    "full npm regression is green; build 20 reported full_npm_pass=false and that must be localized separately",
+    "secret bridge readiness",
+    "live provider behavior or long-soak success",
+    "native Windows parity"
+  ],
+  "next_oracle": "Localize the unrelated full npm regression without reopening this targeted provider-safety row; then proceed only through the remaining executor/OpenCode/live-soak gates."
+}

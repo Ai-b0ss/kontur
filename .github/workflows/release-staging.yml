@@ -11,6 +11,10 @@ permissions:
   contents: read
   issues: write
 
+concurrency:
+  group: kontur-additive-staging-proof
+  cancel-in-progress: false
+
 env:
   CLOUDFLARE_ACCOUNT_ID: 7a5b709a066fca0ee563c42b3e5c4f10
   STAGING_WORKER_NAME: kontur-igor-staging

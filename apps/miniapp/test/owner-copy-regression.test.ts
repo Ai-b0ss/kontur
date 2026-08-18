@@ -64,3 +64,16 @@ test('local quiz API keeps the exact accepted v84 presentation copy separate fro
   assert.match(source, /resolveRole\(body\.answers\)/);
   assert.doesNotMatch(source, /LOCAL_QUESTIONS[\s\S]{0,5000}weights\s*:/);
 });
+
+test('cosmetic drop and collection keep Kotosov identity from the known player id', async () => {
+  const visual = await readFile(new URL('../src/components/LocalBirdVisual.tsx', import.meta.url), 'utf8');
+  const screen = await readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8');
+
+  assert.match(visual, /function resultForRole\(role: Role \| null, knownUserId\?: number\)/);
+  assert.match(visual, /Number\.isSafeInteger\(knownUserId\)/);
+  assert.match(visual, /resultForRole\(role, userId\)/);
+  assert.match(visual, /telegramUserId\(\)/, 'Telegram id parsing stays only as a compatibility fallback');
+
+  const knownIdUses = screen.match(/<LocalBirdVisual role=\{state\.player\.role\} userId=\{state\.player\.userId\}/g) ?? [];
+  assert.equal(knownIdUses.length, 2, 'drop and collection must both use the server-known player id');
+});

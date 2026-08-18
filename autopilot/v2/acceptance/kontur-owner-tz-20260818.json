@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "acceptance_version": "kontur-owner-tz-20260818",
+  "project": "KONTUR",
+  "done_rule": "KONTUR_CORE_DONE requires every mandatory row to be PASS with evidence bound to the current head or explicitly inherited through unchanged named dependencies. SOURCE_INVARIANT alone cannot satisfy runtime or visual rows.",
+  "rows": [
+    {"id":"K-BACKEND-INVARIANTS","mandatory":true,"oracle":"integration","surfaces":["scoring","D1","reward","worm","collection/equip persistence"],"inheritance":"allowed_if_dependencies_unchanged"},
+    {"id":"K-Q1-Q8-TIMELINE","mandatory":true,"oracle":"runtime_state_timeline","surfaces":["q1..q7 N->N+1 visual target","q8 gestureComplete + resultReady gate","single hatching transition","timer epoch at semantic HATCHING"]},
+    {"id":"K-DOM-CONTINUITY","mandatory":true,"oracle":"React DOM/component identity","surfaces":["persistent QuizEgg identity through question/hatch/reveal","timer cleanup","StrictMode/idempotency"]},
+    {"id":"K-PHYSICAL-CRACK","mandatory":true,"oracle":"rendered_visual","surfaces":["8 physical crack states","same-shell hatch fragments","no fake SVG/path/line overpaint"]},
+    {"id":"K-RESPONSIVE-WEBVIEW","mandatory":true,"oracle":"browser/WebView","surfaces":["320x568","430x1000","safe-area","reduced-motion","skip convergence"]},
+    {"id":"K-REVIEW-ARTIFACTS","mandatory":true,"oracle":"artifact_presence_and_consistency","surfaces":["required screenshots/WebM","BIRD_CHARACTER_DIRECTION","six-character identity consistency"]},
+    {"id":"K-STAGING-EXACT-HEAD","mandatory":true,"oracle":"non-destructive staging","surfaces":["kontur-igor-staging exact head","staging isolation","no production D1/write"]},
+    {"id":"K-TELEGRAM-SMOKE","mandatory":true,"oracle":"Telegram WebView smoke","surfaces":["Mini App launch","quiz/hatch/reveal usable in Telegram WebView"]}
+  ],
+  "explicitly_not_required_for_core_done": ["merge to main","production promotion","destructive production D1 work"]
+}

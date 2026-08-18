@@ -1,52 +1,19 @@
 {
-  "schema_version": 1,
-  "state_revision": 8,
-  "lane": "QWEN",
-  "updated_at_utc": "2026-08-18T22:12:00Z",
-  "authority": {"policy": "autopilot/v2/POLICY.md", "acceptance_version": "qwen-full-20260818"},
-  "repo": "Ai-b0ss/qwen-free-api",
-  "pr": 6,
-  "branch": "autopilot/qwen-runtime-preflight-20260818",
-  "current_head": "19796709fe9152fdd0ae81302d7a116136753814",
-  "phase": "WAIT_OFFLINE_SAFETY_PROOFS",
-  "active_claim": null,
-  "provider_live_lease": null,
-  "in_flight_external": [
-    {"executor":"CircleCI -> ephemeral GitHub self-hosted runner","kind":"SECRET_BRIDGE_PREFLIGHT","trigger_branch":"autopilot/qwen-secret-bridge-trigger-20260819","trigger_sha":"543f208aaca4a198ccd24d576a687ae0bb868a76","trusted_workflow_branch":"autopilot/qwen-secret-bridge-20260818","launched_for_sha":"716b16dda7b1bbeab34dfbfdbfa0d5d77b0eac9f","proof_surface":"executor/runtime-secret readiness only; zero provider calls","status":"TRIGGERED_AWAIT_CALLBACK","duplicate_forbidden":true},
-    {"executor":"CircleCI Linux","kind":"PROVIDER_SAFETY_OFFLINE_V1","trigger_sha":"a40f18cbdbeef87cca326ff164718ccd599915cb","launched_for_sha":"01668a8d37960840bf2489f21b8a8d04bc7e63eb","status":"FAIL","failure_localization":"HTTP 504 classification was shadowed by textual timeout detection","provider_calls":0},
-    {"executor":"CircleCI Linux","kind":"PROVIDER_SAFETY_OFFLINE_V2","trigger_branch":"autopilot/qwen-provider-safety-proof2-20260819","trigger_sha":"fcddd53f4898cad464a9a1b9efc67e57e2a1aa4c","launched_for_sha":"affed5651fcb15a13f1c6adaf801624507a6c781","proof_surface":"provider taxonomy/no-sibling semantics; targeted + full offline regression; provider_calls=0","status":"TRIGGERED_AWAIT_CALLBACK","duplicate_forbidden":true},
-    {"executor":"CircleCI Linux","kind":"RESTORE_SECURITY_OFFLINE","trigger_branch":"autopilot/qwen-restore-security-proof-20260819","trigger_sha":"ca451f03f2615797ddd9eab2413721796f53dfb2","launched_for_sha":"19796709fe9152fdd0ae81302d7a116136753814","proof_surface":"shipped root restore secret argv/env/output regression only; provider_calls=0; decrypt_calls=0","status":"TRIGGERED_AWAIT_CALLBACK","duplicate_forbidden":true}
+  "schema_version":1,"state_revision":9,"lane":"QWEN","updated_at_utc":"2026-08-18T22:18:00Z",
+  "authority":{"policy":"autopilot/v2/POLICY.md","acceptance_version":"qwen-full-20260818"},
+  "repo":"Ai-b0ss/qwen-free-api","pr":6,"branch":"autopilot/qwen-runtime-preflight-20260818","current_head":"19796709fe9152fdd0ae81302d7a116136753814",
+  "phase":"LONG_SOAK_HARNESS_SAFETY_REWRITE",
+  "active_claim":{"pulse_id":"CHIEF-20260818T2218Z-QWEN-SOAK-HARNESS","work_packet":"replace hosted/WAF-rotating long-soak workflow with manual exact-sha ephemeral-self-hosted fail-closed harness; zero provider calls during patch","started_at_utc":"2026-08-18T22:18:00Z","expires_at_utc":"2026-08-18T22:30:00Z","expected_head":"19796709fe9152fdd0ae81302d7a116136753814"},
+  "provider_live_lease":null,
+  "in_flight_external":[
+    {"kind":"SECRET_BRIDGE_PREFLIGHT","trigger_sha":"543f208aaca4a198ccd24d576a687ae0bb868a76","launched_for_sha":"716b16dda7b1bbeab34dfbfdbfa0d5d77b0eac9f","status":"TRIGGERED_AWAIT_CALLBACK","duplicate_forbidden":true},
+    {"kind":"PROVIDER_SAFETY_OFFLINE_V1","trigger_sha":"a40f18cbdbeef87cca326ff164718ccd599915cb","launched_for_sha":"01668a8d37960840bf2489f21b8a8d04bc7e63eb","status":"FAIL","provider_calls":0},
+    {"kind":"PROVIDER_SAFETY_OFFLINE_V2","trigger_sha":"fcddd53f4898cad464a9a1b9efc67e57e2a1aa4c","launched_for_sha":"affed5651fcb15a13f1c6adaf801624507a6c781","status":"FAIL_AFTER_TARGETED_PASS","provider_calls":0},
+    {"kind":"RESTORE_SECURITY_OFFLINE","trigger_sha":"ca451f03f2615797ddd9eab2413721796f53dfb2","launched_for_sha":"19796709fe9152fdd0ae81302d7a116136753814","status":"FAIL_UNLOCALIZED","provider_calls":0,"decrypt_calls":0}
   ],
-  "proven": [
-    "inherited:encrypted runtime recovery",
-    "inherited:11-account pool and real tool-result continuation/restart evidence where dependencies unchanged",
-    "current:workspace cwd/symlink confinement and truthful non-sandbox shell docs",
-    "current:CI decrypt paths use non-argv passphrase channel",
-    "bridge-source:default OFF, exact-sha/manual, scrubbed child env, non-argv runtime key",
-    "source:provider circuit blocks sibling probes for WAF/trust/provider pressure and rate-limit remains eligible failover",
-    "source:explicit HTTP 408/504/5xx classification precedes generic timeout text",
-    "source:root Bash restore copies key to non-exported shell variable, unsets RUNTIME_STATE_KEY, uses passphrase-fd 0 and constant success marker",
-    "source:root PowerShell restore removes Env:RUNTIME_STATE_KEY before gpg, uses passphrase-fd 0 and constant success marker",
-    "source:runtime-secret-channel-test now includes both shipped root restore scripts"
-  ],
-  "verify_pending": [
-    "harvest provider-safety offline V2 for provider surface affed565",
-    "harvest restore-security offline proof for exact current head 1979670",
-    "harvest sanitized self-hosted bridge execution result for exact workflow sha 716b16d",
-    "actual current OpenCode provider wiring provenance",
-    "one 35-45m sparse Linux soak after all safety/executor proofs PASS",
-    "native Windows parity including actual root PowerShell restore + real tool-result continuation",
-    "current-head hardening/security/reproducibility package",
-    "archive/delete one-shot proof branches after durable harvest"
-  ],
-  "known_false_hypotheses": [
-    "runtime/auth is unavailable to automation",
-    "bounded three-step soak is final acceptance",
-    ".qwen-v28/opencode-v28.json currently proves provider/baseURL/model",
-    "WAF challenge is ordinary account failover",
-    "prior runtime-secret-channel PASS covered the shipped root restore scripts"
-  ],
-  "blocker": "Three independent zero-provider proofs are pending. Live provider traffic remains disabled. OpenCode provider-wiring provenance is also still unresolved.",
-  "first_next_action": "Harvester: collect exact callbacks without duplicates. Writer capacity: locate actual current OpenCode provider wiring provenance while these proofs run; do not start live soak.",
-  "user_needed": false
+  "proven":["inherited:encrypted runtime recovery","inherited:11-account pool and real tool-result continuation/restart where dependencies unchanged","current:workspace confinement/non-sandbox docs","source:provider circuit no-sibling semantics targeted regression PASS at affed565","source:root restore non-argv changes present","bridge-source:manual exact-sha scrubbed child environment"],
+  "verify_pending":["rewrite long-soak workflow so WAF/trust/provider pressure never rotates and executor is self-hosted exact-sha","localize full npm regression after provider targeted PASS","localize restore-security offline FAIL","harvest secret bridge","OpenCode current provider wiring provenance","single 35-45m sparse soak only after safety gates","Windows parity"],
+  "known_false_hypotheses":["hosted qwen-long-soak workflow is safe to execute as-is","WAF may be treated like account cooldown in soak harness","targeted provider-safety FAILs on current provider source"],
+  "blocker":"Old long-soak workflow itself violates provider-safety policy and hosted-executor constraint; live use forbidden.",
+  "first_next_action":"Rewrite qwen-long-soak.yml on exact PR6 head, then release claim; no live dispatch.","user_needed":false
 }

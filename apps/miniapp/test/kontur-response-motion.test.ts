@@ -42,7 +42,7 @@ test('q8 visible hatch cannot overtake either the response gesture or hatch resu
   assert.match(screen, /setEggResponding\(false\);[\s\S]*?reducedMotion \? 0 : 260/);
 
   // Fast result: React may enter hatching while the gesture is still active,
-  // but CSS preserves the answered q8 surface and suppresses hatch-only UI.
+  // but the visible q8 surface remains and every hatch animation is paused at t=0.
   assert.match(
     css,
     /\.lk-first-time--hatching\.is-egg-responding \.lk-question--egg \{[\s\S]*?opacity: 1;[\s\S]*?pointer-events: none;/,
@@ -53,7 +53,12 @@ test('q8 visible hatch cannot overtake either the response gesture or hatch resu
   );
   assert.match(
     css,
-    /\.lk-first-time--hatching\.is-egg-responding > \.lk-quiz-hatch,[\s\S]*?animation-delay: 260ms !important;/,
+    /\.lk-first-time--hatching\.is-egg-responding > \.lk-quiz-hatch,[\s\S]*?animation-play-state: paused !important;/,
+  );
+  assert.doesNotMatch(
+    css,
+    /\.lk-first-time--hatching\.is-egg-responding[\s\S]{0,500}?animation-delay: 260ms/,
+    'q8 ordering must be state-gated, not implemented as a second fixed delay',
   );
 
   // Slow result: LocalKontur does not enter hatching until hatch() has a result;
@@ -61,4 +66,7 @@ test('q8 visible hatch cannot overtake either the response gesture or hatch resu
   const apiAwaitAt = screen.indexOf('const result = await api.localHatch(finalAnswers);');
   const visibleHatchAt = screen.indexOf("setStage('hatching');", apiAwaitAt);
   assert.ok(apiAwaitAt >= 0 && visibleHatchAt > apiAwaitAt);
+
+  // Reduced motion keeps the same gate but collapses animation duration/delay.
+  assert.match(css, /\.lk-reduced-motion \.lk-quiz-hatch,[\s\S]*?animation-duration: \.001ms !important;[\s\S]*?animation-delay: 0ms !important;/);
 });

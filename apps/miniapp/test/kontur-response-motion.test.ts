@@ -28,3 +28,37 @@ test('q1..q7 response phase advances line, ring and crack to N+1 before question
     );
   }
 });
+
+test('q8 visible hatch cannot overtake either the response gesture or hatch result', async () => {
+  const [css, screen] = await Promise.all([
+    readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8'),
+    readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8'),
+  ]);
+
+  // The response gesture starts before the concurrent final hatch request.
+  const respondingAt = screen.indexOf('setEggResponding(true);');
+  const hatchRequestAt = screen.indexOf('if (index + 1 >= questions.length) void hatch(next);');
+  assert.ok(respondingAt >= 0 && hatchRequestAt > respondingAt);
+  assert.match(screen, /setEggResponding\(false\);[\s\S]*?reducedMotion \? 0 : 260/);
+
+  // Fast result: React may enter hatching while the gesture is still active,
+  // but CSS preserves the answered q8 surface and suppresses hatch-only UI.
+  assert.match(
+    css,
+    /\.lk-first-time--hatching\.is-egg-responding \.lk-question--egg \{[\s\S]*?opacity: 1;[\s\S]*?pointer-events: none;/,
+  );
+  assert.match(
+    css,
+    /\.lk-first-time--hatching\.is-egg-responding \.lk-hatching-label,[\s\S]*?\.lk-skip-motion \{[\s\S]*?visibility: hidden;/,
+  );
+  assert.match(
+    css,
+    /\.lk-first-time--hatching\.is-egg-responding > \.lk-quiz-hatch,[\s\S]*?animation-delay: 260ms !important;/,
+  );
+
+  // Slow result: LocalKontur does not enter hatching until hatch() has a result;
+  // therefore the q8 question remains the visible state after the gesture too.
+  const apiAwaitAt = screen.indexOf('const result = await api.localHatch(finalAnswers);');
+  const visibleHatchAt = screen.indexOf("setStage('hatching');", apiAwaitAt);
+  assert.ok(apiAwaitAt >= 0 && visibleHatchAt > apiAwaitAt);
+});

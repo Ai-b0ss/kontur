@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "evidence_id": "QWEN-RETIRE-LEGACY-CIRCLECI-9d31b2e7",
+  "lane": "QWEN",
+  "acceptance_row": "Q-REPRODUCIBILITY-SECURITY",
+  "result": "PASS_SAFETY_HARDENING",
+  "exact_sha": "9d31b2e700d29fcb48135b191457444508aa35ca",
+  "repo_ref": "Ai-b0ss/qwen-free-api:main",
+  "proof_surface": "default-branch CircleCI legacy provider-soak entrypoint",
+  "oracle": "exact diff + fail-closed replacement",
+  "facts": [
+    "the legacy main CircleCI long-soak contained gpg --passphrase with RUNTIME_STATE_KEY in argv",
+    "the legacy main CircleCI long-soak treated waf/network/timeout as account-rotation classes",
+    "the parameter was default:false, so no provider traffic was active during repair",
+    "PR #8 was closed after detecting it was based on a stale main head",
+    "PR #9 was rebuilt from exact main e40d1826454455164ab644a951521f623fbdd7e8 and showed one-file 12-addition/206-deletion diff",
+    "PR #9 was merged as 9d31b2e700d29fcb48135b191457444508aa35ca",
+    "the current default-branch entrypoint now only emits a sanitized retired marker and exits 1; it performs no provider/runtime/account operations"
+  ],
+  "invalidation_dependencies": ["main:.circleci/config.yml legacy long-soak entrypoint"],
+  "does_not_close": ["Q-SECRET-BRIDGE","Q-LONG-SOAK","Q-WINDOWS-PARITY","Q-OPENCODE-WIRING"],
+  "provider_calls": 0,
+  "runtime_data_writes": 0
+}

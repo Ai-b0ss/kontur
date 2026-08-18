@@ -1,81 +1,46 @@
 [CmdletBinding()]
 param(
-    [string]$ArchiveName = 'KONTUR_HANDOFF_2026-08-06-STABLE'
+    [string]$ArchiveName = 'KONTUR_HANDOFF_2026-08-17_CURRENT'
 )
 
 $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $zipPath = Join-Path $root ($ArchiveName + '.zip')
 $shaPath = $zipPath + '.sha256'
+$script:tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 
 if (Test-Path -LiteralPath $zipPath) { throw "Archive already exists: $zipPath" }
 if (Test-Path -LiteralPath $shaPath) { throw "Checksum already exists: $shaPath" }
 
 $runId = [guid]::NewGuid().ToString('N')
-$stage = Join-Path $env:TEMP ("kontur-handoff-stage-$runId")
-$verify = Join-Path $env:TEMP ("kontur-handoff-verify-$runId")
-$tempZip = Join-Path $env:TEMP ($ArchiveName + "-$runId.zip")
+$stage = Join-Path $script:tempRoot ("kontur-handoff-stage-$runId")
+$verify = Join-Path $script:tempRoot ("kontur-handoff-verify-$runId")
+$tempZip = Join-Path $script:tempRoot ($ArchiveName + "-$runId.zip")
 $bundle = Join-Path $stage 'kontur'
 
-$rootFiles = @(
-    'AGENTS.md',
-    'AI_PROJECT_NAVIGATOR.md',
-    'PROJECT_STATE.yaml',
-    'PROJECT_PASSPORT.md',
-    'BACKLOG.md',
-    'ART_DIRECTION_V1.md',
-    'COMMUNITY_INTERVIEW_GUIDE_V1.md',
-    'COMMUNITY_RESEARCH_DEEP_DIVE_V1.md',
-    'COMMUNITY_RESEARCH_STAGE1_INTERIM.md',
-    'EXPERIENCE_SPEC_V1.md',
-    'IMPLEMENTATION_PLAN_V1.md',
-    'PRODUCT_DIRECTION_V1.md',
-    'PRODUCT_REDESIGN_BRIEF.md',
-    'CHAT_RESEARCH_PROTOCOL.md',
-    'RESTORED_PRODUCT_V3.md',
-    'STAGE1_INTERVIEW_EXECUTION.md',
-    'STAGE1_MINIMAL_VALIDATION.md',
-    'STAGE5_PROTOTYPE_V1.md',
-    'STAGE6_PREVIEW_TRIAL_V1.md',
-    'STAGE7_CLOSED_ROLLOUT_V1.md',
-    'NEXT_CHAT_PROMPT.md',
-    '.env.example',
-    '.env.telegram-test.example',
-    '.gitattributes',
-    '.gitignore',
-    'DESIGN.md',
-    'kontur-brief.html',
-    'package.json',
-    'pnpm-lock.yaml',
-    'pnpm-workspace.yaml',
-    'README.md',
-    'WORKLOG.md',
-    'HANDOVER.md'
-)
-$rootDirectories = @('apps', 'packages', 'tools', 'art-direction', 'stage5-prototype')
-$blockedSegments = @('node_modules', 'dist', 'data', 'backups', 'research-private', '.wrangler', '.git', '.claude', '.agents', '.codex', '.superseded')
-
 function Get-RelativePath([string]$basePath, [string]$targetPath) {
-    $baseFull = [IO.Path]::GetFullPath($basePath).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
-    $targetFull = [IO.Path]::GetFullPath($targetPath)
-    $relativeUri = ([Uri]$baseFull).MakeRelativeUri([Uri]$targetFull)
-    return [Uri]::UnescapeDataString($relativeUri.ToString()).Replace('/', [IO.Path]::DirectorySeparatorChar)
+    return [IO.Path]::GetRelativePath(
+        [IO.Path]::GetFullPath($basePath),
+        [IO.Path]::GetFullPath($targetPath)
+    )
 }
 
-function Test-IncludedFile([IO.FileInfo]$file) {
-    $relative = Get-RelativePath $root $file.FullName
-    $segments = $relative -split '[\\/]'
+function Test-ShareSafeTrackedPath([string]$relative) {
+    $normalized = $relative.Replace('\', '/')
+    $segments = $normalized -split '/'
+    $blockedSegments = @('node_modules', 'dist', 'data', 'backups', 'research-private', '.wrangler', '.git', '.claude', '.agents', '.codex', '.superseded')
     if ($segments | Where-Object { $blockedSegments -contains $_ }) { return $false }
-    if ($file.Name -eq '.env' -or $file.Name -like '*.local') { return $false }
-    if ($file.Extension -in @('.zip', '.sha256', '.log', '.tmp')) { return $false }
+    if ($normalized.StartsWith('.runtime-state/', [StringComparison]::OrdinalIgnoreCase)) { return $false }
+    $leaf = [IO.Path]::GetFileName($normalized)
+    if ($leaf -eq '.env' -or $leaf -like '*.local') { return $false }
+    if ([IO.Path]::GetExtension($leaf) -in @('.zip', '.sha256', '.log', '.tmp', '.pem', '.p12', '.pfx', '.key')) { return $false }
     return $true
 }
 
 function Remove-SafeTemp([string]$path, [string]$prefix) {
     if (-not (Test-Path -LiteralPath $path)) { return }
     $resolved = [IO.Path]::GetFullPath($path)
-    $tempRoot = [IO.Path]::GetFullPath($env:TEMP)
-    if (-not $resolved.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase)) {
+    if (-not $resolved.StartsWith($script:tempRoot, [StringComparison]::OrdinalIgnoreCase)) {
         throw "Unsafe temp cleanup path: $resolved"
     }
     if (-not (Split-Path -Leaf $resolved).StartsWith($prefix, [StringComparison]::Ordinal)) {
@@ -87,33 +52,44 @@ function Remove-SafeTemp([string]$path, [string]$prefix) {
 try {
     New-Item -ItemType Directory -Path $bundle -Force | Out-Null
 
-    foreach ($name in $rootFiles) {
-        $source = Join-Path $root $name
-        if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw "Missing handoff file: $name" }
-        $target = Join-Path $bundle $name
+    $tracked = @(& git -C $root ls-files)
+    if ($LASTEXITCODE -ne 0) { throw 'git ls-files failed' }
+    if ($tracked.Count -eq 0) { throw 'Git tracked-file list is empty' }
+
+    $included = 0
+    foreach ($relative in $tracked) {
+        if (-not (Test-ShareSafeTrackedPath $relative)) { continue }
+        $source = Join-Path $root $relative
+        if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
+            throw "Tracked file is missing from worktree: $relative"
+        }
+        $target = Join-Path $bundle $relative
         $parent = Split-Path -Parent $target
         New-Item -ItemType Directory -Path $parent -Force | Out-Null
         Copy-Item -LiteralPath $source -Destination $target
+        $included++
     }
 
-    foreach ($directory in $rootDirectories) {
-        $sourceRoot = Join-Path $root $directory
-        foreach ($file in Get-ChildItem -LiteralPath $sourceRoot -Recurse -File) {
-            if (-not (Test-IncludedFile $file)) { continue }
-            $relative = Get-RelativePath $root $file.FullName
-            $target = Join-Path $bundle $relative
-            $parent = Split-Path -Parent $target
-            New-Item -ItemType Directory -Path $parent -Force | Out-Null
-            Copy-Item -LiteralPath $file.FullName -Destination $target
+    foreach ($required in @(
+        'README.md',
+        'CURRENT_PRODUCT.md',
+        'HANDOFF.md',
+        'ARCHITECTURE.md',
+        'docs/product/PRODUCT_BRIEF_2026-08-13.md',
+        'docs/product/DECISION_LOG_2026-08-14.md',
+        'apps/miniapp/src/screens/LocalKontur.tsx',
+        'apps/miniapp/src/components/QuizEgg.tsx',
+        'apps/worker/src/index.ts',
+        'pnpm-lock.yaml'
+    )) {
+        if (-not (Test-Path -LiteralPath (Join-Path $bundle $required) -PathType Leaf)) {
+            throw "Required handoff file missing after staging: $required"
         }
     }
 
     $stagedFiles = @(Get-ChildItem -LiteralPath $bundle -Recurse -File)
-    if ($stagedFiles.Count -eq 0) { throw 'Handoff staging is empty' }
-    if ($stagedFiles | Where-Object { $_.Name -eq '.env' -or $_.Name -like '*.local' }) {
-        throw 'A local env file entered the handoff'
-    }
-    if ($stagedFiles.FullName -match '[\\/](node_modules|dist|data|backups|research-private|\.wrangler|\.git|\.superseded)[\\/]') {
+    if ($stagedFiles.Count -eq 0 -or $included -eq 0) { throw 'Handoff staging is empty' }
+    if ($stagedFiles.FullName -match '[\\/](node_modules|dist|data|backups|research-private|\.wrangler|\.git|\.runtime-state)[\\/]') {
         throw 'A blocked directory entered the handoff'
     }
 
@@ -171,7 +147,7 @@ try {
 
     "ARCHIVE=$zipPath"
     "SHA256=$zipHash"
-    "FILES=$($stagedFiles.Count)"
+    "FILES=$included"
     "SECRET_HITS=$secretHits"
     'INTERNAL_HASHES=PASS'
 } finally {
@@ -179,7 +155,7 @@ try {
     Remove-SafeTemp $verify 'kontur-handoff-verify-'
     if (Test-Path -LiteralPath $tempZip) {
         $resolvedTempZip = [IO.Path]::GetFullPath($tempZip)
-        if (-not $resolvedTempZip.StartsWith([IO.Path]::GetFullPath($env:TEMP), [StringComparison]::OrdinalIgnoreCase)) {
+        if (-not $resolvedTempZip.StartsWith($script:tempRoot, [StringComparison]::OrdinalIgnoreCase)) {
             throw "Unsafe temporary archive path: $resolvedTempZip"
         }
         Remove-Item -LiteralPath $resolvedTempZip -Force

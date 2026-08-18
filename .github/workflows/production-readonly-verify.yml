@@ -1,0 +1,151 @@
+name: Kontur production read-only asset proof
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/production-readonly-verify.yml
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  verify:
+    name: exact deployed frontend bytes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enable pnpm 11
+        run: |
+          corepack enable
+          corepack prepare pnpm@11 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frozen Mini App
+        run: pnpm build
+
+      - name: Verify current production without writes
+        id: production_verify
+        continue-on-error: true
+        env:
+          RELEASE_ORIGIN: https://kontur-igor.igorekglukhovskii43.workers.dev
+          RELEASE_PROPAGATION_TIMEOUT_MS: '60000'
+          RELEASE_PROPAGATION_INTERVAL_MS: '3000'
+          RELEASE_EVIDENCE_DIR: production-readonly-evidence
+          RELEASE_EVIDENCE_PREFIX: production
+        run: node tools/cloudflare/wait-for-deployed-assets.mjs 2>&1 | tee production-readonly.log
+
+      - name: Probe historical preview and current origin without writes
+        id: provenance_probe
+        continue-on-error: true
+        env:
+          PROVENANCE_OUTPUT: production-readonly-evidence/public-provenance.json
+        run: |
+          mkdir -p production-readonly-evidence
+          node tools/cloudflare/read-only-public-provenance.mjs > production-readonly-evidence/public-provenance.log 2>&1
+
+      - name: Build safe provenance summary
+        if: always()
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+
+          const input = 'production-readonly-evidence/public-provenance.json';
+          const output = 'production-readonly-evidence/public-provenance-summary.json';
+
+          function cleanError(value) {
+            if (!value) return null;
+            return String(value).replace(/\s+/g, ' ').slice(0, 300);
+          }
+
+          function targetSummary(target) {
+            if (!target) return { missing: true };
+            if (target.error) return { error: cleanError(target.error) };
+            return {
+              root: target.root ? {
+                status: target.root.status,
+                bytes: target.root.bytes,
+                sha256: target.root.sha256,
+                exactCurrentDist: Boolean(target.root.exactLocalMatch),
+                referencedAssets: Array.isArray(target.root.referencedAssets) ? target.root.referencedAssets : [],
+              } : null,
+              resources: Array.isArray(target.resources) ? target.resources.map((item) => ({
+                path: item.path,
+                status: item.status,
+                bytes: item.bytes,
+                sha256: item.sha256,
+                exactCurrentDist: Boolean(item.exactLocalMatch),
+                isWebp: Boolean(item.looksLikeWebp),
+                isHtml: Boolean(item.looksLikeHtml),
+              })) : [],
+              classification: target.classification || null,
+            };
+          }
+
+          let summary;
+          try {
+            const data = JSON.parse(fs.readFileSync(input, 'utf8'));
+            const historical = data.targets?.find((item) => item.name === 'historical-preview-5dabce57');
+            const production = data.targets?.find((item) => item.name === 'production-current-origin');
+            summary = {
+              schema: 'kontur-public-provenance-summary-v1',
+              historicalPreview5dabce57: targetSummary(historical),
+              productionCurrentOrigin: targetSummary(production),
+            };
+          } catch (error) {
+            summary = {
+              schema: 'kontur-public-provenance-summary-v1',
+              error: cleanError(error?.message || error),
+            };
+          }
+          fs.mkdirSync('production-readonly-evidence', { recursive: true });
+          fs.writeFileSync(output, JSON.stringify(summary));
+          console.log(JSON.stringify(summary));
+          NODE
+
+      - name: Report result to control issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERIFY_OUTCOME: ${{ steps.production_verify.outcome }}
+        run: |
+          PROVENANCE='{"schema":"kontur-public-provenance-summary-v1","error":"summary missing"}'
+          if [ -s production-readonly-evidence/public-provenance-summary.json ]; then
+            PROVENANCE=$(cat production-readonly-evidence/public-provenance-summary.json)
+          fi
+          if [ "$VERIFY_OUTCOME" = "success" ]; then
+            PROOF=$(grep 'DEPLOYED_ASSET_GENERATION_EXACT_PASS' production-readonly.log | tail -1)
+            gh issue comment 9 --repo "$GITHUB_REPOSITORY" --body "PRODUCTION_READONLY_EXACT_PASS commit=${GITHUB_SHA} — ${PROOF} — no Cloudflare/D1 writes.\n\nPUBLIC_PROVENANCE_READONLY ${PROVENANCE}"
+          else
+            TAIL=$(tail -12 production-readonly.log | sed 's/`/\`/g')
+            gh issue comment 9 --repo "$GITHUB_REPOSITORY" --body "PRODUCTION_READONLY_EXACT_FAIL commit=${GITHUB_SHA} — read-only check only; no Cloudflare/D1 writes.\n\n\`\`\`\n${TAIL}\n\`\`\`\n\nPUBLIC_PROVENANCE_READONLY ${PROVENANCE}"
+          fi
+
+      - name: Upload read-only evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kontur-production-readonly-${{ github.run_id }}
+          path: |
+            production-readonly-evidence/
+            production-readonly.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Preserve verification verdict
+        if: steps.production_verify.outcome != 'success'
+        run: exit 1

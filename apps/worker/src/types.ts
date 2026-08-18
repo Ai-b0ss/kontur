@@ -53,8 +53,6 @@ export interface UserRow {
 export interface ProfileRow {
   user_id: number;
   role: string | null;
-  /** Optional only for old unit fixtures; current D1 schema returns this column after 0019. */
-  bird_result_id?: 'magpie' | 'woodpecker' | 'jay' | 'crane' | 'owl' | 'kotosov' | null;
   coloring: string;
   hatched_at: string | null;
   bird_name: string | null;

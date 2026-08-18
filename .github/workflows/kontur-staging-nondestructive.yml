@@ -64,8 +64,8 @@ jobs:
         run: pnpm -F @kontur/worker exec wrangler deploy --config wrangler.staging.generated.jsonc --keep-vars
       - name: Wait for exact deployed frontend generation
         env:
-          CLOUDFLARE_STAGING_ORIGIN: ${{ env.STAGING_ORIGIN }}
-          DEPLOYED_ASSET_ORIGIN: ${{ env.STAGING_ORIGIN }}
+          RELEASE_ORIGIN: ${{ env.STAGING_ORIGIN }}
+          RELEASE_PROPAGATION_TIMEOUT_MS: '180000'
         run: node tools/cloudflare/wait-for-deployed-assets.mjs
       - name: Verify canonical character assets and API boundary remotely
         shell: bash

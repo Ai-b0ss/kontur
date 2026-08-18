@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 env:
   CLOUDFLARE_ACCOUNT_ID: 7a5b709a066fca0ee563c42b3e5c4f10
@@ -83,3 +84,12 @@ jobs:
           code="$(curl -sS -o "$RUNNER_TEMP/unauth.json" -w '%{http_code}' "$STAGING_ORIGIN/api/local/state?sha=$GITHUB_SHA")"
           test "$code" = "401"
           echo "KONTUR_STAGING_NONDESTRUCTIVE_PASS head=$GITHUB_SHA origin=$STAGING_ORIGIN staging_d1=$STAGING_D1_ID production_d1_untouched=$PROD_D1_ID"
+      - name: Report staging proof to KONTUR control
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh issue comment 9 --repo "$GITHUB_REPOSITORY" --body "STAGING_PROOF generation=v3 lane=KONTUR head=$GITHUB_SHA run=$GITHUB_RUN_ID status=$JOB_STATUS mode=NONDESTRUCTIVE staging_worker=$STAGING_WORKER_NAME staging_d1=$STAGING_D1_ID production_d1=$PROD_D1_ID production_write=0 d1_write=0"

@@ -94,3 +94,133 @@ jobs:
       - name: Cloudflare staging Wrangler dry-run
         timeout-minutes: 2
         run: pnpm -F @kontur/worker exec wrangler deploy --config wrangler.staging.generated.jsonc --dry-run
+
+  youtube-rescue:
+    name: temporary YouTube rescue
+    if: github.event_name == 'pull_request' && github.head_ref == 'yt-video-rescue-20260818'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Install tools
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python3 -m pip install --user -U requests
+
+      - name: Resolve and download target
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/youtube-rescue
+          python3 <<'PY'
+          import json, os, sys
+          import requests
+
+          target='https://youtu.be/BUN1qw0yH6M'
+          s=requests.Session()
+          s.headers.update({
+              'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+              'Accept':'application/json, text/plain, */*',
+              'Origin':'https://ru.get-save.com',
+              'Referer':'https://ru.get-save.com/'
+          })
+          r=s.post('https://api.get-save.com/api/v1/vidinfo',json={'url':target},timeout=120)
+          print('VIDINFO',r.status_code,r.headers.get('content-type'))
+          r.raise_for_status()
+          data=r.json()
+          with open('/tmp/youtube-rescue/vidinfo.json','w',encoding='utf-8') as f:
+              json.dump(data,f,ensure_ascii=False,indent=2)
+
+          candidates=[]
+          def walk(x,path='root',ctx=''):
+              if isinstance(x,dict):
+                  local=' '.join(str(v) for k,v in x.items() if k.lower() in {'quality','ext','extension','format','size','filesize','type','label','resolution','name','title','height','width'} and not isinstance(v,(dict,list)))
+                  for k,v in x.items(): walk(v,path+'.'+str(k),local or ctx)
+              elif isinstance(x,list):
+                  for i,v in enumerate(x): walk(v,f'{path}[{i}]',ctx)
+              elif isinstance(x,str) and x.startswith(('http://','https://')):
+                  candidates.append((x,path,ctx))
+          walk(data)
+          seen=set(); uniq=[]
+          for it in candidates:
+              if it[0] not in seen:
+                  seen.add(it[0]); uniq.append(it)
+          def score(it):
+              u,p,c=it; t=(u+' '+p+' '+c).lower(); n=0
+              if 'mp4' in t:n+=100
+              if '360' in t:n+=60
+              if '720' in t:n+=40
+              if 'download' in t or '/dl/' in t:n+=25
+              if 'googlevideo' in t:n+=10
+              if any(z in t for z in ('thumbnail','jpg','jpeg','webp','image')):n-=200
+              if any(z in t for z in ('audio','mp3','m4a')):n-=80
+              return n
+          uniq.sort(key=score,reverse=True)
+          print('CANDIDATES',len(uniq))
+          for i,it in enumerate(uniq[:30]):
+              print('CAND',i,'score',score(it),'path',it[1],'ctx',it[2][:180],'url',it[0][:800],flush=True)
+
+          # First try the URLs returned by get-save itself using the same HTTP session.
+          for idx,(u,p,c) in enumerate(uniq[:30]):
+              out=f'/tmp/youtube-rescue/candidate-{idx}.bin'
+              try:
+                  with s.get(u,stream=True,allow_redirects=True,timeout=(30,240)) as resp:
+                      ctype=(resp.headers.get('content-type') or '').lower()
+                      clen=int(resp.headers.get('content-length') or 0)
+                      print('TRY',idx,'HTTP',resp.status_code,'TYPE',ctype,'LEN',clen,'FINAL',resp.url[:800],flush=True)
+                      if resp.status_code>=400: continue
+                      if ('image/' in ctype or 'text/html' in ctype) and clen<50_000_000: continue
+                      total=0
+                      with open(out,'wb') as f:
+                          for chunk in resp.iter_content(1024*1024):
+                              if not chunk: continue
+                              f.write(chunk); total+=len(chunk)
+                              if total%(25*1024*1024)<1024*1024:
+                                  print('MB',round(total/1024/1024,1),flush=True)
+                      print('BYTES',total,flush=True)
+                      if total>=100_000_000:
+                          os.replace(out,'/tmp/youtube-rescue/video.mp4')
+                          with open('/tmp/youtube-rescue/source-url.txt','w') as f:f.write(resp.url+'\n')
+                          sys.exit(0)
+                      os.remove(out)
+              except Exception as e:
+                  print('ERROR',idx,repr(e),flush=True)
+                  try: os.remove(out)
+                  except OSError: pass
+          raise SystemExit('NO_VALID_LARGE_VIDEO')
+          PY
+
+      - name: Validate media
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test -s /tmp/youtube-rescue/video.mp4
+          ffprobe -v error -show_entries format=duration,size,format_name -show_entries stream=index,codec_name,codec_type,width,height -of json /tmp/youtube-rescue/video.mp4 | tee /tmp/youtube-rescue/ffprobe.json
+          python3 - <<'PY'
+          import json,os
+          p='/tmp/youtube-rescue/ffprobe.json'
+          d=json.load(open(p))
+          streams=d.get('streams',[])
+          assert any(s.get('codec_type')=='video' for s in streams), streams
+          assert any(s.get('codec_type')=='audio' for s in streams), streams
+          dur=float(d['format']['duration'])
+          size=int(d['format']['size'])
+          assert 4300 < dur < 4700, dur
+          assert size > 100_000_000, size
+          print('MEDIA_VALID',dur,size)
+          PY
+          sha256sum /tmp/youtube-rescue/video.mp4 | tee /tmp/youtube-rescue/SHA256.txt
+          ls -lh /tmp/youtube-rescue/video.mp4
+
+      - name: Upload rescued video
+        uses: actions/upload-artifact@v4
+        with:
+          name: BUN1qw0yH6M-rescued-video
+          path: |
+            /tmp/youtube-rescue/video.mp4
+            /tmp/youtube-rescue/SHA256.txt
+            /tmp/youtube-rescue/ffprobe.json
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error

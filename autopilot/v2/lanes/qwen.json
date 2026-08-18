@@ -1,20 +1,20 @@
 {
   "schema_version": 1,
-  "state_revision": 15,
+  "state_revision": 16,
   "lane": "QWEN",
-  "updated_at_utc": "2026-08-18T23:21:00Z",
+  "updated_at_utc": "2026-08-18T23:26:00Z",
   "authority": {"policy":"autopilot/v2/POLICY.md","acceptance_version":"qwen-full-20260818"},
   "repo":"Ai-b0ss/qwen-free-api",
   "pr":6,
   "branch":"autopilot/qwen-runtime-preflight-20260818",
-  "current_head":"36e1be7e012d5bba1ae6fc5640b10d265cf9d10f",
+  "current_head":"13d1bb3d464ef21469c9c784de7121e6fc0532a2",
   "phase":"CAPTCHA_ROTATION_OWNER_CORRECTION",
   "active_claim":{
     "claim_id":"CHIEF-20260818T231900Z-Q-CAPTCHA-ROTATION",
     "acceptance_row":"Q-PROVIDER-SAFETY",
     "authority_refs":["OWNER-CAPTCHA-ROTATION-20260819","QWEN-PROVIDER-SAFETY"],
-    "expected_head":"36e1be7e012d5bba1ae6fc5640b10d265cf9d10f",
-    "expected_state_revision":14,
+    "expected_head":"13d1bb3d464ef21469c9c784de7121e6fc0532a2",
+    "expected_state_revision":15,
     "allowed_paths":["src/account-store.js","src/qwen-client.js","server.js","scripts/provider-safety-test.js",".github/workflows/qwen-long-soak.yml"],
     "forbidden_surfaces":["runtime secrets","account tokens/profile bytes","provider live traffic","main","production"],
     "hypothesis":"Current source incorrectly collapses ordinary account CAPTCHA into provider-wide WAF circuit, preventing unattended legitimate-account failover.",
@@ -34,13 +34,13 @@
     "inherited:encrypted runtime recovery and 11-account/product tool-result/restart evidence where dependencies unchanged",
     "current:workspace confinement and truthful non-sandbox shell docs",
     "owner-correction: ordinary account/session CAPTCHA must be account-local cooldown + bounded eligible failover; explicit WAF/block/trust/restriction and ambiguous post-send remain global stop/circuit",
-    "source-progress: account-store now has explicit account-local markCaptchaChallenge without provider circuit at 36e1be7",
+    "source-progress: account-store has account-local CAPTCHA cooldown; qwen-client classifies explicit CAPTCHA separately; provider-safety regression and long-soak now encode CAPTCHA bounded failover through 13d1bb3",
     "current:SOURCE_SECURITY_PASS_EXECUTOR_PENDING on 33b6cda: CircleCI runtime key is unset before gpg child; handoff token absent from curl argv; private header-file transport + regression added",
     "bridge-source current branch: default-off, broad GitHub token removed from child runner environment via env -i, handoff uses private header file",
     "main-safety:legacy direct CircleCI soak retired at main 9d31b2e700d29fcb48135b191457444508aa35ca"
   ],
   "verify_pending":[
-    "Q-PROVIDER-SAFETY: finish classifier/stream/soak semantics and offline-prove corrected CAPTCHA-vs-explicit-restriction taxonomy",
+    "Q-PROVIDER-SAFETY: make in-flight SSE CAPTCHA retry the same request on one eligible sibling, then execute provider-free regression",
     "Q-RUNTIME-RESTORE/Q-REPRODUCIBILITY-SECURITY: execute current-head npm/security regression offline; no provider traffic",
     "Q-SECRET-BRIDGE: harvest secret bridge",
     "Q-OPENCODE-WIRING: locate actual current OpenCode v59 provider baseURL/auth/model provenance",
@@ -48,7 +48,7 @@
     "Q-WINDOWS-PARITY: native Windows including PowerShell restore and real tool-result continuation"
   ],
   "known_false_hypotheses":["ordinary CAPTCHA is equivalent to explicit provider-wide WAF restriction","unattended CAPTCHA must halt the whole legitimate account pool","hosted/WAF-rotating long soak is safe","provider-safety targeted oracle at affed565 remains authoritative after the owner CAPTCHA correction","old v28 config is current OpenCode provider authority","a default-off unsafe executor is harmless enough to retain indefinitely","passphrase-fd alone removes a secret from child process environment"],
-  "blocker":"Owner-corrected CAPTCHA semantics are only partially implemented; classifier/current-request retry/soak regression remain before offline proof.",
-  "first_next_action":"Patch current classifier and bounded retry semantics, then provider-safety regression; no live traffic.",
+  "blocker":"Only the same-request SSE CAPTCHA retry remains before the corrected semantics can be executed offline.",
+  "first_next_action":"Implement bounded transparent first-frame SSE CAPTCHA/rate failover in qwen-client without allowing explicit WAF/trust/ambiguous retries; then run provider-free regression.",
   "user_needed":false
 }

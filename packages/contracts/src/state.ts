@@ -11,11 +11,16 @@ export interface Palette {
   beak: string;
 }
 
+/** Канонический визуальный результат теста. Роль остаётся пятизначной игровой таксономией. */
+export type BirdResultId = 'magpie' | 'woodpecker' | 'jay' | 'crane' | 'owl' | 'kotosov';
+
 export interface PlayerState {
   userId: number;
   username: string | null;
   /** null, пока птица не вылупилась */
   role: Role | null;
+  /** Стабильная визуальная идентичность птицы, сохраняемая сервером между WebView/устройствами. */
+  birdResultId: BirdResultId | null;
   roleTitle: string | null;
   roleTagline: string | null;
   birdName: string | null;

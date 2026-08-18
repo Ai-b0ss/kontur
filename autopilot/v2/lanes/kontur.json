@@ -1,19 +1,33 @@
 {
   "schema_version": 1,
-  "state_revision": 5,
+  "state_revision": 6,
   "lane": "KONTUR",
-  "updated_at_utc": "2026-08-18T22:30:00Z",
+  "updated_at_utc": "2026-08-18T22:36:00Z",
   "authority": {"policy": "autopilot/v2/POLICY.md", "acceptance_version": "kontur-owner-tz-20260818"},
   "repo": "Ai-b0ss/kontur",
   "pr": 12,
   "branch": "fix/kontur-core-visual-continuity-20260818",
   "current_head": "864d435310cdbfbfea83fbeb1e6acd5b6d091509",
-  "phase": "Q8_TIMELINE_FIX_READY",
-  "active_claim": null,
+  "phase": "Q8_TIMELINE_FIX_IN_PROGRESS",
+  "active_claim": {
+    "claim_id": "CHIEF-20260818T223600Z-K-Q1-Q8-TIMELINE",
+    "acceptance_row": "K-Q1-Q8-TIMELINE",
+    "authority_refs": ["KONTUR-OWNER-AUTHORITY-20260818", "KONTUR-FINAL-TZ"],
+    "expected_head": "864d435310cdbfbfea83fbeb1e6acd5b6d091509",
+    "expected_state_revision": 5,
+    "allowed_paths": [
+      "apps/miniapp/src/screens/LocalKontur.tsx",
+      "apps/miniapp/src/q8-hatch-timeline.ts",
+      "apps/miniapp/test/q8-hatch-timeline.test.ts"
+    ],
+    "forbidden_surfaces": ["backend", "API contract", "scoring", "D1", "reward economy", "worm mechanics", "Telegram bot/runtime", "production"],
+    "hypothesis": "q8 result readiness currently starts the reveal timer before semantic HATCHING and hatch completion can release the gesture lock; timer/lock ownership must follow the semantic transition instead.",
+    "new_information_expected": "Executable regression proves fast-result and slow-result converge to exactly one HATCHING transition, reveal delay begins only at HATCHING, and network completion never releases the q8 gesture lock.",
+    "started_at_utc": "2026-08-18T22:36:00Z",
+    "expires_at_utc": "2026-08-18T22:49:00Z"
+  },
   "in_flight_external": [],
-  "evidence_refs": [
-    "autopilot/v2/evidence/kontur-q8-timer-lock-864d4353.json"
-  ],
+  "evidence_refs": ["autopilot/v2/evidence/kontur-q8-timer-lock-864d4353.json"],
   "proven": [
     "source:q1-q8 explicit visualQuestionIndex ordering",
     "source:persistent QuizEgg scene through hatch/reveal",
@@ -39,6 +53,6 @@
     "hatch completion may safely own answerLock release"
   ],
   "blocker": "No external blocker for the source fix. Runtime/staging visual proof remains blocked on a real executor after the product correction.",
-  "first_next_action": "Acquire KONTUR claim on exact 864d4353 and patch LocalKontur only: move reveal timer arming to semantic HATCHING entry, remove answerLock release from hatch finally, add an executable non-regex timeline regression used by product logic. Then leave runtime/browser/staging rows open.",
+  "first_next_action": "Implement the claimed q8 semantic transition/timer/lock fix on exact 864d4353 and run an executable non-regex regression; do not touch forbidden surfaces.",
   "user_needed": false
 }

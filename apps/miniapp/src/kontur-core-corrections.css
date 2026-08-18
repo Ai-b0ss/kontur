@@ -86,6 +86,35 @@
   animation-delay: 260ms !important;
 }
 
+/*
+ * q1..q7 response phase: the tapped question remains mounted for 260 ms, while
+ * every progress signal already targets N+1. This keeps the top line, ring and
+ * crack change in one gesture instead of advancing only after the timeout.
+ */
+.is-egg-responding:has(.lk-quiz-egg[data-stage="1"]) .lk-progress > span { width: 25% !important; }
+.is-egg-responding:has(.lk-quiz-egg[data-stage="2"]) .lk-progress > span { width: 37.5% !important; }
+.is-egg-responding:has(.lk-quiz-egg[data-stage="3"]) .lk-progress > span { width: 50% !important; }
+.is-egg-responding:has(.lk-quiz-egg[data-stage="4"]) .lk-progress > span { width: 62.5% !important; }
+.is-egg-responding:has(.lk-quiz-egg[data-stage="5"]) .lk-progress > span { width: 75% !important; }
+.is-egg-responding:has(.lk-quiz-egg[data-stage="6"]) .lk-progress > span { width: 87.5% !important; }
+.is-egg-responding:has(.lk-quiz-egg[data-stage="7"]) .lk-progress > span { width: 100% !important; }
+
+.is-egg-responding .lk-quiz-egg[data-stage="1"] .lk-quiz-egg__ring { --lk-egg-progress: 90deg !important; }
+.is-egg-responding .lk-quiz-egg[data-stage="2"] .lk-quiz-egg__ring { --lk-egg-progress: 135deg !important; }
+.is-egg-responding .lk-quiz-egg[data-stage="3"] .lk-quiz-egg__ring { --lk-egg-progress: 180deg !important; }
+.is-egg-responding .lk-quiz-egg[data-stage="4"] .lk-quiz-egg__ring { --lk-egg-progress: 225deg !important; }
+.is-egg-responding .lk-quiz-egg[data-stage="5"] .lk-quiz-egg__ring { --lk-egg-progress: 270deg !important; }
+.is-egg-responding .lk-quiz-egg[data-stage="6"] .lk-quiz-egg__ring { --lk-egg-progress: 315deg !important; }
+.is-egg-responding .lk-quiz-egg[data-stage="7"] .lk-quiz-egg__ring { --lk-egg-progress: 360deg !important; }
+
+.is-egg-responding .lk-quiz-egg[data-stage="1"] .lk-quiz-egg__base { content: url('/quiz/egg-stage-02.webp'); }
+.is-egg-responding .lk-quiz-egg[data-stage="2"] .lk-quiz-egg__base { content: url('/quiz/egg-stage-03.webp'); }
+.is-egg-responding .lk-quiz-egg[data-stage="3"] .lk-quiz-egg__base { content: url('/quiz/egg-stage-04.webp'); }
+.is-egg-responding .lk-quiz-egg[data-stage="4"] .lk-quiz-egg__base { content: url('/quiz/egg-stage-05.webp'); }
+.is-egg-responding .lk-quiz-egg[data-stage="5"] .lk-quiz-egg__base { content: url('/quiz/egg-stage-06.webp'); }
+.is-egg-responding .lk-quiz-egg[data-stage="6"] .lk-quiz-egg__base { content: url('/quiz/egg-stage-07.webp'); }
+.is-egg-responding .lk-quiz-egg[data-stage="7"] .lk-quiz-egg__base { content: url('/quiz/egg-stage-08.webp'); }
+
 /* Future inline path: if LocalKontur passes hatching/resultId, keep it inside QuizEgg. */
 .lk-quiz-egg.is-hatching > .lk-quiz-hatch {
   inset: 0;

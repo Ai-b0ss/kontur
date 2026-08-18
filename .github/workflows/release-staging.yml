@@ -38,13 +38,23 @@ jobs:
           node tools/handoff-safety-check.mjs
           pnpm -F @kontur/miniapp test
           pnpm -F @kontur/miniapp build
-      - name: Generate isolated inert staging Wrangler config
+      - name: Generate and assert isolated inert staging config
         env:
           CLOUDFLARE_STAGING_WORKER_NAME: ${{ env.STAGING_WORKER_NAME }}
           CLOUDFLARE_STAGING_D1_DATABASE_NAME: ${{ env.STAGING_D1_NAME }}
           CLOUDFLARE_STAGING_D1_DATABASE_ID: ${{ env.STAGING_D1_ID }}
           CLOUDFLARE_STAGING_ORIGIN: ${{ env.STAGING_ORIGIN }}
-        run: node tools/cloudflare/make-staging-config.mjs
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/cloudflare/make-staging-config.mjs
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const c=JSON.parse(fs.readFileSync('apps/worker/wrangler.staging.generated.jsonc','utf8'));
+          const required={ZERO_SEASON_ENABLED:'true',LIVE_CAMPAIGN_V5_ENABLED:'false',LIVE_CAMPAIGN_V5_PUBLISH_ENABLED:'false',BOT_TOKEN:'staging-disabled-not-a-telegram-token'};
+          for(const [k,v] of Object.entries(required)) if(c.vars?.[k]!==v) throw new Error(`unsafe staging config ${k}`);
+          console.log('STAGING_RUNTIME_GATES_PASS');
+          NODE
       - name: Verify staging identity without mutating D1
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

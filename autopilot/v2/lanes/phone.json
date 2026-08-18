@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "state_revision": 1,
+  "lane": "PHONE_MODE",
+  "updated_at_utc": "2026-08-18T21:46:00Z",
+  "phase": "WAIT_CORE_QWEN_NOTION",
+  "active_claim": null,
+  "dependencies": ["QWEN_CORE_DONE", "NOTION_CORE_DONE"],
+  "target": "iPhone -> authenticated remote trigger/control -> free remote compute -> real coding agent -> Qwen or Notion bridge -> GitHub branch/PR/result -> sanitized evidence back to phone, without home PC",
+  "known_false_hypotheses": ["cross-repo token is definitely unavailable"],
+  "verify_pending": [
+    "capability-test existing CircleCI AUTOPILOT_GITHUB_TOKEN only for exact required operations without exposing it",
+    "authenticated idempotent trigger with repo/ref/action allowlist",
+    "zero home-PC dependency",
+    "remote coding-agent change on isolated branch",
+    "sanitized result/evidence callback to phone",
+    "cancel/duplicate protection and no production/main default"
+  ],
+  "first_next_action": "Do not start provider/product Phone acceptance until QWEN_CORE_DONE and NOTION_CORE_DONE. Control-plane trigger/auth preparation may be done offline if it does not distract from the critical path.",
+  "user_needed": false
+}

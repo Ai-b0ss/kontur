@@ -606,7 +606,7 @@ export function LocalKontur() {
         <section className={`lk-drop lk-drop--${eggReveal.rarity}`}>
           <p className="lk-kicker">новый окрас</p>
           <div className="lk-bird-stage lk-bird-stage--drop">
-            <LocalBirdVisual role={state.player.role} palette={eggReveal.palette} size={252} mood="achieved" />
+            <LocalBirdVisual role={state.player.role} userId={state.player.userId} palette={eggReveal.palette} size={252} mood="achieved" />
           </div>
           <h2>{eggReveal.coloringTitle}</h2>
           <p>{RARITY[eggReveal.rarity] ?? eggReveal.rarity}. теперь он в коллекции</p>
@@ -630,7 +630,7 @@ export function LocalKontur() {
               aria-label={item.owned ? `${item.title}${item.equipped ? ', надет' : ''}` : 'Закрытый окрас'}
             >
               <span className="lk-color-visual" aria-hidden="true">
-                {item.owned ? <LocalBirdVisual role={state.player.role} palette={item.palette} size={88} /> : <span className="lk-color-locked">?</span>}
+                {item.owned ? <LocalBirdVisual role={state.player.role} userId={state.player.userId} palette={item.palette} size={88} /> : <span className="lk-color-locked">?</span>}
               </span>
               <span className="lk-color-copy">
                 <span className="lk-color-name">{item.owned ? item.title.toLowerCase() : 'ещё не открыт'}</span>

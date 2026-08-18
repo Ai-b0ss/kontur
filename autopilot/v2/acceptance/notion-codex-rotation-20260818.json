@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "acceptance_version": "notion-codex-rotation-20260818",
+  "project": "NOTION",
+  "done_rule": "NOTION_CORE_DONE requires every mandatory row PASS. NCM28 green is necessary but not sufficient. Native Windows correctness, real Codex execution, Responses semantics, active thread-safe rotation and long-run recovery are separate mandatory rows.",
+  "rows": [
+    {"id":"N-NCM28-WINDOWS","mandatory":true,"oracle":"native Windows","surfaces":["held-parent/relative-descendant namespace invariant","atomic write/rename","strict-share safety","auth/migration/runtime callsites"]},
+    {"id":"N-NCM28-RECOVERY","mandatory":true,"oracle":"native Windows adversarial recovery","surfaces":["backup preimage","rollback","crash recovery","restart","fail-closed ownership"]},
+    {"id":"N-CANONICAL-CANDIDATE","mandatory":true,"oracle":"equivalence+manifest","surfaces":["clean materialized final source","no v2..vN patch tower in promoted product","payload manifest","deterministic packaging only after runtime green"]},
+    {"id":"N-RESPONSES-PROTOCOL","mandatory":true,"oracle":"protocol integration","surfaces":["streaming","call ids","tool results","multi-round continuation","correction/fail-closed"]},
+    {"id":"N-CODEX-LOCAL-EXECUTION","mandatory":true,"oracle":"real Codex integration","surfaces":["Notion planner -> local Codex executor","real local tool execution","complete required tool matrix"]},
+    {"id":"N-ACTIVE-ROTATION","mandatory":true,"oracle":"concurrency integration","surfaces":["independent-turn load balancing","least-inflight/fair selection","unfinished-loop exact account+thread stickiness","atomic allocation/release"]},
+    {"id":"N-CLASSIFIED-FAILOVER","mandatory":true,"oracle":"failure injection + bounded live smoke","surfaces":["clean new thread on eligible failover","cooldown","reservation","circuits","background spare capacity","no restriction bypass"]},
+    {"id":"N-MULTI-ACCOUNT-LIVE","mandatory":true,"oracle":"bounded live >=2-account smoke","surfaces":["legitimate same-workspace accounts","thread isolation","no provider fan-out"]},
+    {"id":"N-SECURE-RUNTIME-RESTORE","mandatory":true,"oracle":"security regression","surfaces":["non-argv passphrase","no plaintext restored path/archive logs","restrictive temp permissions","cleanup/unset"]},
+    {"id":"N-RESTART-CRASH-SOAK","mandatory":true,"oracle":"long integration soak","surfaces":["restart","crash","state recovery","long Codex loop","sanitized observability"]}
+  ],
+  "explicitly_forbidden_shortcuts": ["lexical pathname equality as object identity after namespace freeze","patch product to satisfy stale monkeypatch harness","declare core done from NCM28 alone","build deterministic ZIP before runtime correctness"]
+}

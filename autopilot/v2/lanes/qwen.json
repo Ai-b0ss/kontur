@@ -1,20 +1,32 @@
 {
   "schema_version": 1,
-  "state_revision": 13,
+  "state_revision": 14,
   "lane": "QWEN",
-  "updated_at_utc": "2026-08-18T23:07:00Z",
+  "updated_at_utc": "2026-08-18T23:19:00Z",
   "authority": {"policy":"autopilot/v2/POLICY.md","acceptance_version":"qwen-full-20260818"},
   "repo":"Ai-b0ss/qwen-free-api",
   "pr":6,
   "branch":"autopilot/qwen-runtime-preflight-20260818",
   "current_head":"33b6cda8cd300194311de4dd9f84cddf6fb02173",
-  "phase":"OFFLINE_PROVENANCE_AND_EXECUTOR_HARVEST",
-  "active_claim":null,
+  "phase":"CAPTCHA_ROTATION_OWNER_CORRECTION",
+  "active_claim":{
+    "claim_id":"CHIEF-20260818T231900Z-Q-CAPTCHA-ROTATION",
+    "acceptance_row":"Q-PROVIDER-SAFETY",
+    "authority_refs":["OWNER-CAPTCHA-ROTATION-20260819","QWEN-PROVIDER-SAFETY"],
+    "expected_head":"33b6cda8cd300194311de4dd9f84cddf6fb02173",
+    "expected_state_revision":13,
+    "allowed_paths":["src/account-store.js","src/qwen-client.js","server.js","scripts/provider-safety-test.js",".github/workflows/qwen-long-soak.yml"],
+    "forbidden_surfaces":["runtime secrets","account tokens/profile bytes","provider live traffic","main","production"],
+    "hypothesis":"Current source incorrectly collapses ordinary account CAPTCHA into provider-wide WAF circuit, preventing unattended legitimate-account failover.",
+    "new_information_expected":"Offline failure-injection must prove CAPTCHA only cools the challenged account and selects an eligible sibling, while explicit WAF/block/trust and ambiguous post-send still stop the provider pool.",
+    "started_at_utc":"2026-08-18T23:19:00Z",
+    "expires_at_utc":"2026-08-18T23:34:00Z"
+  },
   "provider_live_lease":null,
   "in_flight_external":[
     {"kind":"SECRET_BRIDGE_PREFLIGHT","trigger_sha":"543f208aaca4a198ccd24d576a687ae0bb868a76","launched_for_sha":"716b16dda7b1bbeab34dfbfdbfa0d5d77b0eac9f","status":"TRIGGERED_AWAIT_CALLBACK","duplicate_forbidden":true},
     {"kind":"PROVIDER_SAFETY_OFFLINE_V1","trigger_sha":"a40f18cbdbeef87cca326ff164718ccd599915cb","launched_for_sha":"01668a8d37960840bf2489f21b8a8d04bc7e63eb","status":"FAIL_LOCALIZED_AND_FIXED","provider_calls":0},
-    {"kind":"PROVIDER_SAFETY_OFFLINE_V2","trigger_sha":"fcddd53f4898cad464a9a1b9efc67e57e2a1aa4c","launched_for_sha":"affed5651fcb15a13f1c6adaf801624507a6c781","status":"TARGETED_PASS_FULL_NPM_FAIL","last_success_stage":"targeted_pass","provider_calls":0},
+    {"kind":"PROVIDER_SAFETY_OFFLINE_V2","trigger_sha":"fcddd53f4898cad464a9a1b9efc67e57e2a1aa4c","launched_for_sha":"affed5651fcb15a13f1c6adaf801624507a6c781","status":"TARGETED_PASS_INVALIDATED_BY_OWNER_CAPTCHA_CORRECTION","last_success_stage":"targeted_pass","provider_calls":0},
     {"kind":"RESTORE_SECURITY_OFFLINE","trigger_sha":"ca451f03f2615797ddd9eab2413721796f53dfb2","launched_for_sha":"19796709fe9152fdd0ae81302d7a116136753814","status":"SUPERSEDED_BY_SOURCE_FIX_CURRENT_EXECUTION_PENDING","provider_calls":0,"decrypt_calls":0}
   ],
   "evidence_refs":[
@@ -24,14 +36,13 @@
   "proven":[
     "inherited:encrypted runtime recovery and 11-account/product tool-result/restart evidence where dependencies unchanged",
     "current:workspace confinement and truthful non-sandbox shell docs",
-    "provider-safety targeted oracle PASS at affed565: WAF/trust/provider-pressure blocks sibling candidates while rate limit remains bounded failover",
-    "dependency-map: affed565->33b6cda changed only executor/restore/secret surfaces, so targeted provider-safety proof remains inheritable",
-    "current-long-soak-source:manual exact-SHA self-hosted; immutable checkout/setup-node; WAF/CAPTCHA/trust/timeout/network/upstream pressure STOP sibling_probe=0; only rate-limit has one bounded eligible failover",
-    "SOURCE_SECURITY_PASS_EXECUTOR_PENDING on 33b6cda: CircleCI runtime key is unset before gpg child; handoff token absent from curl argv; private header-file transport + regression added",
+    "owner-correction: ordinary account/session CAPTCHA must be account-local cooldown + bounded eligible failover; explicit WAF/block/trust/restriction and ambiguous post-send remain global stop/circuit",
+    "current:SOURCE_SECURITY_PASS_EXECUTOR_PENDING on 33b6cda: CircleCI runtime key is unset before gpg child; handoff token absent from curl argv; private header-file transport + regression added",
     "bridge-source current branch: default-off, broad GitHub token removed from child runner environment via env -i, handoff uses private header file",
     "main-safety:legacy direct CircleCI soak retired at main 9d31b2e700d29fcb48135b191457444508aa35ca"
   ],
   "verify_pending":[
+    "Q-PROVIDER-SAFETY: implement and offline-prove corrected CAPTCHA-vs-explicit-restriction taxonomy",
     "Q-RUNTIME-RESTORE/Q-REPRODUCIBILITY-SECURITY: execute current-head npm/security regression offline; no provider traffic",
     "Q-SECRET-BRIDGE: harvest secret bridge; source is hardened/default-off but no sanitized callback marker is recorded",
     "Q-OPENCODE-WIRING: locate actual current OpenCode v59 provider baseURL/auth/model provenance",
@@ -39,15 +50,15 @@
     "Q-WINDOWS-PARITY: native Windows including PowerShell restore and real tool-result continuation"
   ],
   "known_false_hypotheses":[
+    "ordinary CAPTCHA is equivalent to explicit provider-wide WAF restriction",
+    "unattended CAPTCHA must halt the whole legitimate account pool",
     "hosted/WAF-rotating long soak is safe",
-    "WAF may rotate in soak harness",
-    "provider-safety targeted oracle is red on affed565",
+    "provider-safety targeted oracle at affed565 remains authoritative after the owner CAPTCHA correction",
     "old v28 config is current OpenCode provider authority",
     "a default-off unsafe executor is harmless enough to retain indefinitely",
-    "passphrase-fd alone removes a secret from child process environment",
-    "executor/restore-only changes require rerunning already-green provider-safety semantics"
+    "passphrase-fd alone removes a secret from child process environment"
   ],
-  "blocker":"No live provider action is justified yet. Remaining work is offline execution/provenance + bridge harvest; provider-live lease stays empty.",
-  "first_next_action":"Resolve Q-OPENCODE-WIRING from current source/config provenance and harvest any existing offline/bridge result. If an offline executor is needed, launch only a provider-free current-head npm/security run; do not start soak.",
+  "blocker":"Owner-corrected CAPTCHA semantics are not yet implemented in product source; no live provider action is justified until the offline taxonomy regression is green.",
+  "first_next_action":"Patch only the current CAPTCHA classifier/account cooldown/long-soak semantics and targeted failure-injection test; run provider-free verification, then release claim.",
   "user_needed":false
 }

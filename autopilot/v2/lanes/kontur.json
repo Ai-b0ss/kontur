@@ -1,46 +1,32 @@
 {
   "schema_version": 1,
-  "state_revision": 8,
+  "state_revision": 9,
   "lane": "KONTUR",
-  "updated_at_utc": "2026-08-18T22:41:00Z",
+  "updated_at_utc": "2026-08-18T22:45:00Z",
   "authority": {"policy": "autopilot/v2/POLICY.md", "acceptance_version": "kontur-owner-tz-20260818"},
   "repo": "Ai-b0ss/kontur",
   "pr": 12,
   "branch": "fix/kontur-core-visual-continuity-20260818",
-  "current_head": "ef9595e6e2d2850f5d5ebd57cc0945816992cedb",
-  "phase": "Q8_TIMELINE_FIX_IN_PROGRESS",
-  "active_claim": {
-    "claim_id": "CHIEF-20260818T223600Z-K-Q1-Q8-TIMELINE",
-    "acceptance_row": "K-Q1-Q8-TIMELINE",
-    "authority_refs": ["KONTUR-OWNER-AUTHORITY-20260818", "KONTUR-FINAL-TZ"],
-    "expected_head": "ef9595e6e2d2850f5d5ebd57cc0945816992cedb",
-    "expected_state_revision": 7,
-    "allowed_paths": [
-      "apps/miniapp/src/screens/LocalKontur.tsx",
-      "apps/miniapp/src/q8-hatch-timeline.ts",
-      "apps/miniapp/test/q8-hatch-timeline.test.ts",
-      "apps/miniapp/test/answer-state-timeline.test.ts",
-      "apps/miniapp/test/hatch-reveal-persistence.test.ts"
-    ],
-    "forbidden_surfaces": ["backend", "API contract", "scoring", "D1", "reward economy", "worm mechanics", "Telegram bot/runtime", "production"],
-    "hypothesis": "q8 result readiness currently starts the reveal timer before semantic HATCHING and hatch completion can release the gesture lock; timer/lock ownership must follow the semantic transition instead.",
-    "new_information_expected": "Executable regression used by product logic proves fast-result and slow-result converge to exactly one HATCHING transition, reveal delay begins only at HATCHING, and network completion never releases the q8 gesture lock; legacy source tests remain source-only invariants.",
-    "started_at_utc": "2026-08-18T22:36:00Z",
-    "expires_at_utc": "2026-08-18T22:50:00Z"
-  },
+  "current_head": "41e1243b91a4b0a65989c605046d7b6d4854ac5a",
+  "phase": "Q8_RUNTIME_VERIFY_READY",
+  "active_claim": null,
   "in_flight_external": [],
-  "evidence_refs": ["autopilot/v2/evidence/kontur-q8-timer-lock-864d4353.json"],
+  "evidence_refs": [
+    "autopilot/v2/evidence/kontur-q8-timer-lock-864d4353.json",
+    "autopilot/v2/evidence/kontur-q8-timeline-41e1243.json"
+  ],
   "proven": [
     "source:q1-q8 explicit visualQuestionIndex ordering",
     "source:persistent QuizEgg scene through hatch/reveal",
     "source:physical shell regression forbids SVG/path/line crack overpaint",
     "artifact:BIRD_CHARACTER_DIRECTION present",
     "inherited:backend scoring/D1/reward flow where unchanged",
-    "FAIL_PRODUCT K-Q1-Q8-TIMELINE on 864d4353: reveal timer starts at result readiness before semantic HATCHING; hatch finally can release answerLock before gesture owner"
+    "historical FAIL_PRODUCT K-Q1-Q8-TIMELINE on 864d4353 localized timer/lock ownership defect",
+    "TARGETED_LOGIC_PASS_SOURCE_BOUND_RUNTIME_PENDING on 41e1243: executable fast/slow latch + independent lock regression PASS 3/3; source shows reveal timer only at semantic hatching entry and hatch finally no gesture unlock"
   ],
   "verify_pending": [
-    "K-Q1-Q8-TIMELINE: product integration patch pending on ef9595e6 after executable helper/tests landed",
-    "K-DOM-CONTINUITY: runtime DOM/component identity and fast/slow q8 ordering",
+    "K-Q1-Q8-TIMELINE: exact-head runtime DOM/browser fast-result + slow-result event-order proof before row PASS",
+    "K-DOM-CONTINUITY: runtime DOM/component identity, timer cleanup and StrictMode/idempotency",
     "K-RESPONSIVE-WEBVIEW: 320x568 and 430x1000 rendered evidence; reduced-motion/skip convergence",
     "K-REVIEW-ARTIFACTS: required screenshot/WebM review artifacts",
     "K-STAGING-EXACT-HEAD: non-destructive kontur-igor-staging convergence",
@@ -52,9 +38,10 @@
     "BIRD_CHARACTER_DIRECTION artifact is missing",
     "the current ChatGPT container/browser is a viable direct workers.dev visual executor",
     "hatchReady gate alone proves full hatch duration",
-    "hatch completion may safely own answerLock release"
+    "hatch completion may safely own answerLock release",
+    "source-regex assertions alone prove q8 runtime timing"
   ],
-  "blocker": "No external blocker for the source fix. Runtime/staging visual proof remains blocked on a real executor after the product correction.",
-  "first_next_action": "Patch LocalKontur on exact ef9595e6: use executable q8 gate/lock, arm reveal timer only on semantic HATCHING, remove result-path timer arming and hatch-finally gesture unlock; do not touch forbidden surfaces.",
+  "blocker": "Source/logic defect is corrected. Remaining q8 acceptance needs a real runtime/browser oracle; do not reopen backend or scoring.",
+  "first_next_action": "Use the cheapest real runtime executor on exact 41e1243 to exercise q8 with fast-result and slow-result fakes plus timer/skip/reduced-motion cleanup; bind result to K-Q1-Q8-TIMELINE/K-DOM-CONTINUITY. If no executor is immediately available, pivot to NOTION/QWEN rather than waiting.",
   "user_needed": false
 }

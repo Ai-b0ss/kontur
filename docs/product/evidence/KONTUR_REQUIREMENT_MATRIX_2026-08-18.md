@@ -74,22 +74,22 @@ Important correction: the formal/corporate strings in `packages/core/src/roles.t
 
 ## E. FINAL_TZ §16 review artifacts — exhaustive classification
 
-The original §16 named files were part of the mandatory human visual-review sequence. The 2026-08-18 owner delegation removed that human gate, but **not** the underlying product behaviors. Exact-head executable verification, isolated staging and Telegram smoke replace the named screenshot/WebM approval artifacts. Detailed per-item rationale is recorded in `KONTUR_FINAL_TZ_16_18_CLASSIFICATION_2026-08-18.md`.
+The 2026-08-18 owner delegation removes the **human visual-approval dependency**, but it does not explicitly waive the evidence artifacts that FINAL_TZ §16 calls `REQUIRED REVIEW ARTIFACTS`. Therefore the named screenshots/WebMs remain mandatory evidence until produced for the exact candidate or explicitly waived by a later owner decision. They may be generated and reviewed autonomously; no new human approval is required. `BIRD_CHARACTER_DIRECTION.md` may be satisfied by an evidence-equivalent current artifact only if that equivalence is demonstrated rather than inferred.
 
-| Original §16 item | Status | Replacement / retained requirement |
+| Original §16 item | Status | Required evidence |
 |---|---|---|
-| `01-hook.png` | SUPERSEDED | named screenshot gate replaced; hook source/responsive/staging proof retained |
-| `02-hook-start-before.png` | SUPERSEDED | named screenshot gate replaced; same-object hook→quiz continuity retained |
-| `03-quiz-q1.png` | SUPERSEDED | named screenshot gate replaced; q1 stage/progress/crack proof retained |
-| `04-quiz-q4.png` | SUPERSEDED | named screenshot gate replaced; q4 stage/progress/crack proof retained |
-| `05-quiz-q8.png` | SUPERSEDED | named screenshot gate replaced; q8 pre-hatch/order proof retained |
-| `06-bird-reveal.png` | SUPERSEDED | named screenshot gate replaced; reveal identity/layout proof retained |
-| `07-worm-loop.png` | SUPERSEDED | named screenshot gate replaced; `/worm` semantic proof retained |
-| `08-home.png` | SUPERSEDED | named screenshot gate replaced; Home canonical-character proof retained |
-| WebM 1: hook→start→egg shrink→q1 | SUPERSEDED | named clip replaced; continuity still needs exact-head executable/staging proof |
-| WebM 2: q1→q4→q8 progressive cracking | SUPERSEDED | named clip replaced; deterministic cracking/synchronized response remains mandatory |
-| WebM 3: q8→bird reveal | SUPERSEDED | named clip replaced; q8 hatch/reveal continuity remains mandatory and is now source-implemented but VERIFY_PENDING |
-| `BIRD_CHARACTER_DIRECTION.md` | SUPERSEDED | owner delegated final art choice; current bounded replacement is `KONTUR_SIX_CHARACTER_BOARD_2026-08-18.md` |
+| `01-hook.png` | VERIFY_PENDING | exact-head hook capture at required mobile layout |
+| `02-hook-start-before.png` | VERIFY_PENDING | exact-head same-object hook→quiz transition evidence |
+| `03-quiz-q1.png` | VERIFY_PENDING | exact-head q1 egg/progress/crack capture |
+| `04-quiz-q4.png` | VERIFY_PENDING | exact-head q4 egg/progress/crack capture |
+| `05-quiz-q8.png` | VERIFY_PENDING | exact-head q8 pre-hatch/order capture |
+| `06-bird-reveal.png` | VERIFY_PENDING | exact-head reveal identity/layout capture |
+| `07-worm-loop.png` | VERIFY_PENDING | exact-head `/worm` loop capture |
+| `08-home.png` | VERIFY_PENDING | exact-head Home canonical-character capture |
+| WebM 1: hook→start→egg shrink→q1 | VERIFY_PENDING | rendered continuity recording; source assertions alone are insufficient |
+| WebM 2: q1→q4→q8 progressive cracking | VERIFY_PENDING | rendered progressive-crack/synchronized-motion recording |
+| WebM 3: q8→bird reveal | VERIFY_PENDING | rendered same-scene hatch→reveal recording |
+| `BIRD_CHARACTER_DIRECTION.md` | VERIFY_PENDING | produce the named artifact or prove the current six-character board contains every required §10 direction field |
 
 ## F. FINAL_TZ §18 release contract — exhaustive classification
 
@@ -124,6 +124,7 @@ The old §18 preview mechanism is not silently discarded. It is classified again
 ## Current mandatory blockers
 
 1. Obtain a successful exact-head targeted/full test + typecheck/build execution for the explicit React motion and persistent-scene repair.
-2. Perform the already-defined **non-destructive isolated staging** proof for that exact head and verify 320x568 / 430x1000 / reduced-motion behavior.
-3. Telegram smoke against the same candidate.
-4. Do not add backend/D1 persistence for Kotosov, and do not touch production/main without a new explicit owner authorization.
+2. Produce the FINAL_TZ §16 exact-head screenshots/WebM evidence (or obtain an explicit later owner waiver); independently prove the current six-character board satisfies every named `BIRD_CHARACTER_DIRECTION.md` field if using it as an equivalent artifact.
+3. Perform the already-defined **non-destructive isolated staging** proof for that exact head and verify 320x568 / 430x1000 / reduced-motion behavior.
+4. Telegram smoke against the same candidate.
+5. Do not add backend/D1 persistence for Kotosov, and do not touch production/main without a new explicit owner authorization.

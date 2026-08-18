@@ -1,15 +1,27 @@
 {
   "schema_version": 1,
-  "state_revision": 11,
+  "state_revision": 12,
   "lane": "QWEN",
-  "updated_at_utc": "2026-08-18T22:33:00Z",
+  "updated_at_utc": "2026-08-18T23:02:00Z",
   "authority": {"policy":"autopilot/v2/POLICY.md","acceptance_version":"qwen-full-20260818"},
   "repo":"Ai-b0ss/qwen-free-api",
   "pr":6,
   "branch":"autopilot/qwen-runtime-preflight-20260818",
   "current_head":"e2e281994ecf098582ca23e8049b610f652322c0",
-  "phase":"OFFLINE_DIAGNOSTICS_AND_EXECUTOR_HARVEST",
-  "active_claim":null,
+  "phase":"SECRET_CHANNEL_HARDENING_IN_PROGRESS",
+  "active_claim":{
+    "claim_id":"CHIEF-20260818T230200Z-Q-RUNTIME-RESTORE",
+    "acceptance_row":"Q-RUNTIME-RESTORE",
+    "authority_refs":["NOTION-QWEN-FULL-CONTRACT-20260818","OWNER-AUTONOMY-20260819"],
+    "expected_head":"e2e281994ecf098582ca23e8049b610f652322c0",
+    "expected_state_revision":11,
+    "allowed_paths":[".circleci/config.yml","scripts/runtime-secret-channel-test.js"],
+    "forbidden_surfaces":["provider client","account scheduler","account credentials/runtime contents","live provider traffic","main","production"],
+    "hypothesis":"Current CircleCI preflight passes GPG secret via stdin but leaves RUNTIME_STATE_KEY exported to child processes and places AUTOPILOT_HANDOFF_TOKEN in curl argv; copy/unset + header-file transport removes those exposure surfaces without changing product behavior.",
+    "new_information_expected":"Static executable regression proves all current restore/preflight GPG surfaces are non-argv, CircleCI unsets runtime key before first gpg, and handoff token is absent from curl argv while callback remains configured.",
+    "started_at_utc":"2026-08-18T23:02:00Z",
+    "expires_at_utc":"2026-08-18T23:17:00Z"
+  },
   "provider_live_lease":null,
   "in_flight_external":[
     {"kind":"SECRET_BRIDGE_PREFLIGHT","trigger_sha":"543f208aaca4a198ccd24d576a687ae0bb868a76","launched_for_sha":"716b16dda7b1bbeab34dfbfdbfa0d5d77b0eac9f","status":"TRIGGERED_AWAIT_CALLBACK","duplicate_forbidden":true},
@@ -22,17 +34,15 @@
     "inherited:encrypted runtime recovery and 11-account/product tool-result/restart evidence where dependencies unchanged",
     "current:workspace confinement and truthful non-sandbox shell docs",
     "provider-safety targeted oracle PASS at affed565: WAF/trust/provider-pressure blocks sibling candidates while rate limit remains bounded failover",
-    "source:root Bash/PowerShell restore non-argv/env-removal changes present",
-    "bridge-source:manual exact-sha workflow with scrubbed child environment",
-    "current-long-soak-source:workflow_dispatch only; exact expected_sha; ephemeral self-hosted label; immutable checkout/setup-node; WAF/trust/timeout/network/upstream pressure STOP with sibling_probe=0; only rate-limit may use one global extra attempt; step-scoped runtime secret removed from environment before gpg",
-    "main-safety:legacy direct CircleCI soak was fail-closed retired at main 9d31b2e700d29fcb48135b191457444508aa35ca; old argv-secret and WAF/network/timeout rotation path no longer executable"
+    "dependency-map: affed565->e2e281 changes only long-soak workflow + restore scripts + runtime secret regression; targeted provider-safety source remains inheritable",
+    "current-long-soak-source:workflow_dispatch only; exact expected_sha; ephemeral self-hosted label; immutable checkout/setup-node; WAF/trust/timeout/network/upstream pressure STOP with sibling_probe=0; only rate-limit may use one global extra attempt",
+    "main-safety:legacy direct CircleCI soak retired at main 9d31b2e700d29fcb48135b191457444508aa35ca"
   ],
   "verify_pending":[
-    "localize which legacy/full npm subtest fails after provider targeted PASS; do not reopen targeted provider semantics",
-    "localize restore-security offline FAIL",
-    "harvest secret bridge",
+    "Q-RUNTIME-RESTORE: remove CircleCI child-env/argv token exposure and prove via executable static regression",
+    "harvest secret bridge; current branch source is default-off with scrubbed child runner, but no sanitized callback is recorded yet",
     "actual current OpenCode v59 provider baseURL/auth provenance",
-    "single 35-45m sparse live soak only after offline/executor gates PASS and provider-live lease acquired",
+    "single 35-45m sparse live soak only after offline/executor gates PASS and global provider-live lease acquired",
     "native Windows parity including PowerShell restore and real tool-result continuation"
   ],
   "known_false_hypotheses":[
@@ -40,9 +50,10 @@
     "WAF may rotate in soak harness",
     "provider-safety targeted oracle is red on affed565",
     "old v28 config is current OpenCode provider authority",
-    "a default-off unsafe executor is harmless enough to retain indefinitely"
+    "a default-off unsafe executor is harmless enough to retain indefinitely",
+    "passphrase-fd alone removes a secret from child process environment"
   ],
-  "blocker":"Live traffic remains disabled. Provider targeted semantics are green and the unsafe legacy main executor is retired, but full regression/restore proof and secret-bridge readiness are not yet green; OpenCode v59 baseURL/auth provenance remains unresolved.",
-  "first_next_action":"Prefer NOTION critical path. In Qwen, harvest secret bridge and localize full npm/restore offline failures; then resolve current OpenCode v59 provider provenance. Do not launch live soak until those gates are green.",
+  "blocker":"Live traffic remains disabled. Current offline security defect is local and fixable without provider access; secret-bridge callback and OpenCode provenance remain separate gaps.",
+  "first_next_action":"Atomically harden current CircleCI runtime key/handoff token channels with regression; no provider call. Then release claim and continue harvesting/localizing offline evidence.",
   "user_needed":false
 }

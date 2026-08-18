@@ -11,10 +11,6 @@ permissions:
   contents: read
   issues: write
 
-concurrency:
-  group: kontur-additive-staging-proof
-  cancel-in-progress: false
-
 env:
   CLOUDFLARE_ACCOUNT_ID: 7a5b709a066fca0ee563c42b3e5c4f10
   STAGING_WORKER_NAME: kontur-igor-staging
@@ -59,7 +55,7 @@ jobs:
           for(const [k,v] of Object.entries(required)) if(c.vars?.[k]!==v) throw new Error(`unsafe staging config ${k}`);
           console.log('STAGING_RUNTIME_GATES_PASS');
           NODE
-      - name: Verify staging identity and production separation
+      - name: Verify staging identity without mutating D1
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         shell: bash
@@ -73,26 +69,7 @@ jobs:
           const text=fs.readFileSync(process.env.RUNNER_TEMP+'/staging-d1.json','utf8');
           if(!text.includes(process.env.STAGING_D1_NAME)||!text.includes(process.env.STAGING_D1_ID)) throw new Error('staging D1 identity mismatch');
           if(text.includes(process.env.PROD_D1_ID)) throw new Error('production D1 leaked into staging identity');
-          console.log('STAGING_IDENTITY_PASS');
-          NODE
-      - name: Apply additive staging migrations only
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$STAGING_D1_ID" != "$PROD_D1_ID"
-          pnpm -F @kontur/worker exec wrangler d1 migrations apply "$STAGING_D1_NAME" --remote --config wrangler.staging.generated.jsonc
-          pnpm -F @kontur/worker exec wrangler d1 execute "$STAGING_D1_NAME" --remote --config wrangler.staging.generated.jsonc --json --command "SELECT count(*) AS missing FROM profiles WHERE role IS NOT NULL AND bird_result_id IS NULL" > "$RUNNER_TEMP/bird-identity.json"
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          const text=fs.readFileSync(process.env.RUNNER_TEMP+'/bird-identity.json','utf8');
-          const data=JSON.parse(text);
-          const values=[];
-          const walk=(v)=>{ if(Array.isArray(v)) v.forEach(walk); else if(v&&typeof v==='object'){ if(Object.hasOwn(v,'missing')) values.push(Number(v.missing)); Object.values(v).forEach(walk); } };
-          walk(data);
-          if(!values.length || values.some(v=>v!==0)) throw new Error(`staging bird identity backfill incomplete: ${values.join(',')}`);
-          console.log('STAGING_BIRD_IDENTITY_MIGRATION_PASS missing=0');
+          console.log('STAGING_IDENTITY_READONLY_PASS');
           NODE
       - name: Deploy exact source to isolated staging Worker only
         env:
@@ -102,7 +79,7 @@ jobs:
         env:
           RELEASE_ORIGIN: ${{ env.STAGING_ORIGIN }}
           RELEASE_EVIDENCE_DIR: ${{ runner.temp }}
-          RELEASE_EVIDENCE_PREFIX: staging-additive-migration
+          RELEASE_EVIDENCE_PREFIX: staging-nondestructive
           RELEASE_PROPAGATION_TIMEOUT_MS: '180000'
         run: node tools/cloudflare/wait-for-deployed-assets.mjs
       - name: Verify canonical assets and API auth boundary remotely
@@ -116,7 +93,7 @@ jobs:
           grep -q '<svg' "$RUNNER_TEMP/crane.svg"
           code="$(curl -sS -o "$RUNNER_TEMP/unauth.json" -w '%{http_code}' "$STAGING_ORIGIN/api/v4/local/state?sha=$GITHUB_SHA")"
           test "$code" = "401"
-          echo "KONTUR_STAGING_ADDITIVE_MIGRATION_PASS head=$GITHUB_SHA origin=$STAGING_ORIGIN staging_d1=$STAGING_D1_ID production_d1_untouched=$PROD_D1_ID"
+          echo "KONTUR_STAGING_NONDESTRUCTIVE_PASS head=$GITHUB_SHA origin=$STAGING_ORIGIN staging_d1=$STAGING_D1_ID production_d1_untouched=$PROD_D1_ID"
       - name: Report staging proof to KONTUR control
         if: ${{ always() }}
         env:
@@ -125,4 +102,4 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh issue comment 9 --repo "$GITHUB_REPOSITORY" --body "STAGING_PROOF generation=v3 lane=KONTUR head=$GITHUB_SHA run=$GITHUB_RUN_ID status=$JOB_STATUS mode=ADDITIVE_MIGRATION_ONLY staging_worker=$STAGING_WORKER_NAME staging_d1=$STAGING_D1_ID production_d1=$PROD_D1_ID production_write=0 destructive_d1_write=0"
+          gh issue comment 9 --repo "$GITHUB_REPOSITORY" --body "STAGING_PROOF generation=v3 lane=KONTUR head=$GITHUB_SHA run=$GITHUB_RUN_ID status=$JOB_STATUS mode=NONDESTRUCTIVE staging_worker=$STAGING_WORKER_NAME staging_d1=$STAGING_D1_ID production_d1=$PROD_D1_ID production_write=0 d1_write=0"

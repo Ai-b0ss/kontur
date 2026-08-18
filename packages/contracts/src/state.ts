@@ -19,8 +19,12 @@ export interface PlayerState {
   username: string | null;
   /** null, пока птица не вылупилась */
   role: Role | null;
-  /** Стабильная визуальная идентичность птицы, сохраняемая сервером между WebView/устройствами. */
-  birdResultId: BirdResultId | null;
+  /**
+   * Стабильная визуальная идентичность птицы, сохраняемая сервером между
+   * WebView/устройствами. Optional только для совместимости со старыми
+   * сохранёнными/тестовыми payload; новый сервер после миграции всегда отдаёт поле.
+   */
+  birdResultId?: BirdResultId | null;
   roleTitle: string | null;
   roleTagline: string | null;
   birdName: string | null;

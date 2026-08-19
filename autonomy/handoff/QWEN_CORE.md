@@ -1,39 +1,31 @@
 # Qwen — агентное ядро
 
-## 2026-08-19
+## 2026-08-20
 
-`qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`, текущий head `93a29257d7abdf96732934bd19735c38851c7d37`.
+`qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`, текущий head `dfcf897a40ccff6d07f8a7f835c5f1718ddb6dd5`.
 
-`qwen-workspace`: PR #5, ветка `fix/u01-cache-coherence`, head `468733b2e3c8a2fb9bc04220fb6fd909ae0a4e80`, `mergeable=true`. Workspace заново сверён, в этом запуске не менялся.
+`qwen-workspace`: PR #5, ветка `fix/u01-cache-coherence`, head `468733b2e3c8a2fb9bc04220fb6fd909ae0a4e80`, `mergeable=true`. В этом запуске workspace не менялся.
 
 Сделано:
-- Перед работой заново прочитаны `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, этот handoff и живые PR обоих Qwen-репозиториев. Старый handoff уже отставал: PR #6 успел уйти с `c95fadd5…` на `add9aec0…`.
-- Разобран свежий участок `account-store`: предыдущая защита делала атомарным только `save()`, но `reset()`, `markSuccess()` и `markFailure()` сначала меняли объект в памяти и только потом писали файл. При сбое диска процесс мог продолжить с состоянием, которого на диске нет.
-- Исправлено: обычные мутации аккаунта теперь сначала строят новую копию, подтверждают её на диске и только затем публикуют в памяти.
-- Усилен сам `persist()`: если ошибка случилась уже после `rename`, старый канонический файл восстанавливается из временной резервной копии. Ошибка `fsync` каталога больше не должна оставлять «старое в памяти / новое на диске».
-- Удаление аккаунта тоже сделано через временный tombstone: канонический файл сначала безопасно выводится из namespace, подтверждается удаление, и только потом аккаунт исчезает из памяти. При ошибке файл возвращается назад.
-- Добавлен новый `scripts/account-store-mutation-atomicity-test.js`: он специально ломает установку канонического файла и проверяет `markSuccess`, `markFailure`, `reset`, состояние после перезапуска и отсутствие временного мусора.
-- Усилен `account-store-persistence-test.js`: теперь он проверяет, что неудачная замена действительно возвращает прежние байты на диск и что неудачное удаление не может рассинхронизировать память и диск.
-- Новый тест включён в общий `npm test`.
+- Заново прочитаны `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, этот handoff и живые PR обоих Qwen-репозиториев. Старый handoff сильно отставал: PR #6 уже был на `a154afdd…`.
+- Найден реальный дефект в `src/provider-circuit.js`: `trip()` писал новый provider-wide circuit через `rename`, а если последующий `fsync` каталога падал, функция возвращала ошибку, но новый circuit уже оставался каноническим на диске. Получалось опасное расхождение между тем, что думает вызывающий код, и фактическим safety-state после перезапуска.
+- `atomicWriteState()` переведён на схему temp → backup старого файла → установка нового → подтверждение каталога. Если подтверждение не удалось, новый файл удаляется, старый возвращается из transaction-backup, а ошибка пробрасывается наружу.
+- Сохранена существующая fail-closed семантика повреждённого provider-circuit и уже добавленная crash-safe очистка через tombstone.
+- Усилен `scripts/provider-circuit-persistence-test.js`: теперь он отдельно ломает именно `fsync` каталога после замены, требует исключение, проверяет восстановление прежнего circuit и отсутствие `.tmp`/`.txn-backup` мусора. Отдельно остаётся проверка rollback при неудачной durable-очистке.
 
 Коммиты этого запуска в `qwen-free-api`:
-- `e9bb4252dfe7cc4f5c16613e9e5c403106171b2a` — мутации аккаунта не публикуются до успешной записи;
-- `98a9bb65c273297b143ae823426135835000650a` — rollback канонического файла после неудачной durable replace;
-- `5f96a4cca3b5067f55d6452a2ca9d712739209cb` — отдельный regression атомарности мутаций;
-- `6e5c1e489ffe503067c7cc4d11554d6b4a75c035` — новый regression добавлен в общий `npm test`;
-- `8896a97685f855bb281074d46870af27b31b0449` — crash-safe удаление аккаунта;
-- `93a29257d7abdf96732934bd19735c38851c7d37` — persistence-regression обновлён под безопасное удаление.
+- `3a02ef1615fe1d493391c8463a181da8ff5e1340` — crash-safe rollback для записи provider circuit;
+- `dfcf897a40ccff6d07f8a7f835c5f1718ddb6dd5` — regression на неудачный directory fsync при `trip()` и `clear()`.
 
 Проверено:
-- PR #6 действительно указывает на `93a29257…`, остаётся draft/open и `mergeable=false` относительно текущего `main`.
+- PR #6 действительно указывает на `dfcf897a…`, остаётся draft/open и `mergeable=false` относительно текущего `main`.
 - `qwen-workspace` PR #5 по-прежнему `468733b2…`, `mergeable=true`.
-- CAPTCHA-ротация, bounded failover, provider-wide circuit, account/thread affinity, многошаговый tool-loop, checkpoint и два режима system-prompt не откатывались.
-- Живой Qwen не запускался; старый разрешённый one-shot `4de8bdae…` не дублировался.
-- GitHub connector пока не показывает фактический CircleCI status для exact head `93a29257…`, поэтому новый полный regression зелёным не объявлять без результата исполнителя.
+- CAPTCHA-ротация, bounded failover, provider-wide circuit, account/thread affinity, tool-loop, checkpoint и два режима system-prompt не откатывались.
+- Живой Qwen в этом запуске не трогался; старый разрешённый provider-run не дублировался.
+- Через доступный GitHub status CircleCI на exact head `dfcf897a…` пока не виден, поэтому полный regression зелёным не объявлять без результата исполнителя.
 
 Следующее:
-1. Снять фактический обычный CircleCI/`npm test` на `93a29257…`; если красный — чинить конкретную ошибку без отката CAPTCHA-ротации и нового durable-state слоя.
+1. Снять фактический обычный CircleCI/`npm test` на `dfcf897a…`; если красный — чинить конкретную ошибку, не откатывая CAPTCHA-ротацию и новый durable-state слой.
 2. После зелёного офлайн-набора сделать один bounded Windows offline parity на exact продуктовой линии без provider traffic.
-3. Вернуться к главному OpenCode streaming-дефекту: в `server.js` первоначальный streaming route и `retryEmpty` всё ещё могут записать `chatId/accountId` до доказательства пригодного SSE-ответа. Нужен единый commit-on-accepted-stream контракт в `pipeThroughOpenAI`, чтобы и первый поток, и retry фиксировали route только после успешного завершения/первого пригодного события.
-4. Установить судьбу уже разрешённого live bridge `4de8bdae…`; второй живой запуск делать только если доказано, что прежний до Qwen не дошёл.
-5. После одного живого многошагового PASS (`read_file → Qwen → bash → Qwen → final`) проверить restart + безопасный failover незавершённой цели и только потом аккуратно сводить PR #6 с `main`.
+3. Главный следующий продуктовый дефект уже подтверждён в `server.js`: streaming OpenCode-путь сохраняет `chatId/accountId` сразу после `response.status=true`, а `retryEmpty` делает то же до того, как SSE доказал пригодный ответ. Нужно убрать ранний checkpoint: держать выбранный route только в памяти, а `sessionStore.set(...)` делать после успешного завершения принятого stream; при retry фиксировать route именно успешной попытки.
+4. После этого — один реальный многошаговый `read_file → Qwen → bash → Qwen → final`, затем restart + безопасный failover незавершённой цели. Второй живой запуск не делать, пока не установлена судьба уже разрешённой прежней попытки.

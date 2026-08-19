@@ -1,61 +1,19 @@
 # Kontur — продукт
 
-Этот файл принадлежит автоматизации Kontur. После каждого запуска кратко записывать: дата, что реально сделано, какие проверки прошли/упали, точный текущий branch/head, следующий полезный шаг. Главный ориентир — реальное ТЗ + переписка с Зезокуком + замечания владельца + качество готового продукта.
+## 2026-08-19 — настоящий Chromium-прогон текущего PR #12 прошёл
 
-## 2026-08-19 — CircleCI реально запускается; найден и исправлен настоящий дефект вылупления
+Продукт: PR #12, ветка `fix/kontur-core-visual-continuity-20260818`, exact head `f1c518c632b1637a672923a1a359f6746fabdb6b`. PR открыт, draft, mergeable. `main`, production Worker и production D1 не трогались. GitHub Actions не запускались.
 
-PR #12 перепроверен и продвинут: ветка `fix/kontur-core-visual-continuity-20260818`, текущий exact head `8b7f74c65d28ae8d6fe3ac70aa4a5fc97269fb43`, PR открыт/draft/mergeable. `main`, production Worker и production D1 не трогались; GitHub Actions не запускались.
+Через общий бесплатный CircleCI-проект `Ai-b0ss/qwen-free-api` проведён реальный Playwright/Chromium-прогон exact head. Итоговый доказанный прогон: workflow `cbabbb12-6270-4521-9f0f-e987a1db66b8`, job `77943862-f27d-410e-9659-edc2610d1838`, SUCCESS. В опубликованном `summary.json` PASS во всех трёх сценариях:
 
-Старое заключение «CircleCI вообще не создаёт pipeline» оказалось устаревшим. На отдельном служебном PR `Ai-b0ss/qwen-free-api#15`, ветка `autopilot/kontur-browser-run-20260819-2`, удалось доказать настоящий запуск CircleCI: build `304`, workflow `b0ccbca6-fc09-4ce4-b1c0-c1c4755f4b18`, exact Kontur target тогда был `7a3ac03e7a082f8c1336eee37b61ce3ec0d761e2`. Значит бесплатный Chromium-исполнитель жив; проблема была уже внутри цепочки подготовки/прогона, а не в отсутствии CircleCI как такового.
+- `320×568`, быстрый q8: `hook -> q1...q8 -> hatch -> reveal -> /worm -> Home -> egg -> новый окрас -> equip`;
+- `430×1000`, ответ `/hatch` искусственно задержан на 1500 мс: q8 остаётся на месте до ответа API, затем hatch; `skip animation` приводит в тот же результат;
+- `320×568`, reduced-motion: тот же путь до equip без поломки состояния.
 
-Для него собран отдельный self-reporting runner: он клонирует точный Kontur SHA, делает Linux-safe установку (не пытается ставить явный Windows-only `esbuild-win32-v025`), собирает Mini App, запускает targeted tests, ставит Playwright Chromium, поднимает локальный Vite и проходит default hook + полный user journey. При завершении он публикует `phase.log`, `summary.json`, отчёты и ключевые PNG в `autopilot/kontur-browser-qa-mainbase-20260819`. Текущий runner нацелен уже на новый head `8b7f74c...`. Старый прогон успел оставить только `target-sha.txt`, без summary, поэтому визуальный PASS всё ещё не объявлен.
+Во всех трёх сценариях: `0` horizontal overflow, `0` console errors, `0` page errors, `0` failed requests, `0` unexpected API. После явного ожидания окончания перехода `hook -> quiz` bounding box яйца на q1/q4/q8 совпадает точно (`maxQuizEggDriftPx=0`) на обоих размерах. То есть старый FAIL по «прыгающему яйцу» оказался ошибкой самого теста: q1 снимался во время штатного уменьшения большого hero egg.
 
-Параллельно найден конкретный runtime-дефект вылупления, который прежний source-тест не замечал. В старом CSS сама `.lk-quiz-hatch` унаследовала `z-index: 40`, а новые половины скорлупы жили на `z-index: 8`. Поэтому, несмотря на `z-index: 7` у самой птицы, весь родительский слой птицы фактически рисовался ПОВЕРХ скорлупы. Это ломало требование «птица внутри яйца» и могло выглядеть как наложенная картинка. Исправлено: весь hatch-layer опущен на `z-index: 7`, половины скорлупы остаются на `z-index: 8`; птица теперь физически находится за скорлупой и показывается через раскрытие. Тест усилен: теперь он отдельно фиксирует порядок родительских stacking layers, а не только child z-index. Коммиты продукта: `4c80f57b...` + `8b7f74c...`.
+Визуальную часть не объявлять полностью закрытой только по зелёному тесту. Низкосжатый кадр q8 реально просмотрен: маленькое фиолетовое яйцо и кольцо находятся в верхней композиции, явного горизонтального выезда нет. Ранний кадр hatch слишком близок к началу анимации и не доказывает читаемость птицы внутри; для этого запущен отдельный bounded capture раннего/среднего/позднего hatch через тот же Chromium. Следующий проход должен первым делом забрать его кадры и посмотреть их глазами.
 
-Следующий шаг: не делать новых продуктовых правок вслепую. Дождаться результата exact-head self-reporting CircleCI; прочитать `phase.log`/`summary.json`, затем реально просмотреть PNG/video/trace для 320×568, 430×1000, быстрого/медленного q8, skip и reduced-motion. Если браузер покажет конкретный дефект — исправить его и повторить один exact-head прогон. После зелёного технического + визуального прохода — isolated non-destructive Cloudflare staging и Telegram WebView smoke. Production/main/prod D1 без отдельного разрешения не трогать.
+Отдельно попытались перенести безопасный non-destructive Cloudflare staging smoke в CircleCI. Workflow `d6a55fb0-f7e5-4539-a8aa-c545ff126223`, job `31531281-6c3a-4635-bdb5-4d8871709b0a` завершился безопасным `BLOCKED_NO_CLOUDFLARE_TOKEN`: в CircleCI-проекте нет `CLOUDFLARE_API_TOKEN`. Скрипт остановился ДО Cloudflare mutation; `productionWrite=false`, `d1Write=false`. Staging Worker: `kontur-igor-staging`, staging D1 `22786b4b-99cc-4ca5-a18b-932e8781021b`, production D1 `91e39e7e-70fc-4551-8d3e-48235e70f985` не затронута.
 
-## 2026-08-19 14:22Z — внешний Chromium всё ещё не стартует; закрыт ложный evidence-пробел
-
-PR #12 заново проверен: открыт, draft, mergeable; ветка `fix/kontur-core-visual-continuity-20260818`, exact head по-прежнему `60d1703a958757dc27222338cc41a9349382efb5`. Production/main/prod D1 не трогались. GitHub Actions не запускались.
-
-Проверен общий CircleCI-исполнитель через `Ai-b0ss/qwen-free-api`. Его ветка уже ушла вперёд до `7c188e6995e6f6eaeddf0286db5011c6f9cdb06e`, но GitHub по-прежнему видит пустой combined status, а `artifacts/kontur-browser-qa/latest/summary.json` в evidence-ветке отсутствует. Значит реального Chromium-прогона и визуального PASS всё ещё нет; новые пустые trigger-коммиты не создавать.
-
-Перепроверен обязательный FINAL_TZ §10/§16 артефакт `docs/product/evidence/BIRD_CHARACTER_DIRECTION.md`. Он уже существует на exact product head и содержит для всех шести результатов именно требуемые поля: IT-архетип, 2–3 черты характера, уровень мемности, что уже работает и чего избегать. Поэтому строка `BIRD_CHARACTER_DIRECTION.md = VERIFY_PENDING` в старой requirement matrix устарела как минимум в части наличия/полноты документа; новый документ создавать не надо.
-
-По исходникам повторно проверен q8: после восьмого ответа визуальная стадия яйца меняется сразу, но `hatching` ждёт одновременно окончания реакции интерфейса и готовности результата API; при ошибке API `hatchReady` остаётся false и пользователь остаётся на q8 с возможностью повторить ответ. Reveal остаётся в том же `QuizEgg`, птица не перемонтируется отдельным вторым объектом. Нового дефекта по этой логике в этом проходе не найдено.
-
-Следующий полезный шаг: не ждать CircleCI бесконечно. Перенести уже готовый безопасный `release-staging.yml` deploy+remote smoke в реально исполняемый бесплатный путь либо использовать Cloudflare staging как удалённую точку, затем получить браузерные PNG/video/trace любым доступным Chromium-исполнителем. До реальных кадров не объявлять визуальную готовность. После кадров — чинить конкретные дефекты и только затем Telegram WebView smoke.
-
-## 2026-08-19 13:22Z — exact head подтверждён; перепроверен реальный вход и q8 по исходникам
-
-PR #12 заново проверен через GitHub: открыт, draft; ветка `fix/kontur-core-visual-continuity-20260818`, exact head `60d1703a958757dc27222338cc41a9349382efb5`. Старый head `41e1243b...` в `CURRENT_RU.md` устарел. Production/main/prod D1 не трогались. GitHub Actions не запускались.
-
-Перепроверен фактический вход приложения на exact head. Обычный `/` сейчас действительно идёт в `LocalKontur`, а не в legacy `GameApp`; legacy доступен только в dev через `?legacy=1`. Для нового пользователя `initialLocalStage()` по умолчанию возвращает `hook`; трёхэкранное вступление сообщества появляется только при явном `?community=1`. Значит браузерный QA обязан открывать обычный `/` и отдельно не должен считать служебный community-флаг нормальным пользовательским входом.
-
-Перепроверена q8-логика на exact head: после ответа визуальная стадия яйца двигается сразу, ответ блокируется `answerLock`, а переход в `hatching` происходит только когда одновременно закончилась короткая реакция интерфейса (`eggResponding=false`) и реально готов результат (`hatchReady=true`). Для медленного API это означает, что вылупление не должно начинаться раньше ответа сервера. Для reduced-motion реакция сокращается до 0 мс, а hatch-reveal до 20 мс. Это правильная логика по исходникам, но браузерный PASS всё ещё не объявлять без реального Chromium-прогона.
-
-CircleCI Chromium evidence по-прежнему не появился в доступной GitHub evidence-ветке; новых пустых trigger-коммитов в этом запуске не создавал. Следующий шаг: при появлении рабочего CircleCI pipeline — один exact-head Chromium run на `/` с 320×568 и 430×1000, быстрым/медленным q8, skip/reduced-motion, затем забрать и глазами проверить PNG/video/trace. Если CircleCI всё ещё не создаёт pipeline, следующий полезный ход — перенести безопасный staging deploy+remote smoke из существующего `release-staging.yml` в реально исполняемый бесплатный путь и продолжить продуктовую сверку, не трогая production.
-
-## 2026-08-19 12:25Z — перепроверен exact head и найден конкретный пробел Cloudflare staging
-
-PR #12 заново проверен через GitHub: открыт, draft, mergeable; ветка `fix/kontur-core-visual-continuity-20260818`, exact head `60d1703a958757dc27222338cc41a9349382efb5`. Production/main/prod D1 не трогались. GitHub Actions не запускались.
-
-CircleCI Chromium evidence всё ещё отсутствует, поэтому браузерный и визуальный PASS не объявлять. Не делать новые пустые trigger-коммиты без признака, что CircleCI снова создаёт pipeline.
-
-Параллельно разобран текущий Cloudflare staging путь. `tools/cloudflare/workers-build-staging.sh` на exact head только: проверяет Node 22, ставит зависимости, запускает handoff-safety, Mini App tests/build и генерирует/проверяет `wrangler.staging.generated.jsonc`. Сам `wrangler deploy` этот скрипт НЕ вызывает. Значит bot `Deployment failed` нельзя автоматически трактовать как падение продукта/сборки: реальный deploy-шаг Workers Builds находится во внешней настройке Cloudflare и сейчас не зафиксирован в репозитории. Репозиторный `.github/workflows/release-staging.yml` содержит полный безопасный deploy+remote verification, но GitHub Actions использовать нельзя из-за исчерпанных minutes. Следующий полезный инфраструктурный шаг — перенести этот уже написанный deploy/remote-smoke в CircleCI либо другой уже подключённый бесплатный исполнитель, а не гадать по одному Cloudflare bot status.
-
-По продукту подтверждён текущий hatch-код: две половины `egg-stage-08.webp` раскрываются над одной `CanonicalBirdVisual`; птица остаётся в том же `QuizEgg` и поднимается из-за скорлупы. Это лучше старого «взрыва», но без реального Chromium-кадра визуальная оценка всё ещё не доказана.
-
-Следующий шаг: 1) при первом признаке ожившего CircleCI — один exact-head Chromium run и забрать PNG/video/trace; 2) если CircleCI browser всё ещё не стартует, использовать его же как staging executor: tests/build -> generate staging config -> `wrangler deploy` только в `kontur-igor-staging`/`kontur-staging` -> remote asset/auth smoke; 3) после доступных кадров чинить конкретные визуальные дефекты; 4) Telegram WebView smoke; 5) только затем готовить сдачу. Production/main/prod D1 без нового разрешения не трогать.
-
-## 2026-08-19 11:25Z — CircleCI trigger подтверждён как внешний стопор; продуктовый head не менялся
-
-Продуктовая линия перепроверена заново: PR #12 открыт/draft/mergeable, ветка `fix/kontur-core-visual-continuity-20260818`, exact head `60d1703a958757dc27222338cc41a9349382efb5`. Production/main/prod D1 не трогались. GitHub Actions не запускались.
-
-Проверен именно уже подключённый CircleCI-путь через `Ai-b0ss/qwen-free-api:autopilot/qwen-runtime-preflight-20260818`. В текущем `.circleci/config.yml` job `kontur-browser-qa` действительно присутствует в обычном workflow и жёстко нацелен на exact Kontur head `60d1703a...`; он собирает Mini App, ставит Chromium, проходит default hook и полный пользовательский путь, затем должен публиковать summary/PNG обратно в `autopilot/kontur-browser-qa-mainbase-20260819`.
-
-Но внешний запуск не состоялся: у прежнего trigger `d4a7890f...` combined status пустой, у текущего head Qwen PR #6 `943460d67251c021e0d6f1cf8370dd1c4da4ace0` combined status тоже пустой, а `artifacts/kontur-browser-qa/latest/summary.json` в evidence-ветке по-прежнему 404. Это уже третий независимый признак, что проблема не в Playwright/Kontur-коде, а в том, что CircleCI сейчас вообще не создаёт pipeline/status для этой ветки. Не плодить новые пустые trigger-коммиты без нового evidence.
-
-Визуальная правка прошлого запуска остаётся текущей: hatch больше не использует три широко разлетающиеся геометрические копии яйца; две половинки скорлупы раскрываются поверх одной птицы. Но визуальный PASS не объявлен — реальных Chromium-кадров после этой правки всё ещё нет.
-
-Следующий шаг по Kontur: получить новый признак ожившего CircleCI (pipeline/status) либо другой уже доступный удалённый Chromium-исполнитель без GitHub Actions; затем один exact-head прогон и визуальный просмотр артефактов. Параллельно можно разбирать isolated Cloudflare staging build `b012700f-63b2-4117-bdb3-31e698cbd07f`, но production не трогать. Если удалённый браузер всё ещё недоступен, продолжать продуктовую сверку исходников с ТЗ/Зезокуком, а не объявлять готовность.
+Следующий шаг: 1) визуально проверить средний и поздний hatch exact head; если птица/скорлупа выглядят плохо — исправить именно сцену и один раз повторить Chromium; 2) после визуального PASS решить staging через уже существующую Cloudflare-инфраструктуру без GitHub Actions и без production-write; 3) затем Telegram WebView smoke. Не плодить новые формальные тесты без конкретного продуктового вопроса.

@@ -1,27 +1,43 @@
 # Notion — Windows + Codex ядро
 
 Рабочая Core-ветка: `Ai-b0ss/notion-agent-bridge:candidate/ncm28-windows-fixed-v1`, PR #7.
-Текущий Core head: `18427776e1cbab1a94224254039134470fcaa160`.
+Текущий Core head: `f2da5e8b4c6766e43289b60812813911cb621be4`.
 
 ## NCM28
 
 Последняя доказанная хорошая продуктовая база — v23: `happy-running`, `happy-stopped` и `rerun-noop` на настоящем Windows ранее проходили; отдельно оставался `auth-rollback`. Native write primitive v23 без нового точного доказательства не менять.
 
-Build-cut на `53a11cbba2c8a3b8111a14d15636b7e0a15a08f9` доказал: Windows executor, Python, зависимости, исходный manifest и общий builder исправны; v23 собирается, широкий v26 — нет. v26 не продвигать.
+Build-cut ранее доказал: Windows executor, Python, зависимости, исходный manifest и общий builder исправны; v23 собирается, широкий v26 — нет. v26 не продвигать.
 
-На свежем head `a4e60fdf19ad63341c602ea80829cdc09d1ee8c9` CircleCI workflow `e605107b-be50-4587-af4a-cbc6107b7bfa` снова дал FAILURE во всех пяти задачах, включая отдельный `ncm28-windows-build-v25`. Поэтому четыре integrated FAILURE опять не являются доказательством продуктового падения: v25 не успел материализоваться.
+Свежая причина многократного падения v25 наконец локализована точнее. Отдельный Windows preimage-cut на commit `4e84411b13d6d121c4bff3e06aa8ba70eee762ce`, workflow `9ef79939-822a-4761-ac91-a70c7d614b32`, дал:
+- `ncm28-v25-preimage-signature` — SUCCESS;
+- `ncm28-v25-preimage-call` — SUCCESS;
+- `ncm28-v25-preimage-load` — FAILURE;
+- полный `ncm28-windows-build-v25` — FAILURE.
 
-В этом запуске builder v25 переписан ещё уже: больше нет зависимости от точного однострочного форматирования объявления `_recover_outer_transaction()`. Функция находится по уникальной структурной границе, её сигнатура меняется целиком до `) -> UpgradeResult:`, загрузка журнала меняется только внутри тела этой функции, а coordinator rollback-call обязан встречаться ровно один раз. Семантика не расширена: база всё ещё v23; обычный crash/restart использует `_load_outer_journal()`, а только same-process `AUTH_ACTIVATION_FAILED` может передать уже опубликованный outer journal, который перед rollback повторно проверяется по точным canonical bytes. Native Windows write primitive не менялся.
+То есть builder ломался не на сигнатуре recovery и не на coordinator callsite. Точный источник найден в уже существующей v23-семантике: обычный crash/restart загружает outer journal как `_load_outer_journal(home, parent_guard=managed_guard)`, а v25 ошибочно искал старую форму без `parent_guard`. Это была ошибка материализации кандидата, а не новый продуктовый Windows-дефект.
 
-Новый Core commit: `18427776e1cbab1a94224254039134470fcaa160`. CircleCI должен автоматически стартовать по существующей конфигурации; на момент записи статусы ещё не появились. Сначала снять именно `ncm28-windows-build-v25`. Если build зелёный, интерпретировать четыре integrated case. Если все четыре зелёные — сразу Windows `tests.test_crash_recovery` + полный `RUN_NCM28_LOCAL_VERIFY.py` и закрыть NCM28. Если три обычных зелёные, а rollback красный — чинить только same-process rollback, не возвращаясь к native write primitive. Если build v25 снова красный — проблема всё ещё только в материализации v25, а не в продуктовой Windows-операции; не менять файловый слой вслепую.
+На новом commit `f2da5e8b4c6766e43289b60812813911cb621be4` v25 исправлен: обычный recovery сохраняет `parent_guard=managed_guard`, а только same-process `AUTH_ACTIVATION_FAILED` может использовать уже опубликованный canonical journal после точной повторной проверки байтов. Native Windows write primitive v23 не менялся.
+
+Сейчас идёт CircleCI workflow `fbc7e218-7f4d-46c8-9904-d220b1562a3f`. На момент записи signature/call preimage уже зелёные; build и четыре integrated Windows case ещё выполняются. Старый `preimage-load` в этом workflow всё ещё использует прежний диагностический шаблон и потому ожидаемо красный — его больше не использовать как продуктовый сигнал. Главный сигнал теперь `ncm28-windows-build-v25`, затем четыре integrated case.
+
+Следующий шаг:
+1. если `ncm28-windows-build-v25` зелёный — интерпретировать `happy-running`, `happy-stopped`, `rerun-noop`, `auth-rollback`;
+2. если все четыре зелёные — убрать временный preimage-cut из ветки, затем прогнать Windows `tests.test_crash_recovery` + полный `RUN_NCM28_LOCAL_VERIFY.py` и закрыть NCM28;
+3. если три обычных зелёные, а rollback красный — чинить только same-process auth rollback, не возвращаясь к native write primitive;
+4. если build снова красный — не менять файловый слой; остаток ошибки всё ещё в материализации v25.
 
 ## Codex / агентная ветка
 
 PR #8: `autonomy/notion-prompt-modes-20260819`.
-Фактический свежий head: `5018836355acdfb50067c28f62a0fe647321a66b` (проверен в этом запуске). PR остаётся draft; base PR #8 ещё указывает на старый Core `a62833f...`, поэтому перед объединением агентной линии её надо синхронизировать со свежим Core.
+Фактический свежий head: `7bc07486431abd0f286a3a69e3ecb81ccf5b5369`.
 
-Ветка содержит материализованный Responses wiring режимов `engineer/owner`, foreground reservations, lease-level routing, cooldown failover и provider-neutral envelope для будущих дочерних задач. Старые синтетические контракты полезны как регрессия, но не являются пользовательским гейтом.
+На этом head четыре постоянных CircleCI-контракта зелёные: `agent-contracts`, `prompt-contracts`, `routing-contracts`, `delegation-contracts` (workflow `dba1ab22-a8fd-4a51-8965-bda03d33f596`). Ветка уже содержит материализованный Responses wiring режимов `engineer/owner`, foreground reservations, lease-level routing, cooldown failover и provider-neutral envelope для будущих дочерних задач.
 
-После закрытия NCM28 не добавлять ещё `probe_marker`. Следующий пользовательский гейт — настоящий Codex CLI во временном проекте: прочитать реальный файл -> получить tool result -> следующим модельным ходом изменить файл или выполнить безопасную локальную команду -> получить второй tool result -> проверить результат -> закончить обычную задачу. Затем restart/recovery незавершённой цепочки и failover: пока владелец Notion thread доступен, continuation остаётся на нём; при недоступности создаётся новый Notion thread другого допустимого слота с полной локальной историей, старый thread ID между аккаунтами не переносится.
+Отдельно подтверждено, что в ветке уже есть настоящий пользовательский probe `tools/live_codex_project_probe.py`, а не только старый `probe_marker`. Он создаёт временный проект с неизвестным заранее токеном, даёт Notion/Codex реальные инструменты `read_file`, `write_file`, `bash`, требует создать `result.txt`, запустить `python verify.py` и не завершаться до успешной проверки. Это и есть ближайший пользовательский гейт после NCM28.
 
-Production и живой Notion не трогались; секреты не раскрывались.
+Проверил возможность восстановить зашифрованный Notion runtime прямо в CircleCI без обращения к провайдеру: временный `runtime-restore-gate` завершился FAILURE. Чтобы не держать продуктовую агентную ветку красной из-за инфраструктурной готовности, этот gate сразу убран; постоянные четыре контракта снова зелёные. Provider traffic не запускался, секреты не печатались. В репозитории действительно есть LFS-объект `.runtime-state/notion-agent-bridge-runtime-state.tar.gz.gpg` размером 14 908 874 байт после materialization, но доступность подходящего ключа именно в CircleCI этим запуском не доказана.
+
+После закрытия NCM28 не добавлять новые синтетические `probe_marker`. Сначала запустить `live_codex_project_probe.py` в уже авторизованной среде: реальный файл -> tool result -> следующий модельный ход -> запись файла -> tool result -> локальная проверка -> финал. Затем проверить restart/recovery незавершённой цепочки и failover: пока владелец Notion thread доступен, continuation остаётся на нём; при недоступности создаётся новый Notion thread другого допустимого слота с полной локальной историей, старый thread ID между аккаунтами не переносится.
+
+Production и живой Notion в этом запуске не трогались; секреты не раскрывались.

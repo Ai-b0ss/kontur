@@ -2,34 +2,38 @@
 
 ## 2026-08-19
 
-`qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`, текущий head `c95fadd552c6db26b18efcc193d74074c43119f2`.
+`qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`, текущий head `93a29257d7abdf96732934bd19735c38851c7d37`.
 
-`qwen-workspace`: PR #5, ветка `fix/u01-cache-coherence`, head `468733b2e3c8a2fb9bc04220fb6fd909ae0a4e80`, `mergeable=true`. Workspace в этом запуске не менялся.
+`qwen-workspace`: PR #5, ветка `fix/u01-cache-coherence`, head `468733b2e3c8a2fb9bc04220fb6fd909ae0a4e80`, `mergeable=true`. Workspace заново сверён, в этом запуске не менялся.
 
 Сделано:
-- В начале заново прочитаны `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, этот handoff и живые PR обоих Qwen-репозиториев. Старый handoff уже отставал: PR #6 был на `620d418cd1e1d73a42815ee2ff7899b810252a39`.
-- Найден дефект внутреннего agent-stream пути: `sendPrepared()` записывал новый `qwenChatId/qwenAccountId` сразу после HTTP-level `status=true`, ещё до того, как SSE-поток доказал пригодный ответ. Оборванный/невалидный stream мог отравить локальное состояние новым тредом, который фактически не был принят.
-- Исправлено: route теперь коммитится только после успешного `consumeQwenStream()`. Сам `sendPrepared()` больше не меняет состояние `chat` заранее.
-- Сохранена правильная account/thread affinity при failover. Если incremental-ответ пришёл на другом треде, он по-прежнему отбрасывается, полная локальная история переносится на свежий тред выбранного аккаунта, а route фиксируется только после пригодного ответа.
-- Исправлен связанный fresh-stream случай: нулевой поток (`frames=0`) теперь получает один свежий retry даже если первый не успел записать `chatId`. Повтор не переиспользует отвергнутый route.
-- Добавлен `scripts/agent-stream-route-commit-test.js`: он проверяет, что обычная ошибка stream не оставляет `qwenChatId/accountId`, а fresh zero-frame stream повторяется на новом route и коммитит только успешный второй ответ.
-- Новый регресс включён в общий `npm test`.
+- Перед работой заново прочитаны `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, этот handoff и живые PR обоих Qwen-репозиториев. Старый handoff уже отставал: PR #6 успел уйти с `c95fadd5…` на `add9aec0…`.
+- Разобран свежий участок `account-store`: предыдущая защита делала атомарным только `save()`, но `reset()`, `markSuccess()` и `markFailure()` сначала меняли объект в памяти и только потом писали файл. При сбое диска процесс мог продолжить с состоянием, которого на диске нет.
+- Исправлено: обычные мутации аккаунта теперь сначала строят новую копию, подтверждают её на диске и только затем публикуют в памяти.
+- Усилен сам `persist()`: если ошибка случилась уже после `rename`, старый канонический файл восстанавливается из временной резервной копии. Ошибка `fsync` каталога больше не должна оставлять «старое в памяти / новое на диске».
+- Удаление аккаунта тоже сделано через временный tombstone: канонический файл сначала безопасно выводится из namespace, подтверждается удаление, и только потом аккаунт исчезает из памяти. При ошибке файл возвращается назад.
+- Добавлен новый `scripts/account-store-mutation-atomicity-test.js`: он специально ломает установку канонического файла и проверяет `markSuccess`, `markFailure`, `reset`, состояние после перезапуска и отсутствие временного мусора.
+- Усилен `account-store-persistence-test.js`: теперь он проверяет, что неудачная замена действительно возвращает прежние байты на диск и что неудачное удаление не может рассинхронизировать память и диск.
+- Новый тест включён в общий `npm test`.
 
 Коммиты этого запуска в `qwen-free-api`:
-- `28129633dc8410d5f4e101ce387dfba6ebc685be` — agent route коммитится только после пригодного stream;
-- `21291144f2bae8715afb3c12f144f1a2b7400e7f` — отдельный regression на failed stream + fresh zero-frame retry;
-- `c95fadd552c6db26b18efcc193d74074c43119f2` — новый regression включён в общий `npm test`.
+- `e9bb4252dfe7cc4f5c16613e9e5c403106171b2a` — мутации аккаунта не публикуются до успешной записи;
+- `98a9bb65c273297b143ae823426135835000650a` — rollback канонического файла после неудачной durable replace;
+- `5f96a4cca3b5067f55d6452a2ca9d712739209cb` — отдельный regression атомарности мутаций;
+- `6e5c1e489ffe503067c7cc4d11554d6b4a75c035` — новый regression добавлен в общий `npm test`;
+- `8896a97685f855bb281074d46870af27b31b0449` — crash-safe удаление аккаунта;
+- `93a29257d7abdf96732934bd19735c38851c7d37` — persistence-regression обновлён под безопасное удаление.
 
 Проверено:
-- PR #6 действительно указывает на `c95fadd5…`, остаётся draft/open и `mergeable=false` относительно актуального `main`.
-- `qwen-workspace` PR #5 заново сверён: `468733b2…`, `mergeable=true`.
-- CAPTCHA-ротация, bounded account failover, provider-wide circuit, account/thread affinity, многошаговый tool-loop, checkpoint и два режима системного промпта не откатывались.
-- Новый живой запрос к Qwen не запускался; старый разрешённый one-shot trigger `4de8bdae6d0c28789181f31b6212f97e6e283333` не дублировался.
-- GitHub connector пока не показывает CircleCI status/check для exact head `c95fadd5…`, поэтому полный regression новым изменениям зелёным не объявлять без фактического результата.
+- PR #6 действительно указывает на `93a29257…`, остаётся draft/open и `mergeable=false` относительно текущего `main`.
+- `qwen-workspace` PR #5 по-прежнему `468733b2…`, `mergeable=true`.
+- CAPTCHA-ротация, bounded failover, provider-wide circuit, account/thread affinity, многошаговый tool-loop, checkpoint и два режима system-prompt не откатывались.
+- Живой Qwen не запускался; старый разрешённый one-shot `4de8bdae…` не дублировался.
+- GitHub connector пока не показывает фактический CircleCI status для exact head `93a29257…`, поэтому новый полный regression зелёным не объявлять без результата исполнителя.
 
 Следующее:
-1. Снять фактический обычный CircleCI/`npm test` на `c95fadd5…`; если красный — чинить конкретный regression без отката CAPTCHA-ротации, tool-loop и route-commit защиты.
+1. Снять фактический обычный CircleCI/`npm test` на `93a29257…`; если красный — чинить конкретную ошибку без отката CAPTCHA-ротации и нового durable-state слоя.
 2. После зелёного офлайн-набора сделать один bounded Windows offline parity на exact продуктовой линии без provider traffic.
-3. Дальше закрыть аналогичный OpenCode streaming retry участок в `server.js`: `retryEmpty` пока сохраняет новый route сразу после `retry.status=true`, до доказательства, что возвращённый retry stream реально дал пригодный ответ. Сначала сделать точный тест контракта `pipeThroughOpenAI/retryEmpty`, затем переносить commit route на момент первого пригодного stream-события/успешного завершения.
+3. Вернуться к главному OpenCode streaming-дефекту: в `server.js` первоначальный streaming route и `retryEmpty` всё ещё могут записать `chatId/accountId` до доказательства пригодного SSE-ответа. Нужен единый commit-on-accepted-stream контракт в `pipeThroughOpenAI`, чтобы и первый поток, и retry фиксировали route только после успешного завершения/первого пригодного события.
 4. Установить судьбу уже разрешённого live bridge `4de8bdae…`; второй живой запуск делать только если доказано, что прежний до Qwen не дошёл.
 5. После одного живого многошагового PASS (`read_file → Qwen → bash → Qwen → final`) проверить restart + безопасный failover незавершённой цели и только потом аккуратно сводить PR #6 с `main`.

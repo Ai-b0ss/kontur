@@ -42,16 +42,15 @@
   z-index: 2;
 }
 
-/* q8 shell and bird stay inside one QuizEgg from opening through result. */
-.lk-first-time--hatching .lk-quiz-egg-stage,
-.lk-first-time--reveal .lk-quiz-egg-stage {
+/* q8 shell and bird stay inside one QuizEgg from opening through result.
+   Repeat the state class so this rule beats the legacy two-class selector even
+   if Vite emits local-kontur.css after this stylesheet. */
+.lk-first-time.lk-first-time--hatching .lk-quiz-egg-stage,
+.lk-first-time.lk-first-time--reveal .lk-quiz-egg-stage {
   top: 50%;
   width: min(61vw, 260px);
-  /* local-kontur.css still contains the legacy 'hide the egg during hatch' rule.
-     Vite can order that stylesheet after this component stylesheet, so these two
-     properties are deliberately important until the legacy rule is removed. */
-  opacity: 1 !important;
-  filter: none !important;
+  opacity: 1;
+  filter: none;
   transform: translate(-50%, -50%);
   z-index: 41;
 }
@@ -185,15 +184,15 @@
 }
 
 @media (max-width: 360px), (max-height: 650px) {
-  .lk-first-time--hatching .lk-quiz-egg-stage,
-  .lk-first-time--reveal .lk-quiz-egg-stage { width: 172px; }
+  .lk-first-time.lk-first-time--hatching .lk-quiz-egg-stage,
+  .lk-first-time.lk-first-time--reveal .lk-quiz-egg-stage { width: 172px; }
   .lk-reveal--inline { bottom: max(8px, env(safe-area-inset-bottom)); }
 }
 
 @media (min-width: 361px) and (min-height: 651px) {
   .lk-first-time { min-height: 100dvh; }
-  .lk-first-time--hatching .lk-quiz-egg-stage,
-  .lk-first-time--reveal .lk-quiz-egg-stage { width: min(61vw, 260px); }
+  .lk-first-time.lk-first-time--hatching .lk-quiz-egg-stage,
+  .lk-first-time.lk-first-time--reveal .lk-quiz-egg-stage { width: min(61vw, 260px); }
 }
 
 .lk-reduced-motion .lk-canonical-bird,

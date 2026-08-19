@@ -2,24 +2,18 @@
 
 Этот файл принадлежит автоматизации Kontur. После каждого запуска кратко записывать: дата, что реально сделано, какие проверки прошли/упали, точный текущий branch/head, следующий полезный шаг. Главный ориентир — реальное ТЗ + переписка с Зезокуком + замечания владельца + качество готового продукта. Если один способ проверки недоступен, искать другой и продолжать работу.
 
-## 2026-08-19 — реальный Chromium-прогон подготовлен и усилен
+## 2026-08-19 — браузерный исполнитель перенесён на заведомо подключённую CircleCI-базу
 
-Текущий продуктовый источник перепроверен: PR #12 / `fix/kontur-core-visual-continuity-20260818` / head `41e1243b91a4b0a65989c605046d7b6d4854ac5a`. PR открыт, draft, mergeable. GitHub Actions не запускать: минуты исчерпаны.
+Продуктовая линия перепроверена заново: PR #12 по-прежнему открыт/draft, `fix/kontur-core-visual-continuity-20260818`, head `41e1243b91a4b0a65989c605046d7b6d4854ac5a`. GitHub Actions не использовать.
 
-Для браузерной проверки используется уже подключённый CircleCI проекта `Ai-b0ss/qwen-free-api` на отдельной служебной ветке `autopilot/kontur-browser-qa-20260819`; Qwen-продукт не меняется.
+Предыдущая служебная ветка `Ai-b0ss/qwen-free-api:autopilot/kontur-browser-qa-20260819` не получила ни CircleCI status, ни callback в PR #12; значит считать тот прогон запущенным/успешным нельзя.
 
-Что уже есть в исполнителе:
-- `scripts/kontur-browser-qa.mjs` — настоящий Playwright/Chromium проход community → hook → q1…q8 → hatching/reveal → /worm → home → reward egg → equip;
-- сценарии 320×568 fast q8, 430×1000 slow q8 + skip, 320×568 reduced-motion;
-- ловятся console/page/network errors, неизвестные API, горизонтальный overflow, layout shift; сохраняются screenshots, video, trace и JSON;
-- exact Kontur head клонируется и проверяется перед запуском.
+Чтобы убрать сомнение, создан новый изолированный исполнитель `Ai-b0ss/qwen-free-api:autopilot/kontur-browser-qa-v2-20260819` от заведомо работающего CircleCI head Qwen `9ffd5c366ee159a4c08bb6ed43a6ab26f5e8d5bc`. Qwen-продукт не менялся: в новой служебной ветке добавлены только два Kontur Playwright-скрипта и отдельный CircleCI config. Текущий head исполнителя `028bc987e296846ec04083ede5ab79510fa3cec1`.
 
-В этом запуске найден дефект самого QA: основной сценарий всегда открывал `?community=1`, поэтому не доказывал обязательный default entry сразу в hook. Кроме того, скрин `q1` делался уже после ответа и фактически мог показывать следующий вопрос. Чтобы не принимать ложный PASS, добавлен независимый настоящий Chromium-smoke `scripts/kontur-default-hook-smoke.mjs`: он открывает `/` без community-параметра, требует сразу `Какая ты птица в IT?`, проверяет отсутствие обязательного community onboarding, фиксирует `01-hook.png`, `02-hook-start-before.png`, затем кликает `начать`, фиксирует `03-quiz-q1.png` и проверяет, что тот же egg-путь действительно перешёл из большого hero в меньший quiz egg. Commit `8e8a7c79d97946e5ea45422b71125cedf9df33ac`.
+Исполнитель клонирует точный Kontur head `41e1243b...`, делает frozen install + Mini App build, поднимает локальный Vite, запускает реальный Chromium с Telegram WebApp-заглушкой и сохраняет артефакты. Есть отдельный default-entry smoke `/ -> hook -> q1` и полный путь community -> hook -> q1..q8 -> hatching/reveal -> worm -> home -> reward egg -> equip. Сценарии: 320x568 fast q8, 430x1000 slow q8 + skip, 320x568 reduced-motion. Ловятся console/page/network ошибки, неожиданные API, горизонтальный overflow и CLS; сохраняются screenshots/video/trace/report.
 
-Circle-конфиг обновлён так, чтобы этот default-hook smoke выполнялся перед полным пользовательским маршрутом, его результат попадал в общий callback/артефакты. Текущий служебный head после обновления: `93910ab5f0b366287d34240635cc88f143986e9d`. До этого дополнительно создан явный trigger commit `143882bb990f00f1454a2656016bfda67cb8e6c4`.
+На момент этой записи новый head ещё не получил CircleCI status. Это внешний факт, не продуктовый FAIL и не PASS. Не создавать веер повторных веток/запусков вслепую. Сначала проверить status `028bc987...`; если CircleCI снова не подхватил ветку, использовать уже активную CircleCI pipeline-конфигурацию через безопасный одноразовый параметр/служебный commit, не GitHub Actions.
 
-На момент завершения этого запуска GitHub ещё не получил `KONTUR_BROWSER_QA_PASS/FAIL` callback, а commit statuses пусты. Поэтому визуальный/браузерный PASS НЕ доказан и staging/Telegram нельзя считать закрытыми. Возможные причины: CircleCI ещё выполняется/не отдаёт статус в GitHub либо эта служебная ветка не была подхвачена проектом; второй параллельный веер запусков не создавать вслепую.
+Дополнительно перечитан текущий `LocalKontur.tsx`: q8 действительно имеет явные `visualQuestionIndex`, `eggResponding`, `hatchReady`; быстрый API не может показать hatching до завершения ответной фазы, медленный API удерживает q8 до результата, reduced-motion проходит тем же условием. Это подтверждение исходника, но не замена браузерному доказательству.
 
-Продуктовый source-audit подтверждает, что текущий PR #12 уже содержит explicit `visualQuestionIndex`, `hatchReady`, общую hatching/reveal сцену и один `QuizEgg`; это соответствует последним исправлениям q8. Реальное ТЗ по-прежнему требует не просто зелёных тестов, а увидеть hook, q1/q4/q8, непрерывное вылупление, bird reveal, /worm и Home в настоящем мобильном браузере.
-
-Следующий шаг: сначала проверить, появился ли callback/артефакт CircleCI для служебного head `93910ab5...`. Если прогон упал — чинить первый реальный сбой и повторять один bounded run. Если прошёл — скачать/просмотреть screenshots/video/trace, отдельно оценить 320×568 и 430×1000 визуал, затем исправить найденные UX/визуальные дефекты. После этого — exact-head non-destructive staging и Telegram smoke. Production/main/prod D1 не трогать без отдельного разрешения.
+Следующий шаг: получить первый настоящий CircleCI Chromium result и скачать/просмотреть его screenshots/video/trace. По первому реальному сбою — минимальное исправление продукта или harness и один повтор. После зелёного локального браузера — exact-head non-destructive Cloudflare staging, затем Telegram WebView smoke. Production/main/prod D1 не трогать без отдельного разрешения.

@@ -1,6 +1,6 @@
 # Текущее состояние проектов — простая карта
 
-Обновлено: 2026-08-19.
+Обновлено: 2026-08-20.
 
 Перед каждым автономным запуском читать `autonomy/OWNER_INTENT_RU.md`, затем этот файл, затем уже сам репозиторий/PR. Этот файл можно обновлять после реальной работы, но кратко: что сделано, что сломано, что делать следующим.
 
@@ -45,28 +45,28 @@
 ## Notion Agent Bridge
 
 Репозиторий: `Ai-b0ss/notion-agent-bridge`.
-Текущая Core-ветка: `candidate/ncm28-windows-fixed-v1`, PR #7, head `b3d75d96fba7dff4b84b7d0aa19f7c7ce63451a7`.
-Отдельная ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8, head `07798da1078fb34fc41d9e344b1f1ef92e3e5ec7`.
+Текущая Core-ветка: `candidate/ncm28-windows-fixed-v1`, PR #7, head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
+Отдельная ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8, head `4c151c6ea4925ca8f04771c773aeeb1443785a9a`.
 
 Что уже есть:
-- большая часть безопасного локального runtime/state слоя и архитектура пула/ротации слотов;
+- основная Windows-линия v32 сохраняет доказанные `build + happy-running + happy-stopped + rerun-noop`; красным остаётся только аварийный `auth-rollback`;
+- точный разрез `tree_digest` на Core уже запущен, но пять Windows-задач workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3` всё ещё ожидают CircleCI; дубликат не запускать;
 - в агентной ветке материализованы режимы `engineer/owner`, реальный Responses wiring, foreground reservations, lease-level routing, cooldown failover и provider-neutral delegation envelope;
-- локальная child-session переживает допустимую смену аккаунта и хранит историю, tool-result, использованные call id и бюджет ходов, поэтому уже выполненный локальный side effect не запускается заново после failover;
-- добавлен реальный delegated Notion `model_step`: на том же клиенте он продолжает его remote thread инкрементально, а при A→B новый клиент получает полный локальный transcript без `thread_id` A и создаёт собственный новый Notion thread;
-- remote-thread map теперь живёт строго внутри одной child-сессии. Завершённая child-задача не оставляет provider thread, который можно случайно воскресить повторным `task_id`;
-- `build_notion_tool_subagent_entrypoint(...)` впервые собирает весь provider-ready путь `NotionDelegatedModelStep → DelegatedToolLoopRunner → NotionDelegationAdapter → обычный account pool → SubagentEntryPoint`; родительский account/thread state туда не передаётся, а источник занятых слотов остаётся обязательным;
-- расширенный `delegation-contracts` на exact head `07798da1...` уже SUCCESS: workflow `4d35bdd6-420a-42fe-a2dc-bf3b19edbfbe`, job `0159121f-942f-4d28-b9f9-f730a756a0e6`. Он проверяет stateful retry, A→B rebase, уничтожение remote thread state после child-session и полный provider-ready runtime на fake lease;
-- в ветке есть настоящий `tools/live_codex_project_probe.py`: временный проект, неизвестный заранее токен, реальные `read_file`, `write_file`, `bash`, обязательный `python verify.py` и запрет завершаться до успешной проверки. Это ближайший пользовательский гейт, а не очередной `probe_marker`;
-- provider/live traffic и реальные аккаунты ради новых delegated-тестов не использовались.
+- child-session переживает допустимую смену аккаунта, сохраняет историю/tool-result/call id и не повторяет уже выполненный локальный side effect после failover;
+- provider-ready Notion child-agent уже собран поверх обычного account pool и существующих foreground reservations; lifecycle умеет bind/rebind/unbind и drain старой генерации перед закрытием пула;
+- есть настоящий `codex exec` проектный гейт с неизвестным заранее маркером, реальными локальными действиями и обязательным повторным verifier до `VERIFY_OK`; есть и двухслотовый вариант, который требует разных account/thread владельцев;
+- дочерним инструментам теперь передаются точные схемы реальных аргументов `list_files/read_file/write_file/edit_file/run_shell`, а не только имена и описания;
+- MCP-ошибка уровня инструмента (`isError=true`) больше не маскируется как успешное локальное действие: дочерний агент получает `ok=false` и может исправить вызов на следующем ходе; malformed runtime-result закрывается fail-closed;
+- новый тест `tests/test_server_subagent_tool_catalog.py` фиксирует реальные схемы аргументов и обработку success/error; он добавлен в agent/delegation/server-wiring проверки.
 
 Что мешает прямо сейчас:
-- Core продолжает отдельную Windows/NCM28 линию; не конфликтовать с его файлами и не сводить PR #8 поверх движущейся базы вслепую;
-- остальные Agent CircleCI jobs на exact `07798da1...` на момент обновления ещё выполняются, хотя новый `delegation-contracts` уже green;
-- provider-ready subagent builder ещё не подключён к реальному server lifecycle: при подключении использовать существующий `foreground_account_reservations.active_account_ids`, а не заводить второй реестр занятости; entrypoint оставить выключенным по умолчанию;
-- нужен один ограниченный настоящий two-slot Codex/CLI run в уже авторизованной среде: две независимые задачи на разных свободных легитимных слотах, sticky continuation на владельце; после него — один реальный cooldown/failover с новым Notion thread на B и полной локальной историей без повторения локального tool side effect;
+- Windows digest-разрез NCM28 всё ещё ждёт исполнителя; без результата не менять доказанный v23 файловый примитив и не запускать такой же прогон повторно;
+- Agent exact-head workflow `7b7fa638-b994-49e6-8799-42e898b9c3b9` тоже пока `pending`;
+- `ServerSubagentLifecycle` ещё не внесён напрямую в настоящий `payload/server.py`: сначала нужен зелёный `server-wiring-rehearsal`, после него применить fail-closed материализатор и повторить контракты;
+- затем нужен один ограниченный настоящий Codex project run и один two-slot run в уже авторизованной среде; после них — restart/recovery и реальный failover на новый Notion thread без повторения локального side effect;
 - после устойчивого Codex/Notion ядра — Qwen adapter под тот же `DelegationDispatcher`, без общего account/thread state.
 
-Ближайший смысловой приоритет Agent: снять окончательный exact-head CircleCI, затем не наращивать синтетические probes вокруг уже доказанного delegated A→B. Либо безопасно подключить provider-ready builder к серверному lifecycle с существующими reservations, либо, если авторизованная среда свободна и нет другого provider-run, перейти к одному настоящему two-slot Codex project run.
+Ближайший смысловой приоритет: снять первый реальный результат Windows-разреза и exact-head Agent CI. Пока они ждут, не добавлять синтетические probes; следующая продуктовая операция после зелёного server-wiring — материализовать lifecycle в `server.py` и перейти к настоящему Codex CLI.
 
 ## Kontur
 

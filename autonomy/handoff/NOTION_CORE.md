@@ -1,37 +1,40 @@
 # Notion — Windows + Codex ядро
 
 Рабочая Core-ветка: `Ai-b0ss/notion-agent-bridge:candidate/ncm28-windows-fixed-v1`, PR #7.
-Текущий Core head: `eec28988ad29e7c43f661d9dc268e5a0743b8a58`.
+Текущий Core head: `85940ba8499b42f6ab0deb248ff6c5490d9f65ee`.
 
 ## NCM28
 
-Основной Windows happy-path ранее был доказан на v23: `happy-running`, `happy-stopped` и `rerun-noop` проходили; оставался только `auth-rollback`.
+Последняя доказанная хорошая продуктовая база остаётся v23: `happy-running`, `happy-stopped` и `rerun-noop` на настоящем Windows ранее проходили; отдельно оставался `auth-rollback`. Поэтому native write primitive v23 не менять без нового точного доказательства.
 
-После этого несколько промежуточных вариантов смешали rollback-гипотезы с уже доказанным native write-path и временно вернули красные happy-path. Последняя линия снова строится от v23 и не возвращает недоказанный v24 `AuthLifecycle.is_running()`.
+Свежая ветка до этой смены содержала v26. V26 строится от v23 и глобально меняет `_load_outer_journal()`: `ncm28_recover_atomic_write(...)` вызывается только если `ncm28_pending_atomic_write(path)` видит durable intent. Идея — не входить в повторный atomic recovery при same-process rollback после уже успешной публикации outer journal; crash/restart при реальном intent остаётся.
 
-Свежий фактический PR #7 до этой смены уже ушёл до `2ef8f07b...` и содержит v26. V26 меняет только загрузку outer journal: `_load_outer_journal()` вызывает `ncm28_recover_atomic_write(...)` только если `ncm28_pending_atomic_write(path)` подтверждает реально оставшийся durable intent. Обычный crash/restart recovery не отключён: при наличии intent он идёт тем же путём. Цель — не заходить повторно в atomic recovery в обычном same-process rollback после уже успешно опубликованного журнала.
+В этой смене сначала вернул четыре уже существующих Windows integrated cases на exact v26. Commit `eec28988...`, CircleCI workflow `6b88bc42-c690-42ca-a296-9985d27276d3`. Все четыре завершились `failure`:
+- `happy-running` `dad1549c-965f-4734-9c0f-81c3772cc148`
+- `happy-stopped` `87626042-1ce2-4b35-ab54-4e2c7b9ddfde`
+- `rerun-noop` `6d792ed7-fb96-4f54-9f94-9c4f66160b10`
+- `auth-rollback` `4d965246-3b8a-4843-a3f7-523bfa6f1d63`
 
-На свежем head CircleCI был временно оставлен только build-only, поэтому Windows-первопричина фактически не проверялась. В этой смене я вернул ровно четыре уже существующих интеграционных Windows-сценария для exact v26, не добавляя новой диагностики и не меняя продуктовый native write primitive.
+Но это пока НЕ доказательство, что четыре продуктовых сценария реально дошли до integrated runtime. Доступный интерфейс CircleCI не отдаёт вывод job. Поэтому я отдельно запустил Windows job, который только устанавливает Python/deps и строит v26. Commit `66da25f7...`, workflow `09e00da9-43f6-4907-a25d-98c2ca454382`, job `e2f3a8c7-63bc-48f9-a5b0-8a6d580df093` — он тоже `failure`. Значит сначала надо отделить проблему Windows executor/setup/build от NCM28 runtime, а не снова чинить `integrated_upgrade.py` наугад.
 
-Текущий commit: `eec28988ad29e7c43f661d9dc268e5a0743b8a58`.
-CircleCI workflow: `6b88bc42-c690-42ca-a296-9985d27276d3`.
-Jobs:
-- `happy-running` — `dad1549c-965f-4734-9c0f-81c3772cc148`
-- `happy-stopped` — `87626042-1ce2-4b35-ab54-4e2c7b9ddfde`
-- `rerun-noop` — `6d792ed7-fb96-4f54-9f94-9c4f66160b10`
-- `auth-rollback` — `4d965246-3b8a-4843-a3f7-523bfa6f1d63`
+Для этого текущий head `85940ba...` запускает ровно два Windows jobs в одном workflow `5a8906b0-5bf1-4117-af92-5d09d3484674`:
+- только checkout + проверенный Python 3.13.9 installer: `ncm28-windows-setup`, job `d4858c5c-50c3-4a90-94ce-ac97b6c30d92`;
+- тот же setup + deps + только build v26, без integrated runtime: `ncm28-windows-build-v26`, job `2175c871-973d-472e-a673-078af2adab11`.
+На момент передачи оба ещё выполняются. Дубликаты не запускать.
 
-На момент записи все четыре выполняются. Дубликат не запускать.
+Следующая смена сначала снимает эти два статуса. Если `setup` красный — это инфраструктура/Windows bootstrap, NCM28 код пока не трогать; минимально исправить executor/bootstrap. Если `setup` зелёный, а `build` красный — проблема в deps/builder/materialization; разделить deps от builder только если без логов иначе не установить границу. Если оба зелёные — четыре предыдущих failure действительно лежат после сборки; тогда вернуться к продукту. В таком случае сравнивать v23 с v26 и предпочитать узкий same-process rollback route, а не глобальную смену `_load_outer_journal`. В репозитории уже есть более узкий v25-подход: только при `AUTH_ACTIVATION_FAILED` передать `known_canonical_journal`, заново побайтово доказать журнал и пропустить crash-intent scan только для этого same-process пути. Нормальный crash/restart остаётся через `_load_outer_journal`.
 
-Следующая смена сначала снимает эти четыре результата. Если все четыре зелёные — сразу отдельный Windows `tests.test_crash_recovery` + полный `RUN_NCM28_LOCAL_VERIFY.py`; после PASS считать NCM28 закрытым и больше не расширять файловую диагностику. Если три happy-path зелёные, а rollback красный — работать только с outer/auth rollback. Если красные и happy-path — сравнивать v23 с v26/harness; native write primitive не трогать без нового точного доказательства.
+После первого устойчивого integrated PASS: Windows `tests.test_crash_recovery` + полный `RUN_NCM28_LOCAL_VERIFY.py`; затем закрыть NCM28 и не продолжать файловую археологию.
 
 ## Codex / агентная ветка
 
 PR #8: `autonomy/notion-prompt-modes-20260819`.
-Свежий фактический head на начало этой смены: `ccfad1a963e97e3e0d63d5fb8bb8a4ab39b87dec`.
+Свежий проверенный в этой смене head: `ccfad1a963e97e3e0d63d5fb8bb8a4ab39b87dec`.
 
 Семь продуктовых контрактов на материализованном `server.py` ранее доказаны: два режима промпта, сохранение приватного prompt identity, настоящий Responses wiring, ранняя HTTP validation, account-pool parallelism, foreground routing и cooldown failover. `owner` не смешивается с инженерной персоной; runtime/tool-факты идут отдельным нейтральным слоем.
 
-В ветке уже есть `tools/live_two_slot_codex_probe.py`: он проверяет две параллельные независимые foreground-задачи на разных легитимных слотах и sticky continuation после tool result. После закрытия NCM28 синхронизировать PR #8 со свежим Core и не останавливаться на синтетическом `probe_marker`: следующий пользовательский гейт — настоящий многошаговый Codex CLI сценарий с реальным локальным действием (`read/edit/bash` или эквивалент), возвратом tool result модели, следующим tool-вызовом и финальным продолжением. Затем проверить restart/recovery незавершённой цепочки и безопасный failover на новый Notion thread с полной локальной историей при недоступности владельца старого треда.
+Проверен существующий `tools/live_two_slot_codex_probe.py`: он уже делает два параллельных Responses-turn на разных свободных легитимных слотах и проверяет sticky continuation после function result. Но инструмент там синтетический `probe_marker`, поэтому это не конечная пользовательская проверка.
+
+После закрытия NCM28 синхронизировать PR #8 со свежим Core и перейти к реальному Codex CLI через OpenAI-compatible Responses endpoint. Требуемый сценарий: Codex получает обычную задачу в временном проекте -> реально читает файл -> получает tool result -> делает следующий модельный ход -> реально изменяет файл/запускает безопасную команду -> получает второй result -> проверяет результат -> завершает задачу. Затем restart/recovery незавершённой цепочки и failover: пока владелец Notion thread доступен, continuation остаётся на нём; при его недоступности создаётся новый Notion thread на другом допустимом слоте с полной локальной историей, старый thread ID между аккаунтами не переносится.
 
 Production и живой Notion в этой смене не трогались; секреты не раскрывались.

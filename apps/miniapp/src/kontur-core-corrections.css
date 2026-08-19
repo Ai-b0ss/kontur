@@ -60,9 +60,13 @@
   height: 100%;
   object-fit: contain;
 }
-.lk-quiz-egg__shell--one { clip-path: polygon(0 0,52% 0,48% 49%,35% 61%,0 68%); }
-.lk-quiz-egg__shell--two { clip-path: polygon(52% 0,100% 0,100% 68%,67% 62%,48% 49%); }
-.lk-quiz-egg__shell--three { clip-path: polygon(0 68%,35% 61%,48% 49%,67% 62%,100% 68%,100% 100%,0 100%); }
+/* Two coherent shell halves: the center seam follows the q8 crack instead of exploding into abstract shards. */
+.lk-quiz-egg__shell--left {
+  clip-path: polygon(0 0,54% 0,51% 17%,55% 31%,48% 46%,52% 59%,46% 73%,49% 100%,0 100%);
+}
+.lk-quiz-egg__shell--right {
+  clip-path: polygon(54% 0,100% 0,100% 100%,49% 100%,46% 73%,52% 59%,48% 46%,55% 31%,51% 17%);
+}
 .lk-quiz-egg__hatch-light {
   z-index: 9;
   opacity: 0;
@@ -70,9 +74,10 @@
 }
 .lk-first-time--hatching .lk-quiz-egg__hatch-shells,
 .lk-first-time--reveal .lk-quiz-egg__hatch-shells { opacity: 1; }
-.lk-first-time--hatching .lk-quiz-egg__shell--one { animation: lk-shell-left-gentle 2.3s cubic-bezier(.2,.8,.2,1) both; }
-.lk-first-time--hatching .lk-quiz-egg__shell--two { animation: lk-shell-right-gentle 2.3s cubic-bezier(.2,.8,.2,1) both; }
-.lk-first-time--hatching .lk-quiz-egg__shell--three { animation: lk-shell-bottom-gentle 2.3s cubic-bezier(.2,.8,.2,1) both; }
+.lk-first-time--hatching .lk-quiz-egg__base { animation: lk-hatch-base-fade 2.3s ease both; }
+.lk-first-time--reveal .lk-quiz-egg__base { opacity: 0; }
+.lk-first-time--hatching .lk-quiz-egg__shell--left { animation: lk-shell-left-open 2.3s cubic-bezier(.2,.8,.2,1) both; }
+.lk-first-time--hatching .lk-quiz-egg__shell--right { animation: lk-shell-right-open 2.3s cubic-bezier(.2,.8,.2,1) both; }
 .lk-first-time--hatching .lk-quiz-egg__hatch-light { animation: lk-hatch-light-window 2.3s ease both; }
 
 .lk-quiz-egg.is-hatching > .lk-quiz-hatch {
@@ -88,28 +93,25 @@
 }
 .lk-quiz-hatch__bird.lk-canonical-bird {
   position: absolute;
-  z-index: 10;
+  z-index: 7;
   right: 10%;
   bottom: 4%;
   left: 10%;
   width: 80%;
   height: 78%;
   opacity: 0;
-  transform: translateY(28%) scale(.5);
-  clip-path: polygon(48% 38%,52% 38%,54% 63%,46% 63%);
+  transform: translateY(24%) scale(.62);
 }
 .lk-first-time--hatching .lk-quiz-hatch__bird.lk-canonical-bird {
-  animation: lk-hatch-bird-window 2.3s cubic-bezier(.16,.9,.28,1.08) both;
+  animation: lk-hatch-bird-rise 2.3s cubic-bezier(.16,.9,.28,1.08) both;
 }
 .lk-first-time--reveal .lk-quiz-hatch,
 .lk-first-time--reveal .lk-quiz-hatch__bird.lk-canonical-bird {
   opacity: 1;
   transform: none;
-  clip-path: inset(0);
 }
-.lk-first-time--reveal .lk-quiz-egg__shell--one { transform: translate(-24%, -18%) rotate(-11deg); opacity: 0; }
-.lk-first-time--reveal .lk-quiz-egg__shell--two { transform: translate(24%, -17%) rotate(10deg); opacity: 0; }
-.lk-first-time--reveal .lk-quiz-egg__shell--three { transform: translateY(18%); opacity: 0; }
+.lk-first-time--reveal .lk-quiz-egg__shell--left { transform: translate(-18%, -12%) rotate(-7deg); opacity: 0; }
+.lk-first-time--reveal .lk-quiz-egg__shell--right { transform: translate(18%, -12%) rotate(7deg); opacity: 0; }
 .lk-first-time--reveal .lk-quiz-egg__hatch-light { opacity: 0; }
 .lk-reveal--inline {
   position: absolute;
@@ -123,47 +125,41 @@
   0% { opacity: 0; transform: scale(.96); }
   17%, 100% { opacity: 1; transform: scale(1); }
 }
-@keyframes lk-hatch-bird-window {
-  0%, 27% {
+@keyframes lk-hatch-base-fade {
+  0%, 45% { opacity: 1; }
+  68%, 100% { opacity: 0; }
+}
+@keyframes lk-hatch-bird-rise {
+  0%, 24% {
     opacity: 0;
-    transform: translateY(24%) scale(.58);
-    clip-path: polygon(49% 39%,51% 39%,52% 61%,48% 61%);
+    transform: translateY(24%) scale(.62);
   }
   38% {
-    opacity: .42;
-    transform: translateY(19%) scale(.64);
-    clip-path: polygon(46% 36%,54% 36%,57% 65%,43% 65%);
+    opacity: .34;
+    transform: translateY(19%) scale(.68);
   }
-  53% {
-    opacity: .76;
-    transform: translateY(11%) scale(.75);
-    clip-path: polygon(40% 28%,60% 28%,66% 72%,34% 72%);
+  54% {
+    opacity: .72;
+    transform: translateY(11%) scale(.78);
   }
-  68% {
+  72% {
     opacity: 1;
-    transform: translateY(2%) scale(.9);
-    clip-path: polygon(22% 9%,78% 9%,88% 91%,12% 91%);
+    transform: translateY(1%) scale(.93);
   }
   100% {
     opacity: 1;
     transform: translateY(-9%) scale(1.03);
-    clip-path: inset(0);
   }
 }
-@keyframes lk-shell-left-gentle {
-  0%, 55% { transform: none; opacity: 1; }
-  76% { transform: translate(-13%, -10%) rotate(-7deg); opacity: .92; }
-  100% { transform: translate(-24%, -18%) rotate(-11deg); opacity: 0; }
+@keyframes lk-shell-left-open {
+  0%, 52% { transform: none; opacity: 1; }
+  75% { transform: translate(-9%, -6%) rotate(-4deg); opacity: .96; }
+  100% { transform: translate(-18%, -12%) rotate(-7deg); opacity: 0; }
 }
-@keyframes lk-shell-right-gentle {
-  0%, 55% { transform: none; opacity: 1; }
-  76% { transform: translate(13%, -9%) rotate(7deg); opacity: .92; }
-  100% { transform: translate(24%, -17%) rotate(10deg); opacity: 0; }
-}
-@keyframes lk-shell-bottom-gentle {
-  0%, 60% { transform: none; opacity: 1; }
-  82% { transform: translateY(9%); opacity: .82; }
-  100% { transform: translateY(18%); opacity: 0; }
+@keyframes lk-shell-right-open {
+  0%, 52% { transform: none; opacity: 1; }
+  75% { transform: translate(9%, -6%) rotate(4deg); opacity: .96; }
+  100% { transform: translate(18%, -12%) rotate(7deg); opacity: 0; }
 }
 @keyframes lk-hatch-light-window {
   0%, 25% { opacity: 0; }
@@ -188,6 +184,7 @@
 .lk-reduced-motion .lk-canonical-bird,
 .lk-reduced-motion .lk-quiz-hatch,
 .lk-reduced-motion .lk-quiz-hatch__bird,
+.lk-reduced-motion .lk-quiz-egg__base,
 .lk-reduced-motion .lk-quiz-egg__shell,
 .lk-reduced-motion .lk-quiz-egg__hatch-light {
   animation-duration: .001ms !important;

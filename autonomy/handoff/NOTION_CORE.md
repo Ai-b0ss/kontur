@@ -1,30 +1,27 @@
 # Notion — Windows + Codex ядро
 
 Рабочая ветка: `Ai-b0ss/notion-agent-bridge:candidate/ncm28-windows-fixed-v1`, PR #7.
-Текущий head: `a62833f68c2119c0879137fa457c47569c079c70`.
+Текущий head: `8ba5072a8381dcbdc6dd38d63d0466370266cde8`.
 
 ## Что установлено по NCM28
 
-Предыдущий native Windows-разрез остаётся действующим: `.ncm25-origin.json` и `installed.json` исключены, падал `other-target` (`d22be720...`, CircleCI `7bd6cc8b-2755-42c2-9291-7cb6aef6ccf7`). По исходнику это сводит проблему к публикации долговечной резервной копии в `_write_durable_backups()` внутри только что созданного transaction-directory guard.
+Проблема уже сведена к низкоуровневой работе с direct-child внутри только что созданного и удерживаемого `DirectoryGuard`; auth/migration/`installed.json`/`.ncm25-origin.json` больше не являются рабочими гипотезами.
 
-В этой смене проверен контракт самого Windows rename. Microsoft прямо указывает для `FILE_RENAME_INFORMATION`, что при переименовании внутри того же каталога `RootDirectory` должен быть NULL; переданный `RootDirectory` может заставить Windows дополнительно открыть каталог назначения. На этом основании сделан кандидат v21: для direct-child rename через `ParentBoundOps` используется same-directory rename с `RootDirectory=NULL`, без повторного открытия guarded-каталога. Файл: `tools/build_ncm28_windows_fixed_candidate_v21.py`, первый commit `6c28a6bc...`.
+После предыдущего v21-разреза ветка успела продвинуться до `936547c88b4fc13f61280c84b64ddc5229b3558a`. На нём CircleCI workflow `4612d2a6-7012-493a-8b05-7e1c7142d137` дал два важных результата:
+- `ncm28-dir` — FAILURE;
+- `ncm28-create` — FAILURE.
 
-Первый настоящий Windows happy-path после этого изменения (`5caf1ef014076813a95597740bfe6dddf214ccde`, CircleCI workflow `a7c89d7c-56c6-4343-b488-307e57a1df02`) всё равно завершился FAILURE. Значит один только `RootDirectory=NULL` проблему не закрывает.
+Это сильнее прежнего вывода: сбой начинается уже на создании guarded child-directory/файла, то есть до rename и до полного `atomic_write_from_snapshot`. Поэтому дальше не надо исследовать durable-backup callsite или rename, пока базовая относительная namespace-операция не станет зелёной.
 
-Чтобы не возвращаться к широкому стековому поиску, сделан ровно тот узкий разрез, который был нужен из предыдущего handoff: native Windows ABSENT-write внутри только что созданного и удерживаемого guarded transaction directory. Первый такой целевой тест на `5c33374d...` также дал FAILURE для `ncm28-guarded-absent-write`. Это доказывает: проблема действительно находится в низкоуровневой операции `atomic_write_from_snapshot` для отсутствующего direct-child target под freshly-created `DirectoryGuard`, а не выше в auth/migration/installed/stable-owner.
+В v21 guarded directory handles уже получили `FILE_ADD_FILE` и `FILE_ADD_SUBDIRECTORY`, но у них всё ещё отсутствовал `FILE_TRAVERSE`. Для относительного разрешения имени через уже открытый directory handle Windows может требовать traverse-right ещё до самой create/rename операции. Сделан минимальный кандидат v22: `tools/build_ncm28_windows_fixed_candidate_v22.py`; он добавляет `FILE_TRAVERSE` только к тем directory handles, которые используются как корни относительных операций, не меняя share mode и остальную продуктовую логику.
 
-Текущий head `a62833f...` делит этот один примитив на три независимых native Windows стадии без новых product-изменений:
-- `ncm28-create` — создать и flush-нуть direct-child файл через уже открытый tx guard;
-- `ncm28-rename` — same-directory handle rename с `RootDirectory=NULL`;
-- `ncm28-atomic` — полный `capture absent -> atomic_write_from_snapshot`.
-
-CircleCI workflow: `f7c505b2-81d4-44b6-8b1d-f881bcbfc40e`. На момент handoff все три jobs ещё PENDING. Их status contexts достаточно, чтобы установить точную сломанную операцию даже без доступа к приватному CircleCI log.
+CircleCI переключён только на два коротких native Windows теста v22: `dir` и `create`. Текущий head `8ba5072a8381dcbdc6dd38d63d0466370266cde8`. На момент handoff status contexts для него ещё не появились.
 
 ## Что делать следующим
 
-1. Сначала прочитать три статуса workflow `f7c505b2-81d4-44b6-8b1d-f881bcbfc40e`; НЕ запускать ещё один разрез до этого.
-2. Если `create` красный — чинить права/контракт `create_file_new_relative` для freshly-created directory handle. Если `create` зелёный, а `rename` красный — чинить именно native same-directory rename. Если оба зелёные, а `atomic` красный — проблема остаётся в intent/recovery/delete части `atomic_write_with_ops`, и разбирать только эту короткую часть.
-3. После минимального исправления нужен один Windows integrated happy-path. При PASS сразу recovery/restart + полный relevant Windows suite.
-4. После устойчивого Windows PASS прекращать NCM28-археологию и переходить к настоящей цели: реальный Codex CLI сценарий `tool call -> локальное действие -> tool result -> следующий модельный ход`, несколько шагов подряд, затем restart/failover.
+1. Сначала прочитать статусы head `8ba5072a...`; не создавать новый разрез, пока v22 `dir/create` не завершились.
+2. Если оба PASS — вернуть `rename` и `atomic`, затем integrated happy-path. Если `dir` PASS, а `create` FAIL — чинить только `create_file_new_relative`. Если `dir` снова FAIL — проблема ещё ниже: контракт `create_guarded_directory`/относительный `NtCreateFile` и права/flags самого parent handle; разбирать только этот примитив.
+3. После первого integrated Windows PASS сразу recovery/restart + полный relevant Windows suite.
+4. После устойчивого Windows PASS прекратить NCM28-археологию и перейти к реальной цели: Codex CLI, несколько последовательных tool-вызовов, локальное действие, tool result, продолжение модели, затем restart/failover.
 
-Никаких production/Notion live writes в этой смене не было. Секреты и авторизованный runtime не раскрывались.
+Production и живой Notion не трогались; секреты не раскрывались.

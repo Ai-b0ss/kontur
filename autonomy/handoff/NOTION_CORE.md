@@ -1,46 +1,51 @@
 # Notion — Windows + Codex ядро
 
 Рабочая Core-ветка: `Ai-b0ss/notion-agent-bridge:candidate/ncm28-windows-fixed-v1`, PR #7.
-Текущий Core head: `510a03203a76fe33551c29a4933f1518f6c786de`.
+Текущий Core head: `42db5b991729faf43dbeed375a001feae95f8634`.
 
 ## NCM28
 
-Последняя доказанная хорошая продуктовая база — v23. Низкоуровневый Windows write primitive v23 без нового точного доказательства не менять.
+Последняя доказанная хорошая продуктовая база — v23. Низкоуровневый Windows write primitive v23 не менять без нового точного сигнала.
 
-На head `b094aa874fd14d56734df6d37f4b7808882a1c89` уже доказано на настоящем Windows:
-- `ncm28-windows-build-v25` — SUCCESS;
+На head `510a03203a76fe33551c29a4933f1518f6c786de` настоящий Windows дал важный разрез:
 - `happy-running` — SUCCESS;
 - `happy-stopped` — SUCCESS;
 - `rerun-noop` — SUCCESS;
-- `auth-rollback` — FAILURE.
+- `auth-rollback` — FAILURE;
+- внутри rollback: `files` и `non-targets` — SUCCESS, а `auth` и `stable` — FAILURE.
 
-В предыдущем запуске был добавлен разрез rollback на `84fcd1e5...`, но при ревью v25 найден более конкретный дефект самой проводки same-process rollback. v23 специально протягивает `managed_guard` через операции outer journal/backup/finish, чтобы Windows не переоткрывал удерживаемый `.notionagents` namespace по pathname. v25 добавил `known_canonical_journal`, но в единственном exception-call `_recover_outer_transaction(...)` не передал уже существующий `managed_guard`. В результате именно аварийный rollback терял доказанный Windows-контракт, тогда как три обычных пути оставались зелёными.
+Это показало общую границу: обычные записи и возврат управляемых файлов уже работают, а два аварийных удаления дочерних деревьев всё ещё теряют удерживаемый namespace. В исходнике оба пути сходятся в `remove_plain_tree(...)`: внешний `.notionagents` guard уже удерживается, но корень auth/runtime/migration снова открывается по абсолютному пути. Это тот же класс Windows-конфликта, который ранее был исправлен для write-path, только теперь в destructive rollback.
 
-Исправление на head `510a03203a76fe33551c29a4933f1518f6c786de`:
-- same-process вызов теперь передаёт `managed_guard=managed_guard`;
-- повторная проверка exact canonical outer journal тоже использует `parent_guard=managed_guard`, а не переоткрывает файл через pathname;
-- native Windows write primitive v23 не менялся;
-- обычный crash/restart путь не менялся.
+Сделан v27 (`tools/build_ncm28_windows_fixed_candidate_v27.py`):
+- `remove_plain_tree` получил необязательный `parent_guard` и открывает корень относительно уже удерживаемого handle;
+- тот же `managed_guard` протянут только в rollback-удаления auth/codex/runtime/migration и в два residue-helper;
+- v23 native write primitive не менялся;
+- обычные happy-path/restart контракты не расширялись.
 
-CircleCI должен автоматически проверить новый head. Второй ручной прогон не создавать, пока не снят автоматический результат.
+CircleCI workflow для exact head `42db5b99...`: `f8c942d2-8fef-48ab-9b63-902fefc74008`.
+Проверки: `ncm28-windows-build-v27`, `happy-running-v27`, `happy-stopped-v27`, `rerun-noop-v27`, `auth-rollback-v27`. На момент записи все ещё выполняются. Старый диагностический workflow больше не используется новым head.
 
 Следующий шаг:
-1. снять `ncm28-windows-build-v25`, `happy-running`, `happy-stopped`, `rerun-noop`, `auth-rollback` на exact head `510a0320...`;
-2. если все пять зелёные — удалить временные `ncm28-auth-stage-*` jobs из `.circleci/config.yml` и прогнать Windows `tests.test_crash_recovery` + полный `RUN_NCM28_LOCAL_VERIFY.py`;
-3. при их PASS считать NCM28 закрытым и больше не расширять диагностику;
-4. если `auth-rollback` всё ещё красный — использовать уже существующие четыре stage-job, но не менять файловый примитив без нового точного сигнала.
+1. снять пять результатов v27;
+2. если все зелёные — сразу заменить временный интеграционный набор на Windows `tests.test_crash_recovery` + полный `RUN_NCM28_LOCAL_VERIFY.py`; при PASS закрыть NCM28;
+3. если build красный — исправлять только preimage/сборщик v27, не продукт;
+4. если три happy-path зелёные, а rollback красный — новый файловый примитив не трогать; сузить только оставшийся rollback operation.
 
 ## Codex / агентная ветка
 
 PR #8: `autonomy/notion-prompt-modes-20260819`.
-Свежий head на момент этого запуска: `51a575693e438be1fb69fac0824b03a573db286e` (старый handoff отставал).
+Текущий head после независимой подготовки: `31a52d13cd03cb194e6d890dbd718d3ac5cb71b0`.
 
-В ветке уже есть настоящий `tools/live_codex_project_probe.py`: временный проект с неизвестным заранее токеном, реальные `read_file`, `write_file`, `bash`, обязательный `python verify.py` и запрет завершаться до успешной локальной проверки. После закрытия NCM28 не добавлять новые синтетические probes.
+Четыре постоянных Agent-контракта на предыдущем exact head `84039a5d...` были зелёными: prompt, agent, routing, delegation.
 
-Порядок после NCM28:
-1. настоящий Codex project tool-loop в уже авторизованной среде;
+Настоящий CLI-гейт уже существует в `tools/run_real_codex_cli_project_probe.py` и запускает именно `codex exec` через Responses bridge. В этом запуске он усилен без обращения к Notion: первый `python verify.py` теперь намеренно создаёт неизвестный заранее `challenge.txt` и падает. Для успеха Codex обязан получить ошибку инструмента, прочитать новую информацию, изменить `result.txt` и повторно запустить verifier до PASS. То есть будущий live PASS будет доказывать не просто создание файла, а реальное продолжение после неудачного tool result и исправление собственной работы. Добавлен офлайн-контракт этого двухшагового verifier.
+
+CircleCI Agent workflow на `31a52d13...` запущен автоматически; на момент записи четыре job ещё выполняются.
+
+После NCM28 порядок такой:
+1. один настоящий `run_real_codex_cli_project_probe.py` в уже авторизованной среде;
 2. restart/recovery незавершённой цепочки;
 3. failover: sticky continuation остаётся на владельце thread, а при его недоступности допустимый другой слот получает новый Notion thread и полную локальную историю; старый thread ID между аккаунтами не переносится;
 4. затем субагенты и реальное делегирование в Qwen.
 
-Production и живой Notion в этом запуске не трогались; секреты не раскрывались.
+Production и живой Notion в этом запуске не трогались; секреты не печатались.

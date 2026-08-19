@@ -119,10 +119,12 @@
 .lk-first-time--hatching .lk-quiz-hatch__bird.lk-canonical-bird {
   animation: lk-hatch-bird-rise 2.3s cubic-bezier(.16,.9,.28,1.08) both;
 }
-.lk-first-time--reveal .lk-quiz-hatch,
+.lk-first-time--reveal .lk-quiz-hatch { opacity: 1; transform: none; }
+/* Preserve the exact final hatch pose across the React hatching -> reveal state change.
+   Resetting to transform:none here caused a visible snap even though the same bird stayed mounted. */
 .lk-first-time--reveal .lk-quiz-hatch__bird.lk-canonical-bird {
   opacity: 1;
-  transform: none;
+  transform: translateY(-9%) scale(1.03);
 }
 .lk-first-time--reveal .lk-quiz-egg__shell--left { transform: translate(-18%, -12%) rotate(-7deg); opacity: 0; }
 .lk-first-time--reveal .lk-quiz-egg__shell--right { transform: translate(18%, -12%) rotate(7deg); opacity: 0; }

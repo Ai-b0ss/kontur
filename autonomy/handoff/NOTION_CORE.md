@@ -19,7 +19,7 @@
 - exact head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`;
 - workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3`;
 - проверки auth/codex/migration/runtime `tree_digest` и `outside-digest` во время реального падающего rollback.
-При последней проверке все пять задач всё ещё `pending`; второй такой прогон не запускать.
+При последней повторной проверке все пять задач всё ещё `pending`; второй такой прогон не запускать.
 
 Пока Windows ждёт, уже подготовлен следующий более точный разрез на отдельной ветке:
 - ветка `autonomy/ncm28-callcut-ready-20260820`;
@@ -32,8 +32,8 @@
 ## Codex / агентная ветка
 
 PR #8: `autonomy/notion-prompt-modes-20260819`.
-Свежий head: `396ce55c2587c85b5240309366efea1c7b8da33a`.
-Текущий Agent CircleCI workflow: `6f8587da-ced4-4737-ba52-c13ee30973b2`; prompt/agent/routing/delegation при последней проверке `pending`.
+Свежий head: `b1d546f389936c4b5f01feb44151a8af07ffcd24`.
+Текущий Agent CircleCI workflow: `4b349efd-5968-48f0-9f1e-771700f24226`; пять задач (`agent`, `prompt`, `routing`, `delegation`, `server-wiring-rehearsal`) при последней проверке `pending`.
 
 Что уже материализовано в ветке:
 - `payload/server_subagent_runtime.py` собирает provider-ready Notion child-agent поверх обычного account pool, использует существующие foreground reservations и только текущую runtime-tool границу;
@@ -42,24 +42,25 @@ PR #8: `autonomy/notion-prompt-modes-20260819`.
 - настоящий `tools/run_real_codex_cli_project_probe.py` требует реальный `codex exec`: первый verifier создаёт неизвестный заранее `challenge.txt` и падает; Codex должен прочитать новую информацию, исправить результат и сам повторить verifier до `VERIFY_OK`.
 
 Что сделано в этой смене по серверному lifecycle:
-- добавлен `tools/apply_server_subagent_lifecycle_wiring.py`, commit `3d2e9bc84285a3d519b210a960a0afbfe7f75173`;
-- добавлен fail-closed тест `tests/test_server_subagent_wiring_materializer.py`, commit `54b716b34d4b01d0926f730df5eeac21051595f0`;
-- CircleCI теперь включает этот контракт в `agent-contracts` и `delegation-contracts`, итоговый head `396ce55c2587c85b5240309366efea1c7b8da33a`.
+- добавлен `tools/apply_server_subagent_lifecycle_wiring.py`; затем gate исправлен с статического флага на динамическую функцию `subagent_runtime_enabled()`, которая перечитывает `NOTION_SUBAGENTS_ENABLED` при запуске child-задачи;
+- добавлен fail-closed тест `tests/test_server_subagent_wiring_materializer.py`: точный текущий `server.py` должен иметь один ожидаемый preimage, а повторное применение материалаизатора обязано падать, а не молча удваивать проводку;
+- добавлен отдельный CircleCI `server-wiring-rehearsal`: он в чистом checkout реально применяет материализатор к `payload/server.py`, компилирует получившийся сервер и гоняет lifecycle/runtime/prompt/routing контракты уже на преобразованном файле;
+- итоговый Agent head `b1d546f389936c4b5f01feb44151a8af07ffcd24`.
 
-Материализатор уже фиксирует точную проводку, которую надо внести в `payload/server.py` после освобождения агентного CI/доступного исполнителя:
+Материализатор фиксирует точную проводку, которую надо внести в настоящий `payload/server.py` после зелёной репетиции:
 - один `ServerSubagentLifecycle` на сервер;
 - тот же `account_pool`, без второго пула;
 - `reserved_account_ids=foreground_account_reservations.active_account_ids`, без второго реестра занятости;
 - локальные действия через существующий `call_runtime_tool`;
-- дети выключены по умолчанию, включение только через `NOTION_SUBAGENTS_ENABLED`;
-- startup bind без provider traffic;
+- дети выключены по умолчанию; gate динамически читает `NOTION_SUBAGENTS_ENABLED`;
+- startup bind сам по себе provider traffic не запускает;
 - shutdown сначала `unbind_and_drain`, затем закрытие `account_pool`, чтобы не закрыть provider pool под уже работающим child-agent.
 
-Важно: `payload/server.py` на этом head ещё НЕ изменён этим материализатором. Не считать lifecycle подключённым, пока скрипт не применён к настоящему файлу и соответствующие тесты не зелёные. Никаких скрытых импорт-сайд-эффектов ради обхода этого шага не добавлять.
+Важно: `payload/server.py` на этом head ещё НЕ изменён материализатором. Не считать lifecycle подключённым, пока `server-wiring-rehearsal` не зелёный и скрипт не применён к настоящему файлу. Никаких скрытых импорт-сайд-эффектов ради обхода этого шага не добавлять.
 
 После NCM28 порядок:
 1. снять exact-head Agent CI; если красный — исправить только текущий агентный слой;
-2. применить `tools/apply_server_subagent_lifecycle_wiring.py` к настоящему `payload/server.py`, проверить startup/shutdown и существующие контракты;
+2. если `server-wiring-rehearsal` зелёный — применить `tools/apply_server_subagent_lifecycle_wiring.py` к настоящему `payload/server.py` и повторить обычные Agent contracts;
 3. один настоящий `tools/run_real_codex_cli_project_probe.py` в уже авторизованной среде;
 4. restart/recovery незавершённой цепочки;
 5. реальный failover: продолжение остаётся на владельце Notion thread, а при недоступности владельца другой легитимный слот получает новый Notion thread и полную локальную историю без повторения уже выполненного локального действия;

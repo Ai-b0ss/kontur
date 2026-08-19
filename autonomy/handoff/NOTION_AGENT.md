@@ -1,6 +1,6 @@
 # Notion — ротация, агентность, prompt-mode и делегирование
 
-## 2026-08-19 22:55 МСК
+## 2026-08-19 22:57 МСК
 
 Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, свежий head `b3d75d96fba7dff4b84b7d0aa19f7c7ce63451a7`.
 
@@ -30,7 +30,7 @@ Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, свежий head `b3d75
    - `tests/test_notion_delegated_model_step.py`: same-client incremental thread, A→B full-history rebase без старого thread, независимые child-context, повтор того же task id после завершения не воскресит старый thread;
    - `tests/test_notion_tool_subagent_runtime.py`: полный путь через настоящий builder + fake lease A→B, один локальный side effect, обязательный avoid родительской reservation, B получает полный history без `thread_id` A.
 10. Расширил Agent-only `delegation-contracts` в CircleCI этими тестами и предыдущими stateful failover-тестами. Это затрагивает только Agent-ветку; Windows jobs по-прежнему отфильтрованы на Core-ветку.
-11. На предыдущем промежуточном head `0bdf20d8...` расширенный `delegation-contracts` уже был SUCCESS. На exact текущем head `07798da1...` новый `delegation-contracts` тоже SUCCESS: workflow `4d35bdd6-420a-42fe-a2dc-bf3b19edbfbe`, job `0159121f-942f-4d28-b9f9-f730a756a0e6`. Остальные `agent/prompt/routing` jobs на момент передачи ещё pending; новый delegated runtime они не доказывают и не нужны для этого локального результата.
+11. На exact head `07798da1...` все четыре Agent CircleCI job ЗЕЛЁНЫЕ: workflow `4d35bdd6-420a-42fe-a2dc-bf3b19edbfbe`; `agent-contracts` job `fe1f2161-0981-4be6-bea0-94b1ef3fbc2d`, `prompt-contracts` `eba652e8-c2dc-4785-8f23-f2a2df0d1fef`, `routing-contracts` `509e1e6a-493f-438d-b76d-adf9ead1f714`, `delegation-contracts` `0159121f-942f-4d28-b9f9-f730a756a0e6`.
 12. Provider/live traffic, production, реальные Notion-аккаунты и NCM28 не трогались.
 
 Главное новое понимание:
@@ -40,11 +40,10 @@ Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, свежий head `b3d75
 - provider-ready runtime для Notion теперь можно собрать без участия родительского account/thread affinity: нужен обычный пул, локальный tool executor, каталог tools и `foreground_account_reservations.active_account_ids` как источник занятых слотов.
 
 Что ещё не завершено:
-1. Снять окончательный статус остальных CircleCI jobs на exact `07798da1...`; если `delegation-contracts` остаётся green, новые delegated model/runtime контракты считаются удалённо доказанными.
-2. Подключить `build_notion_tool_subagent_entrypoint(...)` к настоящему серверному lifecycle только после выбора безопасного локального tool executor/catalog. Сам entrypoint должен остаться выключенным по умолчанию.
-3. Источник reservations при реальном подключении — существующий `foreground_account_reservations.active_account_ids`; не создавать второй реестр занятости.
-4. Один ограниченный настоящий two-slot Codex/CLI run в уже авторизованной среде, только после проверки отсутствия другого provider-run: две независимые foreground-задачи на разных свободных легитимных слотах, tool-result continuation на владельце.
-5. После этого один bounded cooldown/failover: локальный tool уже выполнен на A, A уходит в cooldown, B получает полный локальный history, создаёт новый Notion thread и продолжает без повторения side effects.
-6. После устойчивого Notion/Codex ядра — Qwen adapter под тот же `DelegationDispatcher`, без общего account/thread state.
+1. Подключить `build_notion_tool_subagent_entrypoint(...)` к настоящему серверному lifecycle только после выбора безопасного локального tool executor/catalog. Сам entrypoint должен остаться выключенным по умолчанию.
+2. Источник reservations при реальном подключении — существующий `foreground_account_reservations.active_account_ids`; не создавать второй реестр занятости.
+3. Один ограниченный настоящий two-slot Codex/CLI run в уже авторизованной среде, только после проверки отсутствия другого provider-run: две независимые foreground-задачи на разных свободных легитимных слотах, tool-result continuation на владельце.
+4. После этого один bounded cooldown/failover: локальный tool уже выполнен на A, A уходит в cooldown, B получает полный локальный history, создаёт новый Notion thread и продолжает без повторения side effects.
+5. После устойчивого Notion/Codex ядра — Qwen adapter под тот же `DelegationDispatcher`, без общего account/thread state.
 
-Следующий запуск: сначала снять итог CircleCI exact head и свежий Core. Если Agent-контракты зелёные, не добавлять ещё синтетических уровней вокруг уже доказанного A→B rebase. Либо аккуратно подключить provider-ready builder к реальному server lifecycle с disabled-by-default gate и существующими foreground reservations, либо, если авторизованная среда свободна и нет другого provider-run, перейти к одному настоящему two-slot Codex project run.
+Следующий запуск: сначала снять свежий Core head и проверить, нет ли уже другого provider-run. Не добавлять ещё синтетических уровней вокруг уже зелёного delegated A→B. Либо аккуратно подключить provider-ready builder к реальному server lifecycle с disabled-by-default gate и существующими foreground reservations, либо, если авторизованная среда свободна, перейти к одному настоящему two-slot Codex project run.

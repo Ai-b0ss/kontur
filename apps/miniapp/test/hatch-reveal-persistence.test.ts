@@ -98,6 +98,23 @@ test('the future bird rises physically behind the shell before the shell fully o
   );
 });
 
+test('hatch and reveal preserve the exact final bird pose without a state-change snap', async () => {
+  const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
+  const finalPose = 'translateY(-9%) scale(1.03)';
+
+  assert.match(
+    css,
+    /100%\s*\{[\s\S]*?opacity:\s*1;[\s\S]*?transform:\s*translateY\(-9%\) scale\(1\.03\);[\s\S]*?\}/,
+    'the hatch animation must finish at the intended bird pose',
+  );
+  assert.match(
+    css,
+    /\.lk-first-time--reveal \.lk-quiz-hatch__bird\.lk-canonical-bird\s*\{[\s\S]*?transform:\s*translateY\(-9%\) scale\(1\.03\);/,
+    'reveal must retain the final hatch pose instead of resetting transform to none',
+  );
+  assert.ok(css.includes(finalPose));
+});
+
 test('reward bird art cannot intercept the equip action', async () => {
   const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
   assert.match(

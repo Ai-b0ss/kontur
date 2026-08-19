@@ -1,12 +1,12 @@
 # Notion — ротация, агентность, prompt-mode и делегирование
 
-## 2026-08-19 17:07 МСК
+## 2026-08-19 17:58 МСК
 
-Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, свежий head `53a11cbba2c8a3b8111a14d15636b7e0a15a08f9`.
+Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, свежий head `eef8bc7994bd6898f4963ffc5791ba9db7c57c0f`.
 
-Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8. Текущий head: `61100e2bac7e2f87684c7a5976557f744e15a3ee`.
+Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8. Текущий head: `0671ebc5e91ced79f145b4b2082ce11601778a34`.
 
-Что уже доказано:
+Что уже доказано раньше:
 - режимы системного промпта `engineer` и `owner`;
 - приватный `owner_system_prompt` идёт первым прикладным текстом без переписывания и без большой конкурирующей Codex-персоны;
 - нейтральный `runtime_context` отделён от прикладного prompt;
@@ -16,25 +16,22 @@ Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, свежий head `53a11
 - lease-level тесты покрывают два свободных слота, закреплённое продолжение, ожидание занятого владельца, cooldown и fail-closed поведение;
 - при допустимом failover старый Notion thread не переносится на другой аккаунт: полная локальная история создаёт новый thread на новом слоте;
 - `tools/live_two_slot_codex_probe.py` готовит ограниченную настоящую проверку двух независимых Responses-задач и продолжения на своих слотах;
-- новый `payload/delegation_dispatcher.py` принимает проверенный `DelegationRequest`, строит изолированный локальный ключ child-задачи и вызывает только выбранный адаптер Notion/Qwen; в child-контексте нет `account_id` и remote `thread_id`, поэтому affinity родителя не наследуется случайно;
-- `DelegationResult` возвращает родителю только связь задачи и текст результата, provider lifecycle остаётся внутри адаптера;
-- 10 тестов policy+dispatcher покрывают независимую child identity, отдельный Qwen namespace, bounded budget, fail-closed отсутствующий adapter, валидацию до provider work и текстовый результат.
+- provider-neutral `DelegationRequest`/`DelegationDispatcher` уже отделяют child-задачу от provider state родителя;
+- на прежнем exact head `61100e2b...` CircleCI `35f42289-d683-40ef-bd4c-ba14fa61ee79` был полностью зелёным для prompt/routing/delegation contract-набора.
 
 Что сделал в этом запуске:
-1. Прочитал OWNER_INTENT/CURRENT/handoff и сверил PR #7/#8. Свежие изменения Core сейчас только в `.circleci` и NCM28/Windows tooling; с Responses/prompt/account-pool/delegation они не пересекаются.
-2. Довёл начатый provider-neutral контракт делегирования до отдельного диспетчера и добавил 5 новых регрессий `tests/test_delegation_dispatcher.py`.
-3. Добавил отдельный CircleCI `delegation-contracts`, чтобы новая делегация проверялась независимо от старого Agent-набора. Первый отдельный прогон прошёл `success`.
-4. Общий `agent-contracts` был красным уже до новой делегации. Разрезал его на prompt/routing и нашёл реальную причину в CI: потеряны `uvicorn/pytest/pytest-asyncio`, `regression/stubs` и `payload` в `PYTHONPATH`, плюс использовались два несуществующих имени тестов.
-5. Вернул проверенную среду старого зелёного Agent workflow и исправил пути на реальные `tests/test_responses_prompt_wiring_contract.py` и `tests/test_responses_cooldown_failover.py`.
-6. На exact head `61100e2b...` workflow `35f42289-d683-40ef-bd4c-ba14fa61ee79` полностью зелёный: `agent-contracts=success`, `prompt-contracts=success`, `routing-contracts=success`, `delegation-contracts=success`.
-7. Обновил описание PR #8 под фактический prompt/rotation/delegation scope.
-8. Provider/live traffic, production, пользовательские аккаунты и данные Notion в этом запуске не трогал.
+1. Перечитал OWNER_INTENT/CURRENT/handoff и сверил PR #7/#8. Core ушёл на 71 commit вперёд от старой базы Agent, но новые Core-файлы по-прежнему относятся к `.circleci` и NCM28/Windows tooling; `payload/server.py`, prompt-mode, account-pool и delegation product files Core не менял.
+2. Добавил `payload/subagent_lifecycle.py`: реальный локальный жизненный цикл дочерних задач с ограничением параллелизма, уникальной активной `task_id`, очисткой состояния при отмене/ошибке и параллельным `run_many` с сохранением порядка результатов. В lifecycle нет account/thread provider state.
+3. Добавил `payload/notion_delegation_adapter.py`: Notion-child теперь можно завести в обычный `NotionAccountPool` как новую независимую foreground-работу. У него нет preferred account родителя; перед lease исключаются аккаунты, зарезервированные незавершёнными foreground tool-цепочками; cooldown/failover остаётся обязанностью обычного пула.
+4. Расширил существующий `tests/test_delegation_dispatcher.py`, который уже входит в `delegation-contracts`: теперь он проверяет параллельный child lifecycle, запрет дублировать активную child identity и важную связку `dispatcher -> NotionDelegationAdapter -> pool lease` с `preferred_account_id=None` и исключением sticky parent account.
+5. Добавил более полный отдельный `tests/test_subagent_lifecycle.py` с bounded parallelism, cancellation cleanup и fail-before-provider для дублей в batch.
+6. Provider/live traffic, production, реальные аккаунты и пользовательские данные Notion не трогал. Новый exact head ещё не называю удалённо зелёным: в доступном интерфейсе нет результата свежего CircleCI-прогона после последних commit.
 
 Что ещё не завершено:
 1. Нужен ровно один настоящий двухслотовый live Codex probe в уже авторизованной среде; не дублировать другой provider-run.
 2. После двухслотового PASS — один bounded cooldown/failover сценарий с полной локальной историей на новом легитимном слоте и новом Notion thread.
-3. Только после живого Codex-ядра подключать `DelegationDispatcher` к реальному lifecycle субагента. Notion-child должен входить в обычный foreground account-pool как независимая задача; parent получает только структурированный результат.
-4. Затем добавить Qwen adapter под тот же envelope, не смешивая provider state.
-5. Перед слиянием Agent-линии аккуратно синхронизировать её со свежим Core и не перетереть текущие Windows/NCM28 изменения `.circleci`.
+3. Новый `NotionDelegationAdapter` надо подключить к фактическому subagent entry point только после живого Codex PASS: `reserved_account_ids` брать из `foreground_account_reservations.active_account_ids`, а child runner должен использовать `context.conversation_key` как новую независимую локальную цепочку.
+4. Затем подключить Qwen adapter под тот же `DelegationDispatcher`, не смешивая Notion account/thread state.
+5. Перед слиянием Agent-линии синхронизировать её со свежим Core `eef8bc79...`; сейчас PR #8 `mergeable=false`, поскольку Core сильно продвинул `.circleci`/NCM28 линию. Не перетирать Core-конфигурацию ради Agent.
 
-Следующий запуск: сначала убедиться, что нет уже идущего provider-run. Если среда свободна — выполнить один bounded live two-slot Codex probe. Если live пока нельзя безопасно запускать, не наращивать лишние искусственные тесты: подготовить минимальный реальный subagent lifecycle adapter поверх уже зелёного `DelegationDispatcher`, но не включать provider delegation до живого Codex PASS.
+Следующий запуск: сначала снять свежий CircleCI результат exact head `0671ebc5...`. Если contract-набор зелёный и нет уже идущего provider-run — один bounded live two-slot Codex probe. Если live среда занята/недоступна, следующий независимый продуктовый кусок — подключить `NotionDelegationAdapter` к отдельному, выключенному по умолчанию subagent entry point без provider запуска и добавить end-to-end тест `lifecycle -> dispatcher -> adapter -> real NotionAccountPool` на fake clients.

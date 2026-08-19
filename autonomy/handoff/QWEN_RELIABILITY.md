@@ -2,23 +2,26 @@
 
 Обновлено: 2026-08-19.
 
-Текущая рабочая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6, head `992407ef4ede5d481b160afbac341d84e773ad78`.
-`Ai-b0ss/qwen-workspace` PR #5 без изменений: `468733b2e3c8a2fb9bc04220fb6fd909ae0a4e80`.
+Текущая рабочая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6, head `ca7918b021b5a7e4f349f6d408b76ed19f766097`.
+`Ai-b0ss/qwen-workspace` PR #5 без изменений: `468733b2e3c8a2fb9bc04220fb6fd909ae0a4e80`, mergeable=true.
 
 Что сделано в этом запуске:
-- заново проверены текущие PR и свежие изменения; конфликтующей записи в `qwen-workspace` нет;
-- подтверждено, что прежний блокер с передачей `RUNTIME_STATE_KEY` через argv уже исправлен: `RESTORE_RUNTIME_STATE.sh` передаёт ключ в gpg через stdin/`--passphrase-fd 0`, не печатает путь расшифровки;
-- добавлен нативный CircleCI Windows Server 2022 job `qwen-windows-parity`, который ставит/проверяет Node 22, выполняет `npm ci` и полный `npm test` без provider traffic;
-- one-shot Windows-проверка отправлена отдельным trigger-коммитом `a88b4586f895d75e3d61c1f53842598c92add875`; следующим коммитом `992407ef...` флаг снова выключен, чтобы последующие push не размножали Windows jobs;
-- live Qwen/provider запуск не дублировался. Сначала всё ещё надо установить судьбу ранее разрешённого live bridge с trigger `4de8bdae6d0c28789181f31b6212f97e6e283333`.
+- заново прочитаны owner intent/current/handoff и проверены обе Qwen-линии; пересекающейся свежей записи в `qwen-workspace` нет;
+- фактический Windows результат найден: one-shot trigger `a88b4586f895d75e3d61c1f53842598c92add875` прошёл в CircleCI. `qwen-windows-parity` = success, workflow `0e9a0fcf-1aa9-4535-a6cf-ccce14bb182a`, job `3398e251-3d43-42ef-bd31-c723f178865e`. Значит нативный Windows Server 2022 + Node 22 + полный `npm test` закрыты зелёным доказательством;
+- найден реальный риск restart/state recovery: `src/session-store.js` раньше писал `opencode-sessions.json` прямо поверх файла. Падение процесса/машины во время записи могло оставить битый JSON, после чего следующий запуск молча стартовал с пустой картой сессий и терял незавершённую tool-chain;
+- исправлена запись session checkpoint: уникальный временный файл, `fsync`, затем замена основного файла; последняя полностью записанная копия хранится как backup. При повреждённом основном JSON startup восстанавливает состояние из backup;
+- добавлен офлайн-регресс `scripts/session-store-restart-test.js`: он сохраняет историю с `tool` result, намеренно портит основной файл, заново загружает session store и проверяет, что chat/account/history восстановились, а частичный `continue` получает прежний tool-result. Затем проверяет, что новый успешный persist чинит primary и только после этого обновляет backup;
+- тест включён в обычный `npm test`;
+- live Qwen/provider запуск не дублировался.
 
 Проверки/доказательства:
-- Linux exact-head regression до этого был зелёным на `797c303b...`;
-- Windows job сейчас запущен во внешнем CircleCI, но результат через доступный GitHub-интерфейс пока не виден, поэтому PASS/FAIL не заявлять до получения фактического статуса;
+- Windows parity: PASS на trigger `a88b4586...`;
+- текущий head `ca7918b...` запустил обычные CircleCI `qwen-offline-regression`, `qwen-runtime-secret-gate`, `qwen-long-soak-policy-gate`; workflow `f9b253e5-09ef-4526-8c8c-16faea8f50b8`, на момент передачи jobs ещё pending;
+- прежний live bridge trigger `4de8bdae6d0c28789181f31b6212f97e6e283333` не повторялся. Через GitHub для него сейчас нет status contexts, поэтому нельзя честно говорить ни PASS, ни FAIL, ни что он вообще дошёл до provider job;
 - `qwen-workspace` PR #5 остаётся отдельной стабильной линией кэша, его не трогать без отдельной причины.
 
 Следующий полезный шаг:
-1. Забрать фактический результат CircleCI для trigger `a88b4586...`. Если Windows упал — исправить именно найденную Windows-причину и повторить один bounded run; если зелёный — зафиксировать Windows parity.
-2. Установить судьбу уже отправленного live bridge `4de8bdae...`, не запускать второй provider run вслепую.
-3. После одного живого многошагового PASS проверить restart/state recovery + failover внутри незавершённой цели.
-4. После укрепления ядра брать feature-gap обычного веб-Qwen: в первую очередь веб-поиск, большие документы/мультимодальность и субагенты; не ломать tool-loop ради новых функций.
+1. Забрать результат обычного CircleCI для `ca7918b...`. Если новый restart-регресс красный — исправить только найденную кроссплатформенную причину; если зелёный — считать crash-safe checkpoint подтверждённым на Linux CI (Windows-паритет прежнего head уже доказан, но после изменения session-store при возможности нужен один новый bounded Windows offline прогон, не provider traffic).
+2. Установить судьбу уже отправленного live bridge `4de8bdae...` через CircleCI/GitHub run evidence. Не запускать второй provider run вслепую.
+3. Если прежняя live попытка не состоялась, сделать ровно один bounded live сценарий `read_file → tool result → следующий модельный ход → bash → tool result → final`, затем restart и failover незавершённой цели на другой доступный легитимный аккаунт.
+4. После живого PASS аккуратно свести PR #6 с актуальным `main` и только потом расширять feature-gap обычного веб-Qwen: сначала веб-поиск, большие документы/мультимодальность и субагенты.

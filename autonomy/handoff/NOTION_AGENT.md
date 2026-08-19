@@ -1,28 +1,35 @@
 # Notion — ротация, агентность, prompt-mode и делегирование
 
-## 2026-08-19 11:50 МСК
+## 2026-08-19 12:52 МСК
 
-Notion Core продолжает отдельную Windows/NCM28 линию: `candidate/ncm28-windows-fixed-v1`, PR #7, свежий head `53e3ae4548982cd20d965caec8bf0dd09047f318`. После общей базы Agent-ветки Core добавил 46 коммитов, но сравнение показывает только `.circleci/config.yml` и Windows/NCM28 tools; `payload/server.py`, prompt-mode и account-pool он не менял.
+Notion Core продолжает отдельную Windows/NCM28 линию: `candidate/ncm28-windows-fixed-v1`, PR #7, свежий head `30a75728ec3f2213793e0718dc6d6dfbe0dd344b`. Core по-прежнему не меняет `payload/server.py` вокруг Responses: его blob остаётся `2376ae8bda35ac00d1fe32949b06e37419afa845`.
 
-Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8. В начале запуска GitHub показывал head `1370ed2afe40258e23f59180c228abf9fa5534c0`; после моего изменения head `8a98fc8de4bff035c8897fde99782af34508200a`. PR сейчас `mergeable=false`, почти наверняка из-за разошедшейся `.circleci/config.yml`; продуктовые файлы Core с Agent-линией по свежему compare не пересекаются.
+Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8, текущий head `7d975caa811f5d729e5dcc864f922fa95cc54b3f`. PR после возврата свежей Core-конфигурации CircleCI снова `mergeable=true`.
 
-Что уже есть и не надо делать заново:
-- `payload/prompt_modes.py`: режимы `engineer` и `owner`; приватный owner prompt идёт первым прикладным текстом без переписывания и без большой конкурирующей Codex-персоны;
-- owner `runtime_context` отделён от prompt; prompt/runtime identity участвует в cache/thread fingerprint только через SHA-256;
-- независимые foreground-задачи распределяются по свободным легитимным слотам; незавершённая tool-цепочка держит sticky account; при реальном cooldown владельца полный локальный history переносится на новый Notion thread соседнего легитимного слота без cross-account thread reuse;
-- отдельные тесты покрывают prompt-mode, ранний HTTP 400, foreground reservations, lease-level parallelism, cooldown/failover и prompt-policy identity;
-- ранее доказанный wiring `responses_planner_prompt()` существует как fail-closed `tools/apply_prompt_mode_wiring.py`, но сам `payload/server.py` на Agent-ветке всё ещё старый.
+Что уже реально реализовано и проверено:
+- `engineer` и `owner` режимы системного промпта;
+- приватный `owner_system_prompt` идёт первым прикладным текстом без переписывания, рецензирования и большой конкурирующей Codex-персоны;
+- `runtime_context` владельца отделён и нейтрален;
+- prompt/runtime policy входит в cache/thread identity только через SHA-256, без сохранения приватного текста;
+- доказанный prompt wiring теперь уже материализован прямо в настоящем `payload/server.py`: `responses_planner_prompt()` вызывает `compose_responses_planner_prompt(...)`;
+- function/custom tools и structured output сохраняются через нейтральный технический слой;
+- незавершённая tool-цепочка держит sticky account, независимая новая Sol-задача обходит зарезервированный слот;
+- lease-level тесты доказывают две независимые задачи на двух свободных легитимных слотах, ожидание busy preferred-account, пропуск cooling-слота и fail-closed поведение при отсутствии подходящей свободной ёмкости;
+- при реальном cooldown закреплённого аккаунта continuation не переносит старый Notion thread на соседний аккаунт: полный локальный history создаёт новый Notion thread на новом легитимном слоте, после чего affinity переносится на фактически использованный account/thread.
 
 Что сделал в этом запуске:
-- заново сверил Core и Agent. Важно: Core за 46 новых коммитов не менял `payload/server.py`; его Git blob на Agent-ветке остаётся `2376ae8bda35ac00d1fe32949b06e37419afa845`, то есть ровно та база, на которой ранее проходил prompt wiring;
-- усилил `tools/apply_prompt_mode_wiring.py`: теперь перед материализацией он проверяет точный Git blob `payload/server.py` и отказывается менять неизвестную ревизию. Если wiring уже полностью присутствует, повторный запуск остаётся идемпотентным. Commit: `8a98fc8de4bff035c8897fde99782af34508200a`;
-- это убирает риск случайно применить строковый патч к будущему изменённому `server.py` и позволяет безопасно материализовать только ранее проверенный diff.
+1. Обнаружил, что другой автономный проход уже безопасно материализовал prompt wiring в `payload/server.py`; текущий blob Agent-ветки `3bb268933763f72bc4987173af0da5e1f38ef27e`, и внутри `responses_planner_prompt()` уже один общий вызов prompt-policy.
+2. Снял точный результат свежего CircleCI на commit `bc64e60...`: prompt-mode и prompt-policy identity были зелёными, а все тесты, которые импортируют `server`/`account_pool`, падали.
+3. Причину локализовал в самом тестовом окружении, а не продукте: `.circleci/config.yml` добавлял `regression/stubs` и `payload`, но забыл `regression/test_support`, где лежит тестовая `notion_agent_cli`.
+4. Commit `49874080c73a3bbaea165fce6dc252d34297a87c` вернул `regression/test_support` в `PYTHONPATH`.
+5. CircleCI workflow `39916a96-2f13-427e-bc8f-a4c2f5bd45d6` после этого полностью зелёный: все 7/7 контрактов PASS — prompt modes, prompt-policy identity, настоящий server wiring, ранний HTTP 400, account-pool parallelism, foreground slot routing, cooldown failover.
+6. После доказательства вернул в Agent-ветку свежий `.circleci/config.yml` из Core byte-for-byte (commit `7d975caa811f5d729e5dcc864f922fa95cc54b3f`), чтобы наша линия не перетирала активный NCM28 Windows executor. После этого PR #8 снова mergeable=true.
+7. Обновил описание PR #8: старые формулировки про «wiring ещё не материализован» удалены, точный зелёный workflow и оставшиеся шаги зафиксированы.
 
 Что ещё не завершено:
-1. Сам доказанный wiring всё ещё надо записать непосредственно в `payload/server.py`. Через доступный GitHub Contents API нельзя сделать частичный patch большого файла без полной перезаписи, поэтому в этом запуске я не стал реконструировать большой `server.py` кусками и рисковать потерей кода.
-2. После материализации прогнать одним CircleCI-набором: `test_prompt_modes.py`, `test_responses_prompt_wiring_contract.py`, `test_responses_prompt_mode_http_contract.py`, `test_prompt_policy_identity.py`, `test_foreground_slot_routing.py`, `test_account_pool_parallelism.py`, `test_responses_cooldown_failover.py`.
-3. Синхронизировать Agent с свежим Core, сохранив Core `.circleci/config.yml`; не тащить старую Agent-версию CircleCI поверх NCM28.
-4. Затем один bounded реальный двухслотовый Codex Responses tool-loop: две независимые foreground-задачи на разных свободных аккаунтах; tool-result continuation остаётся на своём sticky account/thread; при реальном временном отказе владельца — полный rebase на новый легитимный слот/новый Notion thread.
-5. Только после этого переходить к субагентам и делегированию в Qwen.
+1. Нужна аккуратная синхронизация Agent-коммитов с текущим Core, но продуктового конфликта вокруг Responses сейчас нет; `.circleci` уже приведён к Core.
+2. Следующий главный рубеж — один bounded реальный двухслотовый Codex Responses tool-loop в уже авторизованной среде: две независимые foreground-задачи должны реально уйти на разные свободные слоты; tool-result continuation должна вернуться на свой sticky account/thread; при настоящем временном отказе владельца нужен полный history rebase на новый легитимный слот/новый Notion thread.
+3. Не запускать второй живой provider-тест параллельно с уже активной Core/Agent работой без проверки свежего состояния и существующих one-shot запусков.
+4. После реального Codex многошагового PASS — исследовать/подключать субагентов, затем проектировать делегирование задач в Qwen.
 
-Следующий запуск: сначала проверить свежие PR #7/#8. Если `payload/server.py` всё ещё имеет blob `2376ae8...`, материализовать ровно результат `tools/apply_prompt_mode_wiring.py` в настоящий файл любым доступным безопасным способом и сразу прогнать указанный набор CircleCI. Если blob изменился — не применять старый патч; сначала пересмотреть новый `server.py`.
+Следующий запуск: сначала проверить свежие PR #7/#8 и не появилось ли нового изменения `payload/server.py` в Core. Если Agent остаётся mergeable и Core не тронул Responses, подготовить ровно один безопасный one-shot live proof двухслотового Codex tool-loop с обязательной очисткой и без печати секретов. Если live-окружение ещё занято/не восстановлено — вместо ожидания закрыть независимый кусок по capability/subagent protocol, но не менять Windows/NCM28 файлы.

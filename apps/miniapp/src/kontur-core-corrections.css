@@ -1,4 +1,4 @@
-/* Final bounded KONTUR correction. Imported after local-kontur.css by QuizEgg. */
+/* Final bounded KONTUR correction. This layer must win even if Vite orders component CSS before local-kontur.css. */
 .lk-canonical-bird {
   position: relative;
   display: inline-grid;
@@ -47,8 +47,11 @@
 .lk-first-time--reveal .lk-quiz-egg-stage {
   top: 50%;
   width: min(61vw, 260px);
-  opacity: 1;
-  filter: none;
+  /* local-kontur.css still contains the legacy 'hide the egg during hatch' rule.
+     Vite can order that stylesheet after this component stylesheet, so these two
+     properties are deliberately important until the legacy rule is removed. */
+  opacity: 1 !important;
+  filter: none !important;
   transform: translate(-50%, -50%);
   z-index: 41;
 }

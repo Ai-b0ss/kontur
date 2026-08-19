@@ -1,42 +1,36 @@
 # Notion — Windows + Codex ядро
 
 Рабочая ветка: `Ai-b0ss/notion-agent-bridge:candidate/ncm28-windows-fixed-v1`, PR #7.
-Текущий head: `ca39048ad67cf8f1594a1194dbc9ae8ba90c09cd`.
+Текущий head: `53e3ae4548982cd20d965caec8bf0dd09047f318`.
 
 ## Что уже доказано по NCM28
 
 Низкоуровневая Windows-причина основного happy-path исправлена в v23: directory namespace handles открываются native `NtCreateFile` и пригодны как `OBJECT_ATTRIBUTES.RootDirectory` для относительных операций.
 
-На commit `b5b7ce66672ac6bd050507d04f58ad5d4e909f78` настоящий Windows-прогон доказал:
+На commit `20adb707ed9fe51cb836ed0892cd6990306fcbef` настоящий Windows-прогон доказал:
 - `ncm28-happy-running` — SUCCESS;
 - `ncm28-happy-stopped` — SUCCESS;
 - `ncm28-rerun-noop` — SUCCESS;
-- отдельный `ncm28-auth-rollback` — FAILURE.
+- `ncm28-auth-rollback` — FAILURE.
 
-Первый разрез аварийного rollback на head `f1cdfa3dcff16a3d9f28d5c614502c385a7b7221`, CircleCI workflow `bc4eece6-6bbb-4587-977b-af80d6f4b34f`, завершился так:
-- `ncm28-auth-lifecycle-verdict` — SUCCESS;
-- `ncm28-auth-snapshot-verdict` — FAILURE;
-- `ncm28-auth-aux-verdict` — FAILURE;
-- `ncm28-auth-rollback-verdict` — FAILURE.
+После этого была восстановлена отсутствовавшая fail-closed функция отката уже зафиксированной первой auth-генерации. Однако серия последующих диагностических коммитов добавила ещё одно изменение: recovery intent scan стали принудительно вести через уже открытый parent handle. Это изменение не было доказано и дало явную регрессию: на head `e35a3942a12ff2987c938ecbf799dc2d1b603df1` уже все четыре integrated Windows cases стали FAILURE, включая три ранее зелёных happy-path/noop сценария.
 
-Это означает: процесс в отдельном прогоне может вернуться в исходное состояние, но полный байтовый снимок управляемых файлов не восстановлен и служебные auth/stable деревья не убраны полностью. Поэтому менять уже зелёный native write-path нельзя; проблема теперь только в аварийном outer/auth rollback.
+В этом запуске регрессионное изменение удалено. `build_ncm28_windows_fixed_candidate_v23.py` снова содержит только доказанный native-directory fix и восстановленную fail-closed auth rollback helper. Новый head: `53e3ae4548982cd20d965caec8bf0dd09047f318`.
 
-В текущем запуске старый широкий `snapshot/aux` разрез заменён на четыре точных компонента одного и того же сценария, без вывода путей/секретов:
-- `ncm28-auth-aux-verdict` — исчезли ли `bridge-auth` и `codex-notion-cli`;
-- `ncm28-stable-aux-verdict` — исчезли ли migration/runtime деревья;
-- `ncm28-bridge-source-verdict` — восстановились ли исходные `server.py/account_pool.py/diagnostics.py`;
-- `ncm28-installed-state-verdict` — восстановился ли исходный `installed.json`.
+CircleCI автоматически запустил четыре integrated Windows cases на этом exact head, workflow `e7e8f73a-564a-4876-87dd-820ef0253ce8`:
+- `ncm28-happy-running` — pending;
+- `ncm28-happy-stopped` — pending;
+- `ncm28-rerun-noop` — pending;
+- `ncm28-auth-rollback` — pending.
 
-Новый CircleCI workflow: `9ac50faa-9f7b-43dd-aa17-6ce1274f5587` на head `ca39048ad67cf8f1594a1194dbc9ae8ba90c09cd`.
-На момент передачи все четыре job ещё `pending`. Дубликат не запускать.
+Дубликат не запускать.
 
 ## Точка продолжения
 
-1. Снять четыре статуса workflow `9ac50faa-9f7b-43dd-aa17-6ce1274f5587`.
-2. По красному компоненту исправить конкретную операцию rollback. Не добавлять ещё один общий диагностический слой и не трогать v23 native happy-path.
-3. После первого кандидата вернуть четыре integrated Windows cases: running, stopped, rerun-noop, auth-rollback.
-4. При 4/4 PASS сразу прогнать `tests.test_crash_recovery` и полный `RUN_NCM28_LOCAL_VERIFY.py` на Windows.
-5. После устойчивого Windows PASS прекратить NCM28-цикл и перейти к пользовательской цели: настоящий Codex CLI → несколько последовательных tool-вызовов → реальные локальные действия → tool result → продолжение модели → restart/failover.
-6. PR #8 (`autonomy/notion-prompt-modes-20260819`) продвинут независимо и не должен менять Windows filesystem-файлы Core. Его ближайшая задача после Core — материализовать готовый prompt-mode wiring в реальный Responses путь и затем доказать двухслотовый многошаговый Codex loop.
+1. Снять четыре статуса workflow `e7e8f73a-564a-4876-87dd-820ef0253ce8` на head `53e3ae45...`.
+2. Если три happy-path/noop снова зелёные, считать откат регрессии подтверждённым и больше не менять native write-path без отдельного доказательства.
+3. Если `auth-rollback` тоже зелёный — сразу прогнать `tests.test_crash_recovery` и полный `RUN_NCM28_LOCAL_VERIFY.py` на Windows; после их PASS закончить NCM28 и переходить к настоящему Codex CLI многошаговому tool-loop.
+4. Если `auth-rollback` остаётся красным при зелёных остальных трёх — исследовать только outer/auth rollback. Не возвращать parent-bound intent scan и не расширять изменения в файловом happy-path.
+5. Отдельная агентная ветка PR #8 уже дошла до head `1370ed2afe40258e23f59180c228abf9fa5534c0`: materialization prompt wiring проходит, но prompt-contracts и slot-routing на этом head красные. После закрытия Core нужно синхронизировать её с свежим Core, исправить эти две конкретные регрессии и затем делать настоящий двухслотовый Codex Responses tool-loop.
 
 Production и живой Notion не трогались; секреты не раскрывались.

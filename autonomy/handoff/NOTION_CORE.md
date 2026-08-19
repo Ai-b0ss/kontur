@@ -1,56 +1,49 @@
 # Notion — Windows + Codex ядро
 
 Рабочая Core-ветка: `Ai-b0ss/notion-agent-bridge:candidate/ncm28-windows-fixed-v1`, PR #7.
-Текущий Core head: `e9233b2ce6811809474004345b43fa4e9f526301`.
+Текущий Core head: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
 ## NCM28
 
 Последняя доказанная хорошая основа файлового слоя — v23. Её native Windows write primitive не менять без нового точного доказательства.
 
-Что доказано настоящим Windows:
+Что уже доказано настоящим Windows:
 - на v25: `build`, `happy-running`, `happy-stopped`, `rerun-noop` — SUCCESS; `auth-rollback` — FAILURE;
-- внутри rollback на v25: возврат управляемых файлов и сохранность non-targets — SUCCESS; auth и stable — FAILURE;
-- v27/v28/v29/v30/v31 были только неудачными сборочными/preimage-попытками и не считаются продуктовыми Windows-регрессиями;
-- отдельный fast-gate установил важную причину этих ложных сборочных тупиков: после materialize v25 в исходнике две текстовые версии `_rollback_committed_first_auth`; v23 намеренно добавляет более строгую позднюю реализацию, которая фактически и используется Python.
+- внутри rollback: возврат управляемых файлов и сохранность non-targets — SUCCESS; auth и stable — FAILURE;
+- v32 собрался и не регрессировал основной путь: workflow `08837cc8-0149-465a-90a3-61ddc953bd43`, build + три обычных сценария SUCCESS, `auth-rollback` FAILURE;
+- ошибки обоих аварийных подэтапов — именно `PermissionError`;
+- отдельный Windows-разрез `f81e9dbf-5779-460a-9b55-2c4968cf5562` доказал, что этот `PermissionError` возникает НЕ внутри `remove_plain_tree`: `permission-outside-remove` SUCCESS, а auth/codex/runtime/migration remove-маркеры не сработали;
+- значит предыдущая гипотеза про повторное pathname-open при самом удалении была недостаточной. Низкоуровневый writer v23 и уже зелёные happy-path не трогать.
 
-Сделан v32 (`tools/build_ncm28_windows_fixed_candidate_v32.py`). Он не меняет доказанный v23 write primitive и исправляет только destructive rollback namespace:
-- `remove_plain_tree` умеет открыть transaction-owned корень относительно уже удерживаемого parent guard;
-- `managed_guard` передаётся в auth/codex rollback-удаления;
-- обе текстовые реализации `_rollback_committed_first_auth` теперь сохраняют этот guard, так что порядок определений не возвращает pathname-based удаление;
-- два committed stable-пути удаления runtime/migration тоже получают тот же удерживаемый `.notionagents` guard.
+Полезная статическая находка этой смены: после materialize v25 существуют две текстовые реализации `_rollback_committed_first_auth`; v23 намеренно добавляет более строгую позднюю реализацию. Не строить следующие patch-builder на предположении, что определение одно.
 
-Fast materialize+compile v32 — PASS: workflow `12e96ee2-f89a-4426-9156-06ac05648555`, job `fa3eccb9-987c-4e6c-9386-9a59b6ad3c40`.
+Также проверено: обычные чтения `sanitized_active`, config SHA, tree digest auth/migration/runtime и pending-check сами по себе не воспроизводят `PermissionError` только от факта удержания внешнего `.notionagents` guard. Значит ошибка зависит от реального состояния после провала auth, а не просто от наличия guard.
 
-Настоящий Windows acceptance v32 на commit `3978ecb264fdf2a7a5effc942621f1a1bd45fba9`, workflow `08837cc8-0149-465a-90a3-61ddc953bd43`:
-- build — SUCCESS;
-- happy-running — SUCCESS;
-- happy-stopped — SUCCESS;
-- rerun-noop — SUCCESS;
-- auth-rollback — FAILURE.
+Сейчас уже запущен следующий настоящий Windows-разрез без изменения продукта:
+- exact head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`;
+- workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3`;
+- проверки: auth/codex/migration/runtime `tree_digest` и `outside-digest` во время реального падающего rollback.
+На момент передачи все пять задач ещё `pending`; второй такой прогон не запускать.
 
-То есть v32 не регрессировал три уже зелёных пути, но одного parent-guard на root-open оказалось недостаточно для аварийного rollback. Full crash-recovery job правильно не стартовал, потому что был gated всеми пятью проверками.
+Если `outside-digest` станет SUCCESS, следующий готовый диагностический инструмент уже лежит в ветке: `tools/circleci_ncm28_rollback_call_cut.py`. Он различает реальный `PermissionError` в `sanitized_active`, `sha_file`, `ncm28_pending_atomic_write`, `recover_migration`, `_validate_owned_migration_tree`, `_validate_owned_partial_runtime`, `_path_lexists` и вне этих вызовов. Перед включением обязательно перечитать свежий head/config: параллельный рабочий процесс тоже двигает эту ветку, и слепо перетирать `.circleci/config.yml` нельзя.
 
-Следующий разрез уже запущен на Core head `e9233b2c...`, workflow `5a26bdc2-8dac-4a38-87c1-fe34df81bb85`: он не меняет продукт, а определяет точные классы исключений auth и stable независимо. После результата чинить только конкретную операцию rollback; не возвращаться к общему файловому примитиву и не расширять диагностику дальше необходимого.
-
-После первого полностью зелёного `auth-rollback` сразу выполнить Windows `tests.test_crash_recovery` + полный `RUN_NCM28_LOCAL_VERIFY.py`, после PASS закрыть NCM28 и удалить временную диагностическую обвязку.
+После установления одного точного вызова: исправить только его, затем снова `build + happy-running + happy-stopped + rerun-noop + auth-rollback`. При пяти зелёных сразу выполнить на Windows `python -B -m unittest -v tests.test_crash_recovery` и полный `python -B RUN_NCM28_LOCAL_VERIFY.py`. Только после этого NCM28 закрыт.
 
 ## Codex / агентная ветка
 
 PR #8: `autonomy/notion-prompt-modes-20260819`.
-Текущий head: `5098f89ca6e0315fcfff7269b210325319f3be27`.
+Свежий head на момент передачи: `07798da1078fb34fc41d9e344b1f1ef92e3e5ec7`.
 
-Все четыре постоянных CircleCI-набора на этом exact head зелёные, workflow `4e57cad5-ed8b-4f1b-9559-2a2006dc4cb0`:
-- prompt-contracts — SUCCESS;
-- agent-contracts — SUCCESS;
-- routing-contracts — SUCCESS;
-- delegation-contracts — SUCCESS.
+На этом exact head все четыре постоянных CircleCI-набора зелёные, workflow `4d35bdd6-420a-42fe-a2dc-bf3b19edbfbe`: prompt, agent, routing, delegation.
 
-Настоящий CLI-гейт `tools/run_real_codex_cli_project_probe.py` теперь сильнее прежнего: он запускает именно `codex exec` через Responses bridge и первый `python verify.py` намеренно создаёт неизвестный заранее `challenge.txt` и завершается ошибкой. Для PASS Codex обязан получить неудачный tool result, прочитать новую информацию, исправить `result.txt`, повторно запустить verifier и закончить только после `VERIFY_OK`. Этот контракт уже включён в зелёный `agent-contracts`.
+Агентная линия уже заметно дальше старого handoff: кроме двух режимов промпта и sticky/cooldown routing, там есть provider-neutral delegation, stateful child-session, безопасный A→B rebase на новый Notion thread и provider-ready Notion subagent runtime; последние delegated-контракты тоже включены в зелёный CI.
+
+Настоящий CLI-гейт `tools/run_real_codex_cli_project_probe.py` в этой смене усилен: он запускает именно `codex exec` через Responses bridge; первый `python verify.py` намеренно создаёт неизвестный заранее `challenge.txt` и падает. Для PASS Codex обязан получить неудачный tool result, прочитать новую информацию, исправить `result.txt`, повторно запустить verifier и закончить только после `VERIFY_OK`. Офлайн-контракт этого поведения входит в зелёный `agent-contracts`.
 
 После NCM28 порядок:
 1. один настоящий `run_real_codex_cli_project_probe.py` в уже авторизованной среде;
 2. restart/recovery незавершённой цепочки;
-3. failover: обычное продолжение остаётся на владельце Notion thread; при недоступности владельца другой допустимый слот получает новый Notion thread и полную локальную историю, старый thread ID между аккаунтами не переносится;
-4. только после этого углублять субагентов и реальное делегирование в Qwen.
+3. реальный failover: нормальное продолжение остаётся на владельце Notion thread; при недоступности владельца другой легитимный слот получает НОВЫЙ Notion thread и полную локальную историю без повторения уже выполненного локального side effect;
+4. затем уже углублять реальные субагенты и делегирование в Qwen.
 
 Production и живой Notion в этой смене не трогались; секреты не печатались.

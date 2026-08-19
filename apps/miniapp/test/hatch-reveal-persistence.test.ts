@@ -40,13 +40,23 @@ test('q8 hatch opens the real stage-08 shell as two coherent halves', async () =
   assert.doesNotMatch(egg, /<svg|<path|<line|stroke=/, 'QuizEgg must not paint a fake SVG crack over the raster shell');
 });
 
-test('the future bird rises behind the shell before the shell fully opens', async () => {
+test('the future bird rises physically behind the shell before the shell fully opens', async () => {
   const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
 
   assert.match(
     css,
+    /\.lk-quiz-egg__hatch-shells\s*\{[\s\S]*?z-index:\s*8;/,
+    'the readable shell halves must occupy the foreground hatch layer',
+  );
+  assert.match(
+    css,
+    /\.lk-quiz-egg\.is-hatching\s*>\s*\.lk-quiz-hatch\s*\{[\s\S]*?z-index:\s*7;/,
+    'the entire future-bird hatch layer must sit below the shell layer; a child z-index alone cannot beat the parent stacking context',
+  );
+  assert.match(
+    css,
     /\.lk-quiz-hatch__bird\.lk-canonical-bird\s*\{[\s\S]*?z-index:\s*7;/,
-    'the canonical bird should sit behind the shell instead of being clipped above it',
+    'the canonical bird should stay on the bounded hatch layer',
   );
   assert.match(
     css,

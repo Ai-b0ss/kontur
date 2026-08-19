@@ -1,8 +1,8 @@
 # Qwen — надёжность, пул аккаунтов и расширение возможностей
 
-Обновлено: 2026-08-19 13:38 МСК.
+Обновлено: 2026-08-19 15:45 МСК.
 
-Текущая рабочая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Свежий head после этой смены: `3803cca99376e2aab37abf14a2c75b53f8e00340`.
+Текущая рабочая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Свежий head после этой смены: `ca1803f196454a11907f8d4f9dd15f21ca947681`.
 `Ai-b0ss/qwen-workspace` PR #5 без изменений: `468733b2e3c8a2fb9bc04220fb6fd909ae0a4e80`, mergeable=true.
 
 Что уже есть и сохраняется:
@@ -12,25 +12,36 @@
 - агент продолжает после tool result и после ошибок инструмента; обычный лимит — 12 модельных ходов, жёсткий потолок — 24;
 - два режима системного промпта (`engineer`/`owner`) уже есть;
 - runtime/profile recovery не передаёт GPG-ключ через argv и не печатает секреты;
-- `provider-circuit.json` и account JSON сохраняются crash-safe;
+- `provider-circuit.json`, account JSON, основной session checkpoint и его backup сохраняются crash-safe;
 - ChatGPT relay не считать активной задачей до появления owner session или явного owner-запроса; outbox не включать.
 
 Что сделано в этой смене:
-- перед записью заново проверены PR #6 и последние коммиты. После прошлого handoff ветка ушла вперёд до `d4a7890f...`, но новые изменения затрагивали `.circleci/config.yml`, `package.json`, `src/tool-executor.js` и тест ошибок команды; `src/session-store.js` и `scripts/session-store-restart-test.js` не пересекались с работой другого Qwen-агента;
-- закрыт найденный пробел crash recovery: резервная копия `opencode-sessions.json.bak` больше не обновляется обычным `copyFileSync`. Теперь и основной файл, и backup записываются отдельными транзакциями `unique temp → write → fsync → atomic rename`;
-- если процесс оборвётся во время обновления backup, предыдущий целый backup остаётся на месте; временный недописанный файл не становится источником состояния;
-- расширен `scripts/session-store-restart-test.js`: он имитирует оборванное обновление backup, рвёт primary, проверяет восстановление незавершённой tool-цепочки из последнего целого backup и затем проверяет нормальный ремонт обоих снимков;
-- локальный минимальный Node 22 smoke для новой файловой схемы прошёл (`PASS`). Полный `npm test` должен подтвердить CircleCI; provider traffic в этой смене = 0;
-- коммиты: `df18995b4ad77570f0b217ce9b6347a4dba5aac2` (реализация), `3803cca99376e2aab37abf14a2c75b53f8e00340` (регрессия).
+- сначала заново проверены текущий PR #6 и изменения после прошлого handoff. Ветка уже ушла до `24f8879c...`; последние чужие изменения затрагивали `agent.js`, `tools.js`, `session-store.js` и их тесты. Поэтому эти файлы не трогались;
+- взят независимый feature-gap: добавлен первый настоящий локальный Skills-слой без provider traffic;
+- новый `src/skills.js` загружает только явно выбранные клиентом Markdown-skills из локального каталога `QWEN_SKILLS_DIR` (по умолчанию `<repo>/skills`), не сканирует произвольные пути и не ищет внешние credentials;
+- выбор можно передать полями `skills`, `skill_names` или `skillNames`; служебные поля удаляются до отправки upstream;
+- загрузчик ограничен: максимум 8 skills, максимум 12 000 символов на один skill и 32 000 символов суммарно; имена проходят строгую проверку, path traversal и symlink-выход из каталога запрещены;
+- выбранные skill-инструкции добавляются как отдельный нейтральный технический блок `<selected_skills>`, а не заменяют owner prompt;
+- в `owner`-режиме приватный owner system prompt по-прежнему идёт первым и не смешивается с `ENGINEER_BASE_PROMPT`; skill-контекст добавляется отдельно к техническому окружению;
+- добавлен `scripts/skills-selection-test.js`: проверяет дедупликацию, отсутствие утечки служебных полей upstream, запрет `../`, отсутствие несуществующего skill и сохранение owner prompt без инженерной персоны;
+- новый тест включён в обычный `npm test`;
+- изменения этой смены от исходного `24f8879c...` ограничены четырьмя файлами: `src/skills.js`, `src/qwen-v3-capabilities.js`, `scripts/skills-selection-test.js`, `package.json`;
+- provider traffic в этой смене = 0; живые аккаунты, production и relay outbox не тронуты.
+
+Коммиты этой смены:
+- `2d7d68316e9767a57d0105af27b7d55c2a30919a` — bounded local skill loader;
+- `aaea6b6b58e048c6e358b6e82990f01aec4e423a` — подключение selected skills к Qwen context;
+- `1d5545823721b12a1aada7108f67ce8849370837` — регрессионный тест;
+- `ca1803f196454a11907f8d4f9dd15f21ca947681` — включение теста в обычный `npm test`.
 
 Что проверено отдельно:
-- `package.json` уже включает `scripts/session-store-restart-test.js` в обычный `npm test`, поэтому новый регрессионный тест автоматически входит в основной офлайн-прогон;
-- `qwen-workspace` PR #5 заново проверен: head прежний, mergeable=true;
-- живые Qwen-аккаунты, production и relay outbox не тронуты.
+- текущий `qwen-workspace` PR #5 по-прежнему `468733b2...`, mergeable=true;
+- после записи PR #6 действительно стоит на `ca1803f1...`;
+- diff от `24f8879c...` содержит только четыре ожидаемых файла этой смены, то есть чужой `agent/session-store/tools` не перезаписан.
 
 Что ещё требуется:
-1. Снять полный результат обычного CircleCI на exact head `3803cca9...`. Не считать локальный smoke заменой полного `npm test`.
-2. Из-за изменения семантики `fsync/rename` сделать один bounded Windows Server 2022 offline parity на exact продуктовом коде после зелёного обычного прогона. Provider traffic = 0.
+1. Снять полный результат обычного CircleCI на exact head `ca1803f1...`. Новый Skills-слой пока не считать доказанным только по статическому diff.
+2. Если обычный CircleCI зелёный, один bounded Windows Server 2022 offline parity нужен для exact head только если с прошлого Windows PASS изменились чувствительные к Windows части; сам Skills-слой использует `path/realpath` и его тест должен войти в этот прогон. Provider traffic = 0.
 3. Не повторять живой Qwen-run, пока не установлена судьба старого разрешённого trigger `4de8bdae6d0c28789181f31b6212f97e6e283333`. Если доказано, что он не состоялся, нужен ровно один bounded live `read_file → tool result → следующий модельный ход → bash → tool result → final`.
 4. После живого PASS проверить настоящий `restart → восстановление незавершённой цели → аккаунт A недоступен → продолжение через B` с сохранённой tool history.
-5. После ядра feature-gap: сначала Skills как низкорисковое расширение, затем bounded subagents. Веб-поиск уже есть; крупные следующие пробелы — большие документы/мультимодальность и более богатая агентная оркестрация.
+5. После этого развивать Skills до удобного клиентского контракта/списка доступных skills и только затем брать bounded subagents. Крупные следующие пробелы — большие документы/мультимодальность и более богатая агентная оркестрация.

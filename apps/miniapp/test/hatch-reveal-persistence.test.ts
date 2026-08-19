@@ -40,6 +40,22 @@ test('q8 hatch opens the real stage-08 shell as two coherent halves', async () =
   assert.doesNotMatch(egg, /<svg|<path|<line|stroke=/, 'QuizEgg must not paint a fake SVG crack over the raster shell');
 });
 
+test('the unified hatch scene cannot be hidden by the legacy local stylesheet', async () => {
+  const corrections = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
+  const local = await readFile(new URL('../src/local-kontur.css', import.meta.url), 'utf8');
+
+  assert.match(
+    local,
+    /\.lk-first-time--hatching \.lk-quiz-egg-stage\s*\{\s*opacity:\s*0;\s*filter:\s*brightness\(1\.8\);\s*\}/,
+    'this guard should be removed when the legacy hide rule is finally deleted',
+  );
+  assert.match(
+    corrections,
+    /\.lk-first-time--hatching \.lk-quiz-egg-stage,[\s\S]*?opacity:\s*1\s*!important;[\s\S]*?filter:\s*none\s*!important;/,
+    'the current correction must beat the legacy hide rule regardless of Vite CSS import order',
+  );
+});
+
 test('the future bird rises physically behind the shell before the shell fully opens', async () => {
   const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
 

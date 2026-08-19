@@ -77,6 +77,20 @@ test('the future bird rises physically behind the shell before the shell fully o
   );
 });
 
+test('reward bird art cannot intercept the equip action', async () => {
+  const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
+  assert.match(
+    css,
+    /\.lk-bird-stage--drop,[\s\S]*?\.lk-bird-stage--drop \.lk-result-bird\s*\{[\s\S]*?pointer-events:\s*none;/,
+    'the reward illustration may overlap decoratively but must be click-through',
+  );
+  assert.match(
+    css,
+    /\.lk-drop \.lk-button\s*\{[\s\S]*?position:\s*relative;[\s\S]*?z-index:\s*2;/,
+    'the equip action must paint above the reward illustration',
+  );
+});
+
 test('skip and reduced-motion finish through the same hatch finalizer and cancel the pending timer', async () => {
   const screen = await readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8');
 

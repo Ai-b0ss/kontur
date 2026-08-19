@@ -45,26 +45,28 @@
 ## Notion Agent Bridge
 
 Репозиторий: `Ai-b0ss/notion-agent-bridge`.
-Текущая Core-ветка: `candidate/ncm28-windows-fixed-v1`, PR #7, head `f2da5e8b4c6766e43289b60812813911cb621be4`.
-Отдельная ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8, head `7bc07486431abd0f286a3a69e3ecb81ccf5b5369`.
+Текущая Core-ветка: `candidate/ncm28-windows-fixed-v1`, PR #7, head `b3d75d96fba7dff4b84b7d0aa19f7c7ce63451a7`.
+Отдельная ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8, head `07798da1078fb34fc41d9e344b1f1ef92e3e5ec7`.
 
 Что уже есть:
 - большая часть безопасного локального runtime/state слоя и архитектура пула/ротации слотов;
-- последняя доказанная Windows-база v23 уже проходила `happy-running`, `happy-stopped`, `rerun-noop`; оставался только `auth-rollback`;
-- свежий preimage-cut доказал, почему новый v25 вообще не собирался: он искал устаревшую форму `_load_outer_journal(home)`, хотя доказанный v23 уже вызывает `_load_outer_journal(home, parent_guard=managed_guard)`;
-- v25 исправлен на head `f2da5e8b...`: обычный crash/restart сохраняет managed parent guard, а только same-process `AUTH_ACTIVATION_FAILED` может использовать уже опубликованный canonical journal после точной повторной проверки байтов; native Windows write primitive v23 не менялся;
 - в агентной ветке материализованы режимы `engineer/owner`, реальный Responses wiring, foreground reservations, lease-level routing, cooldown failover и provider-neutral delegation envelope;
-- четыре постоянных Agent CircleCI-контракта на head `7bc07486...` зелёные (`agent`, `prompt`, `routing`, `delegation`);
-- в ветке уже есть настоящий `tools/live_codex_project_probe.py`: временный проект, неизвестный заранее токен, реальные `read_file`, `write_file`, `bash`, обязательный `python verify.py` и запрет завершаться до успешной проверки. Это ближайший пользовательский гейт, а не очередной `probe_marker`;
-- зашифрованный Notion runtime хранится в Git LFS. Попытка восстановить его прямо в CircleCI без provider traffic была сделана отдельно и завершилась FAILURE; чтобы не держать продуктовую ветку красной из-за инфраструктурной готовности, временный gate убран. Секреты не печатались, живой Notion не трогался.
+- локальная child-session переживает допустимую смену аккаунта и хранит историю, tool-result, использованные call id и бюджет ходов, поэтому уже выполненный локальный side effect не запускается заново после failover;
+- добавлен реальный delegated Notion `model_step`: на том же клиенте он продолжает его remote thread инкрементально, а при A→B новый клиент получает полный локальный transcript без `thread_id` A и создаёт собственный новый Notion thread;
+- remote-thread map теперь живёт строго внутри одной child-сессии. Завершённая child-задача не оставляет provider thread, который можно случайно воскресить повторным `task_id`;
+- `build_notion_tool_subagent_entrypoint(...)` впервые собирает весь provider-ready путь `NotionDelegatedModelStep → DelegatedToolLoopRunner → NotionDelegationAdapter → обычный account pool → SubagentEntryPoint`; родительский account/thread state туда не передаётся, а источник занятых слотов остаётся обязательным;
+- расширенный `delegation-contracts` на exact head `07798da1...` уже SUCCESS: workflow `4d35bdd6-420a-42fe-a2dc-bf3b19edbfbe`, job `0159121f-942f-4d28-b9f9-f730a756a0e6`. Он проверяет stateful retry, A→B rebase, уничтожение remote thread state после child-session и полный provider-ready runtime на fake lease;
+- в ветке есть настоящий `tools/live_codex_project_probe.py`: временный проект, неизвестный заранее токен, реальные `read_file`, `write_file`, `bash`, обязательный `python verify.py` и запрет завершаться до успешной проверки. Это ближайший пользовательский гейт, а не очередной `probe_marker`;
+- provider/live traffic и реальные аккаунты ради новых delegated-тестов не использовались.
 
 Что мешает прямо сейчас:
-- Core: дождаться результата текущего CircleCI workflow `fbc7e218-7f4d-46c8-9904-d220b1562a3f`; главный сигнал — `ncm28-windows-build-v25`, затем четыре integrated case. Старый временный `preimage-load` в этом workflow больше не считать продуктовым сигналом, потому что он намеренно проверяет прежний шаблон;
-- если build и четыре case зелёные — убрать временную диагностику, прогнать Windows `tests.test_crash_recovery` + полный `RUN_NCM28_LOCAL_VERIFY.py` и закрыть NCM28;
-- Agent: после NCM28 запустить настоящий `live_codex_project_probe.py` в уже авторизованной среде, затем проверить restart/recovery незавершённой цепочки и безопасный failover на другой допустимый слот с новым Notion thread и полной локальной историей;
-- после устойчивого Codex-ядра исследовать субагентов и затем делегирование задач в Qwen.
+- Core продолжает отдельную Windows/NCM28 линию; не конфликтовать с его файлами и не сводить PR #8 поверх движущейся базы вслепую;
+- остальные Agent CircleCI jobs на exact `07798da1...` на момент обновления ещё выполняются, хотя новый `delegation-contracts` уже green;
+- provider-ready subagent builder ещё не подключён к реальному server lifecycle: при подключении использовать существующий `foreground_account_reservations.active_account_ids`, а не заводить второй реестр занятости; entrypoint оставить выключенным по умолчанию;
+- нужен один ограниченный настоящий two-slot Codex/CLI run в уже авторизованной среде: две независимые задачи на разных свободных легитимных слотах, sticky continuation на владельце; после него — один реальный cooldown/failover с новым Notion thread на B и полной локальной историей без повторения локального tool side effect;
+- после устойчивого Codex/Notion ядра — Qwen adapter под тот же `DelegationDispatcher`, без общего account/thread state.
 
-Ближайший смысловой приоритет Core: снять exact результат v25 build + integrated Windows cases и больше не менять файловый примитив без нового доказательства. Ближайший смысловой приоритет Agent: не добавлять синтетические probes; готовиться к реальному проектному tool-loop в авторизованной среде.
+Ближайший смысловой приоритет Agent: снять окончательный exact-head CircleCI, затем не наращивать синтетические probes вокруг уже доказанного delegated A→B. Либо безопасно подключить provider-ready builder к серверному lifecycle с существующими reservations, либо, если авторизованная среда свободна и нет другого provider-run, перейти к одному настоящему two-slot Codex project run.
 
 ## Kontur
 

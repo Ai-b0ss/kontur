@@ -16,12 +16,13 @@
 
 Проверки/доказательства:
 - Windows parity: PASS на trigger `a88b4586...`;
-- текущий head `ca7918b...` запустил обычные CircleCI `qwen-offline-regression`, `qwen-runtime-secret-gate`, `qwen-long-soak-policy-gate`; workflow `f9b253e5-09ef-4526-8c8c-16faea8f50b8`, на момент передачи jobs ещё pending;
+- текущий head `ca7918b...`: обычный CircleCI полностью зелёный — `qwen-offline-regression`, `qwen-runtime-secret-gate`, `qwen-long-soak-policy-gate`, workflow `f9b253e5-09ef-4526-8c8c-16faea8f50b8`;
+- значит новый crash-safe restart checkpoint и его регресс проходят на Linux CI вместе со всем текущим offline-набором;
 - прежний live bridge trigger `4de8bdae6d0c28789181f31b6212f97e6e283333` не повторялся. Через GitHub для него сейчас нет status contexts, поэтому нельзя честно говорить ни PASS, ни FAIL, ни что он вообще дошёл до provider job;
 - `qwen-workspace` PR #5 остаётся отдельной стабильной линией кэша, его не трогать без отдельной причины.
 
 Следующий полезный шаг:
-1. Забрать результат обычного CircleCI для `ca7918b...`. Если новый restart-регресс красный — исправить только найденную кроссплатформенную причину; если зелёный — считать crash-safe checkpoint подтверждённым на Linux CI (Windows-паритет прежнего head уже доказан, но после изменения session-store при возможности нужен один новый bounded Windows offline прогон, не provider traffic).
+1. При первой удобной возможности сделать один bounded Windows offline прогон уже на `ca7918b...`, потому что session-store изменился после прежнего Windows PASS. Не запускать provider traffic ради этой проверки.
 2. Установить судьбу уже отправленного live bridge `4de8bdae...` через CircleCI/GitHub run evidence. Не запускать второй provider run вслепую.
 3. Если прежняя live попытка не состоялась, сделать ровно один bounded live сценарий `read_file → tool result → следующий модельный ход → bash → tool result → final`, затем restart и failover незавершённой цели на другой доступный легитимный аккаунт.
 4. После живого PASS аккуратно свести PR #6 с актуальным `main` и только потом расширять feature-gap обычного веб-Qwen: сначала веб-поиск, большие документы/мультимодальность и субагенты.

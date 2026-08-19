@@ -6,23 +6,29 @@
 
 ## 2026-08-19
 
-Notion Core продолжает отдельную Windows/NCM28 линию в `candidate/ncm28-windows-fixed-v1`, PR #7. На этом запуске её свежий head уже `79f19612f99480c1ef5d88bdb836c695669e6b72`. После базы, от которой ответвлён PR #8, Core добавил 6 коммитов, но сравнение показывает изменения только в `.circleci/config.yml` и `tools/circleci_probe_ncm28_happy_outcome.py`; `payload/server.py` и prompt-mode файлы Core не трогал.
+Notion Core продолжает отдельную Windows/NCM28 линию в `candidate/ncm28-windows-fixed-v1`, PR #7. На начале этого запуска её свежий head был `79f19612f99480c1ef5d88bdb836c695669e6b72`; зона `payload/server.py` вокруг Responses/prompt-mode не пересекалась с последними Windows-зондами Core.
 
-Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8. Текущий head после этого запуска: `0350d28db5e4b68405b16e12aa176d08a018150d`.
+Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8. Текущий head после этого запуска: `5ae413111ab55ed0f803daf2b00ed9db1251c057`.
 
-Что сделано по двум режимам системного промпта:
-- ранее добавлен `payload/prompt_modes.py` с явными режимами `engineer` и `owner`;
+Что уже сделано по двум режимам системного промпта:
+- есть `payload/prompt_modes.py` с явными режимами `engineer` и `owner`;
 - `engineer` остаётся режимом по умолчанию и получает наш инженерный управляющий текст;
 - `owner` требует отдельный `client_metadata.owner_system_prompt`, сохраняет его без нормализации/переписывания и не подмешивает большую персону Codex;
-- в этом запуске закрыт ещё один важный канал случайного смешивания: owner-режим больше не должен извлекать runtime-контекст из `body.instructions` вообще. Для него введён отдельный нейтральный `client_metadata.runtime_context`; инженерный режим сохраняет прежний уже очищенный контекст;
-- неправильный тип `runtime_context` закрывается явной ошибкой, а не преобразуется молча;
-- контрактные тесты расширены с 5 до 8: отдельно проверяется отсутствие текста Codex из `instructions`, явный runtime-context владельца, сохранение инженерного контекста и отказ на неправильном типе.
+- owner-режим вообще не извлекает runtime-контекст из `body.instructions`; нейтральный технический контекст должен приходить отдельно через `client_metadata.runtime_context`;
+- неправильный тип `runtime_context` закрывается явной ошибкой;
+- контрактные тесты prompt-mode уже покрывают отсутствие просачивания Codex-persona, дословный owner prompt и нейтральное подключение runtime/tool/output контекста.
 
-Проверка конфликта с Core: участок `payload/server.py` с `responses_planner_prompt()` после ответвления PR #8 Core не менял, поэтому следующий шаг теперь можно делать без конфликта с Windows/NCM28.
+Что сделано в этом запуске по ротации/распределению слотов:
+- перечитан текущий `payload/server.py`; там уже есть `ForegroundAccountReservations` и правило `should_avoid_reserved_foreground_accounts()`;
+- подтверждён нужный замысел: новая независимая foreground Sol-задача без affinity должна обходить аккаунт, зарезервированный незавершённой tool-цепочкой; продолжение с affinity, наоборот, не должно обходить свой закреплённый аккаунт;
+- добавлен новый тестовый файл `tests/test_foreground_slot_routing.py` с пятью точными сценариями: новая Sol-задача избегает зарезервированного аккаунта; continuation сохраняет affinity; при двух занятых foreground-слотах посторонний маршрут ждёт освобождения; заброшенная reservation протухает по TTL; memory/GPT-5.5 auxiliary тоже обходят foreground reservation.
 
-Важно: prompt-policy всё ещё не подключена к реальному `responses_planner_prompt()`; текущий PR #8 пока является чистым контрактом. В этом запуске не стал переписывать большой `server.py` через GitHub Contents API вслепую: следующий проход должен внести минимальное подключение в свежую версию файла и сразу добавить интеграционный тест реального Responses/Codex пути.
+Ограничение проверки: в этом запуске новый файл добавлен в GitHub, но удалённый исполнитель тестов не запускался. GitHub Actions minutes у владельца закончились; отдельный CircleCI job под этот новый тест ещё не добавлялся. Поэтому это пока кодовый regression-contract, а не доказанный PASS.
+
+Важно: prompt-policy всё ещё не подключена к реальному `responses_planner_prompt()`; PR #8 пока не меняет боевой Responses-путь.
 
 Следующий шаг:
-1. подключить `resolve_prompt_policy()`, `resolve_operator_context()` и `compose_planner_prompt()` непосредственно в `responses_planner_prompt()`;
-2. интеграционным тестом доказать, что `owner_system_prompt` доходит дословно, `instructions` Codex не просачивается, а tools/output-format остаются доступны нейтрально;
-3. после этого перейти к ротации: два независимых foreground Sol-turn должны занимать два свободных легитимных слота, а продолжение незавершённой tool-цепочки обязано вернуться к закреплённому аккаунту; отдельно проверить cooldown одного слота и отсутствие кражи зарезервированного аккаунта новой задачей.
+1. минимально подключить `resolve_prompt_policy()`, `resolve_operator_context()` и `compose_planner_prompt()` к `responses_planner_prompt()` без изменения Windows/NCM28 частей;
+2. добавить интеграционный тест именно реального Responses/Codex prompt: owner text доходит дословно, `instructions` Codex не просачивается, tool catalog и structured-output остаются нейтрально доступны;
+3. запустить новый prompt+slot-routing набор в существующем CircleCI или другом уже подключённом бесплатном исполнителе;
+4. затем поднять тест на уровень реального account-pool lease: два независимых foreground Sol-turn одновременно получают разные свободные легитимные слоты, а continuation незавершённой tool-цепочки возвращается к своему аккаунту; отдельно проверить cooldown одного слота и отсутствие кражи reservation новой задачей.

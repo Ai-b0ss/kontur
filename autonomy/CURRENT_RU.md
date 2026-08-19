@@ -42,23 +42,27 @@
 ## Notion Agent Bridge
 
 Репозиторий: `Ai-b0ss/notion-agent-bridge`.
-Текущая ветка: `candidate/ncm28-windows-fixed-v1`, PR #7, head `79f19612f99480c1ef5d88bdb836c695669e6b72`.
+Текущая Core-ветка: `candidate/ncm28-windows-fixed-v1`, PR #7, head `a62833f68c2119c0879137fa457c47569c079c70`.
+Отдельная ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8, head `579beabb7b53f802d4d4a277de02094b9a603038`, `mergeable=true` относительно текущего Core.
 
 Что уже есть:
 - большая часть безопасного локального runtime/state слоя;
 - архитектура пула/ротации аккаунтов/слотов уже существует;
 - ранее доказано, что Notion можно заставить участвовать в tool-протоколе, и направление интеграции с Codex уже реально, а не только идея;
-- последний native Windows target-разрез завершён: `.ncm25-origin.json` и `installed.json` исключены, совпал только `other-target` (`d22be720...`, CircleCI `7bd6cc8b-2755-42c2-9291-7cb6aef6ccf7`);
-- по текущему исходнику наиболее вероятный оставшийся callsite — guarded публикация долговечной резервной копии в `_write_durable_backups()`, а не stable-owner/installed и не очередное протягивание `.notionagents` guard.
+- Notion Core отдельно продолжает Windows/NCM28 и сейчас режет native guarded write по стадиям, не меняя Responses/prompt-mode;
+- в агентной ветке уже есть явные режимы `engineer` и `owner`: owner prompt идёт без переписывания и без смешивания с большой персоной Codex, а runtime-контекст вынесен в отдельный нейтральный канал;
+- для Responses подготовлена отдельная сборка prompt-а, которая сохраняет function/custom tools и structured output, но не смешивает их с прикладной персоной;
+- prompt-mode контракт реально прошёл отдельный CircleCI job (`f2927c5f-04ae-4ed5-9cf4-c0951cf28d46` / `346e6110-ff90-4edf-b50a-97391ef3cefc`);
+- добавлен регрессионный контракт foreground reservations: независимые Sol-задачи должны обходить слот незавершённой tool-цепочки, continuation возвращается к своему affinity, полная занятость ждёт освобождения, заброшенная reservation протухает.
 
 Что мешает прямо сейчас:
-- исправить первопричину Windows-записи долговечной резервной копии внутри уже удерживаемого transaction-directory guard; не добавлять ещё один широкий диагностический слой;
-- после этого прогнать один Windows happy-path, затем recovery/restart и полный relevant Windows suite;
+- Core: закончить текущую Windows/NCM28 первопричину и доказать happy-path/recovery/restart;
+- Agent: подключить готовую prompt-policy к реальному `responses_planner_prompt()`; сейчас helper и тесты уже есть, но боевой Responses-путь ещё использует старую сборку;
+- прогнать slot-routing контракт удалённо и поднять его до настоящего `NotionAccountPool` lease-level concurrency: два независимых foreground Sol-turn → разные свободные слоты; continuation → свой слот; cooldown одного слота не ломает sticky reservation другого;
 - затем довести реальную Codex CLI интеграцию: многократные tool-вызовы, реальные локальные действия, продолжение после tool result;
-- довести активную ротацию/распределение по слотам и длительную работу;
-- отдельными обязательными целями добавить два режима системного промпта, глубокую совместимость с возможностями Codex и дальнейшее делегирование задач в Qwen/субагентам.
+- после устойчивого Codex-ядра исследовать субагентов и затем делегирование задач в Qwen.
 
-Ближайший смысловой приоритет: больше не разворачивать NCM28-диагностику по стеку. Исправить публикацию durable backup, доказать Windows/recovery и сразу перейти к реальному Codex-сценарию.
+Ближайший смысловой приоритет Core: закончить Windows guarded-write причину без расширения диагностики по всему стеку. Ближайший смысловой приоритет Agent: один минимальный wiring prompt-mode в Responses + lease-level тест ротации, не конфликтуя с Windows-файлами.
 
 ## Kontur
 

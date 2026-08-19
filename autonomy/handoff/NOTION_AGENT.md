@@ -1,49 +1,45 @@
 # Notion — ротация, агентность, prompt-mode и делегирование
 
-## 2026-08-19 22:57 МСК
+## 2026-08-19 23:58 МСК
 
-Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, свежий head `b3d75d96fba7dff4b84b7d0aa19f7c7ce63451a7`.
+Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, свежий head при начале работы `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
-Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8. Свежий head после этого запуска: `07798da1078fb34fc41d9e344b1f1ef92e3e5ec7`.
+Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8. Свежий head после этого запуска: `8663366faeef3fcce3323ef74feea003523ccc56`.
 
 Что уже доказано раньше:
-- два режима системного промпта `engineer` и `owner`;
-- приватный `owner_system_prompt` идёт первым прикладным текстом без переписывания и без большой конкурирующей инженерной персоны;
-- нейтральный `runtime_context` отделён от прикладного prompt;
-- prompt/runtime policy входит в cache/thread identity только через SHA-256, приватный текст там не хранится;
-- `payload/server.py` напрямую использует общую prompt-policy;
-- незавершённая tool-цепочка держит свой аккаунт, независимая новая задача обходит зарезервированный слот;
-- при допустимом failover старый Notion thread не переносится через другой аккаунт: полная локальная история создаёт новый thread на новом допустимом слоте;
-- `DelegationRequest`/`DelegationDispatcher`, `SubagentLifecycle`, `SubagentEntryPoint`, `NotionDelegationAdapter` и `notion_subagent_runtime` отделяют child-задачу от provider state родителя;
-- в ветке есть настоящий Codex CLI project probe, но live/provider запуск пока намеренно не дублировался.
+- два режима системного промпта `engineer` и `owner`; приватный prompt владельца не переписывается и не смешивается с большой инженерной персоной;
+- приватная prompt/runtime policy входит в cache/thread identity только через SHA-256, сам текст там не хранится;
+- `payload/server.py` использует общую prompt-policy;
+- незавершённая tool-цепочка держит свой легитимный аккаунт, а независимая новая работа обходит зарезервированный слот;
+- допустимый failover A→B не переносит старый Notion `thread_id`: B получает полную локальную историю и создаёт новый remote thread;
+- delegated child-session хранит локальную историю, tool-result, использованные call id и бюджет ходов через смену слота, поэтому уже выполненный локальный side effect повторно не запускается;
+- `DelegationRequest` / `DelegationDispatcher` / `SubagentLifecycle` / `SubagentEntryPoint` / `NotionDelegationAdapter` / `NotionDelegatedModelStep` уже собираются в provider-ready Notion child runtime;
+- предыдущий exact head `07798da1...` имел четыре зелёных Agent CircleCI job.
 
 Что сделал в этом запуске:
-1. Перечитал `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, этот handoff и заново сверил PR #7/#8. В начале Agent был на `5098f89c...`, Core — на `73361762...`; к концу Core ушёл до `b3d75d96...`, но мои изменения не заходят в Windows/NCM28.
-2. Закрыл недостающую provider-часть для delegated child-loop: добавил `payload/notion_delegated_model_step.py`.
-3. Реальный Notion `model_step` теперь хранит remote thread только для конкретного provider-client внутри одной child-сессии. На том же клиенте продолжение идёт инкрементально через его `thread_id`.
-4. При допустимом A→B failover новый клиент B НЕ получает `thread_id` A. Он получает полный локальный transcript, включая уже выполненный tool-result, и создаёт собственный новый Notion thread.
-5. Если A падает на provider-вызове уже после локального `write_file`/другого side effect, provider-state не продвигается, бюджет модельных ходов не тратится повторно, а B продолжает ту же локальную child-session. Локальный tool повторно не запускается.
-6. Нашёл и сразу закрыл ещё один скрытый риск: remote-thread state раньше мог пережить окончание child-задачи внутри долгоживущего `model_step`. Теперь `DelegatedToolLoopRunner.start_session()` умеет получать session-scoped model-step через `start_session(context)`, а `NotionDelegatedModelStep` хранит thread map только внутри этой child-сессии. Даже повторное использование того же `task_id` позже начинает свежий remote thread.
-7. Генерируемый локальный `call_id` для Notion JSON tool-call теперь детерминирован через SHA-256, а не через process-randomized `hash()`.
-8. Добавил `build_notion_tool_subagent_entrypoint(...)` в `payload/notion_subagent_runtime.py`. Это первая provider-ready композиция `NotionDelegatedModelStep → DelegatedToolLoopRunner → NotionDelegationAdapter → обычный account pool → SubagentEntryPoint`. Родительский account/thread state туда не передаётся, а источник `reserved_account_ids` остаётся обязательным.
-9. Добавлены проверки:
-   - `tests/test_notion_delegated_model_step.py`: same-client incremental thread, A→B full-history rebase без старого thread, независимые child-context, повтор того же task id после завершения не воскресит старый thread;
-   - `tests/test_notion_tool_subagent_runtime.py`: полный путь через настоящий builder + fake lease A→B, один локальный side effect, обязательный avoid родительской reservation, B получает полный history без `thread_id` A.
-10. Расширил Agent-only `delegation-contracts` в CircleCI этими тестами и предыдущими stateful failover-тестами. Это затрагивает только Agent-ветку; Windows jobs по-прежнему отфильтрованы на Core-ветку.
-11. На exact head `07798da1...` все четыре Agent CircleCI job ЗЕЛЁНЫЕ: workflow `4d35bdd6-420a-42fe-a2dc-bf3b19edbfbe`; `agent-contracts` job `fe1f2161-0981-4be6-bea0-94b1ef3fbc2d`, `prompt-contracts` `eba652e8-c2dc-4785-8f23-f2a2df0d1fef`, `routing-contracts` `509e1e6a-493f-438d-b76d-adf9ead1f714`, `delegation-contracts` `0159121f-942f-4d28-b9f9-f730a756a0e6`.
-12. Provider/live traffic, production, реальные Notion-аккаунты и NCM28 не трогались.
+1. Перечитал `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, старый handoff и заново сверил PR #7/#8. Agent уже продвинулся до `484b9a6c...`; Core — до `b6f4eef2...`. В Windows/NCM28 не заходил.
+2. Проверил новую `payload/server_subagent_runtime.py`: там уже есть безопасная server-facing композиция child runtime с существующим runtime-tool boundary, обязательным источником reservations и выключенным по умолчанию entrypoint.
+3. Закрыл следующий реальный пробел — жизненный цикл этого runtime при смене серверного account pool. Добавил `payload/server_subagent_lifecycle.py`.
+4. Новый `ServerSubagentLifecycle` создаётся без provider traffic, умеет привязать текущий обычный пул, перепривязаться после auth/runtime refresh и явно отвязаться при shutdown/сбросе. Новые child-запуски после перепривязки уже не держат ссылку на старый пул.
+5. Gate остаётся динамическим: один и тот же установленный runtime может быть связан с пулом, но пока `enabled_predicate` ложный, provider/tool вызовы не начинаются.
+6. Источник занятых слотов не дублируется: lifecycle получает тот же callback reservations, который при реальном server wiring должен быть `foreground_account_reservations.active_account_ids`.
+7. Проверку lifecycle встроил в уже существующий `tests/test_notion_tool_subagent_runtime.py`, который входит в Agent-only `delegation-contracts`; отдельный дублирующий test-файл удалил.
+8. Новый тест доказывает: unbound -> fail closed; bound+disabled -> 0 provider calls; активная reservation `account-a` отправляет child на `account-b`; после rebind на новый пул следующая child использует уже новый пул; после explicit unbind снова fail closed. Старый пул после rebind не получает новых вызовов.
+9. `.circleci/config.yml`, `payload/server.py`, Windows/NCM28 и production не менял. Это специально оставлено независимым от движущегося Core.
+10. На exact head `8663366f...` CircleCI workflow `04641a6d-fef5-474a-90f6-97afd3f1bed0` стартовал автоматически. На момент обновления handoff четыре Agent job (`agent-contracts`, `prompt-contracts`, `routing-contracts`, `delegation-contracts`) ещё `pending`; PASS не заявлять до финального статуса.
+11. Provider/live traffic и реальные Notion-аккаунты не использовались.
 
 Главное новое понимание:
-- безопасный failover субагента должен разделять два состояния: локальная child-session живёт через смену аккаунта, а remote Notion thread живёт только внутри конкретного provider-клиента этой child-session;
-- новый слот не «продолжает чужой thread», а получает полный локальный transcript и создаёт свой remote thread;
-- завершённая child-session должна уничтожать remote-thread map. Иначе повтор task id может случайно воскресить старый provider context;
-- provider-ready runtime для Notion теперь можно собрать без участия родительского account/thread affinity: нужен обычный пул, локальный tool executor, каталог tools и `foreground_account_reservations.active_account_ids` как источник занятых слотов.
+- provider-ready subagent runtime надо привязывать не к вечному глобальному пулу, а к текущему поколению обычного серверного account pool. При auth/runtime refresh новые child-задачи должны сразу перейти на новый пул, иначе можно сохранить устаревшие provider clients;
+- это можно сделать без второго реестра слотов и без хранения provider affinity в lifecycle: reservations остаются в существующем `ForegroundAccountReservations`, affinity — внутри обычного пула/child-session;
+- построение и bind runtime сами по себе не должны запускать модель или локальные инструменты; единственная точка начала работы — явный `launch` после enabled gate.
 
 Что ещё не завершено:
-1. Подключить `build_notion_tool_subagent_entrypoint(...)` к настоящему серверному lifecycle только после выбора безопасного локального tool executor/catalog. Сам entrypoint должен остаться выключенным по умолчанию.
-2. Источник reservations при реальном подключении — существующий `foreground_account_reservations.active_account_ids`; не создавать второй реестр занятости.
-3. Один ограниченный настоящий two-slot Codex/CLI run в уже авторизованной среде, только после проверки отсутствия другого provider-run: две независимые foreground-задачи на разных свободных легитимных слотах, tool-result continuation на владельце.
-4. После этого один bounded cooldown/failover: локальный tool уже выполнен на A, A уходит в cooldown, B получает полный локальный history, создаёт новый Notion thread и продолжает без повторения side effects.
-5. После устойчивого Notion/Codex ядра — Qwen adapter под тот же `DelegationDispatcher`, без общего account/thread state.
+1. Снять финальный CircleCI для exact head `8663366f...`; особенно `delegation-contracts`, потому что именно он теперь содержит lifecycle-проверку.
+2. Реально подключить `ServerSubagentLifecycle` к server startup/auth-refresh/shutdown: при создании/замене `account_pool` вызывать `bind_pool(account_pool)`, при teardown — `bind_pool(None)`. Источник reservations — только `foreground_account_reservations.active_account_ids`. Для этого нужен аккуратный маленький diff в `payload/server.py`, когда его область не занята другим работником; entrypoint оставить выключенным по умолчанию.
+3. Не добавлять ещё один реестр занятых слотов и не передавать parent account/thread state в child runtime.
+4. После зелёного lifecycle wiring — один ограниченный настоящий two-slot Codex/CLI run в уже авторизованной среде: две независимые foreground-задачи на разных свободных легитимных слотах, continuation на владельце.
+5. Затем один bounded реальный cooldown/failover: A после уже выполненного локального tool уходит в cooldown; B получает полную локальную историю, создаёт новый Notion thread и продолжает без повторения side effect.
+6. После устойчивого Notion/Codex ядра — Qwen adapter под тот же `DelegationDispatcher`, без общего account/thread state.
 
-Следующий запуск: сначала снять свежий Core head и проверить, нет ли уже другого provider-run. Не добавлять ещё синтетических уровней вокруг уже зелёного delegated A→B. Либо аккуратно подключить provider-ready builder к реальному server lifecycle с disabled-by-default gate и существующими foreground reservations, либо, если авторизованная среда свободна, перейти к одному настоящему two-slot Codex project run.
+Следующий запуск: сначала проверить итог workflow `04641a6d-fef5-474a-90f6-97afd3f1bed0` и свежие head PR #7/#8. Если `delegation-contracts` зелёный и `payload/server.py` не меняет другой рабочий, сделать минимальное реальное wiring lifecycle к startup/refresh/shutdown без включения субагентов. Если server занят — не ждать, а взять отдельный Qwen-adapter/межпровайдерный контракт либо подготовить bounded live two-slot запуск без дублирования provider traffic.

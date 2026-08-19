@@ -1,14 +1,14 @@
 # Notion — Windows + Codex ядро
 
 Рабочая ветка: `Ai-b0ss/notion-agent-bridge:candidate/ncm28-windows-fixed-v1`, PR #7.
-Текущий head: `d92ce7e1f2fc1edf12ddb779803f01a09bd8f560`.
+Текущий head: `79f19612f99480c1ef5d88bdb836c695669e6b72`.
 
-NCM28 ещё не закрыт. Старый native Windows-разрез `fa4d9d00-d92c-45b9-a280-3e1c1da4ea2b` завершён: `outer-update`, `write-backups`, `stable-owner`, `run-upgrade` дали SUCCESS, а `other` — FAILURE. В этой диагностике FAILURE означает «искомый callsite совпал».
+NCM28 ещё не закрыт. Первый native Windows-разрез `fa4d9d00-d92c-45b9-a280-3e1c1da4ea2b` доказал: исключение проходит через `atomic_write`, `parent_guard` присутствует, файл — `integrated_upgrade.py`; `outer-update`, `write-backups`, `stable-owner`, `run-upgrade` были SUCCESS, `other` — FAILURE.
 
-Важная найденная ошибка самой диагностики: `atomic_json()` является прозрачной обёрткой над `atomic_write()`. Старый классификатор смотрел только на непосредственный frame перед `atomic_write`, поэтому любой guarded JSON-write ошибочно попадал в `other`, а настоящий владелец операции терялся. Это объясняет, почему предыдущий разрез не смог назвать функцию, хотя уже доказал `integrated_upgrade.py + parent_guard`.
+В этом запуске найдена ошибка самой диагностики: `atomic_json()` — прозрачная обёртка над `atomic_write()`, поэтому старый классификатор терял реального владельца guarded JSON-write. Исправленный owner-классификатор был прогнан workflow `884a4f19-9cc6-4424-b486-6bac2f87565d`, но снова дал `other`. Это показало, что стековое имя функции ненадёжно как последний разделитель.
 
-Исправлен только диагностический классификатор: если непосредственный caller — `atomic_json`, он поднимается ещё на один frame и называет реального владельца (`_write_stable_owner_in_guard`, `_outer_update`, `_run_upgrade_locked` и т.д.). Commit диагностики `8600ca911ef19437a95345acf524c12211f49259`; одноразовый триггер `e19548427e820bd5c6ee0984b5bc5b8f907531a0`; CircleCI workflow `884a4f19-9cc6-4424-b486-6bac2f87565d`. На момент передачи пять native Windows jobs ещё pending. Триггер сразу разоружён текущим head `d92ce7e1f2fc1edf12ddb779803f01a09bd8f560`, поэтому следующие push не создадут новый fan-out.
+Поэтому запущен последний, более прямой разрез — по имени фактического target из локальных переменных `atomic_write`, без печати путей: `.ncm25-origin.json` (stable owner), `installed.json` либо другой target. Триггер commit `d22be72096d799aeef5143eb98d83c172b653eaf`, CircleCI workflow `7bd6cc8b-2755-42c2-9291-7cb6aef6ccf7`; три Windows jobs (`stable-owner-target`, `installed-target`, `other-target`) на момент передачи pending. Триггер сразу разоружён текущим head `79f19612f99480c1ef5d88bdb836c695669e6b72`.
 
-Следующий шаг: прочитать статусы commit `e195484...`. Единственный FAILURE теперь должен назвать настоящий guarded JSON-write owner. После этого не добавлять новую диагностику: исправить первопричину в операции, собрать candidate и сделать один native Windows happy-path. При PASS сразу recovery/restart и полный relevant Windows suite. Затем без паузы перейти к реальному Codex CLI: несколько tool-вызовов, локальное действие, tool result, продолжение модели; дальше полный tool matrix, restart/crash и длинный прогон.
+Следующий шаг: прочитать статусы commit `d22be720...`. FAILURE означает точное совпадение target. После этого диагностику больше не расширять: исправить первопричину именно этой операции, собрать candidate и сделать один native Windows happy-path. При PASS сразу recovery/restart и полный relevant Windows suite. Затем перейти к реальному Codex CLI: несколько tool-вызовов, локальное действие, tool result, продолжение модели; дальше полный tool matrix, restart/crash и длинный прогон.
 
 Не объявлять NOTION_CORE_DONE только по NCM28. Не печатать секреты/пути восстановленного runtime. Production ради теста не трогать.

@@ -9,45 +9,46 @@
 
 Что уже доказано настоящим Windows:
 - на v25: `build`, `happy-running`, `happy-stopped`, `rerun-noop` — SUCCESS; `auth-rollback` — FAILURE;
-- внутри rollback: возврат управляемых файлов и сохранность non-targets — SUCCESS; auth и stable — FAILURE;
+- внутри rollback возврат управляемых файлов и сохранность non-targets — SUCCESS; auth и stable — FAILURE;
 - v32 собрался и не регрессировал основной путь: workflow `08837cc8-0149-465a-90a3-61ddc953bd43`, build + три обычных сценария SUCCESS, `auth-rollback` FAILURE;
 - ошибки обоих аварийных подэтапов — именно `PermissionError`;
-- отдельный Windows-разрез `f81e9dbf-5779-460a-9b55-2c4968cf5562` доказал, что этот `PermissionError` возникает НЕ внутри `remove_plain_tree`: `permission-outside-remove` SUCCESS, а auth/codex/runtime/migration remove-маркеры не сработали;
-- значит предыдущая гипотеза про повторное pathname-open при самом удалении была недостаточной. Низкоуровневый writer v23 и уже зелёные happy-path не трогать.
+- Windows-разрез `f81e9dbf-5779-460a-9b55-2c4968cf5562` доказал, что `PermissionError` возникает НЕ внутри `remove_plain_tree`;
+- обычные чтения сами по себе не воспроизводят ошибку только от удержания внешнего `.notionagents` guard. Ошибка зависит от реального состояния после провала auth.
 
-Полезная статическая находка: после materialize v25 существуют две текстовые реализации `_rollback_committed_first_auth`; v23 намеренно добавляет более строгую позднюю реализацию. Не строить следующие patch-builder на предположении, что определение одно.
-
-Также проверено: обычные чтения `sanitized_active`, config SHA, tree digest auth/migration/runtime и pending-check сами по себе не воспроизводят `PermissionError` только от факта удержания внешнего `.notionagents` guard. Значит ошибка зависит от реального состояния после провала auth, а не просто от наличия guard.
-
-Сейчас уже запущен следующий настоящий Windows-разрез без изменения продукта:
+Сейчас уже запущен настоящий Windows-разрез без изменения продукта:
 - exact head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`;
 - workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3`;
-- проверки: auth/codex/migration/runtime `tree_digest` и `outside-digest` во время реального падающего rollback.
-На 2026-08-19 23:24 МСК все пять задач всё ещё `pending`; второй такой прогон не запускать.
+- проверки auth/codex/migration/runtime `tree_digest` и `outside-digest` во время реального падающего rollback.
+На 2026-08-20 00:10 МСК все пять задач всё ещё `pending`; второй такой прогон не запускать.
 
-Если `outside-digest` станет SUCCESS, следующий готовый диагностический инструмент уже лежит в ветке: `tools/circleci_ncm28_rollback_call_cut.py`. Он различает реальный `PermissionError` в `sanitized_active`, `sha_file`, `ncm28_pending_atomic_write`, `recover_migration`, `_validate_owned_migration_tree`, `_validate_owned_partial_runtime`, `_path_lexists` и вне этих вызовов. Перед включением обязательно перечитать свежий head/config: слепо перетирать `.circleci/config.yml` нельзя.
+Пока Windows ждал, подготовлен следующий более точный разрез на отдельной ветке, чтобы не размножать текущие CI-задачи:
+- ветка `autonomy/ncm28-callcut-ready-20260820`;
+- commit `f72c450fdb8877981c8a79c550e7bc0479c7f8f4`;
+- `tools/circleci_ncm28_rollback_call_cut.py` теперь различает не только `sanitized_active`, `sha_file`, pending/recovery/validation/_path_lexists, но и прямой `_strict_tree_listing` отдельно для auth, isolated Codex, migration и runtime, а также `tree_digest` для тех же корней.
+Это не продуктовый фикс и не запускать вслепую. Если текущий digest-разрез покажет `outside-digest`, этот подготовленный файл надо перенести на свежий Core head и включить одним следующим диагностическим прогоном.
 
 После установления одного точного вызова: исправить только его, затем снова `build + happy-running + happy-stopped + rerun-noop + auth-rollback`. При пяти зелёных сразу выполнить на Windows `python -B -m unittest -v tests.test_crash_recovery` и полный `python -B RUN_NCM28_LOCAL_VERIFY.py`. Только после этого NCM28 закрыт.
 
 ## Codex / агентная ветка
 
 PR #8: `autonomy/notion-prompt-modes-20260819`.
-Свежий head на момент передачи: `484b9a6c8faf778d5df5a7f5d80500ea734f02af`.
+Свежий head при этой проверке: `8663366faeef3fcce3323ef74feea003523ccc56` (старые head из предыдущих передач устарели).
+Текущий Agent workflow: `04641a6d-fef5-474a-90f6-97afd3f1bed0`; prompt/agent/routing/delegation на момент проверки ещё `pending`.
 
-Предыдущий exact head `07798da1078fb34fc41d9e344b1f1ef92e3e5ec7` полностью зелёный: workflow `4d35bdd6-420a-42fe-a2dc-bf3b19edbfbe`, все четыре набора prompt/agent/routing/delegation SUCCESS.
+Что уже материализовано в ветке:
+- `payload/server_subagent_runtime.py` собирает provider-ready Notion child-agent поверх обычного account pool, использует существующие foreground reservations и только текущую runtime-tool границу;
+- `payload/server_subagent_lifecycle.py` уже умеет безопасно bind/rebind/unbind текущего пула, не хранит отдельную provider affinity и оставляет дочерние вызовы выключенными через динамический gate;
+- `tests/test_notion_tool_subagent_runtime.py` проверяет rebase A→B без повторения локального side effect, существующие reservations, выключенный gate и bind/rebind/unbind lifecycle;
+- настоящий `run_real_codex_cli_project_probe.py` требует реальный `codex exec`: первый verifier создаёт неизвестный заранее `challenge.txt` и падает; Codex должен прочитать новую информацию, исправить результат и сам повторить verifier до `VERIFY_OK`.
 
-В этой смене добавлен следующий полезный слой без provider traffic: `payload/server_subagent_runtime.py`. Он собирает provider-ready Notion child-agent поверх уже существующего account pool, обязательно получает существующий `foreground_account_reservations.active_account_ids` как источник занятых слотов, использует только уже имеющуюся runtime-tool границу (`list_files/read_file/write_file/edit_file/run_shell`) и остаётся выключенным через явный `enabled_predicate`. Исключения локальных инструментов наружу не печатаются: модель получает стабильный `tool_execution_failed`.
-
-Постоянный `tests.test_notion_tool_subagent_runtime` расширен проверкой этой серверной композиции: занятые родительские слоты передаются в `avoid_account_ids`, реальный tool result возвращается в child-loop, а выключенный gate не делает provider-вызовов. Текущий CircleCI workflow для head `484b9a6c...` — `07883e0d-36d3-48d0-addd-0b0d48d8d073`; четыре Agent job на момент передачи `pending`.
-
-Настоящий CLI-гейт `tools/run_real_codex_cli_project_probe.py` уже запускает именно `codex exec` через Responses bridge; первый `python verify.py` намеренно создаёт неизвестный заранее `challenge.txt` и падает. Для PASS Codex обязан получить неудачный tool result, прочитать новую информацию, исправить `result.txt`, повторно запустить verifier и закончить только после `VERIFY_OK`.
+Важный свежий факт: lifecycle пока ещё НЕ подключён в `payload/server.py` startup/shutdown. В PR patch сервер меняет prompt wiring, но не bind/unbind `ServerSubagentLifecycle`. После NCM28 это ближайший продуктовый шаг перед live Codex: привязать lifecycle к уже созданному `account_pool`, `foreground_account_reservations.active_account_ids` и `call_runtime_tool`, запуск детей оставить выключенным по умолчанию.
 
 После NCM28 порядок:
-1. дождаться зелёного Agent CI на `484b9a6c...`; при красном исправить только новый server-subagent слой;
-2. подключить `build_server_notion_subagents(...)` к реальному server startup/lifecycle, передав существующие `account_pool`, `foreground_account_reservations.active_account_ids` и `call_runtime_tool`; сам запуск детей оставить выключенным по умолчанию;
+1. снять exact-head Agent CI; если красный — исправить только текущий агентный слой;
+2. подключить существующий `ServerSubagentLifecycle` к реальному server startup/shutdown без второго реестра слотов;
 3. один настоящий `run_real_codex_cli_project_probe.py` в уже авторизованной среде;
 4. restart/recovery незавершённой цепочки;
-5. реальный failover: нормальное продолжение остаётся на владельце Notion thread; при недоступности владельца другой легитимный слот получает НОВЫЙ Notion thread и полную локальную историю без повторения уже выполненного локального side effect;
+5. реальный failover: продолжение остаётся на владельце Notion thread, а при недоступности владельца другой легитимный слот получает новый Notion thread и полную локальную историю без повторения уже выполненного локального действия;
 6. затем углублять реальные субагенты и делегирование в Qwen.
 
 Production и живой Notion в этой смене не трогались; секреты не печатались.

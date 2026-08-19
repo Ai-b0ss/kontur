@@ -337,7 +337,7 @@ export function LocalKontur() {
     try {
       const [result] = await Promise.all([
         api.localOpenEgg(requestId),
-        new Promise((resolve) => window.setTimeout(resolve, 920)),
+        new Promise((resolve) => window.setTimeout(resolve, reducedMotion ? 20 : 920)),
       ]);
       pendingEggRequestId.current = null;
       setEggReveal(result);

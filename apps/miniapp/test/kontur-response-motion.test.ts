@@ -35,5 +35,6 @@ test('reduced motion keeps the same state ordering while collapsing animation ti
   ]);
 
   assert.match(screen, /reducedMotion \? 0 : 260/);
+  assert.match(screen, /new Promise\(\(resolve\) => window\.setTimeout\(resolve, reducedMotion \? 20 : 920\)\)/);
   assert.match(css, /\.lk-reduced-motion \.lk-quiz-hatch,[\s\S]*?animation-duration: \.001ms !important;[\s\S]*?animation-delay: 0ms !important;/);
 });

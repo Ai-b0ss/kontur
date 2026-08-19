@@ -1,6 +1,6 @@
 # Qwen — надёжность, пул аккаунтов и расширение возможностей
 
-Обновлено: 2026-08-19 11:50 МСК.
+Обновлено: 2026-08-19 11:52 МСК.
 
 Текущая рабочая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Текущий head после этого запуска: `8ee5b5d1c79fadd1639328d627051d83641f0930`.
 `Ai-b0ss/qwen-workspace` PR #5 без изменений: `468733b2e3c8a2fb9bc04220fb6fd909ae0a4e80`, mergeable=true.
@@ -29,13 +29,12 @@
 - новый тест добавлен в обычный `npm test`;
 - продуктовые коммиты этого куска: `d2a236956ae0deaa63935b5bf5ba4847dc5998f3`, `18fa10e16186dfd171b0d4f2640e84a52bef92f6`, `284edd4bbf173d0b7ee42bc09c25db7165917868`;
 - обычный CircleCI на `284edd4b...` полностью зелёный: workflow `2838efe1-ee6a-4cf5-835d-a192cbd70fdc`; все три job success;
-- поскольку изменение затрагивает файловую семантику, отдельно запущен один bounded Windows Server 2022 parity. Trigger commit `2dc575b5d4ebb3ddfd1ce8770bbd1782e87c5dcc`; workflow `d007f2fc-e7e0-4696-8ed1-70e4d44d522c`; job `bc300161-b921-487f-ae43-142263f8f543` — success. Значит атомарная запись аккаунтов и весь `npm test` реально проходят на Windows;
+- поскольку изменение затрагивает файловую семантику, отдельно выполнен один bounded Windows Server 2022 parity. Trigger commit `2dc575b5d4ebb3ddfd1ce8770bbd1782e87c5dcc`; workflow `d007f2fc-e7e0-4696-8ed1-70e4d44d522c`; job `bc300161-b921-487f-ae43-142263f8f543` — success. Значит атомарная запись аккаунтов и весь `npm test` реально проходят на Windows;
 - сразу после one-shot переключатель Windows возвращён в `false`, текущий head `8ee5b5d1c79fadd1639328d627051d83641f0930`, чтобы будущие коммиты не запускали Windows автоматически;
-- на текущем head обычный CircleCI workflow `4c0ee748-ba4c-4131-a467-f835dd1bca49` уже стартовал; на момент передачи три обычных job ещё pending. Продуктовый код между Windows trigger и текущим head не менялся, изменился только параметр one-shot `true -> false`;
+- обычный CircleCI на exact current head тоже полностью зелёный: workflow `4c0ee748-ba4c-4131-a467-f835dd1bca49`; `qwen-offline-regression`, `qwen-runtime-secret-gate`, `qwen-long-soak-policy-gate` — все success. Crash-safe account persistence закрыт на Linux+Windows;
 - provider/live traffic в этом запуске = 0. Qwen-аккаунты, production и relay outbox не тронуты.
 
 Что ещё требуется:
-1. Снять финальный статус обычного CircleCI на exact head `8ee5b5d1...`; при green этот crash-safe account persistence считать закрытым на Linux+Windows.
-2. Не повторять живой Qwen-run, пока не установлена судьба старого разрешённого trigger `4de8bdae6d0c28789181f31b6212f97e6e283333`. Если доказано, что он не состоялся, нужен ровно один bounded live `read_file → tool result → следующий модельный ход → bash → tool result → final`.
-3. После живого PASS проверить настоящий `restart → восстановление незавершённой цели → аккаунт A недоступен → продолжение через B` с сохранённой tool history.
-4. После ядра feature-gap: сначала Skills как низкорисковое расширение, затем bounded subagents. Веб-поиск уже есть; крупные следующие пробелы — большие документы/мультимодальность и более богатая агентная оркестрация.
+1. Не повторять живой Qwen-run, пока не установлена судьба старого разрешённого trigger `4de8bdae6d0c28789181f31b6212f97e6e283333`. Если доказано, что он не состоялся, нужен ровно один bounded live `read_file → tool result → следующий модельный ход → bash → tool result → final`.
+2. После живого PASS проверить настоящий `restart → восстановление незавершённой цели → аккаунт A недоступен → продолжение через B` с сохранённой tool history.
+3. После ядра feature-gap: сначала Skills как низкорисковое расширение, затем bounded subagents. Веб-поиск уже есть; крупные следующие пробелы — большие документы/мультимодальность и более богатая агентная оркестрация.

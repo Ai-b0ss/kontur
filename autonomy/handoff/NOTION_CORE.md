@@ -1,35 +1,30 @@
 # Notion — Windows + Codex ядро
 
 Рабочая ветка: `Ai-b0ss/notion-agent-bridge:candidate/ncm28-windows-fixed-v1`, PR #7.
-Текущий head: `0d3340a1e48a26f9e5148039978bf7e720cd2d69`.
+Текущий head: `340f2b38c8dc01d59092b83bdd7001f9cce1ddfe`.
 
 ## Что установлено по NCM28
 
-Проблема уже сведена к низкоуровневой работе с direct-child внутри удерживаемого `DirectoryGuard`; auth/migration/`installed.json`/`.ncm25-origin.json`, durable-backup и rename сейчас не являются рабочими гипотезами.
+Первопричина низкоуровневого Windows-сбоя найдена и v23 её реально исправляет: существующие directory namespace handles открывались через `CreateFileW`, а затем использовались как `OBJECT_ATTRIBUTES.RootDirectory` в `NtCreateFile`. v23 переводит эти guard/anchor directory handles на native `NtCreateFile` и сохраняет прежние ограничения namespace/share/reparse.
 
-v22 завершился красным на обоих коротких Windows-тестах:
-- `ncm28-dir` — FAILURE;
-- `ncm28-create` — FAILURE;
-workflow `158de8b0-5f5b-409b-bfe1-00aa2807aaec`.
+После этого линия ушла выше примитива. На commit `b5b7ce66672ac6bd050507d04f58ad5d4e909f78` CircleCI workflow `b5663daa-939a-43d5-8561-caf6267af46d` дал:
+- `ncm28-happy-running` — SUCCESS;
+- `ncm28-happy-stopped` — SUCCESS;
+- `ncm28-rerun-noop` — SUCCESS;
+- `ncm28-auth-rollback` — FAILURE.
 
-То есть добавления `FILE_ADD_FILE`, `FILE_ADD_SUBDIRECTORY` и `FILE_TRAVERSE` недостаточно: сбой происходит уже при создании дочернего каталога через `RootDirectory`, до полного `atomic_write_from_snapshot`.
+Это важный рубеж: обычный integrated upgrade на Windows уже проходит и при запущенном, и при остановленном старом bridge; повторный запуск после успеха также точный noop. Остался не основной write-path, а конкретно аварийный rollback при провале проверки auth.
 
-В исходнике найден более фундаментальный разрыв контракта. Существующие guard/anchor каталоги открывались через `CreateFileW`, а затем этот handle передавался в `NtCreateFile` как `OBJECT_ATTRIBUTES.RootDirectory`. Документированный native-контракт `NtCreateFile` описывает `RootDirectory` как directory handle, полученный предыдущим `NtCreateFile`. Поэтому сделан v23: `tools/build_ncm28_windows_fixed_candidate_v23.py`.
+Чтобы не гадать по одному красному unittest, на ветке добавлен `tools/circleci_ncm28_auth_rollback_diag.py`. Он воспроизводит ровно `test_auth_verify_failure_rolls_back_every_layer` и печатает только безопасную структурную сводку: итоговую классификацию, состояние rollback, восстановлен ли исходный snapshot и остались ли auth/migration/runtime деревья. Никаких секретов/путей credential он не печатает.
 
-v23 не добавляет новые права наугад. Он переводит существующие directory namespace handles, которые затем служат корнем относительных native-операций, на абсолютный `NtCreateFile` с теми же safety-свойствами: `FILE_OPEN_REPARSE_POINT`, отсутствие `FILE_SHARE_DELETE`, проверка directory/reparse и прежние права. Созданные дочерние каталоги и раньше открывались через `NtCreateFile`.
-
-CircleCI на head `0d3340a1e48a26f9e5148039978bf7e720cd2d69` запущен только для двух коротких native Windows проверок v23:
-- `ncm28-dir` job `341fcaa3-e9d4-4885-b83a-c2ae9a535244`;
-- `ncm28-create` job `a072c134-767e-49f6-b3b4-a7573354aa18`;
-workflow `fc02c352-86a9-41ee-adb5-030fb3aa3112`.
-На момент записи оба ещё выполняются.
+CircleCI временно сужен до одного Windows job `ncm28-auth-rollback-diag`; head `340f2b38c8dc01d59092b83bdd7001f9cce1ddfe`. На момент записи status ещё не появился. Дубликат не запускать.
 
 ## Что делать следующим
 
-1. Сначала снять итог ровно этих двух v23 jobs; не запускать дубликаты.
-2. Если оба PASS — сразу вернуть `rename` + `atomic`, затем integrated happy-path. Не продолжать низкоуровневую археологию.
-3. После первого integrated Windows PASS — recovery/restart и полный relevant Windows suite.
-4. Если v23 всё ещё FAIL — не добавлять очередной access bit. Зафиксировать конкретный NTSTATUS/winerror существующего `NtCreateFile` и исправлять именно его контракт/flags; права v21/v22 уже проверены и не помогли.
-5. После устойчивого Windows PASS прекратить NCM28-цикл и перейти к пользовательской цели: Codex CLI → несколько последовательных tool-вызовов → реальное локальное действие → tool result → продолжение модели → restart/failover.
+1. Снять результат `ncm28-auth-rollback-diag` на head `340f2b38...`.
+2. По его структурной сводке исправить ровно аварийный auth rollback. Не трогать уже зелёный happy-path и не возвращаться к access-bit/RootDirectory археологии.
+3. После исправления вернуть четыре integrated cases. Если все PASS — сразу прогнать `tests.test_crash_recovery` и затем полный `RUN_NCM28_LOCAL_VERIFY.py` на Windows.
+4. После устойчивого Windows PASS прекратить NCM28-цикл и перейти к пользовательской цели: Codex CLI → несколько последовательных tool-вызовов → реальное локальное действие → tool result → продолжение модели → restart/failover.
+5. Агентная ветка PR #8 может отдельно доводить prompt-mode/slot routing, но не должна менять Windows filesystem-файлы этой ветки.
 
 Production и живой Notion не трогались; секреты не раскрывались.

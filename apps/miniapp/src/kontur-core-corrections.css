@@ -31,6 +31,17 @@
 .lk-color-visual > .lk-canonical-bird,
 .lk-bird-stage--drop > .lk-canonical-bird { display: inline-grid; }
 
+/* Reward art can visually extend past its stage, but it must never cover the equip action. */
+.lk-bird-stage--drop,
+.lk-bird-stage--drop .lk-canonical-bird,
+.lk-bird-stage--drop .lk-result-bird {
+  pointer-events: none;
+}
+.lk-drop .lk-button {
+  position: relative;
+  z-index: 2;
+}
+
 /* q8 shell and bird stay inside one QuizEgg from opening through result. */
 .lk-first-time--hatching .lk-quiz-egg-stage,
 .lk-first-time--reveal .lk-quiz-egg-stage {

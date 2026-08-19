@@ -1,10 +1,10 @@
 # Notion — ротация, агентность, prompt-mode и делегирование
 
-## 2026-08-19 18:46 МСК
+## 2026-08-19 19:56 МСК
 
-Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7. При начале запуска handoff указывал Core `eef8bc7994bd6898f4963ffc5791ba9db7c57c0f`; PR #8 всё ещё основан на старом Core SHA `a62833f...`, поэтому перед слиянием нужна аккуратная синхронизация без перезаписи NCM28/CircleCI.
+Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, свежий head `18427776e1cbab1a94224254039134470fcaa160`.
 
-Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8. Новый head после этого запуска: `b331d13d50f5abce33cefb7e3f451c8168a92e71`.
+Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8. Свежий head после этого запуска: `ceed71a9c7aa079ffaaf32294392cb54c677459e`. PR всё ещё основан на старом Core SHA `a62833f...`; текущий Core ушёл вперёд на 74 commit. Сравнение показывает, что Core после этой базы меняет `.circleci/config.yml` и Windows/NCM28 tools, но не `payload/server.py`, prompt-mode, account-pool или файлы делегирования. Перед слиянием нужна аккуратная синхронизация, особенно для `.circleci/config.yml`.
 
 Что уже доказано раньше:
 - режимы системного промпта `engineer` и `owner`;
@@ -16,23 +16,32 @@ Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7. При начале за
 - lease-level тесты покрывают два свободных слота, закреплённое продолжение, ожидание занятого владельца, cooldown и fail-closed поведение;
 - при допустимом failover старый Notion thread не переносится на другой аккаунт: полная локальная история создаёт новый thread на новом слоте;
 - `tools/live_two_slot_codex_probe.py` готовит ограниченную настоящую проверку двух независимых Responses-задач и продолжения на своих слотах;
-- provider-neutral `DelegationRequest`/`DelegationDispatcher`, `SubagentLifecycle` и `NotionDelegationAdapter` отделяют child-задачу от provider state родителя и заводят её в обычный пул как новую независимую работу;
-- на прежнем exact head `61100e2b...` CircleCI был зелёным для prompt/routing/delegation contract-набора.
+- provider-neutral `DelegationRequest`/`DelegationDispatcher`, `SubagentLifecycle`, `SubagentEntryPoint` и `NotionDelegationAdapter` отделяют child-задачу от provider state родителя;
+- на прежнем exact head `61100e2b...` CircleCI был зелёным для основного prompt/routing/delegation contract-набора.
+
+Что появилось перед этим запуском на той же Agent-ветке:
+- ветка продвинулась с `b331d13d...` до `5018836355acdfb50067c28f62a0fe647321a66b`;
+- добавлен `tools/live_codex_project_probe.py`: ограниченный настоящий проектный цикл `read_file -> write_file -> bash verify` через Responses/Notion; он работает только с маленьким временным проектом, разрешает строго три инструмента/пути и не знает тестовый маркер заранее;
+- отдельный дублирующий тест project-probe затем убран, чтобы контракт оставался в существующей CI-проверке.
 
 Что сделал в этом запуске:
-1. Перечитал OWNER_INTENT/CURRENT/handoff и заново сверил PR #8 и актуальные файлы agent-ветки.
-2. Не стал запускать provider traffic вслепую: доступного надёжного сигнала, что другой живой прогон не идёт, в этом интерфейсе нет.
-3. Реализовал следующий независимый кусок из прошлого handoff: `payload/subagent_entrypoint.py`. Это явная точка запуска будущих субагентов, выключенная по умолчанию. Она не знает account id/thread id, только переводит `SubagentLaunch` в нейтральный `DelegationRequest` и передаёт его существующему bounded `SubagentLifecycle`.
-4. Добавил возможность безопасного включения через runtime predicate без пересоздания объекта. По умолчанию любой запуск завершается до обращения к adapter/provider.
-5. Добавил `tests/test_subagent_entrypoint.py`: проверка выключенного по умолчанию режима до provider call, сохранения независимой conversation identity, runtime-toggle и ограничения параллелизма.
-6. Новые файлы не трогают `server.py`, account-pool, Windows/NCM28, production или реальные аккаунты. Текущий exact head `b331d13d...` ещё не называю удалённо зелёным: свежего результата CircleCI для этих двух новых commit в доступном интерфейсе нет.
+1. Перечитал OWNER_INTENT/CURRENT/handoff и заново сверил PR #7/#8, свежие head и исходники.
+2. Не трогал Windows/NCM28 и `.circleci/config.yml`: Core прямо сейчас меняет этот общий файл.
+3. Закрыл следующий пункт прошлого handoff не только тестом, но и готовой композицией runtime: добавлен `payload/notion_subagent_runtime.py`.
+4. `build_notion_subagent_entrypoint(...)` теперь явно связывает `SubagentEntryPoint -> DelegationDispatcher -> NotionDelegationAdapter -> обычный Notion account pool`. Источник `reserved_account_ids` сделан обязательным аргументом, поэтому реальная интеграция не сможет случайно запустить child-задачу без учёта аккаунтов, закреплённых за незавершёнными родительскими tool-цепочками.
+5. Новый runtime по умолчанию остаётся выключенным. Простое создание объекта не запускает provider traffic.
+6. Добавлен `tests/test_notion_subagent_runtime.py` с настоящим `NotionAccountPool` и fake Notion clients. Три end-to-end контракта:
+   - child обходит `account-a`, если он зарезервирован незавершённой родительской цепочкой, и берёт свободный `account-b`;
+   - два независимых child одновременно занимают два разных свободных легитимных слота;
+   - если родительский слот зарезервирован, а единственный другой слот на cooldown, child fail-closed и не крадёт аккаунт родителя.
+7. Новые изменения не касаются production, реальных аккаунтов, `server.py`, NCM28 или базы. Provider traffic не запускался.
 
 Что ещё не завершено:
-1. Нужен зелёный удалённый contract-run на exact head `b331d13d...`, включая новый `tests.test_subagent_entrypoint`.
-2. Затем ровно один настоящий двухслотовый live Codex probe в уже авторизованной среде, только если доказано отсутствие другого provider-run.
-3. После двухслотового PASS — один bounded cooldown/failover сценарий с полной локальной историей на новом легитимном слоте и новом Notion thread.
-4. После живого Codex PASS подключить `NotionDelegationAdapter` к `SubagentEntryPoint`: `reserved_account_ids` брать из реального реестра foreground reservations, а child runner должен использовать `context.conversation_key` как новую независимую локальную цепочку. Сам entry point уже готов и по умолчанию выключен.
-5. Затем добавить Qwen adapter под тот же `DelegationDispatcher`, не смешивая Notion account/thread state.
-6. Перед слиянием Agent-линии синхронизировать её со свежим Core и сохранить его CircleCI/NCM28 изменения.
+1. Свежий exact head `ceed71a9...` ещё не называю удалённо зелёным: общий Agent-CircleCI сейчас не запускает новые `test_subagent_entrypoint.py`/`test_notion_subagent_runtime.py`, а менять `.circleci/config.yml` поверх активного Core в этом запуске нельзя.
+2. Когда Core освободит общий CircleCI-файл, добавить эти два теста в Agent-only contract job и получить один green run на exact head.
+3. Затем ровно один настоящий two-slot live Codex probe в уже авторизованной среде, только если доказано отсутствие другого provider-run.
+4. После двухслотового PASS — один bounded cooldown/failover сценарий: закреплённый аккаунт временно недоступен -> полная локальная история переносится на новый легитимный слот -> создаётся новый Notion thread, старый чужому аккаунту не передаётся.
+5. Подключить `reserved_account_ids` нового runtime к реальному `ForegroundAccountReservations` в `server.py` только после синхронизации с Core; child runner должен использовать `context.conversation_key` как отдельную локальную цепочку.
+6. После устойчивого живого Codex-ядра добавить Qwen adapter под тот же `DelegationDispatcher`, без общего account/thread state.
 
-Следующий запуск: сначала проверить удалённые контракты exact head `b331d13d...`. Если live среда свободна — один bounded two-slot Codex probe. Если live запуск всё ещё нельзя безопасно начать, следующий полезный кусок — end-to-end тест `SubagentEntryPoint -> lifecycle -> dispatcher -> NotionDelegationAdapter -> настоящий NotionAccountPool` на fake Notion clients, чтобы доказать два child одновременно на разных свободных слотах и исключение sticky parent reservation без provider traffic.
+Следующий запуск: сначала проверить, освободился ли `.circleci/config.yml` от активной Core-работы. Если да — включить `tests/test_subagent_entrypoint.py` и `tests/test_notion_subagent_runtime.py` в Agent-only удалённый contract-run. Если общий CI-файл всё ещё занят, не конфликтовать: реализовать безопасный мост `ForegroundAccountReservations -> reserved_account_ids` отдельным маленьким модулем/тестом без правки `server.py`, либо подготовить fake end-to-end child runner с сохранением локальной conversation identity через несколько tool-result ходов.

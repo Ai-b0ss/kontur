@@ -2,28 +2,26 @@
 
 ## 2026-08-19
 
-`qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`, текущий head `797c303b3cf0fbf805ef9bd4fd9246066d5fdad7`.
+`qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`, текущий head `992407ef4ede5d481b160afbac341d84e773ad78`.
 
 Сделано:
-- Заново проверены оба репозитория. `qwen-workspace` PR #5 без изменений: `468733b2e3c8a2fb9bc04220fb6fd909ae0a4e80`, mergeable=true.
-- Закрыта реальная ошибка межаккаунтного tool-loop. Теперь Qwen хранит пару `upstream chatId + accountId`, не отправляет старый тред через другой аккаунт и при bounded failover переносит полную локальную историю в новый тред именно того аккаунта, который принял эстафету.
-- Нормальный ход внутри уже принадлежащего аккаунту треда теперь отправляет только текущее сообщение/tool-result (`currentOnly=true`); первый ход и межаккаунтный rebase отправляют полную историю ровно один раз.
-- Та же логика доведена до настоящего OpenCode/OpenAI пути в `server.js`: тред переиспользуется только пока жив его владелец; ответ sibling-аккаунта на incremental payload отбрасывается и переигрывается полной историей; в session store сохраняется фактический `response.chatId`, а не старый подготовленный id.
-- Расширен офлайн-регресс: `read_file → result → смена аккаунта/треда → полный rebase → bash → result → final`, с проверкой привязки A/A/B/B и режимов payload `full/incremental/full/incremental`.
-- Добавлен отдельный gate для OpenCode thread-affinity и `node --check server.js` в полный `npm test`.
-- One-shot live bridge оставлен выключенным по умолчанию (`run_qwen_live_bridge=false`), поэтому новые коммиты не создают второй provider run.
+- Заново проверены оба репозитория и свежие PR. `qwen-workspace` PR #5 без изменений: `468733b2e3c8a2fb9bc04220fb6fd909ae0a4e80`, mergeable=true.
+- Межаккаунтный tool-loop остаётся в исправленном виде: хранится пара `upstream chatId + accountId`; старый тред не уходит соседнему аккаунту; при failover полная локальная история один раз переносится в свежий тред нового аккаунта, затем снова идут короткие ходы.
+- OpenCode/OpenAI путь в `server.js` сохраняет ту же привязку треда к аккаунту и фактический новый `response.chatId` после failover.
+- Офлайн-регресс по-прежнему проверяет `read_file → result → смена аккаунта/треда → полный rebase → bash → result → final`.
+- Два режима system prompt сохранены: обычный инженерный и owner-passthrough без примеси OpenCode persona.
+- One-shot live bridge и Windows one-shot снова выключены по умолчанию, поэтому новые push не размножают дорогие/живые проверки.
 
 Проверено:
-- Exact-head CircleCI workflow `b5838d9d-6f28-4bdb-ab1d-490be921b922` на `797c303b…` полностью зелёный: `qwen-offline-regression`, `qwen-runtime-secret-gate`, `qwen-long-soak-policy-gate` — success.
-- Предыдущий exact-head `defbe1ca…` тоже прошёл полный офлайн regression после исправления `currentOnly`.
-- CAPTCHA остаётся локальной проблемой аккаунта с 10-минутным cooldown и безопасным sibling failover; provider-wide WAF/trust/pressure по-прежнему fail-closed.
-- Два режима system prompt сохранены: обычный инженерный и owner-passthrough без примеси OpenCode persona; `opencode.example.jsonc` содержит оба подключения.
+- Текущий head `992407ef…` зелёный в обычном CircleCI: `qwen-offline-regression`, `qwen-runtime-secret-gate`, `qwen-long-soak-policy-gate` — success, workflow `98327e9d-d9a0-4c4c-94d5-1da9c6f6cbc8`.
+- Нативная Windows Server 2022 проверка теперь закрыта: trigger-коммит `a88b4586f895d75e3d61c1f53842598c92add875`, workflow `0e9a0fcf-1aa9-4535-a6cf-ccce14bb182a`, job `3398e251-3d43-42ef-bd31-c723f178865e` — success. Следующий commit `992407ef…` меняет только флаг запуска Windows `true → false`, поэтому этот PASS относится к тому же продуктовому коду.
+- CAPTCHA остаётся локальной проблемой аккаунта с 10-минутным cooldown и безопасным sibling failover; provider-wide WAF/trust/pressure остаются fail-closed.
 
 Важно:
-- Live-soak на текущем head ещё не доказан. Старый trigger-коммит `4de8bdae…` включал one-shot bridge, но доступная GitHub-поверхность не показывает подтверждённый итог того запуска. Не запускать второй provider soak, пока сначала не найден/разобран фактический результат первой попытки.
-- PR #6 сейчас расходится с `main`: +103 / -5 коммитов. Не сводить ветки до живого доказательства, чтобы не смешать отладку tool-loop с инфраструктурной историей main.
+- Живой многошаговый прогон на текущей усиленной линии всё ещё не доказан. One-shot trigger `4de8bdae6d0c28789181f31b6212f97e6e283333` реально существовал, но доступная GitHub-поверхность не показывает ни CircleCI status этого trigger-коммита, ни workflow_dispatch run; второй provider soak вслепую не запускать.
+- PR #6 остаётся `mergeable=false` относительно текущего `main`; сводить ветки лучше после живого доказательства, чтобы не смешивать продуктовую отладку и историю инфраструктуры.
 
 Следующее:
-1. Сначала установить судьбу уже разрешённого one-shot live bridge; если запуск реально существует — разобрать его и не дублировать.
-2. Затем нужен ровно один bounded live PASS на актуальном коде: `read_file → tool result → новый модельный ход → bash → tool result → final`, плюс restart и безопасный failover.
-3. После live PASS — нативная Windows-проверка и только затем аккуратно свести PR #6 с актуальным `main`, сохранив CAPTCHA-ротацию, security gates и оба режима system prompt.
+1. Найти фактический результат уже разрешённого live bridge `4de8bdae…` через доступный источник; не дублировать provider traffic.
+2. Если та попытка не состоялась либо доказанно не дошла до провайдера — запустить ровно один bounded live PASS на актуальном коде: `read_file → tool result → новый модельный ход → bash → tool result → final`, плюс restart и безопасный failover.
+3. После live PASS аккуратно свести PR #6 с актуальным `main`, сохранив CAPTCHA-ротацию, security gates, Windows PASS и оба режима system prompt.

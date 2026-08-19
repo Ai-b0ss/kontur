@@ -1,51 +1,56 @@
 # Notion — Windows + Codex ядро
 
 Рабочая Core-ветка: `Ai-b0ss/notion-agent-bridge:candidate/ncm28-windows-fixed-v1`, PR #7.
-Текущий Core head: `42db5b991729faf43dbeed375a001feae95f8634`.
+Текущий Core head: `e9233b2ce6811809474004345b43fa4e9f526301`.
 
 ## NCM28
 
-Последняя доказанная хорошая продуктовая база — v23. Низкоуровневый Windows write primitive v23 не менять без нового точного сигнала.
+Последняя доказанная хорошая основа файлового слоя — v23. Её native Windows write primitive не менять без нового точного доказательства.
 
-На head `510a03203a76fe33551c29a4933f1518f6c786de` настоящий Windows дал важный разрез:
-- `happy-running` — SUCCESS;
-- `happy-stopped` — SUCCESS;
-- `rerun-noop` — SUCCESS;
-- `auth-rollback` — FAILURE;
-- внутри rollback: `files` и `non-targets` — SUCCESS, а `auth` и `stable` — FAILURE.
+Что доказано настоящим Windows:
+- на v25: `build`, `happy-running`, `happy-stopped`, `rerun-noop` — SUCCESS; `auth-rollback` — FAILURE;
+- внутри rollback на v25: возврат управляемых файлов и сохранность non-targets — SUCCESS; auth и stable — FAILURE;
+- v27/v28/v29/v30/v31 были только неудачными сборочными/preimage-попытками и не считаются продуктовыми Windows-регрессиями;
+- отдельный fast-gate установил важную причину этих ложных сборочных тупиков: после materialize v25 в исходнике две текстовые версии `_rollback_committed_first_auth`; v23 намеренно добавляет более строгую позднюю реализацию, которая фактически и используется Python.
 
-Это показало общую границу: обычные записи и возврат управляемых файлов уже работают, а два аварийных удаления дочерних деревьев всё ещё теряют удерживаемый namespace. В исходнике оба пути сходятся в `remove_plain_tree(...)`: внешний `.notionagents` guard уже удерживается, но корень auth/runtime/migration снова открывается по абсолютному пути. Это тот же класс Windows-конфликта, который ранее был исправлен для write-path, только теперь в destructive rollback.
+Сделан v32 (`tools/build_ncm28_windows_fixed_candidate_v32.py`). Он не меняет доказанный v23 write primitive и исправляет только destructive rollback namespace:
+- `remove_plain_tree` умеет открыть transaction-owned корень относительно уже удерживаемого parent guard;
+- `managed_guard` передаётся в auth/codex rollback-удаления;
+- обе текстовые реализации `_rollback_committed_first_auth` теперь сохраняют этот guard, так что порядок определений не возвращает pathname-based удаление;
+- два committed stable-пути удаления runtime/migration тоже получают тот же удерживаемый `.notionagents` guard.
 
-Сделан v27 (`tools/build_ncm28_windows_fixed_candidate_v27.py`):
-- `remove_plain_tree` получил необязательный `parent_guard` и открывает корень относительно уже удерживаемого handle;
-- тот же `managed_guard` протянут только в rollback-удаления auth/codex/runtime/migration и в два residue-helper;
-- v23 native write primitive не менялся;
-- обычные happy-path/restart контракты не расширялись.
+Fast materialize+compile v32 — PASS: workflow `12e96ee2-f89a-4426-9156-06ac05648555`, job `fa3eccb9-987c-4e6c-9386-9a59b6ad3c40`.
 
-CircleCI workflow для exact head `42db5b99...`: `f8c942d2-8fef-48ab-9b63-902fefc74008`.
-Проверки: `ncm28-windows-build-v27`, `happy-running-v27`, `happy-stopped-v27`, `rerun-noop-v27`, `auth-rollback-v27`. На момент записи все ещё выполняются. Старый диагностический workflow больше не используется новым head.
+Настоящий Windows acceptance v32 на commit `3978ecb264fdf2a7a5effc942621f1a1bd45fba9`, workflow `08837cc8-0149-465a-90a3-61ddc953bd43`:
+- build — SUCCESS;
+- happy-running — SUCCESS;
+- happy-stopped — SUCCESS;
+- rerun-noop — SUCCESS;
+- auth-rollback — FAILURE.
 
-Следующий шаг:
-1. снять пять результатов v27;
-2. если все зелёные — сразу заменить временный интеграционный набор на Windows `tests.test_crash_recovery` + полный `RUN_NCM28_LOCAL_VERIFY.py`; при PASS закрыть NCM28;
-3. если build красный — исправлять только preimage/сборщик v27, не продукт;
-4. если три happy-path зелёные, а rollback красный — новый файловый примитив не трогать; сузить только оставшийся rollback operation.
+То есть v32 не регрессировал три уже зелёных пути, но одного parent-guard на root-open оказалось недостаточно для аварийного rollback. Full crash-recovery job правильно не стартовал, потому что был gated всеми пятью проверками.
+
+Следующий разрез уже запущен на Core head `e9233b2c...`, workflow `5a26bdc2-8dac-4a38-87c1-fe34df81bb85`: он не меняет продукт, а определяет точные классы исключений auth и stable независимо. После результата чинить только конкретную операцию rollback; не возвращаться к общему файловому примитиву и не расширять диагностику дальше необходимого.
+
+После первого полностью зелёного `auth-rollback` сразу выполнить Windows `tests.test_crash_recovery` + полный `RUN_NCM28_LOCAL_VERIFY.py`, после PASS закрыть NCM28 и удалить временную диагностическую обвязку.
 
 ## Codex / агентная ветка
 
 PR #8: `autonomy/notion-prompt-modes-20260819`.
-Текущий head после независимой подготовки: `31a52d13cd03cb194e6d890dbd718d3ac5cb71b0`.
+Текущий head: `5098f89ca6e0315fcfff7269b210325319f3be27`.
 
-Четыре постоянных Agent-контракта на предыдущем exact head `84039a5d...` были зелёными: prompt, agent, routing, delegation.
+Все четыре постоянных CircleCI-набора на этом exact head зелёные, workflow `4e57cad5-ed8b-4f1b-9559-2a2006dc4cb0`:
+- prompt-contracts — SUCCESS;
+- agent-contracts — SUCCESS;
+- routing-contracts — SUCCESS;
+- delegation-contracts — SUCCESS.
 
-Настоящий CLI-гейт уже существует в `tools/run_real_codex_cli_project_probe.py` и запускает именно `codex exec` через Responses bridge. В этом запуске он усилен без обращения к Notion: первый `python verify.py` теперь намеренно создаёт неизвестный заранее `challenge.txt` и падает. Для успеха Codex обязан получить ошибку инструмента, прочитать новую информацию, изменить `result.txt` и повторно запустить verifier до PASS. То есть будущий live PASS будет доказывать не просто создание файла, а реальное продолжение после неудачного tool result и исправление собственной работы. Добавлен офлайн-контракт этого двухшагового verifier.
+Настоящий CLI-гейт `tools/run_real_codex_cli_project_probe.py` теперь сильнее прежнего: он запускает именно `codex exec` через Responses bridge и первый `python verify.py` намеренно создаёт неизвестный заранее `challenge.txt` и завершается ошибкой. Для PASS Codex обязан получить неудачный tool result, прочитать новую информацию, исправить `result.txt`, повторно запустить verifier и закончить только после `VERIFY_OK`. Этот контракт уже включён в зелёный `agent-contracts`.
 
-CircleCI Agent workflow на `31a52d13...` запущен автоматически; на момент записи четыре job ещё выполняются.
-
-После NCM28 порядок такой:
+После NCM28 порядок:
 1. один настоящий `run_real_codex_cli_project_probe.py` в уже авторизованной среде;
 2. restart/recovery незавершённой цепочки;
-3. failover: sticky continuation остаётся на владельце thread, а при его недоступности допустимый другой слот получает новый Notion thread и полную локальную историю; старый thread ID между аккаунтами не переносится;
-4. затем субагенты и реальное делегирование в Qwen.
+3. failover: обычное продолжение остаётся на владельце Notion thread; при недоступности владельца другой допустимый слот получает новый Notion thread и полную локальную историю, старый thread ID между аккаунтами не переносится;
+4. только после этого углублять субагентов и реальное делегирование в Qwen.
 
-Production и живой Notion в этом запуске не трогались; секреты не печатались.
+Production и живой Notion в этой смене не трогались; секреты не печатались.

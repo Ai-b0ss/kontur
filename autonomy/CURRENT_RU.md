@@ -45,27 +45,26 @@
 ## Notion Agent Bridge
 
 Репозиторий: `Ai-b0ss/notion-agent-bridge`.
-Текущая Core-ветка: `candidate/ncm28-windows-fixed-v1`, PR #7, head `a62833f68c2119c0879137fa457c47569c079c70`.
-Отдельная ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8, head `579beabb7b53f802d4d4a277de02094b9a603038`, `mergeable=true` относительно текущего Core.
+Текущая Core-ветка: `candidate/ncm28-windows-fixed-v1`, PR #7, head `f2da5e8b4c6766e43289b60812813911cb621be4`.
+Отдельная ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8, head `7bc07486431abd0f286a3a69e3ecb81ccf5b5369`.
 
 Что уже есть:
-- большая часть безопасного локального runtime/state слоя;
-- архитектура пула/ротации аккаунтов/слотов уже существует;
-- ранее доказано, что Notion можно заставить участвовать в tool-протоколе, и направление интеграции с Codex уже реально, а не только идея;
-- Notion Core отдельно продолжает Windows/NCM28 и сейчас режет native guarded write по стадиям, не меняя Responses/prompt-mode;
-- в агентной ветке уже есть явные режимы `engineer` и `owner`: owner prompt идёт без переписывания и без смешивания с большой персоной Codex, а runtime-контекст вынесен в отдельный нейтральный канал;
-- для Responses подготовлена отдельная сборка prompt-а, которая сохраняет function/custom tools и structured output, но не смешивает их с прикладной персоной;
-- prompt-mode контракт реально прошёл отдельный CircleCI job (`f2927c5f-04ae-4ed5-9cf4-c0951cf28d46` / `346e6110-ff90-4edf-b50a-97391ef3cefc`);
-- добавлен регрессионный контракт foreground reservations: независимые Sol-задачи должны обходить слот незавершённой tool-цепочки, continuation возвращается к своему affinity, полная занятость ждёт освобождения, заброшенная reservation протухает.
+- большая часть безопасного локального runtime/state слоя и архитектура пула/ротации слотов;
+- последняя доказанная Windows-база v23 уже проходила `happy-running`, `happy-stopped`, `rerun-noop`; оставался только `auth-rollback`;
+- свежий preimage-cut доказал, почему новый v25 вообще не собирался: он искал устаревшую форму `_load_outer_journal(home)`, хотя доказанный v23 уже вызывает `_load_outer_journal(home, parent_guard=managed_guard)`;
+- v25 исправлен на head `f2da5e8b...`: обычный crash/restart сохраняет managed parent guard, а только same-process `AUTH_ACTIVATION_FAILED` может использовать уже опубликованный canonical journal после точной повторной проверки байтов; native Windows write primitive v23 не менялся;
+- в агентной ветке материализованы режимы `engineer/owner`, реальный Responses wiring, foreground reservations, lease-level routing, cooldown failover и provider-neutral delegation envelope;
+- четыре постоянных Agent CircleCI-контракта на head `7bc07486...` зелёные (`agent`, `prompt`, `routing`, `delegation`);
+- в ветке уже есть настоящий `tools/live_codex_project_probe.py`: временный проект, неизвестный заранее токен, реальные `read_file`, `write_file`, `bash`, обязательный `python verify.py` и запрет завершаться до успешной проверки. Это ближайший пользовательский гейт, а не очередной `probe_marker`;
+- зашифрованный Notion runtime хранится в Git LFS. Попытка восстановить его прямо в CircleCI без provider traffic была сделана отдельно и завершилась FAILURE; чтобы не держать продуктовую ветку красной из-за инфраструктурной готовности, временный gate убран. Секреты не печатались, живой Notion не трогался.
 
 Что мешает прямо сейчас:
-- Core: закончить текущую Windows/NCM28 первопричину и доказать happy-path/recovery/restart;
-- Agent: подключить готовую prompt-policy к реальному `responses_planner_prompt()`; сейчас helper и тесты уже есть, но боевой Responses-путь ещё использует старую сборку;
-- прогнать slot-routing контракт удалённо и поднять его до настоящего `NotionAccountPool` lease-level concurrency: два независимых foreground Sol-turn → разные свободные слоты; continuation → свой слот; cooldown одного слота не ломает sticky reservation другого;
-- затем довести реальную Codex CLI интеграцию: многократные tool-вызовы, реальные локальные действия, продолжение после tool result;
+- Core: дождаться результата текущего CircleCI workflow `fbc7e218-7f4d-46c8-9904-d220b1562a3f`; главный сигнал — `ncm28-windows-build-v25`, затем четыре integrated case. Старый временный `preimage-load` в этом workflow больше не считать продуктовым сигналом, потому что он намеренно проверяет прежний шаблон;
+- если build и четыре case зелёные — убрать временную диагностику, прогнать Windows `tests.test_crash_recovery` + полный `RUN_NCM28_LOCAL_VERIFY.py` и закрыть NCM28;
+- Agent: после NCM28 запустить настоящий `live_codex_project_probe.py` в уже авторизованной среде, затем проверить restart/recovery незавершённой цепочки и безопасный failover на другой допустимый слот с новым Notion thread и полной локальной историей;
 - после устойчивого Codex-ядра исследовать субагентов и затем делегирование задач в Qwen.
 
-Ближайший смысловой приоритет Core: закончить Windows guarded-write причину без расширения диагностики по всему стеку. Ближайший смысловой приоритет Agent: один минимальный wiring prompt-mode в Responses + lease-level тест ротации, не конфликтуя с Windows-файлами.
+Ближайший смысловой приоритет Core: снять exact результат v25 build + integrated Windows cases и больше не менять файловый примитив без нового доказательства. Ближайший смысловой приоритет Agent: не добавлять синтетические probes; готовиться к реальному проектному tool-loop в авторизованной среде.
 
 ## Kontur
 

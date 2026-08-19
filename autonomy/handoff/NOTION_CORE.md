@@ -1,7 +1,7 @@
 # Notion — Windows + Codex ядро
 
 Рабочая Core-ветка: `Ai-b0ss/notion-agent-bridge:candidate/ncm28-windows-fixed-v1`, PR #7.
-Текущий Core head: `f2da5e8b4c6766e43289b60812813911cb621be4`.
+Текущий Core head: `391bef061b383d4d6e8b303a61bc6d50402ff519`.
 
 ## NCM28
 
@@ -9,23 +9,21 @@
 
 Build-cut ранее доказал: Windows executor, Python, зависимости, исходный manifest и общий builder исправны; v23 собирается, широкий v26 — нет. v26 не продвигать.
 
-Свежая причина многократного падения v25 наконец локализована точнее. Отдельный Windows preimage-cut на commit `4e84411b13d6d121c4bff3e06aa8ba70eee762ce`, workflow `9ef79939-822a-4761-ac91-a70c7d614b32`, дал:
-- `ncm28-v25-preimage-signature` — SUCCESS;
-- `ncm28-v25-preimage-call` — SUCCESS;
-- `ncm28-v25-preimage-load` — FAILURE;
-- полный `ncm28-windows-build-v25` — FAILURE.
+В этом запуске удалось разделить две разные ошибки v25.
 
-То есть builder ломался не на сигнатуре recovery и не на coordinator callsite. Точный источник найден в уже существующей v23-семантике: обычный crash/restart загружает outer journal как `_load_outer_journal(home, parent_guard=managed_guard)`, а v25 ошибочно искал старую форму без `parent_guard`. Это была ошибка материализации кандидата, а не новый продуктовый Windows-дефект.
+Первая была чисто в materialization builder. Windows preimage-cut на commit `4e84411b13d6d121c4bff3e06aa8ba70eee762ce`, workflow `9ef79939-822a-4761-ac91-a70c7d614b32`, дал `signature=SUCCESS`, `call=SUCCESS`, `load=FAILURE`. Через PR patch найден точный контракт v23: обычный recovery уже делает `_load_outer_journal(home, parent_guard=managed_guard)`, а v25 искал старую форму без guard. Это исправлено на `f2da5e8b4c6766e43289b60812813911cb621be4`.
 
-На новом commit `f2da5e8b4c6766e43289b60812813911cb621be4` v25 исправлен: обычный recovery сохраняет `parent_guard=managed_guard`, а только same-process `AUTH_ACTIVATION_FAILED` может использовать уже опубликованный canonical journal после точной повторной проверки байтов. Native Windows write primitive v23 не менялся.
+На `f2da5e8b...` важный результат: `ncm28-windows-build-v25` стал SUCCESS. Значит материализация наконец починена. Но `happy-running`, `happy-stopped` и `auth-rollback` стали FAILURE (rerun-noop ещё выполнялся на момент чтения). Причина найдена в самом v25-патче: при переписывании сигнатуры `_recover_outer_transaction()` мы случайно выкинули уже существующий v23-параметр `managed_guard: Any | None = None`. Внутри функция продолжала использовать `managed_guard`, поэтому обычные интеграционные пути ломались уже в продукте.
 
-Сейчас идёт CircleCI workflow `fbc7e218-7f4d-46c8-9904-d220b1562a3f`. На момент записи signature/call preimage уже зелёные; build и четыре integrated Windows case ещё выполняются. Старый `preimage-load` в этом workflow всё ещё использует прежний диагностический шаблон и потому ожидаемо красный — его больше не использовать как продуктовый сигнал. Главный сигнал теперь `ncm28-windows-build-v25`, затем четыре integrated case.
+Новый commit `391bef061b383d4d6e8b303a61bc6d50402ff519` сохраняет точную v23-сигнатуру с `managed_guard` и только добавляет `known_canonical_journal`. Обычный crash/restart продолжает идти через `_load_outer_journal(home, parent_guard=managed_guard)`. Только same-process `AUTH_ACTIVATION_FAILED` может использовать уже опубликованный canonical journal после точной повторной проверки байтов. Native Windows write primitive v23 не менялся.
+
+Сейчас идёт CircleCI workflow `b47bcd5f-fc90-4f84-97c8-cb0e744a4181` на exact head `391bef06...`. Все основные jobs пока выполняются. Временный `preimage-load` всё ещё проверяет старый шаблон и ожидаемо будет красным — его не использовать как продуктовый сигнал.
 
 Следующий шаг:
-1. если `ncm28-windows-build-v25` зелёный — интерпретировать `happy-running`, `happy-stopped`, `rerun-noop`, `auth-rollback`;
-2. если все четыре зелёные — убрать временный preimage-cut из ветки, затем прогнать Windows `tests.test_crash_recovery` + полный `RUN_NCM28_LOCAL_VERIFY.py` и закрыть NCM28;
+1. снять `ncm28-windows-build-v25`, затем `happy-running`, `happy-stopped`, `rerun-noop`, `auth-rollback` на `391bef06...`;
+2. если build и все четыре case зелёные — удалить временный preimage-cut/helper из ветки, затем прогнать Windows `tests.test_crash_recovery` + полный `RUN_NCM28_LOCAL_VERIFY.py` и закрыть NCM28;
 3. если три обычных зелёные, а rollback красный — чинить только same-process auth rollback, не возвращаясь к native write primitive;
-4. если build снова красный — не менять файловый слой; остаток ошибки всё ещё в материализации v25.
+4. если обычные case снова красные — сначала проверить, не потерян ли ещё один уже доказанный v23-параметр/контракт при materialization; не менять native write слой вслепую.
 
 ## Codex / агентная ветка
 

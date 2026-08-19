@@ -6,32 +6,36 @@
 
 ## 2026-08-19
 
-Notion Core продолжает отдельную Windows/NCM28 линию в `candidate/ncm28-windows-fixed-v1`, PR #7. На этом запуске Core ушёл вперёд до `a62833f68c2119c0879137fa457c47569c079c70`; последний commit менял только CircleCI-разрез native guarded write, не Responses/prompt-mode. Поэтому рабочую ветку агентности безопасно синхронизировал с этим Core head без переноса временного CI-конфига поверх Windows-линии.
+Notion Core продолжает отдельную Windows/NCM28 линию в `candidate/ncm28-windows-fixed-v1`, PR #7. На этом запуске Core ушёл вперёд до `a62833f68c2119c0879137fa457c47569c079c70`; последний commit менял только CircleCI-разрез native guarded write, не Responses/prompt-mode. Рабочую ветку агентности синхронизировал с этим Core head без переноса временного CI-конфига поверх Windows-линии.
 
-Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8. Текущий head: `579beabb7b53f802d4d4a277de02094b9a603038`. PR снова `mergeable=true` относительно текущего Core.
+Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8. Текущий head: `53125a0843dcbc382e832cbfe95c078407d91cc9`. PR `mergeable=true` относительно текущего Core.
 
-Что уже сделано по двум режимам системного промпта:
+Что сделано по двум режимам системного промпта:
 - есть `payload/prompt_modes.py` с явными режимами `engineer` и `owner`;
 - `engineer` остаётся режимом по умолчанию и получает наш инженерный управляющий текст;
 - `owner` требует отдельный `client_metadata.owner_system_prompt`, сохраняет его без нормализации/переписывания и не подмешивает большую персону Codex;
 - owner-режим вообще не извлекает runtime-контекст из `body.instructions`; нейтральный технический контекст приходит отдельно через `client_metadata.runtime_context`;
 - неправильный тип `runtime_context` закрывается явной ошибкой;
 - добавлена Responses-ориентированная сборка `compose_responses_planner_prompt(...)`: она формирует нейтральный контракт function/custom tools и structured output отдельно от прикладного системного промпта;
-- тесты теперь проверяют не только чистую policy, но и Responses-похожий запрос: приватный owner prompt остаётся дословным, конкурирующая Codex-persona и старый engineer prompt не просачиваются, tool catalog/custom tool/json_schema остаются доступны;
-- чистый prompt-mode набор реально прошёл в CircleCI: workflow `f2927c5f-04ae-4ed5-9cf4-c0951cf28d46`, job `346e6110-ff90-4edf-b50a-97391ef3cefc`, status SUCCESS на commit `69535f4923a1621f917c6cf3ed38c4bbcd482c1a`. После проверки временный CircleCI-конфиг не перенесён в синхронизированный head, чтобы не конфликтовать с Core Windows job; код prompt/tests в новом head тот же.
+- тесты проверяют Responses-похожий запрос: приватный owner prompt остаётся дословным, конкурирующая Codex-persona и engineer prompt не просачиваются, tool catalog/custom tool/json_schema остаются доступны.
 
-Что уже сделано по ротации/распределению слотов:
-- в `payload/server.py` уже есть `ForegroundAccountReservations` и правило `should_avoid_reserved_foreground_accounts()`;
-- новая независимая foreground Sol-задача без affinity должна обходить аккаунт, зарезервированный незавершённой tool-цепочкой; продолжение с affinity, наоборот, не должно обходить свой закреплённый аккаунт;
-- `tests/test_foreground_slot_routing.py` содержит пять сценариев: новая Sol-задача избегает зарезервированного аккаунта; continuation сохраняет affinity; при двух занятых foreground-слотах посторонний маршрут ждёт освобождения; заброшенная reservation протухает по TTL; memory/GPT-5.5 auxiliary тоже обходят foreground reservation.
+Что сделано по ротации/распределению слотов:
+- подтверждена и зафиксирована семантика `ForegroundAccountReservations`: новая независимая Sol-задача без affinity обходит аккаунт, зарезервированный незавершённой tool-цепочкой; continuation с affinity возвращается по своему пути;
+- `tests/test_foreground_slot_routing.py` покрывает пять сценариев: обход чужой reservation, сохранение affinity, ожидание при полностью занятых foreground-слотах, TTL заброшенной reservation, обход reservation вспомогательными/memory запросами;
+- добавлен `tests/test_account_pool_parallelism.py` с lease-level проверками самого `NotionAccountPool`: две независимые задачи одновременно занимают разные свободные аккаунты; preferred continuation возвращается к своему слоту; если preferred слот занят, continuation ждёт его, а не крадёт соседний; cooling слот пропускается для новой задачи; сочетание чужой reservation + cooldown второго слота закрывается отказом, а не неправильным cross-route.
 
-Что пока НЕ доказано:
-- prompt-policy ещё не подключена к реальному `server.responses_planner_prompt()`; helper готов, но боевой Responses-путь всё ещё собирает старый planner prompt сам;
-- slot-routing тесты пока не прогнаны удалённо на новом head;
-- нет ещё account-pool lease-level проверки, где два независимых foreground Sol-turn действительно получают разные свободные аккаунты, continuation возвращается на свой, а cooldown одного слота не крадёт reservation другого.
+Проверка:
+- чистый prompt-mode набор ранее прошёл CircleCI: workflow `f2927c5f-04ae-4ed5-9cf4-c0951cf28d46`, job `346e6110-ff90-4edf-b50a-97391ef3cefc`;
+- для полной проверки создана отдельная временная ветка `verify/notion-agent-contracts-20260819`, чтобы не менять Core `.circleci/config.yml`;
+- полный набор `test_prompt_modes.py + test_foreground_slot_routing.py + test_account_pool_parallelism.py` прошёл: CircleCI workflow `defd387f-31fc-48db-be66-a0be870bd9c2`, job `17f4db31-4f8f-498b-b081-706c92363733`, commit `f31855f48cf0c12bc2f711f1b8dd7c3a216127d5`, status SUCCESS.
+
+Что пока НЕ завершено:
+- prompt-policy ещё не подключена к реальному `server.responses_planner_prompt()`; helper и проверка готовы, но боевой Responses-путь пока собирает старый planner prompt сам;
+- lease-level тест доказывает scheduler/account-pool семантику без живого провайдера, но ещё нет настоящего Codex Responses сценария с двумя легитимными слотами и несколькими tool-result продолжениями;
+- субагенты и делегирование в Qwen пока намеренно не начинаются до устойчивого Codex-ядра.
 
 Следующий шаг:
-1. минимально подключить `compose_responses_planner_prompt(...)` в `responses_planner_prompt()` и вернуть `PromptModeError` как явный 400, не затрагивая Windows/NCM28 части;
-2. прогнать prompt + slot-routing набор в CircleCI на отдельной проверочной конфигурации/ветке, не перетирая Core `.circleci/config.yml`;
-3. добавить lease-level concurrency test на `NotionAccountPool`: два независимых Sol-turn → разные свободные слоты; sticky continuation → исходный слот; один слот в cooldown → новая независимая задача берёт другой, но не аккаунт чужой reservation;
-4. после этого поднять проверку до реального Codex Responses tool-loop и затем исследовать субагентов/делегирование, не начиная делегирование в Qwen до устойчивого Codex-ядра.
+1. минимально подключить `compose_responses_planner_prompt(...)` в `responses_planner_prompt()` и обрабатывать `PromptModeError` как явный 400; не трогать Windows/NCM28 части;
+2. добавить интеграционный тест именно реального `responses_planner_prompt()`/`handle_openai_responses`, чтобы owner prompt прошёл через настоящий серверный путь без Codex-persona;
+3. затем поднять проверку до bounded реального Codex tool-loop на двух легитимных слотах: независимые foreground задачи идут параллельно по разным аккаунтам, а незавершённая цепочка после локального tool-result возвращается к исходному аккаунту; отдельно проверить cooldown/failover;
+4. только после этого переходить к исследованию Codex subagents и делегированию задач в Qwen.

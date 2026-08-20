@@ -1,0 +1,100 @@
+{
+  "background_process_left_running": false,
+  "checkpoint": {
+    "accumulator": 15836691617537080465,
+    "algorithm": "acc=(acc*6364136223846793005 + step*1442695040888963407) mod 2^64; acc0=0; steps are 1..100",
+    "step": 37,
+    "total_steps": 100
+  },
+  "environment": {
+    "cgroup_cpu_max": "400000 100000",
+    "cgroup_memory_max": "4294967296",
+    "chromium": {
+      "path": "/usr/bin/chromium",
+      "version": "Chromium 144.0.7559.96 built on Debian GNU/Linux 13 (trixie)"
+    },
+    "disk": {
+      "free_bytes": 40547373056,
+      "path": "/mnt/data/free_fabric_v3_e8",
+      "total_bytes": 67049664512,
+      "used_bytes": 23049543680
+    },
+    "ffmpeg": {
+      "path": "/usr/bin/ffmpeg",
+      "version": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers"
+    },
+    "node": {
+      "path": "/opt/nvm/versions/node/v22.16.0/bin/node",
+      "version": "v22.16.0"
+    },
+    "observed_utc": "2026-08-20T12:11:39.355369+00:00",
+    "python": {
+      "path": "/opt/pyvenv/bin/python",
+      "version": "Python 3.13.5"
+    },
+    "uname": "Linux e90be964384a 6.18.35 #1 SMP Mon Jul 27 18:07:50 UTC 2026 x86_64 GNU/Linux"
+  },
+  "local_root": "/mnt/data/free_fabric_v3_e8",
+  "marker_sha256": "a60ac3c62e10644673ea4a0a660bb91a1b115a9e043924a58f985dedac56dea0",
+  "objects": {
+    "marker.bin": {
+      "kind": "file",
+      "mode": "0o644",
+      "sha256": "a60ac3c62e10644673ea4a0a660bb91a1b115a9e043924a58f985dedac56dea0",
+      "size": 32
+    },
+    "workspace": {
+      "kind": "directory",
+      "mode": "0o2755",
+      "sha256_manifest_records": "b802b14af091970cfab1f5bb5d4013ee6601cde4fbe42b171b1eb9079756dc78"
+    },
+    "workspace/checkpoint.json": {
+      "kind": "file",
+      "mode": "0o644",
+      "sha256": "da7358235dc005df1fe1107c16989960959865c97ce908b768ba3366b998901f",
+      "size": 188
+    },
+    "workspace/note.link": {
+      "kind": "symlink",
+      "mode": "0o777",
+      "sha256_target_bytes": "59700155e034d16d95b0e6916ee23373f40422648201778db4b19ad28398ca6f",
+      "target": "note.txt"
+    },
+    "workspace/note.txt": {
+      "kind": "file",
+      "mode": "0o644",
+      "sha256": "78f60d66dca2b7807babced9b1c8ab88876cd1b8b2403bbc767a2a849ea7e4a2",
+      "size": 54
+    },
+    "workspace/probe.sh": {
+      "kind": "file",
+      "mode": "0o751",
+      "sha256": "a13ef1dd82f145e6b9295c0aef0616f5451ce48628b3899deba6210dda39d9aa",
+      "size": 49
+    },
+    "workspace/random_8m.bin": {
+      "kind": "file",
+      "mode": "0o644",
+      "sha256": "dce6709325d5b4b89b8938e12a7ac061d1116e3adf3603a1a58763c0451b1c48",
+      "size": 8388608
+    },
+    "workspace/state.sqlite3": {
+      "kind": "file",
+      "mode": "0o644",
+      "sha256": "5a4f97d7150808e62b9cc7a4bb0c90baf0478deba8752c97cbda89ced2f1ef88",
+      "size": 28672
+    }
+  },
+  "phase": "A",
+  "phase_a_manifest_sha256": "33922bcced95e5948aa33b62f422c754939d3820a9abf1f1e82593c30f60c074",
+  "plan_path": "autonomy/v3/PROBE_PLAN_20260820.json",
+  "random_bytes_disclosed": false,
+  "schema": "free_fabric_v3_e8_phase_a_evidence_v1",
+  "sqlite": {
+    "canonicalization": "SELECT id,label,value ORDER BY id; each row as id\\tlabel\\tvalue\\n UTF-8",
+    "content_sha256": "b03c9b7d682434013a232aa38bd5a96d27c30e2602e168d1545c71b9dc7389a9",
+    "path": "workspace/state.sqlite3",
+    "row_count": 1000
+  },
+  "workspace_tree_sha256": "b802b14af091970cfab1f5bb5d4013ee6601cde4fbe42b171b1eb9079756dc78"
+}

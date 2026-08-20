@@ -1,16 +1,21 @@
 {
-  "schema": "free_fabric_capsule_latest_v1",
+  "schema": "free_fabric_capsule_latest_v2",
   "worker": "KONTUR",
-  "capsule_id": "20260820T1510Z-partial-exact-pr12-v3",
-  "manifest_path": "autonomy/v3/workspaces/KONTUR/20260820T1510Z-partial-exact-pr12-v3/manifest.json",
+  "capsule_id": "20260820T145855Z-dc1ca0cc3a",
+  "manifest_path": "autonomy/v3/workspaces/KONTUR/20260820T145855Z-dc1ca0cc3a/manifest.json",
+  "previous_capsule_id": "20260820T1510Z-partial-exact-pr12-v3",
   "source_sha": "32034e8af92923a2abe09ad00e3220f6da1ed21c",
-  "state": "PARTIAL_EXACT_WORKSPACE",
-  "archive_sha256": "31b9fb5fb7712520f61539de3548417d29336108eeb6b253e689b9ae5f4a0d58",
+  "state": "PARTIAL_EXACT_WORKSPACE_REAL_ROUNDTRIP_PASS",
+  "archive_sha256": "797ae8277ab9b0a79fc3a8a3f3a0a5d0c1351ede91d62e72bfa26516adc2f246",
+  "publisher": "current_chat_independent_restore",
+  "cas_parent_blob_sha": "490ad50fa10e152a56fc1325e5b1d7f288f100b5",
   "verified": {
-    "all_part_git_blobs_match_local": true,
+    "source_v3_restore_on_independent_machine": true,
+    "v4_local_restore": true,
+    "all_part_git_blob_sha_match_local": true,
     "manifest_readback": true,
-    "local_safe_restore": true,
-    "workspace_manifest": true
+    "previous_pointer_preserved": true,
+    "cas_publication": true
   },
-  "note": "Current valid KONTUR capsule. Persists exact QuizEgg.tsx, exact miniapp package.json, the bounded five-defect patch (sha256 30764c9e562bd0371cb659e22743fb1ec6b47cabb0e57e95bdb7443b4650755a), and checkpoint. Large LocalKontur.tsx is proven retrievable by line ranges and must be persisted next; do not refetch files already inside this capsule."
+  "note": "First KONTUR v4 capsule was created only after restoring the prior real product capsule on an independent ChatGPT machine. Continue missing set from checkpoints/CHECKPOINT.json; do not refetch files already present."
 }

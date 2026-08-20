@@ -1,0 +1,25 @@
+diff --git a/tools/run_real_codex_cli_project_probe.py b/tools/run_real_codex_cli_project_probe.py
+--- a/tools/run_real_codex_cli_project_probe.py
++++ b/tools/run_real_codex_cli_project_probe.py
+@@
+ model_provider = "notion_bridge"
+ approval_policy = "never"
+ sandbox_mode = "workspace-write"
+ 
++[shell_environment_policy]
++inherit = "core"
++ignore_default_excludes = false
++
+ [model_providers.notion_bridge]
+ name = "Notion Agent Bridge"
+ base_url = {_toml_string(base_url)}
+ env_key = "NOTION_BRIDGE_API_KEY"
+diff --git a/tests/test_real_codex_cli_probe_contract.py b/tests/test_real_codex_cli_probe_contract.py
+--- a/tests/test_real_codex_cli_probe_contract.py
++++ b/tests/test_real_codex_cli_probe_contract.py
+@@
+         self.assertEqual(data["approval_policy"], "never")
+         self.assertEqual(data["sandbox_mode"], "workspace-write")
++        self.assertEqual(data["shell_environment_policy"]["inherit"], "core")
++        self.assertFalse(data["shell_environment_policy"]["ignore_default_excludes"])
+         provider = data["model_providers"]["notion_bridge"]

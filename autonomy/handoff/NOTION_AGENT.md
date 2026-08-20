@@ -1,32 +1,39 @@
 # Notion — ротация, агентность, prompt-mode и делегирование
 
-## 2026-08-20 09:47–09:56 МСК
+## 2026-08-20 10:46–11:03 МСК
 
 Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
-Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8. Текущий head после этой смены: `5cecbdf3f05e24ae3ae74560378177f0d9b8ea66`.
+Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8. Текущий head после этой смены: `da7057ec71f90c1e544ce493bf4351ab93f7bbdb`.
 
 Что уже есть в Agent-линии:
 - два режима системного промпта `engineer/owner`; приватный prompt владельца не переписывается и не смешивается с нашей инженерной персоной;
 - независимые foreground-задачи распределяются по свободным легитимным слотам, а незавершённая tool-цепочка сохраняет правильный account/thread;
 - допустимый failover переносит полную локальную историю на другой легитимный слот, но не переносит старый Notion `thread_id` и не повторяет уже выполненный локальный side effect;
 - готовы `DelegationDispatcher`, Notion child-runtime, `ServerSubagentLifecycle`, fail-closed server materializer и живые two-slot/failover/Codex project probes;
-- дочерний tool-loop умеет исправлять ошибочный tool name, переживает допустимую смену слота и выдаёт разные локальные synthetic `call_id` для осмысленного повторного вызова после ошибки инструмента.
+- child-session переживает смену A → B и возврат на ранее использованный клиент: после продвижения истории на B старый thread A не возобновляется, а создаётся новый thread из полной локальной истории;
+- batch дочерних задач проходит атомарный admission gate: если хотя бы один канонический `task_id` уже занят, никакой сосед из batch не начинает provider/local work.
 
 Что сделал в этой смене:
-1. Перечитал `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, прошлый handoff и заново сверил PR #7/#8. Core по-прежнему на `b6f4eef2...`; в Windows/NCM28 не заходил.
-2. Увидел, что Agent-ветка после прошлого handoff уже продвинулась до `1978c0f5...`: там исправлена генерация synthetic `call_id`, чтобы повтор того же инструментального действия после реального ошибочного tool-result не считался повторным использованием старого call id.
-3. Нашёл отдельную гонку в `SubagentLifecycle.run_many()`. До этой смены batch только проверял дубли внутри себя, а каждый child резервировал свой `task_id` уже после `create_task`. Если один id из batch одновременно уже выполнялся внешним `run_child`, свободный sibling мог успеть начать provider/local work до того, как конфликтующий sibling обнаружит занятый id и уронит весь batch. Это нарушало принцип «отклонённый batch не должен частично что-то сделать».
-4. Исправил `payload/subagent_lifecycle.py`: весь канонический набор `task_id` теперь резервируется атомарно под одним lock до создания дочерних задач и до любого provider work. Если хотя бы один id уже активен, весь batch закрывается отказом с нулём новых побочных эффектов. Для этого выделен внутренний `_run_reserved_child()`. Коммит `2b2183f1850134cf94d6ea05779141eb6ff22888`.
-5. Добавил регрессию `test_batch_conflict_with_active_child_fails_before_any_new_provider_work`: уже работает child `occupied`; batch содержит свободный `free-sibling` и конфликтующий `occupied`; batch обязан упасть до запуска `free-sibling`, а существующая child-задача продолжает жить. Коммит `5cecbdf3f05e24ae3ae74560378177f0d9b8ea66`.
-6. Provider/live traffic, реальные Notion-аккаунты, production и Core-файлы не трогал. Свежий удалённый PASS для exact head `5cecbdf3...` пока не заявлять без результата CircleCI.
+1. Перечитал `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, этот handoff и заново сверил PR #7/#8. Core по-прежнему на `b6f4eef2...`; Windows/NCM28 не трогал.
+2. Agent-ветка к началу смены уже была на `a35e6fe3...`; два свежих коммита после прошлого handoff добавили защиту возврата delegated child на старый client/thread и включили эту регрессию в CircleCI.
+3. Проверил известный single-slot reservation gap в `payload/server.py` и нашёл, что он двойной. Недостаточно убрать ранний `if pool_size <= 1: return set()` внутри `wait_for_background_route()`: сам `handle_openai_responses()` вообще вызывает этот wait только при `account_pool.size > 1`. Поэтому прежний план закрывал бы лишь половину дефекта.
+4. Усилил fail-closed `tools/apply_server_subagent_lifecycle_wiring.py`, чтобы при будущей материализации он одновременно:
+   - заменял early-return на реальное ожидание освобождения/TTL даже при одном слоте;
+   - убирал внешний `account_pool.size > 1` gate, поэтому независимая новая работа действительно входит в reservation wait и в single-slot режиме;
+   - сохранял прежнее поведение для нескольких слотов: если не все заняты резервациями, возвращается набор аккаунтов, которых надо избегать.
+   Коммиты: `dc92edc429a61b4baf0aca0c95b0f8007eb1ae87`, `d0a509093e621470bb08dd4b5b09282014c621a6`.
+5. Усилил `tests/test_server_subagent_wiring_materializer.py`. Тест теперь не только ищет строки, а извлекает материализованный `ForegroundAccountReservations`, запускает его отдельно и доказывает: при единственном зарезервированном аккаунте новая задача остаётся ждать; после `clear()` продолжает работу. Отдельно запрещено возвращение обоих старых обходов single-slot. Коммиты: `37a54dd470e823fea9092d5782df5989f716d86a`, `da7057ec71f90c1e544ce493bf4351ab93f7bbdb`.
+6. На exact head `da7057ec...` автоматически поднялся CircleCI workflow `82b653d9-ba45-45eb-b5e8-9388b6596dbb`: `agent-contracts`, `routing-contracts`, `prompt-contracts`, `delegation-contracts`, `server-wiring-rehearsal` пока `pending`. PASS заранее не заявлять.
+7. Provider/live traffic, реальные Notion-аккаунты, production и Core-файлы не трогал.
 
 Главное новое понимание:
-- атомарность нужна не только внутри одного tool-call batch. При параллельных субагентах сам batch дочерних задач тоже должен проходить единый admission gate: либо все его канонические task id зарезервированы до provider work, либо ни один sibling не начинает работу. Иначе ошибка идентичности одной child может оставить частичный внешний эффект от другой.
+- single-slot reservation bug состоит из двух независимых обходов: early-return внутри reservation registry и caller-side условие `pool_size > 1`. Исправить только один из них — получить ложное ощущение защиты. Материализатор теперь закрывает оба сразу и fail-closed проверяет точный preimage.
 
 Что делать дальше:
-1. Снять итог Agent CircleCI на exact head `5cecbdf3...`. Если красный — исправлять только конкретную причину.
-2. Если `server-wiring-rehearsal` и остальные Agent jobs зелёные, материализовать уже проверенный `ServerSubagentLifecycle` непосредственно в настоящий `payload/server.py` через существующий fail-closed materializer. После этого повторить prompt/routing/delegation/server-wiring контракты уже на прямом server-коде.
-3. Перед живым прогоном убедиться, что другого provider-run нет. Затем ровно один `live_two_slot_codex_project_probe.py`: два независимых проекта должны занять два разных готовых легитимных слота и сохранить свои account/thread через tool-result.
-4. После PASS — один `live_codex_failover_project_probe.py`: A выполняет локальный write, затем временно исключается только в ephemeral pool; B продолжает полную локальную историю в новом Notion thread без повторного write.
-5. Затем повторить тот же смысловой сценарий через настоящий `codex exec`. Только после устойчивого Notion/Codex ядра добавлять Qwen adapter под тот же `DelegationDispatcher`, без общего provider state.
+1. Снять итог CircleCI workflow `82b653d9-ba45-45eb-b5e8-9388b6596dbb` на exact head `da7057ec...`. Если красный — исправлять только конкретную причину.
+2. Если `server-wiring-rehearsal` и остальные Agent jobs зелёные, применить уже проверенный materializer к настоящему `payload/server.py`. Это одним изменением внесёт `ServerSubagentLifecycle` и закроет оба single-slot reservation обхода. После materialization добавить/включить прямую регрессию в `tests/test_foreground_slot_routing.py`, чтобы single-slot защита проверялась уже без materializer.
+3. Повторить prompt/routing/delegation/server-wiring контракты на прямом server-коде. После этого materializer должен либо стать migration-only, либо быть удалён из постоянного пути, чтобы не было двух источников истины.
+4. Перед живым прогоном убедиться, что другого provider-run нет. Затем ровно один `live_two_slot_codex_project_probe.py`: два независимых проекта должны занять два разных готовых легитимных слота и сохранить свои account/thread через tool-result.
+5. После PASS — один `live_codex_failover_project_probe.py`: A выполняет локальный write, затем временно исключается только в ephemeral pool; B продолжает полную локальную историю в новом Notion thread без повторного write.
+6. Затем тот же смысловой сценарий через настоящий `codex exec`. Только после устойчивого Notion/Codex ядра добавлять Qwen adapter под тот же `DelegationDispatcher`, без общего provider state.

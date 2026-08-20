@@ -4,7 +4,7 @@
 Текущий Core head: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
 Агентная ветка: `Ai-b0ss/notion-agent-bridge:autonomy/notion-prompt-modes-20260819`, draft PR #8.
-Текущий Agent head: `29942f27d8b5ec404d88b33dfa70486283be4224`.
+Текущий Agent head: `42f148282584fbc6318c289b2286fb01676e767a`.
 
 ## NCM28 / Windows
 
@@ -21,7 +21,7 @@
 - exact Core head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`;
 - workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3`;
 - пять задач: `auth`, `codex`, `migration`, `runtime` tree-digest и `outside-digest`;
-- при повторной проверке этой смены все пять всё ещё `pending`.
+- на начало и конец этой смены все пять остаются `pending`.
 
 Дубликат не запускать. Продуктовый файловый слой пока не менять вслепую.
 
@@ -43,24 +43,30 @@
 
 ### Что сделано в этой смене
 
-Пока Windows executor занят, проверены два важных участка дочернего агентного цикла.
+Пока CircleCI не выдаёт Windows/Agent executor, найден и исправлен реальный дефект в многошаговом дочернем tool-loop.
 
-1. `DelegatedToolLoopSession` раньше превращал пустой результат локального executor `{}` в `{"ok": true}`. Для `write_file`/`edit_file`/`run_shell` это могло дать модели ложное подтверждение недоказанного side effect. Теперь пустой результат идёт в историю как `{"ok": false, "error": "tool_result_invalid"}`. Добавлена регрессия `test_empty_tool_result_is_not_treated_as_success`.
+Раньше при ответе модели с несколькими tool calls `DelegatedToolLoopSession` добавлял `call_id` в `_seen_call_ids` по одному прямо во время проверки пачки. Если первый вызов был нормальным, а более поздний вызов в той же пачке был malformed, весь ответ отклонялся до выполнения локальных действий, но ранний `call_id` уже считался использованным. После retry/failover исправленная модель могла законно повторить тот же `call_id` и получить ложную ошибку `call id was reused`.
 
-2. `NotionDelegationAdapter` защищал foreground reservation только когда `pool.size > 1`. При одном аккаунте независимый child мог взять единственный аккаунт, уже зарезервированный незавершённой parent tool-chain, и сломать sticky continuation. Теперь reserved account IDs учитываются при любом размере пула. В single-slot случае child получает `AccountPoolExhausted`, а родительский слот остаётся неприкосновенным. Добавлена регрессия `test_single_account_child_cannot_steal_reserved_parent_slot`.
+Теперь пачка проверяется атомарно:
+- все `call_id`, имена и аргументы сначала нормализуются во временную структуру;
+- дубликаты проверяются и против старой истории, и внутри текущей пачки;
+- невалидные аргументы закрываются как `delegated tool call arguments are invalid`;
+- `_seen_call_ids`, model-turn budget и `assistant_tool_calls` коммитятся только после полной проверки всей пачки;
+- malformed пачка не расходует model-turn budget и не оставляет частичного состояния.
+
+Добавлена регрессия `test_invalid_batch_does_not_poison_earlier_call_id_for_retry`: первая пачка содержит валидный `call-1` и сломанный второй вызов; локальное действие не выполняется, история и счётчик ходов не меняются; повторная исправленная пачка с тем же `call-1` проходит ровно один раз и задача заканчивается.
 
 Коммиты Agent этой смены:
-- `4775c08228d16024fa9a860786a1378d3bf36e15` — fail-closed для пустого результата локального инструмента;
-- `dbea66ccea647afba82917a61e53a996b9f613e0` — регрессия на пустой tool result;
-- `169a4776bbf14f7c298b8a5b9ec5c8a9975801ca` — single-slot reservation теперь тоже защищена;
-- `29942f27d8b5ec404d88b33dfa70486283be4224` — регрессия на запрет кражи единственного parent slot.
+- `23d663a337e85cf186ecd883471db8ef7cbb5194` — атомарная проверка пачки tool calls;
+- `841735701cacd0e0b004dff93f532f9a5a0bfc26` — model-turn считается только после валидной пачки;
+- `42f148282584fbc6318c289b2286fb01676e767a` — итоговая регрессия на retry без ложного replay.
 
-Новый CircleCI workflow на exact head должен появиться автоматически. Старые Agent workflow были `pending`; не запускать дубликаты вручную.
+На exact head должен появиться новый обычный Agent CircleCI. Старые pending workflow вручную не дублировать.
 
 ## Следующий порядок
 
 1. Снять результат Windows workflow `1cd6d894-...`. Если всё ещё `pending`, не плодить дубликаты.
-2. Снять CircleCI exact-head Agent `29942f27…`. Если конкретная задача красная — чинить её точную причину.
+2. Снять CircleCI exact-head Agent `42f148282…`. Если конкретная задача красная — чинить её точную причину.
 3. Если `server-wiring-rehearsal` зелёный — применить `tools/apply_server_subagent_lifecycle_wiring.py` к настоящему `payload/server.py` и повторить контракты уже на сохранённом сервере.
 4. Затем выполнить один настоящий `tools/run_real_codex_cli_project_probe.py`: реальный файл → локальное действие → конкретный провал verifier → новый tool result → исправление → повтор verifier → `VERIFY_OK`.
 5. Затем один настоящий two-slot run и failover run: новый легитимный слот получает новый Notion thread и полную локальную историю без повторения уже выполненного локального side effect.

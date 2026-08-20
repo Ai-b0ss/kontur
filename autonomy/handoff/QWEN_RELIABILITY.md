@@ -2,7 +2,7 @@
 
 Обновлено: 2026-08-20.
 
-Основная линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Свежий продуктовый head на конец запуска: `d8522d514269caa00dbd2f47256ef0210a24f855`.
+Основная линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Свежий продуктовый head: `b19b8d19f9a19170feb19ed27cbd6676ecffe831`.
 
 ## Уже доказано и не переделывать
 
@@ -18,53 +18,68 @@
 - `src/stream-session-guard.js` удерживает потоковые mutating tool-calls до durable acceptance; поздняя SSE-ошибка не выпускает их клиенту;
 - streaming и оба non-stream `sessionStore.set() === false` fail-open закрыты через `QWEN_TOOL_CHECKPOINT_REJECTED`;
 - account-scoped reset больше не снимает provider-wide circuit с `accountId=null`;
+- transport error после принятого SSE теперь проходит в account/provider classification ровно один раз;
 - регрессия охватывает два tool-call в одном потоке и позднюю CAPTCHA.
 
-## Закрыто ранее: non-stream acknowledgement + provider-wide reset
+## Закрыто в этом запуске: удаление аккаунта могло разойтись между диском и памятью
 
-Коммиты `5cb63f419c2fb711e1832367f22d20d5e8c33d7f` и `a485c11e9f18470989b9e36086ef1aced1c68d39` закрыли checked-save для основного non-stream пути и retry: клиент не получает mutating tool-call, если durable checkpoint отвергнут; локальный отказ checkpoint не штрафует Qwen-аккаунт.
+На старте PR #6 был уже на `394f048991003df5980aef3e8a2f2121db60ae58` — пять коммитов поверх прошлого handoff; они не затрагивали `account-store`.
 
-Коммиты `a6f74660ca607b357b398e746a3eb68fdec208c8` и `d367bf0c4a5091d29bbed2b7546e352ddd2b1ff9` сделали account-scoped clear строгим: reset отдельного аккаунта может снять только circuit, явно принадлежащий этому аккаунту; provider-wide `accountId=null` требует глобального clear.
+Найден отдельный crash/durability дефект в `src/account-store.js::remove()`:
 
-## Закрыто в этом запуске: transport error после принятия SSE не учитывался аккаунту
+1. canonical `account.json` переименовывался в `.txn-delete-*`;
+2. каталог синхронизировался — то есть отсутствие canonical-файла уже становилось durable;
+3. затем `fs.rmSync(tombstone)` выполнялся без `try/catch`;
+4. при `EIO/EPERM` на cleanup функция выбрасывала исключение **до** `accounts.delete(...)`.
 
-На старте PR #6 уже ушёл вперёд до `4d80c11634bb5b0d11906714358238aff2c60538` (5 коммитов поверх `d367bf0...`), изменения были только в `src/stream-session-guard.js`, его новом тесте и `package.json`.
+Итог: текущий процесс продолжал считать аккаунт существующим и мог использовать его, хотя после restart загрузчик уже не видел canonical `.json`. Это расходилось с принципом «диск подтверждён первым, память публикуется после».
 
-Найден отдельный дефект: после initial SSE gate поток уже мог считаться принятым и аккаунт мог получить `markSuccess`, но последующий нативный `currentStream.emit('error', err)` в `pipeThroughOpenAIGuarded()` просто делал `res.end()` и `resolve()`. `opts.onError` не вызывался. Поэтому сервер не делал `accountStore.markFailure(...)`, и оборвавшийся посреди ответа аккаунт оставался без cooldown/ошибки и мог сразу снова выбираться следующей операцией.
+Исправлено коммитом `ba8be3b7888124ee8fd35fff6e1b333bb86d438b`:
 
-Исправлено коммитом `0c5933529a9b33f1a088888195406b160ce97d3c`:
+- после успешного `syncParentDirectory(file)` удаление tombstone стало best-effort cleanup;
+- cleanup failure больше не отменяет уже durable удаление canonical-файла;
+- `accounts.delete(...)` выполняется и состояние текущего процесса совпадает с состоянием после restart.
 
-- transport `error` после принятого потока проходит через тот же `finishWithError`, что parser/upstream failures;
-- `opts.onError` теперь вызывается ровно один раз, поэтому сервер классифицирует сбой выбранного аккаунта;
-- клиент получает стабильный SSE error вместо молчаливого EOF;
-- terminal ownership сохраняется: поздний parser callback не может повторно завершить ответ;
-- удержанные mutating tool-calls не выпускаются, потому что durable acceptance не достигнут.
+Регресс добавлен коммитом `b19b8d19f9a19170feb19ed27cbd6676ecffe831` в `scripts/account-store-mutation-atomicity-test.js`:
 
-Коммит `d8522d514269caa00dbd2f47256ef0210a24f855` расширяет уже штатный `scripts/stream-session-retry-sync-throw-test.js`: принят частичный поток -> transport error -> observer ровно один раз -> ответ закрыт ровно один раз -> поздний parser failure игнорируется.
+- искусственно создаётся `EIO` только на удалении `.txn-delete-*`;
+- `remove('beta')` обязан вернуть `true`;
+- аккаунт обязан исчезнуть из памяти;
+- canonical `beta.json` обязан отсутствовать;
+- после `load()` аккаунт не должен появиться снова.
 
-GitHub read-back до правки подтвердил исходный `onStreamError`, который не вызывал observer. Hosted-контейнер не смог клонировать GitHub (`Could not resolve host: github.com`), поэтому exact-tree Node run в этом запуске не заявляется. Внешние CI по правилам не запускались.
+Сравнение `394f048... -> b19b8d1...` подтверждает узкий diff: `src/account-store.js` +5/-1 и тест +30 строк. Штатный `npm test` уже включает `account-store-mutation-atomicity-test.js`.
 
-## Что проверить следующим
+Hosted контейнер в этом запуске не имел DNS до GitHub, поэтому exact-tree `npm test` локально не заявляется. Внешние CI по правилам не запускались. Локальная модель последовательности отдельно воспроизвела исходное расхождение: canonical-файл уже отсутствует, tombstone остаётся, аккаунт всё ещё в памяти.
 
-1. Read-back exact `d8522d5...` и при доступной материализации запустить `node --check src/stream-session-guard.js` + `node scripts/stream-session-retry-sync-throw-test.js`, затем обычный `npm test` локально/hosted без внешнего CI.
-2. Продолжить поиск только по реальным acknowledgement/failover границам. Приоритет: операции, где локальная crash-safe запись/очистка может вернуть ошибку после частичного изменения памяти, либо где mid-stream failure не попадает в account/provider safety classification.
-3. Не считать финальный streaming `sessionStore.set(...)` дефектом без отдельного воспроизведения: mutating calls к тому моменту уже имеют отдельный durable acknowledgement.
-4. Не расширять работу на Qwen Core.
+## Следующий найденный безопасный кусок
+
+Проверить retry пустого non-stream ответа в `server.js`.
+
+Сейчас после `Qwen upstream closed without a usable response` повтор строится с тем же `preferredAccount` и снова вызывает `qwenClient.sendChatRequest(..., preferredAccount)` до трёх раз. Для свежего треда это может приоритизировать тот же аккаунт вместо реального sibling failover, причём сам empty-response до окончания всей серии не получает отдельной account classification. Не менять это вслепую: сначала сделать офлайн-регресс с двумя аккаунтами и доказать фактический порядок кандидатов/счётчики ошибок. Требование: thread-affinity существующего upstream chat не ломать; новая fresh-thread retry может перейти на другой eligible account; provider-wide circuit остаётся fail-closed.
+
+Также при первой доступной exact-tree материализации выполнить:
+
+1. `node --check src/account-store.js`;
+2. `node scripts/account-store-mutation-atomicity-test.js`;
+3. `node scripts/stream-session-retry-sync-throw-test.js`;
+4. затем обычный `npm test` на hosted машине без внешнего CI.
 
 ## Capsule runtime
 
-Нормативный протокол: `CAPSULE_RUNTIME_PROTOCOL_V2.json` + `capsule_runtime_v4.py`.
+Нормативный протокол: `autonomy/v3/CAPSULE_RUNTIME_PROTOCOL_V2.json` + `autonomy/v3/tools/capsule_runtime_v4.py`.
 
-В начале этого запуска `LATEST.json` прочитан по правильному пути `autonomy/v3/workspaces/QWEN_RELIABILITY/LATEST.json`; стартовый Git blob SHA: `b7e0d3d38573fb1ef6e2f93a54904c3af2c5462c`. Он указывает на v4 capsule `20260820T200145Z-22a145762d`, archive SHA-256 `1fb1a101a1f1bc5de1dccbea32c2a1a3deeb3aa57998f2f2a3a3c4293680df90`. Manifest и все три parts были перечитаны отдельно из GitHub и соответствуют опубликованному manifest по заявленным длинам/SHA.
+На старте этого запуска `LATEST.json` прочитан по правильному пути `autonomy/v3/workspaces/QWEN_RELIABILITY/LATEST.json`; стартовый Git blob SHA: `b7e0d3d38573fb1ef6e2f93a54904c3af2c5462c`. Он указывает на v4 capsule `20260820T200145Z-22a145762d`, archive SHA-256 `1fb1a101a1f1bc5de1dccbea32c2a1a3deeb3aa57998f2f2a3a3c4293680df90`.
 
-Из-за отсутствия прямого байтового монтирования ответов GitHub-коннектора в hosted filesystem в этом запуске не удалось честно выполнить локальную команду `capsule_runtime_v4.py restore` над этими удалёнными bytes без ручной реконструкции. Ручную реконструкцию неизвестных bytes протокол запрещает, поэтому она не делалась. Product work продолжен от exact GitHub source floor, что прямо разрешено failure policy.
+В этой среде GitHub-коннектор снова не даёт byte-safe монтирование удалённых part-файлов в hosted filesystem. Ручная реконструкция неизвестных capsule bytes из текста запрещена протоколом, поэтому `capsule_runtime_v4.py restore` не подменялся ручным вариантом. По failure policy работа продолжена от exact GitHub source floor.
 
-Новая capsule в этом запуске НЕ публиковалась: без нормативного restore/pack + повторной byte-verification нельзя честно выполнить finish protocol. Состояние работы надёжно зафиксировано exact product commits `0c593352...`, `d8522d5...` и этим handoff. Следующий запуск должен снова начать с LATEST и, если появится byte-safe transport/mount, выполнить полный v4 restore и затем новый pack с новым immutable id. Старые failed upload каталоги не переиспользовать.
+Новая capsule в этом запуске не публиковалась: без нормативного restore -> checkpoint -> pack v4 -> immutable upload -> reread/verify -> CAS LATEST нельзя честно выполнить finish protocol. `LATEST` не тронут и force-write не делался. Существенное состояние сохранено exact product commits `ba8be3b...`, `b19b8d1...` и этим handoff.
 
 ## Граница доказательства
 
 - CircleCI, GitHub Actions, Cloudflare и provider/live не запускались;
 - production, реальные аккаунты и секреты не тронуты;
 - полный `npm test` не заявляется;
-- продуктовый head: `d8522d514269caa00dbd2f47256ef0210a24f855`;
-- текущий нормативный LATEST остаётся `20260820T200145Z-22a145762d`; force-write не делался.
+- продуктовый head: `b19b8d19f9a19170feb19ed27cbd6676ecffe831`;
+- нормативный `LATEST` остаётся `20260820T200145Z-22a145762d`;
+- следующий приоритет: доказать и при необходимости исправить non-stream empty-response retry, не ломая account/thread affinity.

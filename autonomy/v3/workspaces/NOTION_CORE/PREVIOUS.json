@@ -1,0 +1,8 @@
+{
+  "archive_sha256": "4fbe91a258cae98339781ff5f711612ad155a68b2727e71491260466bc154ce0",
+  "capsule_id": "20260820T174029Z-8cce2e0f14",
+  "manifest": "20260820T174029Z-8cce2e0f14/manifest.json",
+  "schema": "free_fabric_latest_v1",
+  "updated_at_utc": "2026-08-20T17:40:29Z",
+  "worker": "NOTION_CORE"
+}

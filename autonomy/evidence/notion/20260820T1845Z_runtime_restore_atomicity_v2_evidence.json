@@ -1,0 +1,38 @@
+{
+  "schema": "notion_core_runtime_restore_atomicity_v2",
+  "worker": "NOTION_CORE",
+  "source": {
+    "repo": "Ai-b0ss/notion-agent-bridge",
+    "branch": "candidate/ncm28-windows-fixed-v1",
+    "head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "restore_sh_blob": "8c31a7a524730f53c3d4a9128991050eb04bd0ae",
+    "restore_ps1_blob": "d174463100e681411bf58b8eaff6c4337cb48410"
+  },
+  "windows_digest": {
+    "workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "status_observed": "ALL_FIVE_PENDING",
+    "rerun": false
+  },
+  "defect": "Both exact restore scripts decrypt directly into the final restore path. A decryptor that writes plaintext and then fails can corrupt a previously valid restored archive or publish partial plaintext as the final file.",
+  "candidate_v2": {
+    "shell": "decrypt into random sibling temp, preserve gpg exit code, remove failed temp, promote only after exit 0",
+    "powershell": "decrypt into random sibling temp, cleanup in finally, replace final only after exit 0; native Windows replace semantics remain to be proven",
+    "secret_channel": "unchanged: RUNTIME_STATE_KEY removed from child env and passphrase supplied on stdin via --passphrase-fd 0"
+  },
+  "linux_dynamic_results": {
+    "failed_decrypt_preserves_existing_final": "PASS",
+    "failed_decrypt_with_no_existing_final_publishes_nothing": "PASS",
+    "failed_temp_cleanup": "PASS",
+    "successful_decrypt_promotes_final": "PASS",
+    "secret_absent_from_child_env": "PASS",
+    "secret_absent_from_argv": "PASS",
+    "secret_present_on_stdin": "PASS",
+    "candidate_shell_sha256": "7c81dcc3486d26cdafa2ba600e2261bb098da44c159cbba4510b306f5fa45f83",
+    "targeted_test_sha256": "c43ded7e98488487c95bfe7958286921119f7f7743d8c20d9c724ae7965d843f",
+    "verdict": "RUNTIME_RESTORE_ATOMICITY_LINUX_PASS"
+  },
+  "native_windows_claim": "NOT_PROVEN",
+  "hosted_ci_started": false,
+  "provider_traffic": false,
+  "secrets_used": false
+}

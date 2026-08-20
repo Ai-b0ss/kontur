@@ -1,0 +1,54 @@
+{
+  "archive": {
+    "parts": 2,
+    "sha256": "6a6fd2bbaf520587e42b1b1de4d713831dfd4bb0d4675dfa3e7fdfa0c5e75fd6",
+    "size": 3005
+  },
+  "capsule_id": "20260820T155435Z-f29775a5df",
+  "created_at_utc": "2026-08-20T15:54:35Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "03e0c2976f070e8f9bf665ab577b93dd0c89918c7b19fd7053232fae6b6aaf5a"
+    },
+    {
+      "chars": 1960,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "0bd364fc63a5d6c079c6f87d0e372389091998813436b948c9b4a6e5cc5fa690"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@896dea540fa3c73aefb69e319dd07d8622fef383",
+  "worker": "QWEN_RELIABILITY",
+  "workspace": {
+    "evidence": {
+      "mode": "0o755",
+      "type": "dir"
+    },
+    "evidence/CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "20e6e1205a22cbc18a067562e4e17fbb50c337d20e8131c066c813ec8e604040",
+      "size": 2161,
+      "type": "file"
+    },
+    "evidence/side-effect-window-test.js": {
+      "mode": "0o644",
+      "sha256": "ea958f4bb26df91dd3c2f4df1f4f7302126f37b54255186c381cabdd856e4fd8",
+      "size": 1665,
+      "type": "file"
+    },
+    "patches": {
+      "mode": "0o755",
+      "type": "dir"
+    },
+    "patches/stream-tool-checkpoint-guard.patch": {
+      "mode": "0o644",
+      "sha256": "54aa2db45e5afb745184c8e59256f083122d9070c029cdc54228d10e9828dba3",
+      "size": 2489,
+      "type": "file"
+    }
+  }
+}

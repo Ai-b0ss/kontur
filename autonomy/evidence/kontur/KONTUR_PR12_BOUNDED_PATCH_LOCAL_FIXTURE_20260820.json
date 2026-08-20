@@ -1,0 +1,41 @@
+{
+  "date": "2026-08-20",
+  "product_pr": 12,
+  "product_head": "32034e8af92923a2abe09ad00e3220f6da1ed21c",
+  "patch": "autonomy/patches/KONTUR_PR12_BOUNDED_FIX_20260820.patch",
+  "mode": "chatgpt-hosted-container-no-hosted-ci",
+  "verified": {
+    "patch_fixture_typescript_parse": "PASS",
+    "replay_identity_model": "PASS",
+    "back_during_response_model": "PASS",
+    "palette_hatch_home_reload_model": "PASS",
+    "exact_source_preconditions_rechecked": "PASS"
+  },
+  "exact_source_facts": {
+    "quiz_egg_shell_halves": 2,
+    "quiz_egg_crack_light": 1,
+    "home_currently_uses_unpaletted_ResultBird": true,
+    "persistent_QuizEgg_currently_omits_palette": true,
+    "back_control_currently_ignores_eggResponding_and_answerLock": true,
+    "replay_currently_recomputes_temporary_identity": true,
+    "stale_test_still_expects_three_shell_copies_and_legacy_css": true
+  },
+  "container": {
+    "node": "v22.16.0",
+    "typescript_global": true,
+    "chromium_available": true,
+    "python_playwright_available": true,
+    "pnpm_available": false,
+    "external_dns": false,
+    "exact_repo_checkout_present": false
+  },
+  "not_claimed": [
+    "full Mini App unit-test PASS",
+    "full typecheck PASS",
+    "production build PASS",
+    "fresh Playwright PASS on patched exact source",
+    "Cloudflare staging PASS",
+    "Telegram WebView PASS"
+  ],
+  "next": "Materialize an exact checkout plus dependency set into the hosted container without CircleCI/GitHub Actions; then apply the already-validated bounded patch and run the required local test/typecheck/build/Playwright matrix. Do not use placeholders for assets."
+}

@@ -1,0 +1,16 @@
+{
+  "schema": "free_fabric_capsule_latest_v1",
+  "worker": "KONTUR",
+  "capsule_id": "20260820T1440Z-partial-exact-pr12-v2",
+  "manifest_path": "autonomy/v3/workspaces/KONTUR/20260820T1440Z-partial-exact-pr12-v2/manifest.json",
+  "source_sha": "32034e8af92923a2abe09ad00e3220f6da1ed21c",
+  "state": "PARTIAL_EXACT_WORKSPACE",
+  "archive_sha256": "6aeb02dd5f100887648d202c2d8b0674a994a4239fe063c6edf4356f01b9b6f4",
+  "verified": {
+    "all_part_git_blobs_match_local": true,
+    "manifest_readback": true,
+    "local_safe_restore": true,
+    "workspace_manifest": true
+  },
+  "note": "First valid KONTUR capsule. Partial by design: exact QuizEgg.tsx + miniapp package metadata + checkpoint; remaining source/assets are explicitly listed in checkpoint and must be materialized incrementally without refetching these exact files."
+}

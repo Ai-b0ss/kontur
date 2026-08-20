@@ -1,0 +1,19 @@
+{
+  "kind": "QWEN_CORE_OFFLINE_EVIDENCE",
+  "date": "2026-08-20",
+  "scope": "OpenCode/session restart after completed local tool result and subsequent upstream failure",
+  "baseline_head": "3c240d713ebc3a5b6237ff3336dae9e5465f356f",
+  "product_commits": [
+    "36347b96e66b259c0193bddeac9fd070f5857b8a",
+    "bef36688a87bbe12b56dfa752391b0b45987096e",
+    "dea4ee945ea0fd0d3b0278ed2402435355aed569"
+  ],
+  "observed_defect": "session history was only durably advanced after a usable upstream response; a completed client-side tool result could therefore be lost if Qwen/parser/process failed before the next sessionStore.set, allowing a short continuation after restart to rehydrate pre-tool history",
+  "fix": "restoreCheckpoint now durably advances only when it observes a new role=tool result, before the next upstream request; ordinary user-only incoming progress is not precommitted",
+  "regression": "scripts/session-tool-result-progress-test.js",
+  "local_targeted_harness": "QWEN_SESSION_TOOL_RESULT_PROGRESS_PASS",
+  "hosted_ci_used": false,
+  "provider_traffic_used": false,
+  "production_touched": false,
+  "limits": "full exact-tree npm test was not run in this ChatGPT container because the private repository tree is not directly materialized there"
+}

@@ -1,0 +1,50 @@
+{
+  "archive": {
+    "parts": 2,
+    "sha256": "5ed3f3cbe7f55a32bb8aef8f7aa46d6557717dbba37edabb3206385edb5673d3",
+    "size": 2616
+  },
+  "capsule_id": "20260820T194136Z-c433b9037d",
+  "created_at_utc": "2026-08-20T19:41:36Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "28b6c1094634cc474662cb5c866ed99dd806ce761fbf9f58b1976212eb2d4a12"
+    },
+    {
+      "chars": 1440,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "f8348f82a1910794d65578b5ed43a9885a01470b590a88161d747bbe4f465be8"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "worker": "NOTION_CORE",
+  "workspace": {
+    "CHECKPOINT.json": {
+      "mode": "0o644",
+      "sha256": "7794d2d50d91adef29b0fef2bae9ed7575a8576ef2d6c831ab12cacf5df7aa49",
+      "size": 1210,
+      "type": "file"
+    },
+    "runtime_restore_v3": {
+      "mode": "0o2755",
+      "type": "dir"
+    },
+    "runtime_restore_v3/RESTORE_RUNTIME_STATE.sh": {
+      "mode": "0o755",
+      "sha256": "2669b7c859267f53b829e8c10a4d2daf5c122474503eb7c03d7499822a75675d",
+      "size": 967,
+      "type": "file"
+    },
+    "runtime_restore_v3/test_restore.sh": {
+      "mode": "0o755",
+      "sha256": "72d6d2487bb2179d97cd37c295b46a0b51eeab2a56a51d654e93dde1f7bf37a1",
+      "size": 3223,
+      "type": "file"
+    }
+  }
+}

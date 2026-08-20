@@ -2,7 +2,7 @@
 
 Обновлено: 2026-08-20.
 
-Основная линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Свежий продуктовый head: `d367bf0c4a5091d29bbed2b7546e352ddd2b1ff9`.
+Основная линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Свежий продуктовый head на конец запуска: `d8522d514269caa00dbd2f47256ef0210a24f855`.
 
 ## Уже доказано и не переделывать
 
@@ -16,87 +16,55 @@
 - automatic retry поздней SSE-ошибки отсутствует;
 - pending tool-call в durable checkpoint блокирует короткий `continue` через `409 QWEN_PENDING_TOOL_RESULT`;
 - `src/stream-session-guard.js` удерживает потоковые mutating tool-calls до durable acceptance; поздняя SSE-ошибка не выпускает их клиенту;
-- streaming `sessionStore.set() === false` fail-open закрыт через `QWEN_TOOL_CHECKPOINT_REJECTED`;
+- streaming и оба non-stream `sessionStore.set() === false` fail-open закрыты через `QWEN_TOOL_CHECKPOINT_REJECTED`;
+- account-scoped reset больше не снимает provider-wide circuit с `accountId=null`;
 - регрессия охватывает два tool-call в одном потоке и позднюю CAPTCHA.
 
-## Закрыто: два non-stream acknowledgement boundary
+## Закрыто ранее: non-stream acknowledgement + provider-wide reset
 
-На входе этого запуска PR #6 был на `d14691184735f1b9c2840f31fc24bc227c14b759`. Свежий `server.js` подтвердил два места того же класса:
+Коммиты `5cb63f419c2fb711e1832367f22d20d5e8c33d7f` и `a485c11e9f18470989b9e36086ef1aced1c68d39` закрыли checked-save для основного non-stream пути и retry: клиент не получает mutating tool-call, если durable checkpoint отвергнут; локальный отказ checkpoint не штрафует Qwen-аккаунт.
 
-1. основной non-stream путь после `collectNonStream(...)` игнорировал `sessionStore.set(...) === false`;
-2. non-stream retry после успешного `collectNonStream(...)` делал то же самое и сразу возвращал JSON.
+Коммиты `a6f74660ca607b357b398e746a3eb68fdec208c8` и `d367bf0c4a5091d29bbed2b7546e352ddd2b1ff9` сделали account-scoped clear строгим: reset отдельного аккаунта может снять только circuit, явно принадлежащий этому аккаунту; provider-wide `accountId=null` требует глобального clear.
 
-Если ответ содержал mutating tool-call, а checkpoint был отвергнут защитой account/thread affinity, клиент мог получить действие без durable pending-tool record.
+## Закрыто в этом запуске: transport error после принятия SSE не учитывался аккаунту
 
-Исправлено коммитом `5cb63f419c2fb711e1832367f22d20d5e8c33d7f`:
+На старте PR #6 уже ушёл вперёд до `4d80c11634bb5b0d11906714358238aff2c60538` (5 коммитов поверх `d367bf0...`), изменения были только в `src/stream-session-guard.js`, его новом тесте и `package.json`.
 
-- оба non-stream пути требуют `sessionStore.set(...) === true` до возврата JSON;
-- отказ получает стабильный код `QWEN_TOOL_CHECKPOINT_REJECTED` и fail-closed;
-- локальный отказ checkpoint не передаётся в `accountStore.markFailure`, поэтому Qwen-аккаунт не получает ложные failures/cooldown;
-- верхний route catch возвращает тот же стабильный код ошибки.
+Найден отдельный дефект: после initial SSE gate поток уже мог считаться принятым и аккаунт мог получить `markSuccess`, но последующий нативный `currentStream.emit('error', err)` в `pipeThroughOpenAIGuarded()` просто делал `res.end()` и `resolve()`. `opts.onError` не вызывался. Поэтому сервер не делал `accountStore.markFailure(...)`, и оборвавшийся посреди ответа аккаунт оставался без cooldown/ошибки и мог сразу снова выбираться следующей операцией.
 
-Коммитом `a485c11e9f18470989b9e36086ef1aced1c68d39` усилен `scripts/server-nonstream-session-commit-test.js`: checked-save для основного и retry пути, порядок `collect -> save -> reject guard -> response`, отсутствие штрафа аккаунта и стабильный код ошибки. Тест уже входит в обычный `npm test`.
+Исправлено коммитом `0c5933529a9b33f1a088888195406b160ce97d3c`:
 
-GitHub read-back на exact head подтверждает оба checked-save. На hosted Node выполнены `node --check` и узкая проверка инварианта; PASS. Полный exact-tree `npm test` не заявляется: hosted-машина не смогла материализовать репозиторий по сети, а внешние CI по правилам этой линии не запускались.
+- transport `error` после принятого потока проходит через тот же `finishWithError`, что parser/upstream failures;
+- `opts.onError` теперь вызывается ровно один раз, поэтому сервер классифицирует сбой выбранного аккаунта;
+- клиент получает стабильный SSE error вместо молчаливого EOF;
+- terminal ownership сохраняется: поздний parser callback не может повторно завершить ответ;
+- удержанные mutating tool-calls не выпускаются, потому что durable acceptance не достигнут.
 
-## Закрыто следом: account reset мог снять provider-wide circuit
+Коммит `d8522d514269caa00dbd2f47256ef0210a24f855` расширяет уже штатный `scripts/stream-session-retry-sync-throw-test.js`: принят частичный поток -> transport error -> observer ровно один раз -> ответ закрыт ровно один раз -> поздний parser failure игнорируется.
 
-После первого исправления проверена связка `account-store.reset()` -> `providerCircuit.clear(target.id)`.
+GitHub read-back до правки подтвердил исходный `onStreamError`, который не вызывал observer. Hosted-контейнер не смог клонировать GitHub (`Could not resolve host: github.com`), поэтому exact-tree Node run в этом запуске не заявляется. Внешние CI по правилам не запускались.
 
-В `provider-circuit.clear(expectedAccountId)` прежняя проверка была слишком слабой: если circuit имел `accountId=null` (например provider-wide `provider_pressure` / `ambiguous_timeout`), reset любого отдельного аккаунта проходил проверку и удалял общий safety circuit. Это позволяло вручную/локально снять provider-wide stop через операцию, которая по смыслу разблокирует только один аккаунт.
+## Что проверить следующим
 
-Коммит `a6f74660ca607b357b398e746a3eb68fdec208c8` меняет правило: account-scoped clear может удалить только circuit, который явно принадлежит тому же account id. Состояние с `accountId=null` теперь переживает `store.reset(account)` и требует явного глобального `clearProviderCircuit()`.
-
-Коммит `d367bf0c4a5091d29bbed2b7546e352ddd2b1ff9` усиливает `scripts/provider-safety-test.js`:
-
-- exact-account WAF recovery по-прежнему может снять свой circuit;
-- `provider_pressure` с `accountId=null` переживает reset отдельного аккаунта;
-- `candidates()` остаётся пустым, пока provider-wide circuit активен;
-- явный `store.clearProviderCircuit()` сохраняется как единственный глобальный путь очистки.
-
-GitHub read-back `src/provider-circuit.js` подтверждает строгую проверку `state.accountId !== expectedAccountId => false`.
-
-## Что не менять без нового доказательства
-
-Финальный streaming `sessionStore.set(...)` после уже принятого guarded-потока пока не считать тем же дефектом автоматически. Mutating tool-call к этому моменту уже обязан иметь отдельный durable acknowledgement до выдачи клиенту. Сначала нужно доказать реальное окно повторного side effect или другой acknowledgement/failover инвариант.
-
-Следующий поиск вести только по boolean-return/crash-safe store на настоящих границах подтверждения: где клиенту или следующему аккаунту становится видимо действие/тред только после надёжной записи. Не расширять работу на Qwen Core.
+1. Read-back exact `d8522d5...` и при доступной материализации запустить `node --check src/stream-session-guard.js` + `node scripts/stream-session-retry-sync-throw-test.js`, затем обычный `npm test` локально/hosted без внешнего CI.
+2. Продолжить поиск только по реальным acknowledgement/failover границам. Приоритет: операции, где локальная crash-safe запись/очистка может вернуть ошибку после частичного изменения памяти, либо где mid-stream failure не попадает в account/provider safety classification.
+3. Не считать финальный streaming `sessionStore.set(...)` дефектом без отдельного воспроизведения: mutating calls к тому моменту уже имеют отдельный durable acknowledgement.
+4. Не расширять работу на Qwen Core.
 
 ## Capsule runtime
 
-В начале запуска `LATEST.json` имел Git blob SHA `dce683580308f5ad727c6a0ae49afdde81208968` и указывал на `20260820T185733Z-1fc6dd7627`. Manifest и все 4 части были получены отдельно и восстановлены нормативным `capsule_runtime_v4.py`; archive SHA-256 `5fa1f6f0f603d08dc01930e5d427085171cff558b53635d1cb8090e9c6c96335`.
+Нормативный протокол: `CAPSULE_RUNTIME_PROTOCOL_V2.json` + `capsule_runtime_v4.py`.
 
-После первого продуктового исправления создана и полностью проверена capsule:
+В начале этого запуска `LATEST.json` прочитан по правильному пути `autonomy/v3/workspaces/QWEN_RELIABILITY/LATEST.json`; стартовый Git blob SHA: `b7e0d3d38573fb1ef6e2f93a54904c3af2c5462c`. Он указывает на v4 capsule `20260820T200145Z-22a145762d`, archive SHA-256 `1fb1a101a1f1bc5de1dccbea32c2a1a3deeb3aa57998f2f2a3a3c4293680df90`. Manifest и все три parts были перечитаны отдельно из GitHub и соответствуют опубликованному manifest по заявленным длинам/SHA.
 
-- id `20260820T200145Z-22a145762d`;
-- source ref `Ai-b0ss/qwen-free-api@a485c11e9f18470989b9e36086ef1aced1c68d39`;
-- archive SHA-256 `1fb1a101a1f1bc5de1dccbea32c2a1a3deeb3aa57998f2f2a3a3c4293680df90`;
-- remote manifest/parts blob SHA совпали с локально рассчитанными;
-- нормативные `verify` и `restore` PASS;
-- старый LATEST сохранён в PREVIOUS;
-- LATEST опубликован CAS через стартовый parent SHA;
-- read-back LATEST blob `b7e0d3d38573fb1ef6e2f93a54904c3af2c5462c`.
+Из-за отсутствия прямого байтового монтирования ответов GitHub-коннектора в hosted filesystem в этом запуске не удалось честно выполнить локальную команду `capsule_runtime_v4.py restore` над этими удалёнными bytes без ручной реконструкции. Ручную реконструкцию неизвестных bytes протокол запрещает, поэтому она не делалась. Product work продолжен от exact GitHub source floor, что прямо разрешено failure policy.
 
-После второго продуктового исправления workspace снова обновлён и выполнены новые нормативные `pack`/`verify`. Три последующие immutable upload-попытки НЕ опубликованы как LATEST из-за обязательной byte-verification:
-
-- `20260820T200726Z-d8fdaa0bbf`: remote `part-0001` Git blob не совпал с локальным;
-- `20260820T200937Z-723152a3f0`: remote `part-0003` Git blob не совпал с локальным;
-- `20260820T201210Z-d32eb4bf64`: remote single-part blob не совпал с локальным.
-
-Эти каталоги immutable и считаются orphan/evidence only; их нельзя исправлять на месте или назначать LATEST. Кроме того, LATEST уже изменился относительно SHA, запомненного в начале запуска, поэтому по протоколу второй CAS поверх него в этом запуске не делался. Текущий нормативный LATEST остаётся `20260820T200145Z-22a145762d`; сведения о втором исправлении надёжно сохранены в продуктовых коммитах и этом handoff. Следующий запуск должен восстановить LATEST, затем материализовать exact product head `d367bf0...` и создать свежую capsule новым id.
+Новая capsule в этом запуске НЕ публиковалась: без нормативного restore/pack + повторной byte-verification нельзя честно выполнить finish protocol. Состояние работы надёжно зафиксировано exact product commits `0c593352...`, `d8522d5...` и этим handoff. Следующий запуск должен снова начать с LATEST и, если появится byte-safe transport/mount, выполнить полный v4 restore и затем новый pack с новым immutable id. Старые failed upload каталоги не переиспользовать.
 
 ## Граница доказательства
 
 - CircleCI, GitHub Actions, Cloudflare и provider/live не запускались;
 - production, реальные аккаунты и секреты не тронуты;
 - полный `npm test` не заявляется;
-- продуктовые коммиты этого запуска: `5cb63f4...`, `a485c11...`, `a6f7466...`, `d367bf0...`;
-- permanent memory через LATEST гарантированно содержит состояние после первого исправления; второе зафиксировано в exact Git product head + handoff, но новый LATEST намеренно не форсировался после неудачной byte-verification.
-
-## Следующее
-
-1. Восстановить LATEST `20260820T200145Z-22a145762d` нормативным v4.
-2. Проверить свежий PR #6; при отсутствии более нового писателя материализовать exact `d367bf0...` и создать новую capsule с новым id, не переиспользуя три failed upload каталога.
-3. Искать следующий реальный fail-open только на acknowledgement/failover boundary: игнорирование boolean-return crash-safe stores, публикация thread/account state до durable commit, либо путь повторного side effect после restart.
-4. Не трогать финальный streaming checkpoint без отдельного воспроизведения риска.
-5. При доступном exact-tree исполнителе прогнать обычный `npm test`; внешние CI и provider/live для этого не нужны.
+- продуктовый head: `d8522d514269caa00dbd2f47256ef0210a24f855`;
+- текущий нормативный LATEST остаётся `20260820T200145Z-22a145762d`; force-write не делался.

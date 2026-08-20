@@ -1,0 +1,88 @@
+{
+  "archive": {
+    "parts": 1,
+    "sha256": "57d9e9c20c91a43a55049168e999e99432e221fedd6fc46a9bb5e98413b1837e",
+    "size": 6186
+  },
+  "capsule_id": "20260820T214540Z-d76b548d33",
+  "created_at_utc": "2026-08-20T21:45:40Z",
+  "parts": [
+    {
+      "chars": 8248,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "1a59f4447a0c19eee90485d229b8f99f09db744efc54b2a68912a6f42ce7a8d3"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "worker": "NOTION_CORE",
+  "workspace": {
+    "CHECKPOINT.json": {
+      "mode": "0o644",
+      "sha256": "d55dc51d7abd7b39eafed64b8febfb5ab98f8c0fa67c1a9a09077757839df4bb",
+      "size": 1266,
+      "type": "file"
+    },
+    "evidence": {
+      "mode": "0o2755",
+      "type": "dir"
+    },
+    "evidence/codex_restart_contract_drift_20260820T2140Z.json": {
+      "mode": "0o644",
+      "sha256": "95f15f0d029a98b55d50210395693209c7daa47a5530ef0df899e0ec9b3fc373",
+      "size": 2177,
+      "type": "file"
+    },
+    "evidence/runtime_restore_atomicity_v4_candidate.patch": {
+      "mode": "0o644",
+      "sha256": "b1f25e2b6857cd9074c234bc01b92376998d5b4dc96664ff081db3bb5242d4d9",
+      "size": 3710,
+      "type": "file"
+    },
+    "evidence/runtime_restore_atomicity_v4_evidence.json": {
+      "mode": "0o644",
+      "sha256": "60c17c5ce25ecce8a0fcf7da633851fb21c2fbcf9590336bb06a7dcfe67b1b53",
+      "size": 2450,
+      "type": "file"
+    },
+    "runtime_restore_v3": {
+      "mode": "0o2755",
+      "type": "dir"
+    },
+    "runtime_restore_v3/RESTORE_RUNTIME_STATE.sh": {
+      "mode": "0o755",
+      "sha256": "2669b7c859267f53b829e8c10a4d2daf5c122474503eb7c03d7499822a75675d",
+      "size": 967,
+      "type": "file"
+    },
+    "runtime_restore_v3/test_restore.sh": {
+      "mode": "0o755",
+      "sha256": "72d6d2487bb2179d97cd37c295b46a0b51eeab2a56a51d654e93dde1f7bf37a1",
+      "size": 3223,
+      "type": "file"
+    },
+    "runtime_restore_v4": {
+      "mode": "0o2755",
+      "type": "dir"
+    },
+    "runtime_restore_v4/RESTORE_RUNTIME_STATE.ps1": {
+      "mode": "0o644",
+      "sha256": "40b99bfbed5b3652a1d76e6ba90b0cf32f2629fec621fac755eb5aefa90ac4e4",
+      "size": 2108,
+      "type": "file"
+    },
+    "runtime_restore_v4/RESTORE_RUNTIME_STATE.sh": {
+      "mode": "0o755",
+      "sha256": "953dab1e5c49fc2a799113389f86f5187d8454ffd47280d5765ddaa1e2939f25",
+      "size": 1150,
+      "type": "file"
+    },
+    "runtime_restore_v4/test_restore_v4.sh": {
+      "mode": "0o755",
+      "sha256": "badf7f6d30424015fb5487892813a2f41964e94d2dbf6e37d8c726bdd0690d94",
+      "size": 3968,
+      "type": "file"
+    }
+  }
+}

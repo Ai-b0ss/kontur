@@ -1,0 +1,32 @@
+{
+  "kind": "FREE_FABRIC_EVIDENCE",
+  "task_id": "E5-SCHEDULED-RECOVERY",
+  "run_id": "PLATFORM-MEASUREMENTS-20260820",
+  "manifest_generation": 1,
+  "brain": "NOTION_AGENT",
+  "execution": "NOTION_AGENT-G1-E4E5-A",
+  "provenance": {
+    "owner_override": "/Autonomy/FREE_FABRIC/control/OWNER_OVERRIDE_G1.json",
+    "platform_contract": "/Autonomy/FREE_FABRIC/control/PLATFORM_CONTRACT_V0.json",
+    "run_manifest": "/Autonomy/FREE_FABRIC/manifests/RUN_PLATFORM_MEASUREMENTS_G1.json",
+    "probe_path": "autonomy/free_fabric/probes/e5_scheduled_recovery_probe.py",
+    "probe_local_sha256_before_publish": "82d8a508c43b3eea0d02c4d719394c7cc7c5ec8ac64d5bb62253b538e5aa1fc1"
+  },
+  "local_result": {
+    "result": "PASS",
+    "fresh_process_recovery": true,
+    "stale_generation_rejected": true,
+    "corruption_rejected": true
+  },
+  "verdict": "LOCAL_PROTOCOL_PROVEN_ONLY",
+  "next_required_proof": {
+    "kind": "CROSS_SCHEDULE_RECOVERY",
+    "checkpoint_path": "autonomy/free_fabric/evidence/PLATFORM-MEASUREMENTS-20260820/E5-SCHEDULED-RECOVERY/NOTION_AGENT_G1_A_CHECKPOINT.json",
+    "requirements": [
+      "read exact checkpoint path/ref on the next NOTION_AGENT execution",
+      "verify generation/run/task fences and state_sha256 before accepting state",
+      "publish a new immutable evidence object instead of replacing this checkpoint",
+      "do not infer scheduled.compute or scheduled.library_publish from this local proof"
+    ]
+  }
+}

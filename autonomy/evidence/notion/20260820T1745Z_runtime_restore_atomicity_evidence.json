@@ -1,0 +1,50 @@
+{
+  "schema": "notion_core_runtime_restore_atomicity_evidence_v1",
+  "worker": "NOTION_CORE",
+  "source_repo": "Ai-b0ss/notion-agent-bridge",
+  "source_ref": "candidate/ncm28-windows-fixed-v1",
+  "source_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "source_blobs": {
+    "RESTORE_RUNTIME_STATE.sh": "8c31a7a524730f53c3d4a9128991050eb04bd0ae",
+    "RESTORE_RUNTIME_STATE.ps1": "d174463100e681411bf58b8eaff6c4337cb48410",
+    "tools/verify_runtime_restore_secret_channel.py": "6b8b4580064fac4edf5905843333a15a8b08edbe"
+  },
+  "windows_digest_status": {
+    "workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "observed_read_only": true,
+    "contexts": 5,
+    "state": "all_pending",
+    "rerun": false
+  },
+  "execution": "chatgpt_hosted_linux_offline",
+  "hosted_ci_used": false,
+  "provider_traffic": false,
+  "finding": {
+    "severity": "CORE_SAFETY_BLOCKER",
+    "title": "failed runtime decrypt can leave partial plaintext at the final restore path and can overwrite a previously good restored archive",
+    "root_cause": "both restore scripts pass the final destination directly to gpg --output; there is no temporary sibling + success-only atomic promotion and no failed-output cleanup",
+    "linux_reproduction": {
+      "fake_gpg_writes_partial_then_exits_nonzero": true,
+      "script_exit_code": 2,
+      "partial_plaintext_left_at_final_path": true,
+      "bytes_observed": 17
+    },
+    "scope_note": "The reproduction proves shell failure semantics on Linux and the source-level direct-final-output pattern in both scripts. It does not claim native Windows filesystem atomicity; the PowerShell fix still needs a native Windows gate when ZERO-MINUTE permits one."
+  },
+  "existing_secret_channel_recheck": {
+    "passphrase_not_in_argv": true,
+    "RUNTIME_STATE_KEY_removed_from_child_environment": true,
+    "passphrase_received_only_on_stdin": true,
+    "sanitized_stdout_marker_only": true
+  },
+  "candidate_fix": {
+    "strategy": "decrypt to a random temporary sibling in runtime-state-restored, delete temp on failure, then rename/move to final destination only after gpg exit 0; preserve previous good final file on failure",
+    "shell_dynamic_success": true,
+    "shell_dynamic_failure_preserves_previous_final": true,
+    "shell_dynamic_failure_leaves_no_temp": true,
+    "shell_dynamic_secret_channel_still_non_argv": true,
+    "powershell_status": "STATIC_CANDIDATE_ONLY_NO_PWSH_IN_EXECUTOR"
+  },
+  "product_branch_mutated": false,
+  "next_gate": "materialize exact scripts + regression harness in normal git workspace; Linux shell dynamic test; PowerShell static contract; later one native Windows restore atomicity gate without starting a new digest fanout"
+}

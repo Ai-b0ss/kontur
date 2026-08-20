@@ -1,54 +1,49 @@
 # Qwen — надёжность, пул аккаунтов и расширение возможностей
 
-Обновлено: 2026-08-20 10:55 МСК.
+Обновлено: 2026-08-20 11:45 МСК.
 
-Текущая основная линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Текущий head: `b87793e39ba4a03571dafbaad96b099b38742cf1`.
-Подготовительная линия Auto-Skills: `autopilot/qwen-auto-skills-session-20260820`, head `53485d253a8f8540824ab36068eaabd3b1716706`.
-Старая промежуточная ветка каталога: `autopilot/qwen-auto-skills-catalog-20260820`, head `2e01f249879d46418fd7560e69c3fc094cba1b78`; новую работу вести уже на `...auto-skills-session...`.
-`Ai-b0ss/qwen-workspace` PR #5: head `ce51b26c227b08032301a8574fee4fe2ee9330a3`, mergeable=true.
+Основная линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6, head `b87793e39ba4a03571dafbaad96b099b38742cf1`.
+Подготовительная линия Auto-Skills: `autopilot/qwen-auto-skills-session-20260820`, новый head `68a2237f255743c7c7cef3ab289a88a9e6c5a4dc`.
+Старая промежуточная ветка каталога `autopilot/qwen-auto-skills-catalog-20260820` больше не является рабочей основой.
+`Ai-b0ss/qwen-workspace` PR #5 остаётся отдельной линией; перед изменениями снова проверить свежий head/diff.
 
 ## Что уже есть
 
-- локальные CAPTCHA/rate limit/expired auth не останавливают весь пул без причины: бюджет переключений по умолчанию 4, жёсткий потолок 6;
-- provider-wide WAF/trust restriction, provider pressure и неоднозначный timeout по-прежнему останавливают дальнейшее прощупывание соседних аккаунтов;
-- новые независимые задачи распределяются по давно не использовавшимся аккаунтам, а существующий Qwen-тред сохраняет приоритет своего аккаунта-владельца;
-- failover незавершённой цепочки переносит локальную историю в новый Qwen-тред и продолжает tool-loop;
+- локальные CAPTCHA/rate limit/expired auth не останавливают весь пул без причины: bounded failover по соседним подходящим аккаунтам, provider-wide WAF/trust/pressure по-прежнему закрывают дальнейшее прощупывание;
+- новые независимые задачи распределяются по давно не использовавшимся аккаунтам, существующий Qwen-тред сохраняет приоритет своего аккаунта-владельца;
+- failover незавершённой tool-цепочки переносит локальную историю в новый Qwen-тред и продолжает работу;
 - crash-safe сохранение есть для account state, OpenCode session checkpoint/backup, provider circuit, batch progress и vision cache;
-- два режима системного промпта (`engineer`/`owner`), явно выбираемые Skills, последовательные tool-using субагенты и восстановление пачки между перезапусками уже реализованы;
-- локальные картинки проверяются по реальному пути после раскрытия symlink/junction, ограничены 8 МБ и сохраняют cache crash-safe;
-- Skills понимают стандартный `name/SKILL.md`, `priority`, `user-invocable`, `disable-model-invocation` и `paths:`;
-- ChatGPT relay не активная задача до появления owner session; outbox не включать.
+- два режима системного промпта (`engineer`/`owner`), явно выбираемые Skills, tool-using субагенты и восстановление пачки между перезапусками уже реализованы;
+- Skills понимают `name/SKILL.md`, `priority`, `user-invocable`, `disable-model-invocation` и `paths:`;
+- подготовительный Auto-Skills слой уже умеет строить metadata-only каталог по подтверждённым `touchedPaths`, не подгружая тело всех Skills;
+- `src/session-touched-paths.js` извлекает пути только из подтверждённой пары `assistant tool_call -> tool result` для `read_file/write_file/edit_file/append_file/list_dir`; `bash`, traversal и явно неуспешные tool-result не активируют навык;
+- ChatGPT relay не активная задача до появления нового owner session/регрессии.
 
 ## Эта смена
 
-- заново прочитаны `OWNER_INTENT_RU.md`, `CURRENT_RU.md` и этот handoff; заново проверены qwen-free-api PR #6 и qwen-workspace PR #5;
-- PR #6 с прошлого handoff сдвинулся с `e7d7ca50...` до `b87793e3...` (+3 коммита). Свежие изменения затрагивают только `src/subagent-agent-runner.js` и его тест, поэтому Auto-Skills можно развивать независимо;
-- qwen-workspace PR #5 не изменился: `ce51b26c...`, mergeable=true;
-- из-за действующего режима без hosted-минут не открыт новый PR и не запускались GitHub Actions/CircleCI вручную;
-- создана свежая ветка `autopilot/qwen-auto-skills-session-20260820` прямо от exact `b87793e3...`, чтобы не тащить старую основу;
-- на неё перенесён уже подготовленный metadata-only каталог Skills: `qwen-v3-capabilities.prepareInput()` принимает `touchedPaths`, нормализует/дедуплицирует до 256 путей и строит `renderModelSkillCatalog(..., { touchedPaths })`;
-- в запрос модели попадают только `name + description`; тело Skill не подгружается автоматически. В owner-режиме приватный owner prompt остаётся главным управляющим текстом;
-- восстановлен отдельный тест `scripts/model-skill-catalog-capability-test.js`: path-gated Skill скрыт до совпадения, появляется после подходящего пути, Windows-разделители нормализуются, дубликаты схлопываются, тело Skill не протекает в каталог;
-- добавлен новый независимый модуль `src/session-touched-paths.js`: он извлекает пути только из подтверждённой пары `assistant tool_call -> tool result` для `read_file/write_file/edit_file/append_file/list_dir`, не угадывает пути из `bash`, отбрасывает `../`, нормализует Windows-пути, дедуплицирует и держит максимум 256 последних путей;
-- ошибочный tool result (`isError`, `ok=false`, `success=false`, JSON error или явный `Error:`) не активирует path-gated Skill;
-- добавлен `scripts/session-touched-paths-test.js`, который проверяет успешный read/edit/list, неуспешный write, игнорирование bash, traversal и bounded 256-path memory;
-- текущий head подготовительной ветки `53485d253a8f8540824ab36068eaabd3b1716706`;
-- новый код пока НЕ подключён к `session-store`/`server.js`, поэтому Auto-Skills ещё не session-scoped и не считается завершённым;
-- локальный/hosted Node-прогон в этой смене не запускался из-за действующего ограничения на внешние минуты; PASS новому коду не приписывать;
-- provider traffic = 0; аккаунты, encrypted runtime, production и relay не тронуты.
+- заново прочитаны `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, этот handoff и свежий PR #6; PR #6 не двигался с `b87793e3...`, поэтому конфликтов с основной Qwen-линией не обнаружено;
+- соблюдён ZERO-MINUTE MODE: CircleCI/GitHub Actions не запускались и не перезапускались; provider traffic = 0;
+- в подготовительной ветке обнаружен реальный пробел: новые `model-skill-catalog-capability-test.js` и `session-touched-paths-test.js` существовали, но не входили в штатный `npm test`; исправлено коммитом `0ab96ca653f6c8f7507a977c4fdd19dd26b67565`;
+- `src/session-store.js` теперь сохраняет `touchedPaths` внутри существующего crash-safe session checkpoint. Новые пути монотонно объединяются со старыми, нормализуются и ограничиваются тем же лимитом 256; после restart запись восстанавливается вместе с остальной сессией. Коммит `3ea1ffc79894f34d68a78f1a8c020b87a482aff0`;
+- добавлен отдельный регресс `scripts/session-touched-paths-persistence-test.js`: нормализация Windows-пути, отбрасывание traversal, монотонное объединение, запись на диск и восстановление после нового `require()`/перезапуска. Коммит `9ded04556b33662db42c16ce475ff2142a07a0d1`;
+- этот регресс включён в штатный `npm test`; текущий head подготовительной ветки `68a2237f255743c7c7cef3ab289a88a9e6c5a4dc`;
+- локально в ChatGPT container на Node `v22.16.0` реально прошли: точный `session-touched-paths-test`, отдельная интеграционная проверка `confirmed file tool -> merge -> JSON persist -> restart -> preserved`, а также проверка durable `session-store` семантики. Получены маркеры `session-touched-paths-test: PASS`, `AUTO_SKILLS_SESSION_INTEGRATION_PASS` и `SESSION_TOUCHED_PATHS_DURABLE_PASS`;
+- отдельно выполнен `node --check` для `model-skill-catalog-capability-test.js`; полный проектный `npm test` не запускался, потому что контейнер не имеет сетевого доступа для клонирования/установки всего репозитория;
+- проверено, что на новом head не появилось GitHub Actions workflow runs: hosted-минуты этим изменением не расходовались;
+- `server.js` намеренно не переписан через GitHub Contents API вслепую: для следующего шага подготовлен bounded candidate patch, который передаёт merged `touchedPaths` во все четыре `preparePublicPayloadGoverned()` пути и сохраняет их во всех трёх `sessionStore.set()` путях.
 
 ## Что делать следующим запуском
 
-1. Сначала снова проверить PR #6 и свежие коммиты. Если соседний Qwen-рабочий не трогает `session-store`/`server.js`, продолжать Auto-Skills на `autopilot/qwen-auto-skills-session-20260820`.
-2. Интегрировать `session-touched-paths` в durable session record: добавить `touchedPaths` в `session-store.set()`, сохранять предыдущий набор, монотонно объединять новые подтверждённые пути и восстанавливать после restart.
-3. В `server.js` перед `preparePublicPayloadGoverned()` вычислять `confirmed = collectConfirmedTouchedPaths(effectiveBody.messages)`, объединять с `record.touchedPaths` и передавать в capabilities через `touchedPaths`.
-4. Те же merged `touchedPaths` сохранять во всех трёх `sessionStore.set()` путях: обычный non-stream, retry и stream. Не активировать путь по неподтверждённому tool-call.
-5. Добавить полный регресс: `успешный file tool -> Skill появился -> следующий ход без нового файла -> Skill остался -> reload session-store -> Skill остался`; отдельно failed file tool не активирует Skill.
-6. Только после зелёного этого слоя добавить bounded on-demand загрузку тела ровно выбранного моделью Skill по имени, а не всех Skills сразу.
-7. Пока действует режим без hosted-минут — не открывать PR с подготовительной ветки и не запускать внешние CI вручную. Когда исполнение снова разрешено: точечные Node-тесты -> полный `npm test` -> один Windows offline parity, потому что `paths:` затрагивает Windows path semantics.
-8. Старый разрешённый live-trigger `4de8bdae6d0c28789181f31b6212f97e6e283333` не дублировать вслепую.
+1. Снова проверить свежий PR #6 и не заходить в файлы, которые параллельно меняет другой Qwen-рабочий.
+2. На `autopilot/qwen-auto-skills-session-20260820` аккуратно подключить `server.js`: после `restoreCheckpoint()` вычислить `confirmed = collectConfirmedTouchedPaths(effectiveBody.messages)`, затем `touchedPaths = mergeTouchedPaths(record?.touchedPaths, confirmed)`.
+3. Передать `touchedPaths` в каждый `preparePublicPayloadGoverned()` путь: обычный, failover-rebase, non-stream retry и stream retry.
+4. Сохранить тот же merged набор во всех трёх `sessionStore.set()` путях: обычный non-stream, retry и stream. Неподтверждённый tool-call путь активировать не должен.
+5. После этого добавить полный серверный регресс: успешный file tool -> path-gated Skill появился -> следующий ход без нового файла -> Skill остался -> reload session-store -> Skill остался; failed file tool Skill не активирует.
+6. Проверять сначала бесплатным локальным Node в ChatGPT container. Пока действует ZERO-MINUTE MODE, не запускать и не перезапускать CircleCI/GitHub Actions, не делать runner-ветки и не делать push только ради CI.
+7. Только после закрытия session-scoped каталога добавлять bounded on-demand загрузку тела ровно выбранного Skill по имени; не затаскивать тела всех Skills в каждый запрос.
+8. Старый разрешённый live-trigger `4de8bdae6d0c28789181f31b6212f97e6e283333` не дублировать вслепую. Provider traffic без нового доказанного основания не запускать.
 9. После одного доказанного live tool-loop PASS проверить настоящий `restart -> восстановление незавершённой цели -> аккаунт A недоступен -> продолжение через B` с сохранённой tool history.
 
-## Отдельно про qwen-workspace
+## Важная граница доказательства
 
-PR #5 остаётся mergeable на `ce51b26c227b08032301a8574fee4fe2ee9330a3`. Перед любыми изменениями перечитать свежий diff; основная полезная работа сейчас остаётся в `qwen-free-api`.
+Текущий подготовительный head `68a2237f...` не объявлять полностью зелёным: локально доказаны pure touched-path extraction и durable session persistence, но настоящий `server.js` wiring ещё не применён, а полный `npm test` на exact head не выполнялся. Hosted CI специально не использовался.

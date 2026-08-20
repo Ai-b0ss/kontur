@@ -1,0 +1,31 @@
+{
+  "kind": "FREE_FABRIC_V3_PRODUCT_EVIDENCE",
+  "date": "2026-08-20",
+  "project": "qwen-free-api",
+  "source_head": "4bfe1cf36bb5022d30e924a4a871502c34b96622",
+  "finding": "A CAPTCHA that appears after the initial SSE gate is released reaches server.js onError and is persisted through generic accountStore.markFailure before captchaResolver is invoked. That gives the account the generic first-failure backoff (~30s) instead of the established account-local CAPTCHA cooldown (10m).",
+  "exact_source": {
+    "server_fact": "stream onError currently calls accountStore.markFailure(streamRouteResponse.account, error.message) unconditionally, then checks WAF_CAPTCHA_CHALLENGE only to invoke captchaResolver",
+    "adapter_fact": "parseQwenSSE turns an RGV587_ERROR frame into Error('WAF_CAPTCHA_CHALLENGE:<url>') even after the initial stream gate has already released the response",
+    "account_store_fact": "markCaptchaChallenge owns the explicit 10-minute account-local cooldown; generic markFailure starts at 30 seconds unless the text is RateLimited"
+  },
+  "hosted_local_reproduction": {
+    "environment": "ChatGPT hosted Node 22",
+    "provider_traffic": false,
+    "current_late_captcha_cooldown_ms": 30000,
+    "candidate_late_captcha_cooldown_ms": 600000,
+    "rate_limit_control_ms": 21600000,
+    "candidate_failures": 1,
+    "result": "PASS"
+  },
+  "required_behavior": {
+    "late_captcha": "classify as account-local CAPTCHA and apply markCaptchaChallenge exactly once before optional resolver handling",
+    "rate_limit": "preserve existing 6h markFailure RateLimited behavior",
+    "provider_circuit": "do not turn account-local CAPTCHA into provider-wide stop",
+    "thread_affinity": "do not change account/chat ownership or replay semantics"
+  },
+  "related_closed_fact": "The earlier secondary chat-id double-classification defect is already closed on current head: sendChatRequest now only continues when generateChatID returns null, and qwen-client-chat-id-classification-test.js is included in npm test.",
+  "hosted_ci": false,
+  "live_qwen": false,
+  "production": false
+}

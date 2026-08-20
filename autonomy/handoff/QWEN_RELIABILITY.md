@@ -1,8 +1,8 @@
 # Qwen — надёжность, пул аккаунтов и расширение возможностей
 
-Обновлено: 2026-08-20 05:50 МСК.
+Обновлено: 2026-08-20 06:55 МСК.
 
-Текущая рабочая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Текущий head после этой смены: `6a62bd5cc16e7c477e4de868932dd7aa9eceb1ba`.
+Текущая рабочая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Текущий head: `cb213bd17fa1033cec741564908fa5d4d0e95c63`.
 `Ai-b0ss/qwen-workspace` PR #5 без изменений: `468733b2e3c8a2fb9bc04220fb6fd909ae0a4e80`, mergeable=true.
 
 ## Что уже есть
@@ -11,44 +11,36 @@
 - provider-wide WAF/trust restriction, provider pressure и неоднозначный timeout по-прежнему останавливают дальнейшее прощупывание соседних аккаунтов;
 - новые независимые задачи распределяются по давно не использовавшимся аккаунтам, а существующий Qwen-тред сохраняет приоритет своего аккаунта-владельца;
 - failover незавершённой цепочки переносит локальную историю в новый Qwen-тред и продолжает tool-loop;
-- crash-safe сохранение уже есть для account state, OpenCode session checkpoint/backup, provider circuit, batch progress и vision cache;
+- crash-safe сохранение есть для account state, OpenCode session checkpoint/backup, provider circuit, batch progress и vision cache;
 - два режима системного промпта (`engineer`/`owner`), явно выбираемые Skills, последовательные tool-using субагенты и восстановление пачки между перезапусками уже реализованы;
 - локальные картинки проверяются по реальному пути после раскрытия symlink/junction, ограничены 8 МБ и сохраняют cache crash-safe;
 - ChatGPT relay не активная задача до появления owner session; outbox не включать.
 
 ## Эта смена
 
-- заново прочитаны `OWNER_INTENT_RU.md`, `CURRENT_RU.md` и этот handoff; перепроверены PR #6 и `qwen-workspace` PR #5;
-- на старте PR #6 уже ушёл вперёд до `5022f1b921b15ca49829d0cac25804d411deac94`; соседний рабочий менял только `src/qwen-v3-capabilities.js` и `scripts/system-prompt-mode-test.js`, поэтому эти файлы не трогались;
-- по официальной документации Qwen Code подтверждено: Skills действительно model-invoked, модель видит только метаданные доступных Skills, а `disable-model-invocation: true` и `user-invocable: false` управляют двумя разными путями вызова;
-- в `src/skills.js` добавлена совместимая часть этого контракта: `priority`, `user-invocable`, `disable-model-invocation`, раздельные списки model/user-visible Skills и компактный `renderModelSkillCatalog()`;
-- model-visible каталог содержит только имя и описание, не загружает тела всех Skills и жёстко ограничен 6000 символами;
-- model-only Skill теперь может быть скрыт от ручного списка, а manual-only Skill — наоборот скрыт от модели, не мешая явному выбору клиентом;
-- сортировка model/user каталогов учитывает `priority`, при равенстве остаётся детерминированной по имени;
-- `scripts/skills-selection-test.js` расширен проверками model-only/manual-only, priority, безопасного каталога без утечки тела Skill и лимита размера;
-- коммиты этой смены в PR #6: `f2c3809128290cc0ea2e0ad69c1e4b4cf0777c8f`, `6a62bd5cc16e7c477e4de868932dd7aa9eceb1ba`;
+- заново прочитаны `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, этот handoff; перепроверены PR #6 и `qwen-workspace` PR #5;
+- на старте PR #6 уже ушёл с `6a62bd5c...` до `53a2c6cb...`; два чужих свежих коммита меняли `src/agent.js`, `src/qwen-v3-capabilities.js` и их тесты, поэтому эти файлы не трогались;
+- по официальной документации Qwen Code подтверждена семантика `paths:`: path-gated Skill не показывается модели, пока в сессии не затронут подходящий файл; ручной список при этом может продолжать его показывать;
+- в `src/skills.js` добавлен безопасный фундамент `paths:`: разбор многострочного и inline списка, нормализация путей, ограничение числа/длины шаблонов, glob-сопоставление `*`, `**`, `?`, фильтрация model-visible каталога по `touchedPaths`;
+- path-gated Skill теперь скрыт из `listModelInvocableSkills()` и `renderModelSkillCatalog()` до совпадения, но остаётся доступен через `listUserInvocableSkills()` для явного вызова;
+- создан отдельный `scripts/skills-path-gate-test.js`: проверяет `src/**/*.ts`, `scripts/*.ts`, Windows-разделители, inline/multiline `paths:`, ручную видимость, model gating и лимиты;
+- тест добавлен в обычный `npm test`;
+- коммиты этой смены в PR #6: `e11d927b03eb09d4498e4c54fb4a5c208bbe7b46`, `87a0e5d4a2162bea472d93315e2dcf7258597f7a`, `cb213bd17fa1033cec741564908fa5d4d0e95c63`;
 - provider traffic = 0; живые аккаунты, encrypted runtime, production и relay не тронуты;
-- локально запустить Node-тест не удалось только из-за отсутствия сетевого доступа контейнера к GitHub; синтаксис/смысл проверены по итоговым GitHub diff, но обычный CircleCI на exact head всё равно обязателен;
-- на exact `6a62bd5c...` опубликованного GitHub status context пока нет; CircleCI PASS заранее не приписывать.
+- локально отдельно проверена семантика нового glob-преобразования для `src/**/*.ts` и `scripts/*.ts`: вложенные/невложенные совпадения работают ожидаемо;
+- важное ограничение: `paths:` пока только готовый слой фильтрации. Реальная сессия ещё не накапливает и не передаёт `touchedPaths`, поэтому Auto-Skills по факту ещё не включены в рабочем agent loop;
+- после записи изменений найден свежий owner-комментарий о временном zero-minute режиме: не запускать/не перезапускать hosted CI и не делать новые push только ради получения runner. Поэтому никакой CircleCI/GitHub Actions в этой смене вручную не запускался и после обнаружения этого ограничения новые Qwen-product push не делались. Если автоматический CircleCI уже стартовал от трёх предыдущих commit, его не дублировать.
 
-## Зачем это нужно
+## Что проверить следующим запуском
 
-Это следующий кусок к настоящему Auto-Skills: модель должна видеть дешёвый каталог `name + description` и сама решать, нужен ли Skill, а полное содержимое конкретного `SKILL.md` подгружать только после выбора. Такой подход не раздувает каждый запрос телами всех Skills и не смешивает Skills с приватным owner prompt.
+1. Сначала заново проверить, действует ли zero-minute режим. Пока действует — никаких hosted CI/manual rerun и никаких push, сделанных только ради CI.
+2. Не редактировать `src/qwen-v3-capabilities.js` и `src/agent.js` параллельно, пока другой Qwen-рабочий продолжает эту линию.
+3. Следующий независимый продуктовый кусок: хранить в session state накопленный набор реально затронутых файлов и передавать его в `renderModelSkillCatalog(..., { touchedPaths })`. Активация `paths:` должна сохраняться до конца сессии, а не исчезать на следующем ходе.
+4. После активации добавить bounded on-demand загрузку ровно выбранного Skill по имени. Не загружать тела всех Skills в каждый запрос.
+5. Старый разрешённый live-trigger `4de8bdae6d0c28789181f31b6212f97e6e283333` не дублировать вслепую.
+6. Когда hosted/free runner снова разрешён, сначала полный offline `npm test` на exact head, затем один bounded Windows parity, потому что `paths:` и vision затрагивают Windows path/junction semantics.
+7. После одного доказанного live tool-loop PASS проверить настоящий `restart → восстановление незавершённой цели → аккаунт A недоступен → продолжение через B` с сохранённой tool history.
 
-## Важно проверить следующим запуском
+## Отдельно про qwen-workspace
 
-- сначала снять фактический обычный CircleCI на exact `6a62bd5cc16e7c477e4de868932dd7aa9eceb1ba`; при красном результате чинить только воспроизведённую причину;
-- после green нужен один bounded Windows offline parity на актуальном дереве: последние Skills/vision изменения затрагивают directory/symlink/junction semantics;
-- не редактировать `src/qwen-v3-capabilities.js` параллельно, пока другой Qwen-рабочий продолжает prompt-mode линию;
-- старый разрешённый live-trigger `4de8bdae6d0c28789181f31b6212f97e6e283333` не дублировать вслепую;
-- crash-safe batch resume закрывает границу между подзадачами, но не умеет безопасно продолжить середину оборванного tool-turn с неизвестным локальным side effect.
-
-## Что дальше
-
-1. Получить обычный CircleCI PASS на exact `6a62bd5c...`.
-2. При green — один Windows offline parity без provider traffic.
-3. Когда prompt-mode линия освободит `qwen-v3-capabilities.js`, подключить `renderModelSkillCatalog()` к реальному модельному контексту и добавить bounded механизм выбора/подгрузки одного Skill по имени; не загружать все Skills целиком.
-4. После этого поддержать официальный `paths:` gate: Skill не рекламируется модели, пока сессия не коснулась подходящего файла.
-5. Установить судьбу старого live-trigger; если доказано, что он не состоялся, выполнить ровно один bounded live `read_file → tool result → следующий модельный ход → bash → tool result → final`.
-6. После live PASS проверить настоящий `restart → восстановление незавершённой цели → аккаунт A недоступен → продолжение через B` с сохранённой tool history.
-7. Затем связать безопасное продолжение середины tool-turn с batch manifest без повторения уже выполненных локальных side effects.
+PR #5 остаётся без изменений на `468733b2e3c8a2fb9bc04220fb6fd909ae0a4e80`, mergeable=true. Его кэш-линия с этой работой не пересекается.

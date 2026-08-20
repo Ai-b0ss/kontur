@@ -1,0 +1,82 @@
+{
+  "archive": {
+    "parts": 5,
+    "sha256": "18872bdbd81edfa71d68132cfbb4f4c048c36d202c7a503c6c353bb6ac379a98",
+    "size": 6760
+  },
+  "capsule_id": "20260820T224111Z-85986dbe11",
+  "created_at_utc": "2026-08-20T22:41:11Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "a8d2dbf937543fa8c0c6a3d0c3ab78d336e8cc08876e1b0040432947d9872a45"
+    },
+    {
+      "chars": 2048,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "b538ba6ddbf0e40b7ee07bcce8ab68b169096c4bfcf2542db9cc7b566ad067f1"
+    },
+    {
+      "chars": 2048,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "511e0d26ba1bd10219b60f036f44397d1f83cb106b1da4891deb6bc19c223c89"
+    },
+    {
+      "chars": 2048,
+      "index": 3,
+      "name": "part-0003.b64",
+      "sha256_text": "a82493fbc4262fcdc6140def7fd22d9317082dd6b13f85992b136b5b77ad2318"
+    },
+    {
+      "chars": 824,
+      "index": 4,
+      "name": "part-0004.b64",
+      "sha256_text": "cf61302c57df759ec655a888ee4e6f5226eb27dbadb9706a9429d3bc1eb55a81"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@37abfaa5f0b972a84736c7da669432cd2ed08075 + Ai-b0ss/qwen-free-api@b19b8d19f9a19170feb19ed27cbd6676ecffe831",
+  "worker": "INTEGRATION_HELPER",
+  "workspace": {
+    "CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "825dc4093cb937493f027bede3a9b9de887998f974be738d16ea3a4117403c82",
+      "size": 1651,
+      "type": "file"
+    },
+    "CONTRACT_PROBE.py": {
+      "mode": "0o755",
+      "sha256": "7c0f1fec07d2c7e75910fb7c42c84c44df82c93b8e059a4ebf7c545705af8e96",
+      "size": 2192,
+      "type": "file"
+    },
+    "DELEGATED_PROMPT_POLICY_PROBE.py": {
+      "mode": "0o755",
+      "sha256": "daa10687765024c8ac3b66732e5748ee94bc56c8b429223c6d9ddc25aec6a421",
+      "size": 3269,
+      "type": "file"
+    },
+    "EVIDENCE.json": {
+      "mode": "0o644",
+      "sha256": "b6d2b62ee73c318a8ff536f2d50e2a7fd74124d538dbcec4e78197d9be609c62",
+      "size": 3457,
+      "type": "file"
+    },
+    "INTEGRATION_DELEGATION_OUTCOME_CONTRACT_PROBE.py": {
+      "mode": "0o755",
+      "sha256": "2e1c17b4d003a728340d28bf8e894d140fb7ff3594e60b423c689125a6f4f0f8",
+      "size": 4576,
+      "type": "file"
+    },
+    "INTEGRATION_NOTION_TOOL_EXCEPTION_UNCERTAINTY_PROBE.py": {
+      "mode": "0o755",
+      "sha256": "c01e08ded562a8952e7f3d0f377016a5db66336408da0d6691bb2e645b1dcf15",
+      "size": 3556,
+      "type": "file"
+    }
+  }
+}

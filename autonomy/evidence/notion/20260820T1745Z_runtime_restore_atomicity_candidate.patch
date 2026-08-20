@@ -1,0 +1,55 @@
+diff --git a/RESTORE_RUNTIME_STATE.sh b/RESTORE_RUNTIME_STATE.sh
+index 8c31a7a..0000000 100755
+--- a/RESTORE_RUNTIME_STATE.sh
++++ b/RESTORE_RUNTIME_STATE.sh
+@@ -3,6 +3,7 @@ set -euo pipefail
+ : "${RUNTIME_STATE_KEY:?RUNTIME_STATE_KEY is required}"
+ runtime_state_key=$RUNTIME_STATE_KEY
+ unset RUNTIME_STATE_KEY
++trap 'unset runtime_state_key' EXIT
+ mkdir -p "$HOME/runtime-state-restored"
+ for f in .runtime-state/*.gpg; do
+   [ -e "$f" ] || continue
+   out="$HOME/runtime-state-restored/$(basename "${f%.gpg}")"
+-  printf '%s\n' "$runtime_state_key" | \
+-    gpg --quiet --batch --yes --pinentry-mode loopback \
+-        --passphrase-fd 0 \
+-        --output "$out" --decrypt "$f"
++  tmp=$(mktemp "${out}.tmp.XXXXXX")
++  rm -f -- "$tmp"
++  if ! printf '%s\n' "$runtime_state_key" | \
++    gpg --quiet --batch --yes --pinentry-mode loopback \
++        --passphrase-fd 0 \
++        --output "$tmp" --decrypt "$f"; then
++    rm -f -- "$tmp"
++    exit 1
++  fi
++  mv -f -- "$tmp" "$out"
+ done
+-unset runtime_state_key
+ echo "RUNTIME_STATE_RESTORE_COMPLETE"
+diff --git a/RESTORE_RUNTIME_STATE.ps1 b/RESTORE_RUNTIME_STATE.ps1
+index d174463..0000000 100644
+--- a/RESTORE_RUNTIME_STATE.ps1
++++ b/RESTORE_RUNTIME_STATE.ps1
+@@ -18,9 +18,17 @@ if (-not $gpg) { throw "gpg.exe not found" }
+ try {
+     Get-ChildItem -LiteralPath ".runtime-state" -Filter "*.gpg" -File | ForEach-Object {
+         $name = $_.Name.Substring(0,$_.Name.Length-4)
+         $out = Join-Path $outRoot $name
+-        $runtimeStateKey | & $gpg --quiet --batch --yes --pinentry-mode loopback --passphrase-fd 0 --output $out --decrypt $_.FullName
+-        if ($LASTEXITCODE -ne 0) { throw "gpg decrypt failed: $($_.Name)" }
++        $tmp = Join-Path $outRoot (".{0}.tmp-{1}-{2}" -f $name,$PID,[guid]::NewGuid().ToString("N"))
++        try {
++            $runtimeStateKey | & $gpg --quiet --batch --yes --pinentry-mode loopback --passphrase-fd 0 --output $tmp --decrypt $_.FullName
++            if ($LASTEXITCODE -ne 0) { throw "gpg decrypt failed: $($_.Name)" }
++            Move-Item -LiteralPath $tmp -Destination $out -Force
++        } finally {
++            if (Test-Path -LiteralPath $tmp) {
++                Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
++            }
++        }
+     }
+ } finally {
+     $runtimeStateKey = $null
+ }

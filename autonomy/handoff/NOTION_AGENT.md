@@ -1,48 +1,40 @@
 # Notion — ротация, агентность, prompt-mode и делегирование
 
-## 2026-08-20 — продуктовая смена: single-slot deadlock найден до материализации
+## 2026-08-20 — fail-closed wiring материализован в настоящий server.py
 
-Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
+Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`. Core/NCM28 в этой смене не менялся.
 
-Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8, текущий head после этой смены `b518d0a9c349f8530d680bc46c35bc8752ddd8de`.
+Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8, текущий head `2f43a55e01c4c8784a5d2d525f6058ffb4a5fb6c`.
 
-Владелец явно вернул этого исполнителя к продуктовой работе Notion Agent; FREE FABRIC-эксперименты здесь больше не являются задачей этой автоматизации.
+Главный результат: исправленный wiring больше не живёт только в materializer. Commit `a2c824a931fb05868ca916e3349a30ec29f19951` внёс его непосредственно в `payload/server.py`.
 
-Главная новая находка: прежний fail-closed materializer для single-slot reservation был логически опасен. Он заставлял независимую задачу ждать sticky-reservation уже внутри `handle_openai_responses`, то есть после захвата единственного `responses_inference_gate`. В таком порядке независимая задача могла удерживать gate, пока ждёт reservation, а настоящий владелец незавершённой tool-chain не мог снова войти через тот же gate, чтобы закончить цепочку и снять reservation. Получался тупик до TTL.
+Что теперь реально находится в server.py:
+- `ServerSubagentLifecycle` и отдельный глобальный lifecycle;
+- субагенты выключены по умолчанию и включаются только явным `NOTION_SUBAGENTS_ENABLED`;
+- `ForegroundAccountReservations.wait_for_turn_route(...)` работает и для одного слота, исключая reservation собственного `turn_key`;
+- чужая single-slot задача ждёт освобождения sticky-account ДО захвата `responses_inference_gate`, поэтому больше не может удержать единственный gate и заблокировать continuation владельца;
+- оба Responses-входа — stream и non-stream — передают `turn_key` в inference slot;
+- multi-account avoidance в `handle_openai_responses` оставлен отдельным прежним механизмом;
+- startup создаёт `ConversationSegmentStore`, lifecycle и bind к новому пулу до публикации `account_pool/subagent_lifecycle/conversation_segments`;
+- shutdown сначала запрещает/дренирует delegated work, затем в `finally` обязательно закрывает provider pool и очищает bridge secret.
 
-Исправлено на Agent-ветке:
-- ожидание single-slot reservation перенесено ДО захвата `responses_inference_gate`;
-- `responses_inference_slot(...)` получает `turn_key` и на одном аккаунте ждёт только чужие sticky-reservations;
-- владелец своей reservation исключается по `owner_turn_key` и может сразу продолжить собственную tool-chain;
-- multi-account логика внутри `handle_openai_responses` оставлена прежней (`account_pool.size > 1`), чтобы не смешивать два разных механизма;
-- TTL по-прежнему освобождает брошенную reservation;
-- оба места входа Responses (stream и non-stream) обязаны передавать `turn_key` в inference slot;
-- materializer по-прежнему fail-closed по точным preimage/count anchors.
+Commit `2f43a55e01c4c8784a5d2d525f6058ffb4a5fb6c` перевёл `tests/test_server_subagent_wiring_materializer.py` с проверки временно преобразованной копии на прямую проверку настоящего `payload/server.py`. Тест теперь компилирует реальный server source, проверяет порядок startup/shutdown и напрямую исполняет извлечённый `ForegroundAccountReservations` для single-slot wait/owner reentry/TTL.
 
-Дополнительно усилен startup wiring:
-- `ConversationSegmentStore`, `ServerSubagentLifecycle` и bind нового lifecycle теперь полностью строятся до публикации новых server globals;
-- при любой ошибке/отмене до публикации новый pool закрывается через `except BaseException`;
-- только после успешной сборки публикуются `account_pool`, `subagent_lifecycle`, `conversation_segments`;
-- shutdown сохраняет порядок `unbind_and_drain -> обязательный account_pool.aclose -> очистка BRIDGE_AUTH_SECRET`.
+Локальные hosted-проверки без CircleCI/GitHub Actions:
+- single-slot порядок доказан: чужой waiter остаётся заблокирован, owner continuation входит в gate, снимает reservation, после этого чужая задача продолжает;
+- TTL брошенной reservation реально освобождает слот;
+- `ServerSubagentLifecycle` отдельно прогнан с fake entrypoints: новые child после rebind идут на новый runtime, старые заканчивают на старом, drain ждёт их завершения; неудачная сборка replacement не меняет generation и старый runtime остаётся рабочим;
+- базовый owner/engineer prompt-mode локально проверен: owner prompt остаётся первым точным прикладным текстом, инженерная персона в него не подмешивается, runtime context остаётся отдельным.
 
-Локально на hosted Python отдельно проверена семантика нового reservation-примитива: чужая задача при pool_size=1 действительно ждёт, владелец собственной reservation входит сразу, брошенная reservation снимается по TTL. Hosted CI/CircleCI/GitHub Actions не запускались.
+Новый найденный хвост fail-closed startup:
+- первая проверка `status = await new_pool.status()` всё ещё обёрнута в `except Exception`, а не `except BaseException`;
+- отмена задачи (`asyncio.CancelledError`) на этом самом раннем этапе может миновать `new_pool.aclose()` ещё до позднего lifecycle-блока;
+- это следующий маленький обязательный fix. Не считать startup cancellation полностью закрытым, пока ранний status-блок тоже не ловит BaseException и не имеет прямой регрессии.
 
-Коммиты этой смены в PR #8: `677824675ff7aff386275e761a1d9355a0ccaa1f`, `26e5e05e7a94e54d5f9261e8b2393fd74c902cb4`, `34b0d81c6ab82b3305a74cc3b345d0309a29bddd`, `b518d0a9c349f8530d680bc46c35bc8752ddd8de`.
+Что делать дальше:
+1. Исправить ранний startup status cleanup (`Exception -> BaseException`) и добавить прямую регрессию на cancellation/обязательное закрытие нового pool.
+2. На hosted машине расширить локальный набор до prompt/routing/delegation/tool-loop/lifecycle без внешнего provider traffic. Не запускать CircleCI/GitHub Actions ради этого.
+3. После крепкого локального ядра — один bounded живой Codex project run в уже авторизованной среде; затем two-slot run и A→B failover с новым Notion thread, полной локальной историей и без повторения уже выполненного локального side effect.
+4. После этого подключать Qwen adapter под тот же `DelegationDispatcher`, не смешивая account/thread state двух провайдеров.
 
-Что остаётся следующим:
-1. Материализовать именно этот уже исправленный wiring в реальный `payload/server.py`. Не применять старую версию materializer: она могла создать single-slot deadlock.
-2. После материализации локально прогнать prompt/routing/delegation/tool-loop/lifecycle и отдельный сценарий «owner reservation + unrelated waiter + owner continuation» на настоящем server path.
-3. Только после крепкого локального PASS — один bounded live Codex project run, затем two-slot run и реальный A→B failover без переноса старого Notion thread и без повторения уже выполненного локального side effect.
-4. NCM28/Windows Core не менять без отдельной необходимости.
-
-Техническое ограничение текущей ChatGPT-среды: доступный GitHub write-tool заменяет файл целиком и не умеет применить patch к большому `payload/server.py`; поэтому в этой смене опасный материализатор сначала исправлен и усилен, но сам большой server-файл ещё не перезаписан вслепую. Следующий исполнитель должен материализовать точный diff только при наличии полной локальной копии файла, а не реконструировать `server.py` кусками.
-
-## Предыдущая проектная точка Notion Agent
-
-В Agent-линии уже есть:
-- два режима системного промпта `engineer/owner`; приватный prompt владельца идёт как главный прикладной текст без смешивания с инженерной персоной;
-- независимые foreground-задачи распределяются по свободным легитимным слотам, незавершённая tool-цепочка сохраняет правильный account/thread;
-- допустимый failover переносит полную локальную историю на другой слот, но не переносит старый Notion `thread_id` и не повторяет уже выполненный локальный side effect;
-- готовы `DelegationDispatcher`, provider-ready Notion child-runtime, `ServerSubagentLifecycle`, bounded tool-loop и live two-slot/failover/Codex project probes;
-- malformed MCP `isError` закрывается fail-closed: если поле присутствует, оно обязано быть настоящим JSON boolean;
-- исправлен `ServerSubagentLifecycle._swap_pool()`: неудачная сборка replacement больше не публикует ложное новое generation; старый runtime и generation остаются текущими.
+FREE FABRIC здесь не является задачей этой автоматизации. Реальные аккаунты, production и живой Notion в этой смене не изменялись.

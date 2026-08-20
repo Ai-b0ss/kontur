@@ -1,0 +1,63 @@
+{
+  "schema": "capsule_v3_crossrun_verdict_v1",
+  "verdict": "PASS",
+  "boot_id": "62d596ba-506a-4489-b9ed-22954a8fcfda",
+  "source": {
+    "repository": "Ai-b0ss/kontur",
+    "branch": "autonomy/capsule-v3-crossrun-20260820",
+    "manifest": "autonomy/v3/capsules/CROSSRUN_SMALL/manifest.json",
+    "parts": [
+      {"index": 0, "normalized_size": 2048, "blob_sha": "a75e69f25f00abc87864d17aad7d2817bc530d5e"},
+      {"index": 1, "normalized_size": 2048, "blob_sha": "961e95d34f3fa22c955748f3b9d0341479eb7b75"},
+      {"index": 2, "normalized_size": 2048, "blob_sha": "ecaf493b195c2660aca41bdebf895a6608ef232d"},
+      {"index": 3, "normalized_size": 2048, "blob_sha": "aa2019cb682fa6d400c72d95336bae8065fb37fe"},
+      {"index": 4, "normalized_size": 2048, "blob_sha": "5b21fcef74570b2ee6f2f9ca224b92f3a8eb5a1d"},
+      {"index": 5, "normalized_size": 2048, "blob_sha": "b050686511ccb17e7e1bff7090414d1301e88c3c"},
+      {"index": 6, "normalized_size": 1236, "blob_sha": "0f3c362f824513f004cdb70d23c94e02264d9de6"}
+    ]
+  },
+  "archive": {
+    "size": 10142,
+    "sha256": "2a29f84a31faa87b842c97caf11ea5a1c5966f41e12bc7bc4623348807755867",
+    "path": "/mnt/data/crossrun_v3/workspace.tar.gz",
+    "safe_extract": true
+  },
+  "marker": {
+    "sha256": "e09e2baf2b8605823edec414853edfdd9bff6152af468bd5bfa28962568a2a70",
+    "pass": true
+  },
+  "symlink": {
+    "name": "note.link",
+    "target": "note.txt",
+    "pass": true
+  },
+  "chmod": {
+    "name": "probe.sh",
+    "mode": "0751",
+    "pass": true
+  },
+  "sqlite": {
+    "path": "workspace/state.sqlite3",
+    "rows": 100,
+    "logical_checksum_method": "sha256 of ordered rows formatted as id:v\\n",
+    "logical_checksum": "685d92ad847fb597b65e2c206a1040c2a43a12de3a579d2d49401820750d48f9",
+    "pass": true
+  },
+  "checkpoint": {
+    "step": 41,
+    "saved_accumulator_hex": "b3adfa904be2406a66fab96342318b2001e3478b686a21f8c445888a6cb98d9b",
+    "continued_42_100": "4841cd660156f3ac22a437b203bc223db630b7cd38d9e897558962bff4ed7086",
+    "independent_recompute_1_100": "4841cd660156f3ac22a437b203bc223db630b7cd38d9e897558962bff4ed7086",
+    "expected_final": "4841cd660156f3ac22a437b203bc223db630b7cd38d9e897558962bff4ed7086",
+    "pass": true
+  },
+  "checks": {
+    "archive_bytes": true,
+    "marker": true,
+    "symlink": true,
+    "chmod": true,
+    "sqlite": true,
+    "checkpoint_continuation": true
+  },
+  "first_failure": null
+}

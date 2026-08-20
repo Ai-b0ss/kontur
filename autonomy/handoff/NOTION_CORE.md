@@ -4,7 +4,7 @@
 Текущий Core head: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
 Агентная ветка: `Ai-b0ss/notion-agent-bridge:autonomy/notion-prompt-modes-20260819`, draft PR #8.
-Текущий Agent head: `dbea66ccea647afba82917a61e53a996b9f613e0`.
+Текущий Agent head: `29942f27d8b5ec404d88b33dfa70486283be4224`.
 
 ## NCM28 / Windows
 
@@ -43,26 +43,24 @@
 
 ### Что сделано в этой смене
 
-Пока Windows executor занят, проверен общий `DelegatedToolLoopSession`. Найден реальный ложноположительный случай: если локальный executor возвращал пустой `{}`, generic loop превращал его в `{"ok": true}`. Для `write_file`/`edit_file`/`run_shell` это опасно: модель могла продолжить задачу, считая недоказанное локальное действие успешным.
+Пока Windows executor занят, проверены два важных участка дочернего агентного цикла.
 
-Исправлено в `payload/delegated_tool_loop.py`:
-- пустой результат executor больше не считается успехом;
-- вместо этого в историю модели идёт `{"ok": false, "error": "tool_result_invalid"}`;
-- это сохраняет возможность следующего модельного хода исправить действие, не притворяясь, что side effect уже произошёл.
+1. `DelegatedToolLoopSession` раньше превращал пустой результат локального executor `{}` в `{"ok": true}`. Для `write_file`/`edit_file`/`run_shell` это могло дать модели ложное подтверждение недоказанного side effect. Теперь пустой результат идёт в историю как `{"ok": false, "error": "tool_result_invalid"}`. Добавлена регрессия `test_empty_tool_result_is_not_treated_as_success`.
 
-Добавлена регрессия `test_empty_tool_result_is_not_treated_as_success` в `tests/test_delegated_tool_loop.py`: executor возвращает `{}`, а следующий модельный ход обязан увидеть явную ошибку `tool_result_invalid`.
+2. `NotionDelegationAdapter` защищал foreground reservation только когда `pool.size > 1`. При одном аккаунте независимый child мог взять единственный аккаунт, уже зарезервированный незавершённой parent tool-chain, и сломать sticky continuation. Теперь reserved account IDs учитываются при любом размере пула. В single-slot случае child получает `AccountPoolExhausted`, а родительский слот остаётся неприкосновенным. Добавлена регрессия `test_single_account_child_cannot_steal_reserved_parent_slot`.
 
 Коммиты Agent этой смены:
 - `4775c08228d16024fa9a860786a1378d3bf36e15` — fail-closed для пустого результата локального инструмента;
-- `dbea66ccea647afba82917a61e53a996b9f613e0` — постоянная регрессия на этот случай.
+- `dbea66ccea647afba82917a61e53a996b9f613e0` — регрессия на пустой tool result;
+- `169a4776bbf14f7c298b8a5b9ec5c8a9975801ca` — single-slot reservation теперь тоже защищена;
+- `29942f27d8b5ec404d88b33dfa70486283be4224` — регрессия на запрет кражи единственного parent slot.
 
-На exact head `dbea66cc…` автоматически создан CircleCI workflow `20ab2ce8-320a-4f3c-b1b4-950fca19bd8b`.
-Пять задач `agent`, `prompt`, `routing`, `delegation`, `server-wiring-rehearsal` сейчас `pending`; дубликат не запускать.
+Новый CircleCI workflow на exact head должен появиться автоматически. Старые Agent workflow были `pending`; не запускать дубликаты вручную.
 
 ## Следующий порядок
 
 1. Снять результат Windows workflow `1cd6d894-...`. Если всё ещё `pending`, не плодить дубликаты.
-2. Снять Agent workflow `20ab2ce8-...`. Если конкретная задача красная — чинить её точную причину.
+2. Снять CircleCI exact-head Agent `29942f27…`. Если конкретная задача красная — чинить её точную причину.
 3. Если `server-wiring-rehearsal` зелёный — применить `tools/apply_server_subagent_lifecycle_wiring.py` к настоящему `payload/server.py` и повторить контракты уже на сохранённом сервере.
 4. Затем выполнить один настоящий `tools/run_real_codex_cli_project_probe.py`: реальный файл → локальное действие → конкретный провал verifier → новый tool result → исправление → повтор verifier → `VERIFY_OK`.
 5. Затем один настоящий two-slot run и failover run: новый легитимный слот получает новый Notion thread и полную локальную историю без повторения уже выполненного локального side effect.

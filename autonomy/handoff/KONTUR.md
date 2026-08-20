@@ -13,20 +13,21 @@
 - безопасный Cloudflare staging-путь остаётся отдельным: build/prep через `tools/cloudflare/workers-build-staging.sh`, deploy только generated staging config с `--keep-vars`; production config для staging не использовать.
 
 На exact head подтверждены четыре конкретные проблемы:
-1. `apps/miniapp/test/local-kontur.test.ts` всё ещё требует три `egg-stage-08.webp`, хотя текущий `QuizEgg` содержит ровно две половины скорлупы + `egg-crack-light.webp`. Это источник-level FAIL старого теста.
+1. `apps/miniapp/test/local-kontur.test.ts` гарантированно устарел относительно текущего hatch сразу в трёх местах: требует 3 копии `egg-stage-08.webp` вместо 2 половин + `egg-crack-light.webp`, ищет старый CSS `animation-delay: 260ms`, которого больше нет, и старый комментарий про legacy hatch sibling, которого тоже больше нет. То есть старый тест source-level красный даже без запуска.
 2. Home hero рендерит голый `ResultBird`, поэтому после `надеть окрас` состояние меняется, а большая птица на Home визуально не получает `state.player.palette`.
 3. Сам `QuizEgg` уже умеет `palette`, но текущий persistent hatch/reveal вызов её не передаёт. После исправления Home это дало бы заметный скачок цвета между reveal и Home.
 4. На q2..q7 во время ~260 мс реакции на ответ `answerLock.current=true`, но `← назад` остаётся доступной. Можно прыгнуть назад, после чего старый таймер ответа всё равно переводит вопрос вперёд.
 
 Чтобы не потерять готовое исправление во время заморозки hosted CI, в управляющей ветке сохранён точный патч:
 `autonomy/patches/KONTUR_PR12_BOUNDED_FIX_20260820.patch`
-commit `753dd20b192a012d666299fecc6d3aa2239d0f19`.
+актуальный commit `af4219381d560c1e69f15d9840262a366179283a`.
 
-Патч делает только четыре bounded изменения:
+Патч делает только bounded изменения:
 - Home -> `CanonicalBirdVisual(... palette={state.player.palette})`;
 - persistent `QuizEgg` получает `reveal?.state.player.palette ?? state?.player.palette ?? null`;
 - back-кнопка и handler закрыты на `busy/eggResponding/answerLock`;
-- stale 3-shell test -> 2 shell + hatch light, плюс статические регрессии на palette continuity и back-during-response.
+- stale hatch-test приведён к 2 shell + hatch light и проверяет реальный React-gate `!eggResponding && hatchReady`, а не удалённый CSS-delay/legacy-комментарий;
+- добавлены статические регрессии на palette continuity и back-during-response.
 
 В продуктовую ветку patch не пушился из-за zero-minute режима. Hosted CI и Cloudflare build в этом запуске не запускались.
 

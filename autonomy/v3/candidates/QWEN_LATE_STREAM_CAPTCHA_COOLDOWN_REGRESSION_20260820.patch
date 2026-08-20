@@ -1,0 +1,49 @@
+diff --git a/scripts/server-late-stream-captcha-test.js b/scripts/server-late-stream-captcha-test.js
+new file mode 100644
+--- /dev/null
++++ b/scripts/server-late-stream-captcha-test.js
+@@
++'use strict';
++
++const assert = require('assert');
++const fs = require('fs');
++
++const source = fs.readFileSync('server.js', 'utf8');
++
++const onErrorMatch = source.match(/onError:\s*\(error\)\s*=>\s*\{([\s\S]*?)\n\s*\},\n\s*retryEmpty:/);
++assert.ok(onErrorMatch, 'stream onError handler must remain discoverable');
++const onErrorBody = onErrorMatch[1];
++
++assert.match(
++  onErrorBody,
++  /WAF_CAPTCHA_CHALLENGE[\s\S]*?markCaptchaChallenge\(/,
++  'late accepted-stream CAPTCHA must use the account-local CAPTCHA classifier',
++);
++
++const captchaIndex = onErrorBody.indexOf('WAF_CAPTCHA_CHALLENGE');
++const genericIndex = onErrorBody.indexOf('accountStore.markFailure');
++assert.ok(
++  genericIndex === -1 || captchaIndex < genericIndex,
++  'generic failure handling must not run before the CAPTCHA-specific branch',
++);
++
++assert.match(
++  onErrorBody,
++  /captchaResolver\.solveCaptcha\(/,
++  'existing optional CAPTCHA resolver hook must remain intact',
++);
++
++assert.match(
++  onErrorBody,
++  /accountStore\.markFailure\(streamRouteResponse\.account,\s*error\.message\)/,
++  'non-CAPTCHA accepted-stream errors must still be persisted generically',
++);
++
++console.log('QWEN_LATE_STREAM_CAPTCHA_PASS local_cooldown=preserved resolver=preserved generic_errors=preserved');
++
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@
+-    "test": "node --check server.js && node scripts/continuation-turn-test.js &&
++    "test": "node --check server.js && node scripts/continuation-turn-test.js && node scripts/server-late-stream-captcha-test.js &&

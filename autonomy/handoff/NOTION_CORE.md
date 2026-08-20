@@ -4,11 +4,13 @@
 Текущий Core head: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
 Агентная ветка: `Ai-b0ss/notion-agent-bridge:autonomy/notion-prompt-modes-20260819`, draft PR #8.
-Свежий Agent head по PR на 2026-08-20: `333b3c07f7897b7d7aa6740476d18b2cad951b27`.
+Свежий Agent head, повторно снятый из PR перед публикацией handoff: `700f3f12a5bbbd82021ace64fbee3be93f99a1e0`.
 
 ## Режим исполнения
 
-Действует ZERO-MINUTE MODE: не запускать CircleCI/GitHub Actions и не делать push только ради hosted CI. Linux/Python/offline проверки выполнять в бесплатной ChatGPT/container среде. Native Windows не имитировать через Linux/Wine; для NCM28 оставлять один минимальный Windows-gate.
+Действует ZERO-MINUTE MODE и FREE FABRIC generation 1 / `STATIC_NO_CAS`. Hosted CI не запускать и не делать push только ради него. Linux/Python/offline проверки — через бесплатный ChatGPT/container executor. Native Windows не имитировать через Linux/Wine. Work stealing запрещён текущим manifest generation.
+
+Канонический control state перед внешними записями перепроверен: owner generation 1, `external_writes=true`, `hosted_ci=false`, обязательны effect gate/current task fence/current owner generation/verified result before integration.
 
 ## NCM28 / Windows
 
@@ -17,59 +19,66 @@
 Уже доказано настоящим Windows:
 - `build`, `happy-running`, `happy-stopped`, `rerun-noop` проходят;
 - красным остаётся только аварийный `auth-rollback`;
-- возврат обычных управляемых файлов и сохранность non-targets проходят;
+- возврат обычных managed files и сохранность non-targets проходят;
 - auth/stable rollback падают с `PermissionError`;
 - `remove_plain_tree` исключён как источник этого `PermissionError`.
 
-Текущий точный digest-разрез на Core НЕ перезапускать:
-- exact Core head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`;
+Существующий digest-разрез на exact Core НЕ перезапускать:
 - workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3`;
-- пять задач: `auth`, `codex`, `migration`, `runtime` tree-digest и `outside-digest`.
+- задачи `auth`, `codex`, `migration`, `runtime`, `outside-digest`;
+- read-only GitHub combined status в этом запуске снова показывает все пять `pending`.
 
-Из доступной среды нет прямого read-only CircleCI API, поэтому в этом запуске результат существующего workflow не был выдуман или заменён Linux-проверкой. Новый Windows/hosted прогон не запускался.
+Нового Windows/hosted запуска не было. Linux-результаты не использовались как доказательство NTFS/NCM28.
 
-Бесплатный статический разбор сохраняет прежнюю границу: v32 проводит held `managed_guard` в destructive rollback/delete paths, а базовые `tree_digest()` / `_strict_tree_listing()` остаются pathname-based. Это правдоподобный оставшийся callsite, но не доказанная Windows-первопричина.
+Если существующий digest-разрез позже даст `outside-digest`, уже подготовлен единственный следующий call-cut: `autonomy/ncm28-callcut-ready-20260820@f72c450fdb8877981c8a79c550e7bc0479c7f8f4`. В ZERO-MINUTE MODE это максимум один native Windows gate на бесплатном/уже оплаченном исполнителе.
 
-Если существующий digest-разрез в итоге укажет `outside-digest`, готов более точный call-cut: ветка `autonomy/ncm28-callcut-ready-20260820`, commit `f72c450fdb8877981c8a79c550e7bc0479c7f8f4`. В ZERO-MINUTE MODE запускать его только как один минимальный native Windows gate на бесплатном/уже оплаченном Windows-исполнителе.
+После точного callsite: минимальный фикс → бесплатные Linux/Python регрессии → один native Windows gate `build + happy-running + happy-stopped + rerun-noop + auth-rollback` → `tests.test_crash_recovery` + полный `RUN_NCM28_LOCAL_VERIFY.py`.
 
-После точного callsite: минимальный фикс → бесплатные Linux/Python регрессии → один native Windows gate `build + happy-running + happy-stopped + rerun-noop + auth-rollback` → `tests.test_crash_recovery` + полный `RUN_NCM28_LOCAL_VERIFY.py`. После этого NCM28 закрыть.
+## Codex / Agent — single-slot reservation
 
-## Codex / Agent
+На exact Agent source `700f3f12…` gap подтверждён по реальному исходнику:
+- `ForegroundAccountReservations.wait_for_background_route()` немедленно возвращает `set()` при `pool_size <= 1`;
+- `handle_openai_responses()` включает reservation routing только при `account_pool.size > 1`;
+- поэтому при одном легитимном слоте независимая новая работа может взять аккаунт незавершённого foreground tool-loop;
+- anchored continuation при этом должна сохранять собственную affinity-path и не ждать сама себя.
 
-Свежий PR #8 уже на `333b3c07…`; предыдущие handoff-head были устаревшими. На exact source повторно подтверждён single-slot reservation gap:
-- `ForegroundAccountReservations.wait_for_background_route()` сейчас немедленно возвращает пустой set при `pool_size <= 1`;
-- `handle_openai_responses()` вообще вызывает эту защиту только при `account_pool.size > 1`;
-- поэтому при единственном легитимном слоте независимая новая работа может взять аккаунт, зарезервированный незавершённым foreground tool-loop;
-- anchored continuation должна сохранить свою affinity-path и не ждать сама себя.
+Минимальный кандидат двухточечный:
+1. `wait_for_background_route`: ранний возврат только при `pool_size <= 0`;
+2. `handle_openai_responses`: применять `should_avoid_reserved_foreground_accounts(...)` при любом положительном пуле, а не только при `size > 1`.
 
-Минимальный кандидат остаётся двухточечным:
-1. в `wait_for_background_route()` немедленный пустой ответ только при `pool_size <= 0`; при `pool_size == 1` ждать clear/TTL, если единственный аккаунт зарезервирован;
-2. в `handle_openai_responses()` убрать внешний `account_pool.size > 1` и применять `should_avoid_reserved_foreground_accounts(...)` при любом положительном пуле. Anchored continuation не блокируется, потому что helper уже возвращает false при `has_affinity_anchor=True`.
+### Что реально проверено бесплатным исполнителем
 
-### Что реально проверено бесплатно в этом запуске
+В чистом локальном Python harness воспроизведена старая семантика и кандидат:
+- старая версия: `pool_size=1` возвращается немедленно — FAIL для wait-until-clear и TTL;
+- кандидат: single-slot ждёт `clear()` — PASS;
+- кандидат: заброшенная single-slot reservation освобождается по TTL — PASS;
+- multi-slot avoid-set сохраняется — PASS;
+- `pool_size=0` остаётся неблокирующим primitive — PASS;
+- anchored continuation helper остаётся bypass — PASS;
+- call-site guard для независимой новой работы включается при единственном слоте — PASS.
 
-В ChatGPT Python executor повторно проверена семантика исправленного reservation primitive без provider traffic и hosted CI:
-- single-slot waiter действительно блокируется до `clear()`;
-- abandoned single-slot reservation освобождается по TTL;
-- multi-slot возвращает reserved avoid-set;
-- `pool_size=0` возвращает пустой set;
-- все эти проверки PASS.
+Текущий `tests/test_foreground_slot_routing.py` на exact head отдельной single-slot регрессии не содержит.
 
-Свежий `tests/test_foreground_slot_routing.py` на `333b3c07…` пока покрывает multi-slot, anchored continuation и TTL, но не содержит отдельной single-slot regression. Значит при безопасном применении продуктового патча надо добавить именно её.
+Долговечное evidence с provenance опубликовано в control-ветке:
+- `autonomy/evidence/notion/20260820T1012Z_single_slot_reservation_local_evidence.json`;
+- `autonomy/evidence/notion/20260820T1012Z_single_slot_reservation_candidate.patch`.
 
-Продуктовый `payload/server.py` в этом запуске намеренно не перезаписывался через GitHub contents API: доступный write-интерфейс требует заменить весь большой файл, а ручная реконструкция многотысячного exact source ради двух строк создаёт больший риск, чем польза. Не считать патч применённым в PR #8.
+Evidence привязан к `brain=NOTION_CORE`, `execution=chat.compute.linux`, source head `700f3f12…`, server blob `3bb268933763f72bc4987173af0da5e1f38ef27e`, test blob `e321ae37e6c4bf9943691a82662acc30c0162b12`. Provider traffic/hosted CI не было.
 
-Нового provider traffic не было. Production и живой Notion не трогались. Hosted CI не запускался.
+Продуктовый `payload/server.py` намеренно не перезаписан через GitHub contents API: доступный интерфейс заменяет весь многотысячный файл, а ручная реконструкция exact source ради двух строк рискованнее, чем сохранить проверенный patch и применить его в среде с нормальным patch/git доступом.
+
+## Дополнительный аудит child lifecycle
+
+Свежий Agent head `700f3f12…` добавляет регрессию «failed rebind keeps old generation». Текущий `ServerSubagentLifecycle._swap_pool()` строит replacement до изменения lifecycle state; если construction падает, старые entrypoint/generation остаются опубликованными. Статический контракт согласуется с новой регрессией; отдельного продуктового изменения здесь не делалось.
 
 ## Единственный оставшийся native-Windows blocker/gate
 
-NCM28: установить точный источник оставшегося `PermissionError` в `auth-rollback` на exact Core `b6f4eef…`. Никакие Linux/Wine результаты не считать доказательством Windows-семантики. Не размножать диагностику: сначала использовать уже существующий digest-result; если он недоступен без минут, следующий допустимый Windows шаг — один минимальный call-cut на `f72c450f…`.
+NCM28: установить точный источник оставшегося `PermissionError` в `auth-rollback` на exact Core `b6f4eef…`. Никакие Linux/Wine результаты не считать доказательством Windows-семантики. Не размножать диагностику.
 
 ## Следующий порядок
 
-1. Read-only снять результат уже существующего Windows digest workflow, если он стал доступен; ничего не запускать.
-2. В clean exact Agent source применить две маленькие single-slot правки и добавить регрессию `pool_size=1 waits until clear/TTL`; прогнать бесплатно локально до коммита.
-3. Бесплатно прогнать agent/prompt/routing/delegation/server-wiring контракты насколько позволяет exact source/deps.
-4. Если server-wiring materializer проходит локально — внести `ServerSubagentLifecycle` в настоящий `payload/server.py` и повторить бесплатные контракты.
-5. Затем один настоящий `codex exec` project probe только в уже авторизованной среде без нового hosted CI расхода: реальный файл → локальное действие → конкретный провал verifier → tool result → исправление → повтор verifier → `VERIFY_OK`.
-6. Затем two-slot/failover + restart/recovery незавершённой цепочки без повторения уже выполненного локального side effect.
+1. Read-only снять результат уже существующего Windows digest workflow, если статус изменился; ничего не запускать.
+2. В среде с нормальным git/patch применить опубликованный two-line single-slot patch на свежий exact Agent head, добавить две регрессии `pool_size=1 waits until clear` и `expires by TTL`, затем бесплатно прогнать routing/agent/delegation/server-wiring.
+3. Если `server-wiring` проходит локально — материализовать `ServerSubagentLifecycle` в настоящий `payload/server.py` и повторить бесплатные контракты.
+4. Затем один настоящий `codex exec` project probe только в уже авторизованной среде без нового hosted CI: реальный файл → локальное действие → конкретный провал verifier → tool result → исправление → повтор verifier → `VERIFY_OK`.
+5. Затем two-slot/failover + restart/recovery незавершённой цепочки без повторения уже выполненного локального side effect.

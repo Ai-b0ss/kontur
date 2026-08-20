@@ -1,43 +1,60 @@
 # Kontur — продукт
 
-## 2026-08-20 — exact head перепроверен, найден ещё один пользовательский дефект
+## 2026-08-20 — ZERO-MINUTE: exact head разобран, bounded patch закрывает 5 дефектов
 
 Продукт: PR #12, ветка `fix/kontur-core-visual-continuity-20260818`, exact head `32034e8af92923a2abe09ad00e3220f6da1ed21c`. PR открыт, draft, mergeable. `main`, production Worker и production D1 не трогались.
 
-Текущий Chromium runner в `Ai-b0ss/qwen-free-api` PR #15 всё ещё привязан ровно к этому Kontur SHA. Последний известный статус commit `4292fd48a7498fd4038c5b7dfb14a42bcaeaccd7`: CircleCI context `kontur-browser-and-hatch-visual` остаётся `pending`, workflow `3bed8080-c63a-4d68-95d6-b0e51aa7575b`, job `8427de7b-8171-4ee0-8598-76d85bf64eb7`. Дубликат вслепую не запускать, пока этот статус не изменился или не доказано, что pipeline умер.
+### Главное правило продолжения
 
-Что заново проверено на exact head:
-- default `/` ведёт сразу в hook; q8 использует отдельный `visualQuestionIndex` и входит в `hatching` только после окончания реакции на ответ и готовности результата;
-- hatch/reveal остаются одной сценой `QuizEgg`; две половины stage-08 shell находятся перед bird-layer, птица сохраняет финальную позу при переходе hatch→reveal;
-- reduced-motion для hatch и reward egg сокращает обязательные задержки;
-- безопасный Cloudflare staging-путь остаётся отдельным: build/prep через `tools/cloudflare/workers-build-staging.sh`, deploy только generated staging config с `--keep-vars`; production config для staging не использовать.
+Не запускать CircleCI, GitHub Actions и любой hosted CI с минутами/кредитами. Не использовать `qwen-free-api` как внешний runner и не делать trigger-коммиты. Для build/test/Chromium/Playwright сначала использовать контейнер ChatGPT. GitHub — источник exact source и место для уже локально проверенных продуктовых изменений.
 
-На exact head подтверждены пять конкретных проблем:
-1. `apps/miniapp/test/local-kontur.test.ts` гарантированно устарел относительно текущего hatch сразу в трёх местах: требует 3 копии `egg-stage-08.webp` вместо 2 половин + `egg-crack-light.webp`, ищет старый CSS `animation-delay: 260ms`, которого больше нет, и старый комментарий про legacy hatch sibling, которого тоже больше нет. Старый тест source-level красный даже без запуска.
-2. Home hero рендерит голый `ResultBird`, поэтому после `надеть окрас` состояние меняется, а большая птица на Home визуально не получает `state.player.palette`.
-3. Сам `QuizEgg` уже умеет `palette`, но текущий persistent hatch/reveal вызов её не передаёт. После исправления Home это дало бы заметный скачок цвета между reveal и Home.
-4. На q2..q7 во время ~260 мс реакции на ответ `answerLock.current=true`, но `← назад` остаётся доступной. Можно прыгнуть назад, после чего старый таймер ответа всё равно переводит вопрос вперёд.
-5. Повтор теста противоречит собственному тексту интерфейса. Кнопка прямо обещает `профиль и птица не изменятся`, но replay-ветка `hatch()` заново делает `resolveRole(finalAnswers)` и `selectBirdResult(...)`, затем reveal показывает этот новый локальный результат как `это твоя птица`. Если при повторе ответы дают другую роль/птицу, пользователь увидит новую птицу на reveal, а после перехода Home вернётся старая серверная птица. Это не серверная порча профиля, но явный UX-скачок и противоречие обещанию. Исправлять нужно fail-closed: replay не должен выдавать новый результат за новую «твою птицу»; либо показывать сохранённую птицу, либо явно маркировать повтор как пробный результат, не меняющий профиль. По текущему тексту безопаснее сохранять каноническую птицу профиля.
+Важная деталь: `.github/workflows/ci.yml` запускается на `pull_request`. Поэтому любой push в head PR #12 автоматически создаст GitHub Actions run. Пока действует ZERO-MINUTE, продуктовую ветку не пушить даже с правильным патчем: сначала локальная проверка, затем отдельное решение, как не запустить запрещённый hosted CI.
 
-Готовое ранее исправление сохранено в управляющей ветке:
+### Что реально проверено на exact head
+
+- `QuizEgg.tsx` сейчас содержит ровно две половины `egg-stage-08.webp` и один `egg-crack-light.webp`; старый тест, ожидающий три копии stage-08, объективно устарел.
+- `kontur-core-corrections.css` больше не содержит старый `animation-delay: 260ms` для hatch и старый комментарий про `legacy hatch sibling`; вместо этого q8-gate живёт в React через `eggResponding + hatchReady`.
+- q8 входит в `hatching` только после окончания реакции на ответ и готовности результата.
+- `QuizEgg` уже умеет принимать `palette`, а `CanonicalBirdVisual` умеет применять её к канонической птице.
+- `state.player.palette` — каноническая палитра текущего надетого окраса и приходит в `GameState`.
+
+### Пять подтверждённых дефектов текущего head
+
+1. `apps/miniapp/test/local-kontur.test.ts` source-level красный: ждёт 3 shell-копии, старый CSS-delay и удалённый legacy-комментарий.
+2. Home hero рендерит голый `ResultBird`, поэтому после `надеть окрас` большая птица не получает `state.player.palette`.
+3. Persistent `QuizEgg` при hatch/reveal не получает palette; после исправления Home это создало бы скачок цвета reveal → Home.
+4. На q2..q7 во время ~260 мс реакции на ответ `answerLock.current=true`, но `← назад` остаётся доступной; старый таймер затем двигает вопрос вперёд.
+5. Replay обещает `профиль и птица не изменятся`, но replay-ветка заново считает `resolveRole(finalAnswers)` / `selectBirdResult(...)` и показывает временно новую птицу как `это твоя птица`; Home затем возвращает сохранённую птицу.
+
+### Готовый bounded patch
+
 `autonomy/patches/KONTUR_PR12_BOUNDED_FIX_20260820.patch`
-commit `af4219381d560c1e69f15d9840262a366179283a`.
 
-Этот patch по-прежнему делает четыре уже доказанные bounded-правки:
-- Home -> `CanonicalBirdVisual(... palette={state.player.palette})`;
+Текущая версия патча закрывает все пять пунктов:
+- Home → `CanonicalBirdVisual(... palette={state.player.palette})`;
 - persistent `QuizEgg` получает `reveal?.state.player.palette ?? state?.player.palette ?? null`;
 - back-кнопка и handler закрыты на `busy/eggResponding/answerLock`;
-- stale hatch-test приведён к 2 shell + hatch light и проверяет реальный React-gate `!eggResponding && hatchReady`, а не удалённый CSS-delay/legacy-комментарий;
-- добавлены статические регрессии на palette continuity и back-during-response.
+- stale hatch-test приведён к 2 shell + hatch light и реальному React-gate;
+- replay использует `birdPresentation(state.player.role, ..., state.player.userId)` и показывает ту же сохранённую птицу, что Home; временный `resolveRole/selectBirdResult` из replay-ветки удаляется;
+- добавлены статические регрессии на palette continuity, back-during-response и replay identity continuity.
 
-Новая replay-проблема в этом patch ещё не закрыта. Её надо добавить отдельным маленьким изменением и тестом перед окончательным браузерным прогоном.
+Patch подготовлен против exact head и основан на фактических текущих строках `LocalKontur.tsx`, `QuizEgg.tsx`, `CanonicalBirdVisual.tsx`, `state.ts` и `local-kontur.test.ts`. Продуктовый push сознательно не сделан из-за pull_request-trigger GitHub Actions.
 
-Дополнительный неблокирующий долг: в `local-kontur.css` всё ещё лежит старый hatch-слой (включая правило, скрывающее quiz egg, старые три shell-фрагмента и старые keyframes). Новый `kontur-core-corrections.css` его перекрывает и текущий `QuizEgg` старые shell-классы уже не рендерит, поэтому это сейчас не отдельный пользовательский баг. Удалять большой legacy-блок вслепую до свежего local/browser PASS не нужно.
+### Что получилось и что не получилось в локальной среде ChatGPT
 
-Что делать следующим:
-1. Не дублировать уже pending CircleCI browser workflow без нового evidence. Если он ожил — снять результат и артефакты. Если доказанно умер — запускать один новый exact-head прогон через тот же служебный Qwen runner.
-2. Перед следующим полноценным прогоном применить bounded patch и добавить маленькое исправление replay-режима: повтор теста не должен показывать новую птицу как сохранённую личность, если профиль остаётся неизменным.
-3. Mini App tests/typecheck/build локально или в разрешённом удалённом исполнителе.
-4. Playwright: 320×568 + 430×1000, быстрый/медленный q8, skip, reduced-motion, console/network/layout checks, screenshots/video/trace. Отдельно проверить `back during response`, `надеть окрас → Home → reload`, одинаковую палитру от hatch/reveal до Home и `replay → reveal → Home` без смены птицы/скачка идентичности.
-5. По свежим кадрам продолжить продуктовую правку: ранний/средний/поздний hatch, стык hatch→reveal, интеграция quiz-яйца, синхронность progress/ring/crack и общий вид шести птиц. Зелёный тест сам по себе не считать готовностью.
-6. После browser+visual PASS — non-destructive `kontur-igor-staging` через generated staging config, затем Telegram WebView smoke. Production не трогать.
+Контейнер доступен: Node 22, Chromium и Python Playwright установлены. Но сам контейнер не имеет внешнего DNS и не может клонировать приватный GitHub. GitHub connector читает exact text blobs, но бинарные WebP через него не материализуются в файловую систему (binary fetch упирается в UTF-8 decode). Поэтому честный exact-head визуальный Playwright с настоящими `egg-stage-*`/`results/*` в этом проходе пока заблокирован не кодом приложения, а переносом полного приватного source+assets в контейнер.
+
+Не подменять это placeholders: такой прогон не даёт пригодного визуального evidence.
+
+### Неблокирующий долг
+
+В `local-kontur.css` всё ещё лежит старый hatch-слой. Новый `kontur-core-corrections.css` его перекрывает и текущий `QuizEgg` старые shell-классы уже не рендерит. Большую CSS-чистку делать только после свежего exact-browser PASS, не вслепую.
+
+### Следующий шаг
+
+1. Материализовать в ChatGPT container полный exact source PR #12 вместе с настоящими бинарными assets без hosted CI. Предпочтительно готовым source archive/Library artifact; не восстанавливать картинки заглушками.
+2. Применить `KONTUR_PR12_BOUNDED_FIX_20260820.patch` локально.
+3. Локально: Mini App tests → typecheck → build.
+4. Playwright на 320×568 и 430×1000: default hook, q1…q8, быстрый/медленный q8, skip, reduced-motion, console/network/layout, screenshots/video/trace; отдельно `back during response`, одинаковая птица+palette hatch→reveal→Home, `надеть окрас → Home → reload`, `replay → reveal → Home` без смены личности.
+5. Глазами просмотреть ранний/средний/поздний hatch и стык hatch→reveal; чинить только воспроизводимые визуальные дефекты.
+6. После browser+visual PASS — безопасный non-destructive `kontur-igor-staging` только способом, не требующим запрещённого hosted CI, затем Telegram WebView smoke. Production не трогать.

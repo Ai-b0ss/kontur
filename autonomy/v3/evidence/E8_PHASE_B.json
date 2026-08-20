@@ -1,0 +1,68 @@
+{
+  "schema": "free_fabric_v3_e8_phase_b_evidence_v1",
+  "phase": "B",
+  "observed_utc": "2026-08-20T12:15:51Z",
+  "plan_path": "autonomy/v3/PROBE_PLAN_20260820.json",
+  "local_root": "/mnt/data/free_fabric_v3_e8",
+  "phase_a_evidence_blob_sha": "19f2b8362dc9eb9e387281dc5be6d405a2b258ac",
+  "phase_a_expected_marker_sha256": "a60ac3c62e10644673ea4a0a660bb91a1b115a9e043924a58f985dedac56dea0",
+  "initial_observation_before_any_local_mutation": {
+    "root_exists": false,
+    "phase_a_done_exists": false,
+    "phase_a_manifest_exists": false
+  },
+  "marker": {
+    "status": "MISSING",
+    "marker_hex": null,
+    "sha256_match": false,
+    "reason": "marker.bin was not present because the entire Phase A local root was absent at the start of this run; marker bytes were not reconstructed from conversation or GitHub"
+  },
+  "object_verdicts": {
+    "marker.bin": "MISSING",
+    "phase_a_manifest.json": "MISSING",
+    "workspace/note.txt": "MISSING",
+    "workspace/random_8m.bin": "MISSING",
+    "workspace/state.sqlite3": "MISSING",
+    "workspace/probe.sh": "MISSING",
+    "workspace/note.link": "MISSING",
+    "workspace/checkpoint.json": "MISSING",
+    "PHASE_A_DONE": "MISSING"
+  },
+  "sqlite": {
+    "status": "NOT_CHECKABLE_MISSING_FILE",
+    "expected_row_count": 1000,
+    "expected_content_sha256": "b03c9b7d682434013a232aa38bd5a96d27c30e2602e168d1545c71b9dc7389a9"
+  },
+  "permissions_and_symlink": {
+    "status": "NOT_CHECKABLE_MISSING_OBJECTS",
+    "expected_probe_sh_mode": "0o751",
+    "expected_symlink_target": "note.txt"
+  },
+  "checkpoint_continuation": {
+    "status": "FAIL",
+    "started_from_saved_step": false,
+    "expected_saved_step": 37,
+    "reason": "workspace/checkpoint.json was absent, so continuation from the saved checkpoint could not be performed without fabricating state"
+  },
+  "phase_a_processes": {
+    "phase_a_evidence_says_background_process_left_running": false,
+    "matching_live_processes_observed": [],
+    "note": "Phase A intentionally left no background process, so no survivor process was expected"
+  },
+  "environment": {
+    "uname": "Linux 3be3f5319daa 6.18.35 #1 SMP Mon Jul 27 18:07:50 UTC 2026 x86_64 GNU/Linux",
+    "cgroup_cpu_max": "400000 100000",
+    "cgroup_memory_max": "4294967296",
+    "python": "Python 3.13.5",
+    "node": "v22.16.0",
+    "chromium": "Chromium 144.0.7559.96 built on Debian GNU/Linux 13 (trixie)",
+    "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+    "disk_total_bytes": 67049664512,
+    "disk_used_bytes": 23044755456,
+    "disk_free_bytes": 40552161280,
+    "boot_id": "c1c8c29c-f222-418e-81fc-ff93a6a785cf"
+  },
+  "integrity_note": "An attempted duplicate local Phase A was started after the initial missing-root observation, but immutable E8_PHASE_A.json was then discovered. The duplicate local tree was discarded and was not used as Phase B evidence. Existing Phase A GitHub evidence was not overwritten.",
+  "verdict": "NON_PERSISTENT_OR_PARTIAL",
+  "reason": "The prior run's entire /mnt/data/free_fabric_v3_e8 tree was absent at the start of Phase B, so exact bytes, SQLite state, permissions, symlink and checkpoint could not be recovered from local disk."
+}

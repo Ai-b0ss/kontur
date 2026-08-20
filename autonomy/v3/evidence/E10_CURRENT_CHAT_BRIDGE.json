@@ -1,0 +1,35 @@
+{
+  "kind": "FREE_FABRIC_V3_EVIDENCE",
+  "experiment": "E10",
+  "date": "2026-08-20",
+  "execution": "current_chat_hosted_compute",
+  "observations": {
+    "github_connector_create_file": "PASS",
+    "created_control_commit": "7712d17f2162c17bfc1aa19fa221cd36fa0ff2f8",
+    "container_git_binary": "git version 2.47.3",
+    "container_github_credentials_present": false,
+    "container_dns_github_com": "FAIL_TIMEOUT",
+    "container_https_github_com": "FAIL_DNS_TIMEOUT",
+    "github_actions_artifact_to_mnt_data": "PASS",
+    "artifact_example": {
+      "artifact_id": 9288622196,
+      "local_path": "/mnt/data/kontur-production-release-evidence-32030041504.zip",
+      "sha256": "f3c9dae40b1e2ba4c19e4eb48b89fb2b2abfc50b6fdc7febd4e80c622aef23da"
+    }
+  },
+  "environment": {
+    "python": "3.13.5",
+    "node": "22.16.0",
+    "chromium": "/usr/bin/chromium",
+    "ffmpeg": "/usr/bin/ffmpeg",
+    "cpu_cgroup": "400000 100000",
+    "memory_cgroup": "4294967296",
+    "mnt_data_filesystem_total": "63G",
+    "mnt_data_filesystem_free_observed": "38G"
+  },
+  "verdict": {
+    "direct_git_from_container": "BLOCKED_BY_NETWORK_AND_NO_CREDENTIAL",
+    "connector_as_control_write_bridge": "PROVEN",
+    "connector_as_binary_ingress_bridge": "PROVEN_FOR_GITHUB_ACTIONS_ARTIFACTS"
+  }
+}

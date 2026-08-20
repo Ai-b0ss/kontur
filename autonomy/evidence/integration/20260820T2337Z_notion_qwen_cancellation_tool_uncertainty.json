@@ -1,0 +1,75 @@
+{
+  "constraints": [
+    "No product source file changed.",
+    "No hosted CI or trigger push for CI.",
+    "No Cloudflare, Windows, live Qwen/Notion/Codex/provider traffic, production, secrets or user data."
+  ],
+  "coordination": {
+    "notion_agent_current_narrow_work": "dynamic reservation/session wiring and transport provenance in ordinary Responses path",
+    "notion_core_current_narrow_work": "native Windows auth rollback and Codex shell environment hardening",
+    "qwen_core_current_narrow_work": "persistence diagnostic boundary after markUncertain/markRunning and exact-tree regressions",
+    "qwen_reliability_current_narrow_work": "terminal-only SSE classification/failover",
+    "why_nonduplicative": "Both findings sit at cancellation/tool-outcome boundaries between existing lifecycle/tool-loop and durable retry safety, not in those workers current narrow edits."
+  },
+  "findings": [
+    {
+      "candidate_contract": [
+        "Explicit cancellation after a mutating tool has been admitted is not proof that the tool did not run.",
+        "Keep that delegated identity blocked as uncertain until explicit reconciliation/retry, or let the admitted child settle and durably record its outcome before releasing identity.",
+        "Do not treat asyncio.CancelledError as an ordinary retryable child failure."
+      ],
+      "id": "NOTION_EXPLICIT_CANCELLATION_SIDE_EFFECT_RETRY_GAP",
+      "observed_contract": [
+        "SubagentLifecycle.run_many cancels unfinished child tasks when the parent batch is cancelled and then always releases all reserved task_ids.",
+        "DelegatedToolLoopSession awaits the local tool executor directly and catches Exception, but asyncio.CancelledError escapes that handler.",
+        "Cancellation can therefore happen after a local write/shell side effect but before function_call_output is appended; the child identity then becomes immediately reusable."
+      ],
+      "offline_probe": "autonomy/v3/tools/integration_notion_cancel_side_effect_probe.py",
+      "offline_result": {
+        "duplicate_side_effect": true,
+        "side_effects_after_automatic_rerun": 2,
+        "side_effects_after_cancel": 1,
+        "task_still_reserved": false,
+        "tool_result_recorded": false
+      },
+      "severity": "high"
+    },
+    {
+      "candidate_contract": [
+        "Tool failures need provenance: deterministic pre-execution/precondition failure versus post-start/ambiguous outcome.",
+        "For bash/write_file/edit_file/append_file, a post-start ambiguous failure must escape runTurn as an uncertain coding-turn failure so persisted batch state blocks automatic retry.",
+        "Only deterministic failures that provably happened before the mutating operation should be returned to the model as ordinary correctable tool errors."
+      ],
+      "id": "QWEN_MUTATING_TOOL_ERROR_AS_RETRYABLE_RESULT_GAP",
+      "observed_contract": [
+        "agent.runTurn emits a mutating tool event before execution, so subagent side-effect state knows the turn may have side effects.",
+        "tool-executor catches handler exceptions and returns Error text; bash nonzero/timeout also returns Error text after the process may already have changed state.",
+        "agent.runTurn converts that Error text into tool_result and continues the same model loop instead of throwing, so the persisted subagent uncertain guard is never engaged.",
+        "The model may retry the same bash/write/edit action even though the prior failing attempt may already have produced a side effect."
+      ],
+      "offline_probe": "autonomy/v3/tools/integration_qwen_tool_error_uncertainty_probe.py",
+      "offline_result": {
+        "candidate_automatic_retry": false,
+        "candidate_side_effects": 1,
+        "candidate_uncertain": true,
+        "current_duplicate": true,
+        "current_side_effects": 2
+      },
+      "severity": "high"
+    }
+  ],
+  "schema": "integration_helper_evidence_v1",
+  "source_blobs": {
+    "notion_payload_delegated_tool_loop_py": "ee789e92c5c3f63296923fc6584c55a44c082798",
+    "notion_payload_subagent_lifecycle_py": "c90ff249e2199dcdc43002dfb3277fc60fc63b53",
+    "qwen_src_agent_js": "0dc6486d7bbb7a7c8d4137971a0deae6bd99e87d",
+    "qwen_src_subagent_side_effect_state_js": "3143c9b699070e6e1ee20cef9c5f80d84488b6fd",
+    "qwen_src_tool_executor_js": "85cd74b92a4f4496d787e66e0ccaa96ec6f9f086"
+  },
+  "source_heads": {
+    "notion_agent_bridge": "732002fff1bef2e9143d8d735b2b80aad0433009",
+    "qwen_free_api": "dc7a6d790846cf10920f296d400f8ceb882f9842"
+  },
+  "timestamp_utc": "2026-08-20T23:37:00Z",
+  "worker": "INTEGRATION_HELPER"
+}

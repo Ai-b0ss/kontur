@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "created": "2026-08-20",
+  "purpose": "FREE FABRIC v3 direct scheduled-compute proof plan",
+  "principle": "ChatGPT hosted compute is primary. GitHub is durable state. CircleCI/Cloudflare are not in the primary path.",
+  "experiments": [
+    {
+      "id": "E8",
+      "name": "cross-run local disk persistence",
+      "goal": "prove or falsify that one scheduled automation can recover exact files created by its previous run without Library, CI or provider traffic"
+    },
+    {
+      "id": "E9",
+      "name": "cross-run workspace persistence",
+      "goal": "prove preservation of directory tree, binary bytes, sqlite state, permissions and an unfinished work checkpoint"
+    },
+    {
+      "id": "E10",
+      "name": "scheduled GitHub durable write",
+      "goal": "prove that scheduled compute can publish machine evidence to the control branch without issue comments"
+    },
+    {
+      "id": "E11",
+      "name": "continuation after restart",
+      "goal": "phase A leaves a partially completed deterministic job; phase B must continue from the saved checkpoint instead of recomputing from zero"
+    },
+    {
+      "id": "E12",
+      "name": "capability inventory",
+      "goal": "measure actual local CPU, memory, disk, executables, browser, networking, process and filesystem capabilities without guessing"
+    }
+  ],
+  "safety": {
+    "hosted_ci": false,
+    "cloudflare": false,
+    "provider_traffic": false,
+    "production": false,
+    "product_branches": false
+  }
+}

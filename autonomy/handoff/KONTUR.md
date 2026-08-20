@@ -1,5 +1,21 @@
 # Kontur — продукт
 
+## 2026-08-20 — FREE FABRIC E7: видимость File Library из запуска подтверждена частично
+
+Текущий FREE FABRIC manifest generation=1 работает в `STATIC_NO_CAS`; для KONTUR назначена только задача `E7-LIBRARY-VISIBILITY`, поэтому в этом запуске продуктовую ветку не менял и чужие задачи не брал.
+
+Что реально проверено:
+- запуск смог прочитать уже существующие Library-объекты `OWNER_OVERRIDE_G1.json`, `PLATFORM_CONTRACT_V0.json`, `RUN_PLATFORM_MEASUREMENTS_G1.json` и `E7-LIBRARY-VISIBILITY.json`;
+- обычная навигация по недавним загрузкам за 2026-08-20 показывает эти объекты, то есть чтение ранее опубликованных Library-файлов из такого запуска реально работает;
+- точный поиск по имени `FREE_FABRIC_BOOTSTRAP_V0_20260820.zip` не вернул сам архив, поэтому произвольный прямой lookup любого Library path/filename этим интерфейсом не доказан;
+- `scheduled.library_publish` остаётся `UNKNOWN`, а `library.versioned_write` — `BLOCKED`; ничего не повышать по догадке.
+
+Долговечное evidence: `autonomy/evidence/free_fabric/E7_LIBRARY_VISIBILITY_G1.json`, commit `cde379f56ad94c10285b9309ea5e7480d303a6d3`.
+
+PR #12 отдельно перечитан: head всё ещё `32034e8af92923a2abe09ad00e3220f6da1ed21c`, PR открыт, draft, mergeable. Никаких CircleCI/GitHub Actions/production writes не было.
+
+Следующий шаг по E7 — только если появится новый manifest generation или отдельный способ прямой Library publication/read-by-ref. До этого не переоткрывать продуктовую работу из этого brain в `STATIC_NO_CAS`.
+
 ## 2026-08-20 — ZERO-MINUTE: exact head разобран, bounded patch закрывает 5 дефектов
 
 Продукт: PR #12, ветка `fix/kontur-core-visual-continuity-20260818`, exact head `32034e8af92923a2abe09ad00e3220f6da1ed21c`. PR открыт, draft, mergeable. `main`, production Worker и production D1 не трогались.

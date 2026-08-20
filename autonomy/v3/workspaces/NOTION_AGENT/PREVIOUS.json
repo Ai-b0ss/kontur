@@ -1,19 +1,8 @@
 {
-  "schema": "free_fabric_capsule_latest_v2",
-  "worker": "NOTION_AGENT",
-  "capsule_id": "20260820T1506Z-67ebdc9fc0",
-  "manifest_path": "autonomy/v3/workspaces/NOTION_AGENT/20260820T1506Z-67ebdc9fc0/manifest.json",
-  "previous_capsule_id": null,
-  "source_sha": "67ebdc9fc0bfedfb39045b0a7f3c4ecb5ae84590",
-  "state": "PARTIAL_EXACT_CHECKPOINT_STARTUP_STATUS_GUARD",
-  "archive_sha256": "2f7182af8eb50393f34750885e27af4c7c642319fe63a4bd4464218d2efb5a03",
-  "publisher": "NOTION_AGENT",
-  "verified": {
-    "part_readback": true,
-    "all_part_git_blob_sha_match_local": true,
-    "manifest_readback": true,
-    "archive_sha256_local": true,
-    "source_fragment_matches_github": true
-  },
-  "note": "Initial NOTION_AGENT capsule. The full payload/server.py remains referenced by immutable Git blob f02cef6a0ffc202c75fbe71c520c72ac19ff876d; never reconstruct it from chat. Resume from this capsule and apply only the exact narrow startup-status cleanup to exact source."
+  "archive_sha256": "92100874f2dc65cccc22ff3435ba39db7e8b89a1be703264e79ee9f2a29f1f0b",
+  "capsule_id": "20260820T170428Z-3d21b8ccf9",
+  "manifest": "20260820T170428Z-3d21b8ccf9/manifest.json",
+  "schema": "free_fabric_latest_v1",
+  "updated_at_utc": "2026-08-20T17:04:28Z",
+  "worker": "NOTION_AGENT"
 }

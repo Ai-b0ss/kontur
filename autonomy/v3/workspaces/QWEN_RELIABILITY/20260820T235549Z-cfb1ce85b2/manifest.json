@@ -1,0 +1,90 @@
+{
+  "archive": {
+    "parts": 4,
+    "sha256": "6ec816537de18b4cadfda829cd0a114a0e2264ae28a6d534b967427aefdd89dc",
+    "size": 4796
+  },
+  "capsule_id": "20260820T235549Z-cfb1ce85b2",
+  "created_at_utc": "2026-08-20T23:55:49Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "d8c5c75e8322cee19821ae18cdb524f15f02a04cd0f69623835a3d4e3e2d8dcb"
+    },
+    {
+      "chars": 2048,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "7fe3e741a4af0cea6a6d8d23292356c1845647902dc1c4f18a112097e396fe18"
+    },
+    {
+      "chars": 2048,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "f3345657a84e39821dd8e0665bc6a56f965ad78c41903124a1c7c575e5d2bcf2"
+    },
+    {
+      "chars": 252,
+      "index": 3,
+      "name": "part-0003.b64",
+      "sha256_text": "1d5d29bcc5e0be7a9c16004c31de3890bb80ceb36350d3247c52bed1b535ac18"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@f5194f8030632037e4dcda5a54037f216be9f4db",
+  "worker": "QWEN_RELIABILITY",
+  "workspace": {
+    "evidence": {
+      "mode": "0o755",
+      "type": "dir"
+    },
+    "evidence/CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "87167ab4959e64218b92f46d5492be6a6687f4047adba3e0d19556cb410e5862",
+      "size": 2731,
+      "type": "file"
+    },
+    "evidence/NONSTREAM_SET_FALSE_NEXT.md": {
+      "mode": "0o644",
+      "sha256": "ec520e20d125510d7ffabc812bbf7daf910e8f4515ebdaeeb30c8d05c2a3f35b",
+      "size": 428,
+      "type": "file"
+    },
+    "evidence/TERMINAL_ONLY_SSE_FIX.md": {
+      "mode": "0o644",
+      "sha256": "b557e437462a6dd85571a2a5f836a7e20c5361c6145273f10a72aca2fc82cfe1",
+      "size": 490,
+      "type": "file"
+    },
+    "evidence/set-false-boundary-test.js": {
+      "mode": "0o644",
+      "sha256": "b2a99cd466da1fbff496cd00e5036db759a8a45bb2b414e9110fea68e591ce1b",
+      "size": 901,
+      "type": "file"
+    },
+    "evidence/side-effect-window-test.js": {
+      "mode": "0o644",
+      "sha256": "2e9321fbf5a2d5baef197b58f5ec6b2e1f0d5318d51e55a96ff69fcfef3c4c79",
+      "size": 2551,
+      "type": "file"
+    },
+    "patches": {
+      "mode": "0o755",
+      "type": "dir"
+    },
+    "patches/server-checkpoint-set-false-guard.patch": {
+      "mode": "0o644",
+      "sha256": "a1490b3b604e141bb8ac3977ac381bd39fd0e5c4ca4fe1e98a559dfbb6c76c23",
+      "size": 719,
+      "type": "file"
+    },
+    "patches/stream-tool-checkpoint-guard.patch": {
+      "mode": "0o644",
+      "sha256": "ca272a8d062cd2a0929fb89c1f2b86640430eeea9bcd7d4ff31bf3e70199c01c",
+      "size": 3189,
+      "type": "file"
+    }
+  }
+}

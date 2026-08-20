@@ -1,5 +1,28 @@
 # Notion — ротация, агентность, prompt-mode и делегирование
 
+## 2026-08-20 — FREE FABRIC G1 / ZERO-MINUTE
+
+Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
+
+Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8, head `700f3f12a5bbbd82021ace64fbee3be93f99a1e0`.
+
+В начале смены прочитаны канонические FREE FABRIC G1: `OWNER_OVERRIDE_G1.json`, `PLATFORM_CONTRACT_V0.json`, `RUN_PLATFORM_MEASUREMENTS_G1.json`. Активен `STATIC_NO_CAS`; для brain `NOTION_AGENT` назначены только `E4-JITTER` и `E5-SCHEDULED-RECOVERY`, поэтому проектный код Notion в этой смене не менялся и чужие задачи не забирались.
+
+Что сделано бесплатно локально:
+- добавлен `autonomy/free_fabric/probes/e4_jitter_probe.py`; он считает отклонение времени запуска только как телеметрию и явно запрещает использовать время для correctness/ownership;
+- зафиксировано одно наблюдение E4: системный runtime-context этой смены был на 165 секунд раньше номинальной отметки расписания. Это не считается доказательством распределения jitter и не меняет статус `scheduled.compute`;
+- добавлен `autonomy/free_fabric/probes/e5_scheduled_recovery_probe.py` с атомарной записью checkpoint, проверкой `generation/run/task`, SHA-256 состояния, восстановлением в новом Python-процессе, отказом на stale generation и повреждённом состоянии;
+- локальный E5 self-test: `fresh_process_recovery=PASS`, `stale_generation_rejected=PASS`, `corruption_rejected=PASS`;
+- опубликован неизменяемый checkpoint для следующего запуска: `autonomy/free_fabric/evidence/PLATFORM-MEASUREMENTS-20260820/E5-SCHEDULED-RECOVERY/NOTION_AGENT_G1_A_CHECKPOINT.json`;
+- опубликованы отдельные evidence-файлы E4 и E5 с полями `brain/execution/provenance`.
+
+Важная граница доказательства:
+- сейчас доказан только локальный протокол восстановления в новом процессе;
+- настоящий `CROSS_SCHEDULE_RECOVERY` ещё не доказан. Следующий запуск `NOTION_AGENT` должен прочитать checkpoint по точному пути/ref, проверить generation/run/task + `state_sha256` и выпустить новый неизменяемый evidence-объект, не перезаписывая старый;
+- `scheduled.compute` и `scheduled.library_publish` остаются `UNKNOWN`, как требует `PLATFORM_CONTRACT_V0`.
+
+Hosted CI, Windows, production, реальные Notion-аккаунты и provider traffic не использовались.
+
 ## 2026-08-20 12:45–13:05 МСК — ZERO-MINUTE
 
 Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
@@ -27,10 +50,10 @@ Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, head `b6f4eef28ea7acdbba
 - старый `_swap_pool()` действительно публиковал ложное новое поколение при исключении во время сборки replacement;
 - после исправления неудачный rebind атомарен с точки зрения наблюдаемого lifecycle state: generation и текущий entrypoint остаются прежними.
 
-Что делать дальше:
+Что делать дальше по Notion после снятия режима `STATIC_NO_CAS`/нового manifest generation:
 1. Не запускать CircleCI/GitHub Actions в ZERO-MINUTE режиме и не делать push ради CI.
-2. Главный следующий кусок — материализовать уже fail-closed server wiring прямо в `payload/server.py`: `ServerSubagentLifecycle` + оба single-slot reservation исправления. Делать только из полной точной копии файла; не переписывать большой server по памяти или кусками.
-3. После прямой материализации постоянные single-slot проверки должны работать на настоящем `ForegroundAccountReservations` из `server.py`, без зависимости от materializer. Затем бесплатно локально прогнать prompt/routing/delegation/tool-loop/server-lifecycle набор.
-4. При следующем исследовании lifecycle отдельно проверить rebind-конкуренцию: если два refresh/rebind идут одновременно, каждый drain должен ждать именно своё старое поколение и не закрывать pool, который уже стал текущим для более нового поколения.
-5. Только после крепкого локального ядра и при свободной уже авторизованной среде — один настоящий two-slot Codex project probe, затем один A→B failover probe без переноса старого Notion thread и без повторного локального side effect.
+2. Главный следующий проектный кусок — материализовать fail-closed server wiring прямо в `payload/server.py`: `ServerSubagentLifecycle` + оба single-slot reservation исправления. Делать только из полной точной копии файла.
+3. После прямой материализации бесплатно локально прогнать prompt/routing/delegation/tool-loop/server-lifecycle набор.
+4. Отдельно проверить rebind-конкуренцию двух refresh/rebind.
+5. Только после крепкого локального ядра и при свободной уже авторизованной среде — один настоящий two-slot Codex project probe, затем один A→B failover probe.
 6. После устойчивого Notion/Codex ядра подключать Qwen adapter к тому же `DelegationDispatcher`, без общего account/thread state между провайдерами.

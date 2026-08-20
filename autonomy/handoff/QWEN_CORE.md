@@ -2,11 +2,20 @@
 
 ## 2026-08-20
 
-`qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`, текущий head `249a31f86c27f0ac5128fb910d93c2bbf248ffd2`, PR draft/open.
+`qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`, текущий head `3c240d713ebc3a5b6237ff3336dae9e5465f356f`, PR draft/open.
 
 `qwen-workspace`: PR #5, ветка `fix/u01-cache-coherence`, head `ce51b26c227b08032301a8574fee4fe2ee9330a3`, `mergeable=true`.
 
-### Qwen pool / reliability — свежий результат
+### Qwen Core — свежий результат
+
+- Найден реальный дефект persisted coding-subagents: обычная ошибка после уже начатого потенциально изменяющего инструмента (`bash`, `write_file`, `edit_file`, `append_file`) раньше попадала в `failed`, а не в `uncertain`. Следующий запуск такого batch мог автоматически повторить задачу и второй раз выполнить уже случившийся side effect.
+- Исправление перенесено в продукт без hosted CI/provider traffic. Добавлен `src/subagent-side-effect-state.js`: событие `tool` для потенциально изменяющего инструмента помечает текущий subagent-run как возможно уже имевший side effect. Если после этого `agent.runTurn()` выбрасывает ошибку, исходный error code сохраняется, но ошибка получает `uncertain=true`; persisted batch поэтому идёт в `markUncertain`, а автоматический retry блокируется до явного `retryUncertain=true`.
+- Read-only инструменты (`read_file`, `list_dir`) намеренно не переводят обычную последующую ошибку в `uncertain`, поэтому безопасные чтения не превращаются в вечные ручные блокировки.
+- Commit-цепочка изменения: helper `2f498b37aeacd4733f4c058f36d631ee8a40acab`, wiring runner `8f6188b760874328203c4c00fdf5f1103fa9e312`, regression `0cc845fab0956ca51a60fe9724fc37afdff6fc21`, включение в `npm test` — текущий head `3c240d713ebc3a5b6237ff3336dae9e5465f356f`.
+- Новый `scripts/subagent-side-effect-uncertainty-test.js` проверяет три инварианта: `write_file -> upstream failure` становится `uncertain`; следующий persisted запуск блокируется `QWEN_SUBAGENT_AGENT_UNCERTAIN_RETRY_BLOCKED`; `read_file -> upstream failure` остаётся обычным retryable `failed`. Исходная классификация upstream ошибки сохраняется.
+- На собственной ChatGPT-машине exact helper-логика прогнана локально: `QWEN_SUBAGENT_SIDE_EFFECT_UNCERTAINTY_PASS readonly_retryable=1 mutating_fail_closed=4 existing_code_preserved=1`. Полный exact-tree `npm test` не заявляется: прямого binary/source ingress приватного репозитория в контейнер пока нет; hosted CI специально не запускался.
+
+### Qwen pool / reliability — свежий результат другой линии
 
 - Исходный fail-open из `QWEN_FAILOPEN_20260820.json` воспроизведён локально без provider traffic: при пустом `accountStore.candidates()` старый server-route действительно оживлял stale `current()`, а streaming `retryEmpty` — stale `preferredAccount`.
 - Кандидатные patch критически проверены и перенесены в продукт после локального targeted PASS. Commit `ada80afeb9a0e0bddc129199e5f3e7478ba42623`: `preparePublicPayloadGoverned` больше не падает назад на `current()`, route выбирает только доступного сохранённого владельца либо eligible candidate, configured-but-none-eligible отвечает `503` + `QWEN_NO_ELIGIBLE_ACCOUNT`, отсутствие настроенных аккаунтов сохраняет `401`, streaming empty-retry при пустом пуле сразу останавливается. Дополнительно закрыта гонка: `QWEN_NO_ELIGIBLE_ACCOUNT`, возникший уже внутри governed preprocessing до отправки заголовков, также остаётся `503`, а не превращается в общий `500`.
@@ -15,8 +24,7 @@
 - Следующая pool-проверка нашла реальный дефект cooldown: после CAPTCHA на `/chats/new` `generateChatID()` уже ставит аккаунту 10-минутный cooldown, затем `sendChatRequest()` при `null chatId` мог вызвать общий `markFailure('Failed to generate chat_id')` и сократить тот же cooldown примерно до 60 секунд. Аналогично более слабая последующая ошибка могла сократить 6-часовой rate-limit cooldown. Локально baseline воспроизведён как `600000ms -> 60000ms`.
 - Защитный инвариант исправлен в `account-store`: новая ошибка может продлить активный cooldown, но больше не может его сократить (`3eecc94a439c0c468190c525a9a0f3c4edaee6d3`, окончательно исправленный head после технической опечатки `d7ecea4d091352c652e4a1c60812ddc4330a0652`). Regression расширен в `account-store-cooldown-test.js` (`249a31f86c27f0ac5128fb910d93c2bbf248ffd2`): сильный cooldown, CAPTCHA и rate-limit должны переживать более слабую последующую ошибку. Локальный policy harness: `QWEN_COOLDOWN_MONOTONIC_PASS captcha_preserved=1 rate_limit_preserved=1`.
 - В commit `3eecc94a…` при полном file-write через GitHub Contents API была допущена синтаксическая опечатка в строке cookie header; она обнаружена немедленной проверкой diff и исправлена следующим commit `d7ecea4d…`. Текущий `src/account-store.js` снова содержит исходную корректную cookie-строку; дополнительного product delta там нет.
-- Для current head `249a31f8…` GitHub combined status пуст: внешние CI не запускались. CircleCI/GitHub Actions, provider/live Qwen, production и deploy в этом проходе не использовались.
-- Ограничение доказательства: полного `npm test` на целиком материализованном exact private tree в hosted container всё ещё нет; локально выполнены targeted runtime/source harnesses на точных затронутых инвариантах. Не приписывать этому full-suite PASS.
+- Для current head внешние CI специально не запускались. CircleCI/GitHub Actions, provider/live Qwen, production и deploy в этом проходе не использовались.
 
 ### Текущий запуск QWEN_CORE / ZERO_MINUTE — ранее
 
@@ -33,7 +41,8 @@
 
 ### Следующее
 
-1. Следующий узкий pool-check: после `generateChatID()` уже классифицированный CAPTCHA/rate-limit сейчас всё ещё может получить вторичный `markFailure('Failed to generate chat_id')`. Monotonic cooldown уже не даёт сократить паузу, но `failures` и `lastError` могут быть испорчены. На следующем проходе проверить и при подтверждении пропускать вторичную generic-маркировку, если target уже стал unavailable в `generateChatID()`.
-2. При доступном способе материализовать exact tree бесплатно прогнать полный локальный `npm test`; hosted CI ради этого не запускать.
-3. Windows native validation считать отдельным PLATFORM_CONTRACT и не подменять hosted CI.
-4. Живой Qwen не запускать, пока не восстановлена судьба прежней разрешённой live-попытки; второй provider-run вслепую запрещён.
+1. Qwen Core: проверить похожую семантику на обычном (не batch) OpenCode/session restart пути — после локального `bash/write/edit` и последующего upstream/parser сбоя нельзя автоматически считать незавершённую цель безопасной для повторного выполнения. Сначала доказать фактическую текущую семантику checkpoint, затем делать минимальный patch только при воспроизводимом дефекте.
+2. Qwen Core: при доступном способе материализовать exact private tree бесплатно прогнать `subagent-agent-runner-test`, новый `subagent-side-effect-uncertainty-test`, `subagent-batch-resume-test` и затем полный локальный `npm test`; hosted CI ради этого не запускать.
+3. Qwen pool / reliability: продолжить отдельно проверку вторичного generic `markFailure('Failed to generate chat_id')` после уже классифицированного CAPTCHA/rate-limit; QWEN_CORE в эту механику не лезет без пересечения с ядром.
+4. Windows native validation считать отдельным PLATFORM_CONTRACT и не подменять hosted CI.
+5. Живой Qwen не запускать, пока не восстановлена судьба прежней разрешённой live-попытки; второй provider-run вслепую запрещён.

@@ -1,0 +1,42 @@
+diff --git a/server.js b/server.js
+--- a/server.js
++++ b/server.js
+@@
+ async function preparePublicPayloadGoverned(body, options = {}) {
+   const account =
+     options.account ||
+-    accountStore.candidates()[0] ||
+-    accountStore.current();
++    accountStore.candidates()[0] ||
++    null;
+@@
+-    const preferredAccount = savedAccountAvailable
+-      ? savedAccount
+-      : (accountStore.candidates()[0] || accountStore.current());
++    const eligibleAccounts = accountStore.candidates();
++    const preferredAccount = savedAccountAvailable
++      ? savedAccount
++      : (eligibleAccounts[0] || null);
+     quotaTelemetry.setAccount(telemetryRun, preferredAccount);
+     if (!preferredAccount || !preferredAccount.token) {
++      if (accountStore.isAccount()) {
++        return res.status(503).json({
++          error: {
++            message: 'No eligible Qwen account is currently available.',
++            type: 'temporarily_unavailable',
++            code: 'QWEN_NO_ELIGIBLE_ACCOUNT',
++          },
++        });
++      }
+       return res.status(401).json({
+         error: {
+           message: 'No Qwen account configured. Run `npm run login` first.',
+@@
+       retryEmpty: async () => {
+         for (let attempt = 0; attempt < 3; attempt += 1) {
+-          const nextAccount = accountStore.candidates()[0] || preferredAccount;
++          const nextAccount = accountStore.candidates()[0] || null;
++          if (!nextAccount) return null;
+           const retryPrepared = await preparePublicPayloadGoverned(effectiveBody, {
+             currentOnly: false,
+             compaction,

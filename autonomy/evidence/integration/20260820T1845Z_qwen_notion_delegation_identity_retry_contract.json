@@ -1,0 +1,66 @@
+{
+  "schema": "integration_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "created_at_utc": "2026-08-20T18:45:00Z",
+  "scope": "Qwen Core/Reliability <-> Notion Agent delegation boundary",
+  "sources": {
+    "notion_agent_head": "1aa166cc2336ce69595e3fc7fa1f26930784b49a",
+    "notion_delegation_policy_blob": "779f3f6cfa35f9e576d283aadc54fdc57a8efec8",
+    "notion_delegation_dispatcher_blob": "66d839a1db347684f2fa2681ceaf98600415298d",
+    "notion_subagent_lifecycle_blob": "fefb6b4fded58b62671cfc19732cfcbf3a1f896b",
+    "notion_subagent_lifecycle_test_blob": "0f95c048ae2c70de257901a0f95fbc46a65dcea3",
+    "qwen_head": "0834b5c6b3c710342db8f4454eb75140f95d18d5",
+    "qwen_subagent_dispatcher_blob": "50ec101735c08a9efd60405301f18c34d5bbecab",
+    "qwen_subagent_agent_runner_blob": "48ea5e2b3a4b7470b2bfedb3d32db00dd024b406",
+    "qwen_subagent_side_effect_state_blob": "3143c9b699070e6e1ee20cef9c5f80d84488b6fd",
+    "qwen_subagent_batch_store_blob": "2daf62dcbf2a38293c3655b9e437374edbf0bd25"
+  },
+  "findings": [
+    {
+      "id": "DELEGATED_TASK_ID_DOMAIN_MISMATCH",
+      "severity": "integration_blocker",
+      "facts": [
+        "Notion validate_delegation_request accepts any non-empty stripped task_id and does not cap it at 80 ASCII-safe characters.",
+        "Qwen normalizeTasks requires SAFE_TASK_ID /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.",
+        "Therefore valid Notion target=qwen requests such as child/1, задача-1, or an 81-character ASCII id are rejected by Qwen if passed through unchanged."
+      ],
+      "offline_matrix": [
+        {"task_id": "child-a", "notion_accepts": true, "qwen_accepts": true},
+        {"task_id": "child/1", "notion_accepts": true, "qwen_accepts": false},
+        {"task_id": "задача-1", "notion_accepts": true, "qwen_accepts": false},
+        {"task_id": "<81 x characters>", "notion_accepts": true, "qwen_accepts": false}
+      ]
+    },
+    {
+      "id": "UNCERTAIN_RETRY_CONTRACT_NOT_CARRIED_BY_NOTION_ENVELOPE",
+      "severity": "high_before_qwen_adapter",
+      "facts": [
+        "Qwen persisted coding subagents mark potential post-side-effect failures uncertain and block automatic retry unless retryUncertain=true.",
+        "Notion DelegationAdapter currently returns only text; DelegationResult has no uncertain/resumed/code/persisted identity fields.",
+        "Notion SubagentLifecycle always releases task_id in finally after exceptions/cancellation, and an existing test explicitly expects cancelled task identity to be reusable.",
+        "A future Qwen adapter must therefore not treat a Notion retry as a fresh Qwen task. It must derive stable Qwen persisted batch/task identity from the canonical delegated identity, preserve Qwen uncertain as a fail-closed result/error, and never set retryUncertain automatically."
+      ],
+      "offline_reproduction": {
+        "shape": "Qwen-like adapter performs a write then raises error with uncertain=true; Notion lifecycle releases the task id; the same request is accepted again.",
+        "observed_adapter_calls": 2,
+        "observed_side_effect_markers": ["WRITE:child-a:1", "WRITE:child-a:2"],
+        "active_after_each_failure": 0
+      }
+    }
+  ],
+  "recommended_adapter_contract": {
+    "task_id_mapping": "derive a deterministic Qwen SAFE_TASK_ID from canonical Notion task_id; do not pass arbitrary raw ids through",
+    "batch_id_mapping": "derive a deterministic Qwen SAFE_BATCH_ID from target + parent_turn_id + task_id (or stable delegated conversation identity); reuse it across retries/restarts",
+    "retry_policy": "retryUncertain must remain false/default unless an explicit owner-level action chooses otherwise",
+    "result_policy": "Qwen uncertain/running-recovered state must not be flattened into ordinary text success or a generic retryable error",
+    "parent_identity": "return/report the original canonical Notion task_id even if the internal Qwen-safe id is encoded"
+  },
+  "change_policy": "No product file was changed. The owner of the future Qwen adapter should add the regression before wiring provider traffic.",
+  "execution": {
+    "hosted_ci": false,
+    "provider_calls": false,
+    "production": false,
+    "secrets": false,
+    "native_windows_claimed": false
+  }
+}

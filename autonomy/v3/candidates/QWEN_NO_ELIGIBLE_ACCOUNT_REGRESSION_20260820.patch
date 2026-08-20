@@ -1,0 +1,44 @@
+diff --git a/scripts/server-no-eligible-account-test.js b/scripts/server-no-eligible-account-test.js
+new file mode 100644
+--- /dev/null
++++ b/scripts/server-no-eligible-account-test.js
+@@
++'use strict';
++
++const assert = require('assert');
++const fs = require('fs');
++
++const source = fs.readFileSync('server.js', 'utf8');
++
++assert.doesNotMatch(
++  source,
++  /accountStore\.candidates\(\)\[0\]\s*\|\|\s*accountStore\.current\(\)/,
++  'server must not revive current() after the eligible candidate list becomes empty',
++);
++
++assert.doesNotMatch(
++  source,
++  /accountStore\.candidates\(\)\[0\]\s*\|\|\s*preferredAccount/,
++  'empty-response retry must not revive a stale preferred account',
++);
++
++assert.match(
++  source,
++  /res\.status\(503\)[\s\S]*?QWEN_NO_ELIGIBLE_ACCOUNT/,
++  'configured-but-unavailable accounts must fail closed with a temporary 503',
++);
++
++assert.match(
++  source,
++  /res\.status\(401\)[\s\S]*?No Qwen account configured/,
++  'truly missing account configuration must keep the existing 401 contract',
++);
++
++console.log('SERVER_NO_ELIGIBLE_ACCOUNT_PASS stale_current=blocked stale_preferred=blocked status_split=1');
++
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@
+-    "test": "node --check server.js && node scripts/continuation-turn-test.js && node scripts/test-cookies.js && node scripts/offline-sse-test.js && node scripts/account-store-cooldown-test.js && node scripts/account-selection-policy-test.js && node scripts/qwen-client-thread-owner-test.js
++    "test": "node --check server.js && node scripts/continuation-turn-test.js && node scripts/test-cookies.js && node scripts/offline-sse-test.js && node scripts/account-store-cooldown-test.js && node scripts/account-selection-policy-test.js && node scripts/server-no-eligible-account-test.js && node scripts/qwen-client-thread-owner-test.js

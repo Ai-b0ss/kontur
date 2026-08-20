@@ -8,6 +8,28 @@ diff --git a/apps/miniapp/src/screens/LocalKontur.tsx b/apps/miniapp/src/screens
  import { QuizEgg } from '../components/QuizEgg.js';
 -import { ResultBird } from '../components/ResultBird.js';
 @@
+       if (replayMode && state) {
+-        const localResult = resolveRole(finalAnswers);
+-        const visualResult = selectBirdResult({
+-          resolvedRole: localResult.role,
+-          scores: localResult.scores,
+-        });
++        // Повтор теста не меняет серверный профиль, поэтому и reveal должен
++        // показывать ту же сохранённую птицу, которая останется на Home.
++        const savedBird = birdPresentation(
++          state.player.role,
++          state.player.roleTitle ?? 'птица',
++          state.player.userId,
++        );
+         setReveal({ state });
+-        setRevealResultId(visualResult.resultId);
+-        setRevealNote(personalizedBirdNote(visualResult.resultId, finalAnswers));
++        setRevealResultId(savedBird.resultId);
++        setRevealNote(savedBird.note);
+         setHatchReady(true);
+         haptic('ok');
+         return;
+@@
            <QuizEgg
              stage={eggStage}
              hatching={stage === 'hatching' || stage === 'reveal'}
@@ -61,4 +83,13 @@ diff --git a/apps/miniapp/test/local-kontur.test.ts b/apps/miniapp/test/local-ko
 +  const screen = await readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8');
 +  assert.match(screen, /index > 0 && !busy && !eggResponding && !answerLock\.current/);
 +  assert.match(screen, /if \(busy \|\| eggResponding \|\| answerLock\.current\) return;/);
++});
++
++test('replay keeps the saved bird identity instead of presenting a temporary new bird', async () => {
++  const screen = await readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8');
++  const replayBranch = screen.match(/if \(replayMode && state\) \{([\s\S]*?)\n      \}\n      const result = await api\.localHatch/)?.[1] ?? '';
++  assert.match(replayBranch, /const savedBird = birdPresentation\(/);
++  assert.match(replayBranch, /setRevealResultId\(savedBird\.resultId\)/);
++  assert.match(replayBranch, /setRevealNote\(savedBird\.note\)/);
++  assert.doesNotMatch(replayBranch, /resolveRole|selectBirdResult|personalizedBirdNote/);
 +});

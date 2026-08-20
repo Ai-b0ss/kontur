@@ -1,5 +1,32 @@
 # Notion — ротация, агентность, prompt-mode и делегирование
 
+## 2026-08-20 11:50–12:02 МСК — ZERO-MINUTE
+
+Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
+
+Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8. Текущий head после этой смены: `333b3c07f7897b7d7aa6740476d18b2cad951b27`.
+
+Что сделал:
+1. Перечитал `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, этот handoff и свежие PR #7/#8. Core не менялся и Windows/NCM28 не трогал.
+2. Hosted CI не запускал и никаких push «ради проверки» не делал. Все новые проверки этой смены сначала прогонялись в бесплатной локальной среде ChatGPT.
+3. Усилил уже подготовленную single-slot защиту. Новый тест теперь доказывает не только «единственный зарезервированный аккаунт нельзя украсть», но и аварийный выход: если владелец tool-chain исчез и не вызвал `clear()`, ожидание само заканчивается после TTL. Локальная проверка на укороченном TTL прошла: ожидание освободилось примерно через 0.03 с. Commit: `a99273208716a0c8b652e912a5c057afb4d16fab`.
+4. Нашёл отдельную дыру в многошаговом child tool-loop: `_normalize_runtime_result()` считал валидным MCP-результат с `isError="true"`, `isError=1` или `isError=null`, потому что проверял только точное `is True`. Это могло превратить повреждённый/неверно типизированный ответ локального инструмента в успешный и заставить модель продолжить после фактически недоказанного действия.
+5. Исправил нормализацию fail-closed: если поле `isError` присутствует, оно обязано быть настоящим JSON boolean. Любой другой тип теперь даёт нейтральный `tool_result_invalid`; текст/объект ошибки не протаскивается дальше. Локальный набор проверил `"true"`, `1`, `null`, обычный `false` и обычный `true`. Коммиты: `2ef8921058dce810699a72af7a4a148153099856`, `333b3c07f7897b7d7aa6740476d18b2cad951b27`.
+6. Production, реальные Notion-аккаунты, provider traffic, Core и Windows-ветку не трогал.
+
+Что уже доказано бесплатно в этой смене:
+- single-slot reservation действительно ждёт освобождения единственного sticky-слота;
+- abandoned reservation не превращает single-slot режим в вечную блокировку: TTL освобождает маршрут;
+- malformed MCP `isError` больше не может маскироваться под успешный tool result;
+- нормальный `isError=false` остаётся успешным, `isError=true` остаётся явной ошибкой инструмента.
+
+Следующий шаг:
+1. Не запускать CircleCI/GitHub Actions в ZERO-MINUTE режиме. Следующая полезная работа — материализовать уже fail-closed wiring непосредственно в `payload/server.py`, но только через полное локальное воспроизведение точного файла; не переписывать большой `server.py` через GitHub API частями или по памяти.
+2. После прямой материализации убрать зависимость постоянных тестов от materializer: single-slot `wait + clear + TTL` должны проверяться уже на настоящем `ForegroundAccountReservations` из `server.py`.
+3. Затем бесплатно локально прогнать prompt/routing/delegation/tool-loop набор. Native Windows verdict не подменять Linux; Windows нужен только для отдельной Core/NCM28 линии.
+4. Только после крепкого локального ядра и при свободной уже авторизованной среде — один настоящий two-slot Codex project probe, затем один A→B failover probe без переноса старого Notion thread и без повторного локального side effect.
+5. После устойчивого Notion/Codex ядра подключать Qwen adapter к тому же `DelegationDispatcher`, не смешивая account/thread state двух провайдеров.
+
 ## 2026-08-20 10:46–11:03 МСК
 
 Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.

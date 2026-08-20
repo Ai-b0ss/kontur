@@ -1,0 +1,29 @@
+{
+  "schema": "free_fabric_capsule_v3_github_restore_evidence_v1",
+  "date": "2026-08-20",
+  "source_branch": "autonomy/capsule-v3-crossrun-20260820",
+  "source_path": "autonomy/v3/capsules/CROSSRUN_SMALL",
+  "transport": "multiple small base64 chunk files in GitHub",
+  "retrieval": "GitHub connector only",
+  "archive_size": 6457,
+  "archive_sha256": "56837c1e1131376397584145d6d65c38cdc597ab0ffb73500975ff01c1f01080",
+  "marker_sha256": "6e8d714aa188c7abe6268d9c04a0edd605e9d0a53ef6cd9088ca1b82198acab0",
+  "sqlite_rows": 100,
+  "sqlite_logical_sha256": "4e1a462753335ced9982ed684300416b6eaf23a666935ab4e8ad0579aac75160",
+  "checkpoint_start_step": 41,
+  "checkpoint_final_accumulator": "6fdbd34977c27fafd7e8e7c198bbd23826540cac8cce6c2fc7119b2f0cc031b9",
+  "checks": {
+    "chunk_fetch_from_github": "PASS",
+    "chunk_base64_decode": "PASS",
+    "archive_reassembly": "PASS",
+    "archive_sha256": "PASS",
+    "archive_extract": "PASS",
+    "marker_recovery": "PASS",
+    "sqlite_restore": "PASS",
+    "executable_mode_0751": "PASS",
+    "symlink_note_link_to_note_txt": "PASS",
+    "checkpoint_continue_42_to_100": "PASS"
+  },
+  "verdict": "GITHUB_CHUNKED_CAPSULE_RESTORE_PASS",
+  "important_scope": "This proves restore from GitHub chunks in a fresh current execution workspace. It does not claim that /mnt/data itself persists across scheduled runs; E8 already proved it does not."
+}

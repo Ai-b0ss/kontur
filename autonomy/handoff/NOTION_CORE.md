@@ -4,7 +4,7 @@
 Текущий Core head: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
 Агентная ветка: `Ai-b0ss/notion-agent-bridge:autonomy/notion-prompt-modes-20260819`, draft PR #8.
-Текущий Agent head: `837d5999481a24f6f62a1a9aae967760f05ef50f`.
+Текущий Agent head: `2a3520cdaf8150f16d9bd8bd0b1b068fbd3db84f`.
 
 ## NCM28 / Windows
 
@@ -17,7 +17,7 @@
 - auth/stable rollback падают с `PermissionError`;
 - `remove_plain_tree` уже исключён как источник этого `PermissionError`.
 
-Точный digest-разрез всё ещё не получил Windows executor:
+Точный digest-разрез на Core всё ещё не получил executor:
 - exact Core head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`;
 - workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3`;
 - пять задач: `auth`, `codex`, `migration`, `runtime` tree-digest и `outside-digest`;
@@ -31,8 +31,6 @@
 
 ## Codex / Agent
 
-Перед этой сменой PR #8 уже ушёл дальше старой передачи: фактический head был `1030084c819b9f4833544f69ecbff1d4b9d15dec`.
-
 В ветке уже есть:
 - режимы `engineer/owner`;
 - распределение foreground-слотов и sticky continuation;
@@ -45,29 +43,26 @@
 
 ### Что сделано в этой смене
 
-Нашёл реальный дефект в identity-контракте субагентов. `validate_delegation_request()` проверял `task_id` и `parent_turn_id` после `strip()`, но возвращал исходный объект. Из-за этого один и тот же логический child-id мог пройти проверку по каноническому значению, а затем попасть в `DelegationContext`/`DelegationResult` в виде whitespace-алиаса. Conversation key уже был каноническим, то есть внутри одного вызова могли существовать две формы одной identity.
+Найден ещё один реальный identity-дефект в многошаговом tool-loop. Модель могла вернуть корректный по смыслу вызов инструмента с пробелами вокруг `call_id`/`name`. История уже записывала очищенные значения, но сам локальный executor получал исходный `DelegatedToolCall` с неочищенным именем. Для реального `write_file`/`run_shell` это могло превратить нормальный вызов в ложную ошибку и разъехаться с тем, что затем видит модель в tool-result.
 
-Исправлено в `payload/delegation_policy.py`:
-- валидатор теперь возвращает новый `DelegationRequest` с каноническими `task_id`, `parent_turn_id` и очищенным `objective`;
-- `delegated_conversation_key()` строится уже из канонического request;
-- downstream `DelegationDispatcher` автоматически получает и возвращает одну и ту же identity без алиасов.
+Исправлено в `payload/delegated_tool_loop.py`:
+- `call_id`, `name` и `arguments` один раз канонизируются сразу после model reply;
+- в историю и в локальный executor идёт один и тот же новый `DelegatedToolCall`;
+- повторные call-id проверяются уже по канонической форме.
 
-Добавлены проверки:
-- `tests/test_delegation_policy.py` доказывает канонизацию всех трёх полей;
-- `tests/test_delegation_dispatcher.py` доказывает, что канонические task/parent/objective доходят до adapter context и возвращаются в result.
+Добавлен `test_tool_identity_is_canonical_before_executor_and_history` в `tests/test_delegated_tool_loop.py`: он подаёт `"  call-1  "` / `"  write_file  "` и требует, чтобы executor и следующий model step увидели ровно `call-1` / `write_file`. Логику дополнительно прогнал локально на минимальном изолированном сценарии: `tool → result → следующий model step → final` проходит с канонической identity.
 
 Коммиты Agent этой смены:
-- `bcefbdc185212c3561eb6edb1d195b5af488cddb` — canonicalize delegated task identities end-to-end;
-- `eed4f3417474fadaf89054c5c3b772d4ca153553` — policy regression;
-- `837d5999481a24f6f62a1a9aae967760f05ef50f` — dispatcher regression.
+- `5ea52fca7e3a51d235c10627ff8b8dac61d16e16` — canonicalize delegated tool calls before execution;
+- `2a3520cdaf8150f16d9bd8bd0b1b068fbd3db84f` — regression на executor/history identity.
 
-На exact head `837d5999…` автоматически создан CircleCI workflow `33a3048d-b109-416e-8939-ba416a5e3234`.
-Пять задач `agent`, `prompt`, `routing`, `delegation`, `server-wiring-rehearsal` на момент передачи `pending`; дубликат не запускать.
+На exact head `2a3520cd…` автоматически создан CircleCI workflow `72ab0cbd-68ec-4acf-9caa-6935e2f988e0`.
+Пять задач `agent`, `prompt`, `routing`, `delegation`, `server-wiring-rehearsal` на момент передачи тоже `pending`; дубликат не запускать.
 
 ## Следующий порядок
 
 1. Снять результат Windows workflow `1cd6d894-...`. Если всё ещё `pending`, не плодить дубликаты.
-2. Снять Agent workflow `33a3048d-...`. Если конкретная задача красная — чинить её точную причину.
+2. Снять Agent workflow `72ab0cbd-...`. Если конкретная задача красная — чинить её точную причину.
 3. Если `server-wiring-rehearsal` зелёный — применить `tools/apply_server_subagent_lifecycle_wiring.py` к настоящему `payload/server.py` и повторить контракты уже на сохранённом сервере.
 4. Затем выполнить один настоящий `tools/run_real_codex_cli_project_probe.py`: реальный файл → локальное действие → конкретный провал verifier → новый tool result → исправление → повтор verifier → `VERIFY_OK`.
 5. Затем один настоящий two-slot run и failover run: новый легитимный слот получает новый Notion thread и полную локальную историю без повторения уже выполненного локального side effect.

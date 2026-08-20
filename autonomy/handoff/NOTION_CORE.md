@@ -4,7 +4,7 @@
 Текущий Core head: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
 Агентная ветка: `Ai-b0ss/notion-agent-bridge:autonomy/notion-prompt-modes-20260819`, draft PR #8.
-Текущий Agent head: `8d47632248dc8031620a4adced4b05e92ab21821`.
+Текущий Agent head: `1978c0f5cd509235028c84af583de0193b2c58da`.
 
 ## NCM28 / Windows
 
@@ -21,7 +21,7 @@
 - exact Core head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`;
 - workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3`;
 - пять задач: `auth`, `codex`, `migration`, `runtime` tree-digest и `outside-digest`;
-- на начало и конец этой смены все пять остаются `pending`.
+- на эту смену все пять всё ещё `pending`.
 
 Дубликат не запускать. Продуктовый файловый слой пока не менять вслепую.
 
@@ -43,36 +43,34 @@
 
 ### Что сделано в этой смене
 
-Сначала заново проверены реальные головы PR. Core не изменился (`b6f4eef2…`), а Agent уже был дальше старой передачи — `659304b9…`; предыдущие старые head больше не использовать.
+Сначала заново проверены реальные головы PR. Core не изменился (`b6f4eef2…`). Agent к началу смены уже ушёл дальше старой передачи до `073a5431…`, поэтому старые Agent head больше не использовать.
 
-Пока CircleCI не выдаёт executor, исправлен реальный дефект поведения дочернего coding-agent в `payload/notion_delegated_model_step.py`.
+Пока оба CircleCI-контура ждут executor, найден и исправлен ещё один реальный дефект многошагового child tool-loop.
 
-Раньше модель могла явно попытаться вызвать локальный инструмент, но ошибиться в его имени, например `wriet_file`. `_extract_reply()` принимал JSON как tool-call только если имя уже входило в локальный allowlist. Любая опечатка/неизвестное имя поэтому тихо превращалась в обычный финальный текст, и дочерняя задача могла закончиться JSON-строкой вместо того, чтобы получить ошибку инструмента и исправиться на следующем ходе.
+Проблема была в автоматически создаваемых `call_id`. Короткий дочерний промпт специально не требует от Notion придумывать `call_id`, поэтому код создавал его сам из SHA-256 текста JSON-вызова. Это ломало нормальную самокоррекцию: если локальный инструмент реально вернул ошибку и модель законно решила повторить тот же самый вызов без собственного `call_id`, JSON получался тем же, локальный id повторялся, а `DelegatedToolLoopSession` закрывал повтор как reuse старого вызова. То есть агент мог не суметь повторить безопасное действие после временной ошибки инструмента.
 
 Теперь:
-- явный JSON tool intent сохраняется как tool-call даже при неизвестном имени;
-- имя нормализуется `.strip()`;
-- authoritative allowlist остаётся у локального executor, который возвращает `unsupported_tool`;
-- этот tool-result попадает обратно в тот же Notion thread, поэтому модель может исправить имя и продолжить работу;
-- действительно malformed tool JSON (`tool/name` без нормального имени или с не-object arguments) больше не выдаётся за успешный финальный ответ, а закрывается явной ошибкой структуры.
-
-Добавлена регрессия `test_unsupported_tool_attempt_is_returned_as_tool_result_for_correction`: первый ход делает опечатку `wriet_file`, второй видит `unsupported_tool` и исправляет вызов на `write_file`, третий завершает задачу. Тест также проверяет нормализацию имени с пробелами.
+- в каждой изолированной child-session есть свой монотонный счётчик локальных synthetic call id;
+- вызовы без provider `call_id` получают `delegated-auto-1`, `delegated-auto-2`, ...;
+- явный `call_id`, который прислал провайдер, по-прежнему сохраняется как есть, поэтому защита от настоящего повторного call id не ослаблена;
+- одинаковый по смыслу повтор после реального tool-result больше не блокируется только из-за одинакового JSON.
 
 Коммиты Agent этой смены:
-- `d4399938370f464e68973428f6acfd09a0cf164a` — сохранять ошибочный tool intent для самокоррекции;
-- `8d47632248dc8031620a4adced4b05e92ab21821` — регрессия на `unsupported_tool -> correction -> final`.
+- `8ec5883f09b5ebe1dda7faf88b511c6e94e70074` — turn-unique synthetic call ids;
+- `e9c1ed511c53664477954bb3961c48cd3afe32a6` — отдельная регрессия: первый `write_file` получает временную ошибку, второй идентичный вызов исполняется с новым локальным id и задача завершается;
+- `1978c0f5cd509235028c84af583de0193b2c58da` — включить новую регрессию в постоянные agent/delegation проверки.
 
-На exact Agent head создан CircleCI workflow `ba6ceb9c-d676-418c-afcc-16a14000a2c6`; `agent-contracts`, `delegation-contracts`, `prompt-contracts`, `routing-contracts`, `server-wiring-rehearsal` пока `pending`. Дубликат не запускать.
+На exact Agent head автоматически создан CircleCI workflow `4bc5b6fc-840b-48a6-9de9-50874399775a`; `agent-contracts`, `delegation-contracts`, `prompt-contracts`, `routing-contracts`, `server-wiring-rehearsal` пока `pending`. Дубликат не запускать.
+
+Нового provider traffic не было. Production и живой Notion не трогались.
 
 ## Следующий порядок
 
 1. Снять результат Windows workflow `1cd6d894-...`. Если всё ещё `pending`, не плодить дубликаты.
-2. Снять CircleCI exact-head Agent `8d476322…`, workflow `ba6ceb9c-...`. Если конкретная задача красная — чинить её точную причину.
+2. Снять CircleCI exact-head Agent `1978c0f5…`, workflow `4bc5b6fc-...`. Если конкретная задача красная — чинить её точную причину.
 3. Если Windows digest укажет `outside-digest`, использовать уже готовый `autonomy/ncm28-callcut-ready-20260820@f72c450f…`; не строить ещё одну общую диагностику.
 4. После точного NCM28 callsite: минимальный продуктовый фикс → 5 Windows сценариев → crash recovery → полный NCM28 verify.
 5. Если `server-wiring-rehearsal` зелёный — применить `tools/apply_server_subagent_lifecycle_wiring.py` к настоящему `payload/server.py` и повторить контракты уже на сохранённом сервере.
 6. Затем выполнить один настоящий `tools/run_real_codex_cli_project_probe.py`: реальный файл → локальное действие → конкретный провал verifier → новый tool result → исправление → повтор verifier → `VERIFY_OK`.
 7. Затем один настоящий two-slot run и failover run: новый легитимный слот получает новый Notion thread и полную локальную историю без повторения уже выполненного локального side effect.
 8. После этого проверить restart/recovery незавершённой цепочки. Только затем углублять субагентов и Qwen adapter.
-
-Production и живой Notion в этой смене не трогались. Нового provider traffic не запускалось. Секреты не печатались.

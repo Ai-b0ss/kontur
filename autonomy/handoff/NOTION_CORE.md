@@ -4,7 +4,7 @@
 Текущий Core head: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
 Агентная ветка: `Ai-b0ss/notion-agent-bridge:autonomy/notion-prompt-modes-20260819`, draft PR #8.
-Свежий Agent head, снятый read-only: `a68c9296c517cfd8712d0baa21db43a36a13ccd8`.
+Свежий Agent head, снятый read-only: `37abfaa5f0b972a84736c7da669432cd2ed08075`.
 
 ## Режим исполнения
 
@@ -15,14 +15,14 @@
 ## Постоянная рабочая капсула NOTION_CORE
 
 Текущий проверенный v4 `LATEST`:
-- capsule: `20260820T214540Z-d76b548d33`;
-- archive SHA-256: `57d9e9c20c91a43a55049168e999e99432e221fedd6fc46a9bb5e98413b1837e`;
+- capsule: `20260820T225631Z-94b0ef88fe`;
+- archive SHA-256: `1a6cbec858476279027ad2551a87026179139b4c6038d284ea5b83f338be88cd`;
 - parts: 1;
-- `LATEST.json` Git blob SHA после CAS-публикации: `7415f865801d8d6d26ccb9339be53e8206aa0be9`.
+- `LATEST.json` Git blob SHA после CAS-публикации: `967a929fa5eabe7610284f6dba8c802c7330671a`.
 
-Единственный part после публикации перечитан через GitHub directory API: size `8248`, Git blob SHA `b6738be4596c56da08263d126bbe4b9a46dc7d80`, что точно совпало с локально рассчитанным blob SHA. Manifest после публикации перечитан: size `2686`, Git blob SHA `70d8c282daa40f6ab21bf18c356fbe37c09c3a04`, также точное совпадение. Предыдущий `LATEST` `20260820T204431Z-bee456b329` сохранён как `PREVIOUS` перед CAS-переключением указателя.
+Единственный part после публикации перечитан из GitHub: size `9768`, Git blob SHA `87ddb09f3cc0352100b31388fc6fdb4cb4aff456`, что совпало с локально рассчитанным blob SHA. Manifest перечитан: size `3141`, Git blob SHA `fa24a9c3fbb113e1ccd478107a4d3e363916cf0e`, также совпал. Предыдущий `LATEST` `20260820T214540Z-d76b548d33` сохранён как `PREVIOUS` перед CAS-переключением указателя.
 
-В начале запуска предыдущая валидная capsule `20260820T204431Z-bee456b329` была восстановлена через v4; archive/workspace verification прошёл.
+В начале этого запуска capsule `20260820T214540Z-d76b548d33` была восстановлена из exact part через v4: part/archive/workspace verification прошёл. Linux runtime-restore v4 regression после восстановления снова дал `RUNTIME_RESTORE_ATOMICITY_V4_LINUX_PASS`.
 
 ## NCM28 / Windows
 
@@ -38,7 +38,7 @@
 Существующий digest-разрез НЕ перезапускать:
 - workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3`;
 - задачи `auth`, `codex`, `migration`, `runtime`, `outside-digest`;
-- свежий read-only combined status: все пять по-прежнему `pending`.
+- свежий read-only combined status в этом запуске: все пять по-прежнему `pending`.
 
 Нового Windows/hosted запуска не было. Linux-результаты не объявлялись доказательством NTFS/NCM28.
 
@@ -48,7 +48,7 @@
 
 Exact Core `RESTORE_RUNTIME_STATE.sh` / `.ps1` уже не светят `RUNTIME_STATE_KEY` в argv/child env: ключ идёт через stdin `--passphrase-fd 0`. Исходники PR #7 всё ещё расшифровывают прямо в конечный путь и потому небезопасны при частичной ошибке `gpg`.
 
-Кандидат v4 закрывает на Linux: partial final, temp cleanup, directory/symlink destination, restore-root symlink, restore-root regular file, создание отсутствующего root с mode 700, сохранение exit codes и отсутствие секрета в argv/env. Вердикт остаётся `RUNTIME_RESTORE_ATOMICITY_V4_LINUX_PASS`.
+Кандидат v4 закрывает на Linux: partial final, temp cleanup, directory/symlink destination, restore-root symlink, restore-root regular file, создание отсутствующего root с mode 700, сохранение exit codes и отсутствие секрета в argv/env. Вердикт повторно подтверждён: `RUNTIME_RESTORE_ATOMICITY_V4_LINUX_PASS`.
 
 Долговечные материалы:
 - `autonomy/evidence/notion/20260820T204351Z_runtime_restore_atomicity_v4_evidence.json`;
@@ -60,11 +60,25 @@ Native Windows PowerShell reparse-point и overwrite/atomic replace semantics **
 
 Exact Core `payload/server.py` уже содержит `/v1/responses`, streaming/non-streaming, function/custom tools, Responses Lite `additional_tools`, incremental tool-result continuation, persistent `ConversationSegmentStore` и turn affinity.
 
-В этом запуске доказан новый Core integration gap на точном PR #7. Persistent `ConversationSegmentStore.response_input_fingerprints()` в Core хеширует только Responses input items. Поэтому после restart старый Notion segment может ошибочно считаться продолжимым, если прежний input остаётся prefix, но изменился runtime contract — например tool catalog, `instructions` или structured output. В воспроизведении: старый input + `read_file`; после restart тот же input + исторический function call + новый function_call_output, но catalog уже `write_file`. Core получил `prefix_length=1`, отфильтровал historical function call и отправил в continuation только tool result, при этом incremental prompt велит использовать catalog «from earlier in this thread» — то есть старый contract. Вердикт: `CORE_CODEX_LIFECYCLE_CONTRACT_DRIFT_REPRO_PASS`.
+Ранее доказан Core integration gap на точном PR #7: persistent segment identity хеширует только Responses input items, поэтому после restart изменившийся tool/runtime contract мог ошибочно продолжить старую Notion-ветку. PR #8 уже независимо закрывает эту границу: prompt-policy fingerprint, engineer instructions, tools/tool_choice и structured-output contract входят в persistent segment identity, а `tests/test_prompt_policy_identity.py` покрывает tool catalog, structured output, engineer context и owner policy. Этот фикс вручную в Core не переносить; перед `NOTION_CORE_DONE` combined Core+Agent exact head обязан пройти restart/tool-result regression.
 
-PR #8 уже независимо закрывает именно эту границу: в его `response_input_fingerprints()` content-free prompt-policy fingerprint, engineer instructions, tools/tool_choice и structured-output contract смешиваются в fingerprint каждого input item, не ломая prefix indexing. На том же сценарии формула PR #8 даёт `prefix=None`, то есть безопасный segment rollover. В `tests/test_prompt_policy_identity.py` уже есть targeted cases для tool catalog, structured output, engineer context и owner policy. Поэтому этот фикс **не переносить вручную в Core** — это зона NOTION_AGENT. Но перед `NOTION_CORE_DONE` combined Core+Agent exact head обязан пройти restart/tool-result regression, чтобы старый tool/runtime contract не переживал restart.
+### Новый Core/Codex security gap: окружение shell в реальном Codex probe
 
-Долговечное evidence: `autonomy/evidence/notion/20260820T2140Z_codex_restart_contract_drift.json`.
+На свежем PR #8 точный `tools/run_real_codex_cli_project_probe.py` пишет временный `config.toml` с `NOTION_BRIDGE_API_KEY` как `env_key` провайдера, но вообще не задаёт `shell_environment_policy`. В текущем upstream Codex default для shell policy — `inherit=all` и `ignore_default_excludes=true`. Значит model-reachable shell может унаследовать окружение процесса Codex, включая `NOTION_BRIDGE_API_KEY`, если явно не задать более строгую политику.
+
+Подготовлен bounded integration-only кандидат, не затрагивающий ротацию/prompt/delegation:
+```toml
+[shell_environment_policy]
+inherit = "core"
+ignore_default_excludes = false
+```
+Он сохраняет только базовые системные переменные, а стандартный фильтр Codex вырезает имена с `KEY/SECRET/TOKEN`. Локальная модель `populate_env` на exact текущей семантике Codex показала, что `NOTION_BRIDGE_API_KEY`, `RUNTIME_STATE_KEY` и тестовый `AWS_SECRET_ACCESS_KEY` не доходят до shell. Вердикт: `CODEX_PROBE_SHELL_ENV_POLICY_CANDIDATE_PASS`.
+
+Долговечные материалы:
+- `autonomy/evidence/notion/20260820T2255Z_codex_probe_shell_env_policy.json`;
+- `autonomy/evidence/notion/20260820T2255Z_codex_probe_shell_env_policy_candidate.patch`.
+
+Product PR #8 из-за ZERO-MINUTE не менялся: его push может запустить hosted CI. Перед настоящим уже-авторизованным Codex probe сначала материализовать/применить этот integration-only patch локально либо после снятия ZERO-MINUTE, затем прогнать его contract test. Живой probe до этого не запускать.
 
 Core live probe пока не запускался. После снятия Windows/Core safety blockers нужен один bounded уже-авторизованный проектный прогон:
 `codex exec → bridge → Notion → локальный tool call → конкретный verifier FAIL → tool result → исправление → повтор verifier → VERIFY_OK`.
@@ -72,9 +86,9 @@ Core live probe пока не запускался. После снятия Wind
 
 ## Следующий порядок
 
-1. В следующем запуске восстановить `NOTION_CORE` из v4 `LATEST` и read-only проверить существующий Windows digest — не перезапускать.
-2. Если digest всё ещё pending, продолжить бесплатный Core: exact-source restart/tool-result harness на combined lifecycle contract, rollback invariants и подготовку project probe; не дублировать Agent prompt/rotation/delegation код.
+1. В начале следующего запуска восстановить `NOTION_CORE` из v4 `LATEST` и read-only проверить существующий Windows digest — не перезапускать.
+2. Если digest всё ещё pending, продолжать бесплатный Core: применить Codex probe shell-env hardening к materialized exact PR #8 probe и прогнать targeted offline contract; затем combined restart/tool-result harness и rollback invariants. Не дублировать Agent prompt/rotation/delegation код.
 3. При первом разрешённом native Windows Core gate совместить: точный `auth-rollback` callsite + PowerShell restore-root/destination reparse rejection + overwrite semantics. Не делать новый диагностический fanout.
-4. После зелёных Core gates — один настоящий bounded Codex project tool-loop, затем restart/recovery proof на combined Core+Agent contract.
+4. После зелёных Core gates — один настоящий bounded Codex project tool-loop с защищённым shell environment, затем restart/recovery proof на combined Core+Agent contract.
 
-Product PR #7 в этом запуске не менялся; hosted CI и provider traffic не запускались.
+Product PR #7/PR #8 в этом запуске не менялись; hosted CI и provider traffic не запускались.

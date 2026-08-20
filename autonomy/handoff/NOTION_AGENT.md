@@ -1,5 +1,29 @@
 # Notion — ротация, агентность, prompt-mode и делегирование
 
+## 2026-08-20 08:54–09:02 МСК
+
+Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
+
+Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8. Текущий head после этой смены: `073a543159267ada4da25b5bf841433eee9f812d`.
+
+Что сделал в этой смене:
+1. Перечитал `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, прошлый handoff и заново сверил PR #8. Ветка к началу запуска уже ушла вперёд до `8d476322...`: добавлена проверка, что ошибочное имя инструмента возвращается модели как обычный tool-result и она может исправить вызов в том же дочернем треде.
+2. Проверил exact-head CI: пять Agent job на `8d476322...` всё ещё ждали CircleCI. Не стал тратить запуск на ожидание и не трогал Windows/NCM28.
+3. Нашёл реальную дыру в уже подготовленном server materializer. В сгенерированном `shutdown()` `subagent_lifecycle.unbind_and_drain()` и `account_pool.aclose()` шли последовательно в одном `try`. Если drain выбрасывал исключение или shutdown получал отмену в этот момент, закрытие provider-пула пропускалось, а старые авторизованные клиенты могли пережить нештатный teardown.
+4. Исправил `tools/apply_server_subagent_lifecycle_wiring.py`: закрытие `account_pool` теперь находится во внешнем `finally` после попытки drain, а очистка `BRIDGE_AUTH_SECRET` — во вложенном `finally`. Поэтому provider-пул закрывается даже при ошибке drain. Коммит `8c2ef86508e5d19bc89e75abc7cbb23f72f0279c`.
+5. Усилил `tests/test_server_subagent_wiring_materializer.py`: отдельная регрессия проверяет порядок `unbind -> finally -> pool close -> auth clear`, чтобы будущий materializer снова не сделал закрытие пула зависимым от успешного drain. Коммит `073a543159267ada4da25b5bf841433eee9f812d`.
+6. На exact head `073a5431...` автоматически поднялся CircleCI workflow `f14a34e0-475a-408d-be96-f0015843160b`; `agent-contracts`, `routing-contracts`, `prompt-contracts`, `delegation-contracts`, `server-wiring-rehearsal` на конец смены ещё `pending`. Provider/live traffic не запускал.
+
+Главное новое понимание:
+- drain дочерних задач и закрытие provider-пула — две разные обязанности shutdown. Ошибка/отмена drain не должна оставлять авторизованный пул открытым; серверный wiring обязан гарантировать cleanup независимо от результата ожидания child-задач.
+
+Что делать дальше:
+1. Снять итог CircleCI exact head `073a5431...`. Если красный — исправлять только конкретную причину. Если все пять Agent jobs зелёные, материализовать уже проверенный `ServerSubagentLifecycle` непосредственно в настоящий `payload/server.py` через существующий fail-closed materializer.
+2. После материализации повторить prompt/routing/delegation/server-wiring контракты уже на прямом server-коде.
+3. Перед живым прогоном убедиться, что другого provider-run нет. Затем один `live_two_slot_codex_project_probe.py`: два независимых проекта должны занять два разных готовых легитимных слота и сохранить свои account/thread через tool-result.
+4. После PASS — один `live_codex_failover_project_probe.py`: A выполняет локальный write, затем временно исключается только в ephemeral pool; B продолжает полную локальную историю в новом Notion thread без повторного write.
+5. Затем повторить тот же смысловой сценарий через настоящий `codex exec`. Только после устойчивого Notion/Codex ядра добавлять Qwen adapter под тот же `DelegationDispatcher`, без общего provider state.
+
 ## 2026-08-20 07:48–08:02 МСК
 
 Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.

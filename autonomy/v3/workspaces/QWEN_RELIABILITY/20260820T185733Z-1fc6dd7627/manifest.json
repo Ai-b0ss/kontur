@@ -1,0 +1,84 @@
+{
+  "archive": {
+    "parts": 4,
+    "sha256": "5fa1f6f0f603d08dc01930e5d427085171cff558b53635d1cb8090e9c6c96335",
+    "size": 4687
+  },
+  "capsule_id": "20260820T185733Z-1fc6dd7627",
+  "created_at_utc": "2026-08-20T18:57:33Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "853e243ce1eae12bc4dc4dd772ebe26bd1f6f63646e0b3bab0475b8cef891056"
+    },
+    {
+      "chars": 2048,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "c3b695c84e98e2117f7f66f343325507dafdf9a05651116f58c1f4aba54a035d"
+    },
+    {
+      "chars": 2048,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "cb6d4604aa6be39edd1be8ab0b6699a797e894300ee2bf64b7c79cf882912ced"
+    },
+    {
+      "chars": 108,
+      "index": 3,
+      "name": "part-0003.b64",
+      "sha256_text": "9d75b728a0324ae3d1582683b96d8d9657d2c12fc4c00c5e14ecd565a9edcc6f"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@521cf13b04076deee57dc2544f7b29b4dd8a841f",
+  "worker": "QWEN_RELIABILITY",
+  "workspace": {
+    "evidence": {
+      "mode": "0o755",
+      "type": "dir"
+    },
+    "evidence/CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "243c5e0f7f449fd50703718236d05069b9a7c6df6cf1dad12bf7ef45c5c735ce",
+      "size": 3046,
+      "type": "file"
+    },
+    "evidence/NONSTREAM_SET_FALSE_NEXT.md": {
+      "mode": "0o644",
+      "sha256": "98351b87821537d640d9faa4f12bfddb35c6106c261387b1ddb01cffa533fe09",
+      "size": 901,
+      "type": "file"
+    },
+    "evidence/set-false-boundary-test.js": {
+      "mode": "0o644",
+      "sha256": "b2a99cd466da1fbff496cd00e5036db759a8a45bb2b414e9110fea68e591ce1b",
+      "size": 901,
+      "type": "file"
+    },
+    "evidence/side-effect-window-test.js": {
+      "mode": "0o644",
+      "sha256": "2e9321fbf5a2d5baef197b58f5ec6b2e1f0d5318d51e55a96ff69fcfef3c4c79",
+      "size": 2551,
+      "type": "file"
+    },
+    "patches": {
+      "mode": "0o755",
+      "type": "dir"
+    },
+    "patches/server-checkpoint-set-false-guard.patch": {
+      "mode": "0o644",
+      "sha256": "a1490b3b604e141bb8ac3977ac381bd39fd0e5c4ca4fe1e98a559dfbb6c76c23",
+      "size": 719,
+      "type": "file"
+    },
+    "patches/stream-tool-checkpoint-guard.patch": {
+      "mode": "0o644",
+      "sha256": "ca272a8d062cd2a0929fb89c1f2b86640430eeea9bcd7d4ff31bf3e70199c01c",
+      "size": 3189,
+      "type": "file"
+    }
+  }
+}

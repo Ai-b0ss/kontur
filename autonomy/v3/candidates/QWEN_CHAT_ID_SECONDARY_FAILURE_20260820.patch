@@ -1,0 +1,14 @@
+diff --git a/src/qwen-client.js b/src/qwen-client.js
+--- a/src/qwen-client.js
++++ b/src/qwen-client.js
+@@
+       if (!canReuseOriginalChatId(account, originalChatId, preferredAccount)) {
+         accountChatId = await generateChatID(model, chatType, account);
+       }
+       if (!accountChatId) {
+-        accountStore.markFailure(account, 'Failed to generate chat_id');
++        // generateChatID owns classification/persistence for chat-creation failures.
++        // A second generic markFailure here would double-count the same attempt and
++        // overwrite the concrete CAPTCHA/rate-limit/auth/no-chat-id reason.
+         continue;
+       }

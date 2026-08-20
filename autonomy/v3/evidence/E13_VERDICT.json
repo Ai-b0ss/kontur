@@ -1,0 +1,19 @@
+{
+  "experiment": "E13_GITHUB_CAPSULE",
+  "status": "FAIL",
+  "github_capsule_roundtrip": "FAIL",
+  "cross_machine_secret_recovery": "FAIL",
+  "checkpoint_continuation": "NOT_RUN",
+  "metadata_restore": "NOT_RUN",
+  "first_failure": {
+    "step": 2,
+    "check": "sha256_exact_base64_text",
+    "expected": "8941f9745244bc23e459a05aba65f0b429ad6af4e0dc133e9c7697dd7e1b0f94",
+    "observed": "7e5f05844c3bd48ab78957badd353c409dba26ac19494e600ad68964d724907c",
+    "base64_length": 10532,
+    "github_blob_sha": "b183df1a7bd5cdd67c2c31765c09de7f47cd0099",
+    "reason": "The file stored at the requested GitHub branch/path does not match the Phase A base64 SHA-256. Processing stopped at the first mismatch; no archive decoding, marker recovery, metadata validation, SQLite validation, or checkpoint continuation was performed."
+  },
+  "phase_b_evidence_path": "autonomy/v3/evidence/E13_PHASE_B.json",
+  "phase_b_commit": "958a0947cabb1d5a7d90c7e6eef491ae323b82bb"
+}

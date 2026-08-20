@@ -1,0 +1,21 @@
+{
+  "schema": "free_fabric_capsule_v3",
+  "worker": "KONTUR",
+  "source_sha": "32034e8af92923a2abe09ad00e3220f6da1ed21c",
+  "state": "PARTIAL_EXACT_WORKSPACE",
+  "encoding": "base64-concatenated",
+  "archive": {
+    "format": "tar.gz",
+    "size": 4520,
+    "sha256": "31b9fb5fb7712520f61539de3548417d29336108eeb6b253e689b9ae5f4a0d58",
+    "base64_chars": 6028
+  },
+  "parts": [
+    {"index":0,"name":"part-0000.b64","chars":1600,"sha256_text":"d767ef9252b02203fa60639d35cf35f172b39f253be1005f9f0cbb904007cba2","git_blob_sha1":"4f8eb5102578508840146072a0921dca7aab55d8"},
+    {"index":1,"name":"part-0001.b64","chars":1600,"sha256_text":"22e18ceada71f4d44f6373c163ad84350048900947815b663ccab03f8ae0b573","git_blob_sha1":"f967a2f60b94116d18027053dc9ac59032ece0fd"},
+    {"index":2,"name":"part-0002.b64","chars":1600,"sha256_text":"ba46dcab49aec2ffa2daac41027a12cf74bfd362385e80479818fe0386b826ad","git_blob_sha1":"b2dcd2d3948abac580bde88c54ee87ee8455a09c"},
+    {"index":3,"name":"part-0003.b64","chars":1228,"sha256_text":"8792b5096306d5c281274cf9d0b5f71b7a4211d46482aebcc5ed00f89f1b91c7","git_blob_sha1":"df44b6230700a42ca2926bc2e0ec8e2d592839b5"}
+  ],
+  "workspace_manifest_sha256": "dd97d337fc67b97f159029688d20ed2ec30afab82586911ea315e593bbb6ca11",
+  "checkpoint_sha256": "b58d73b11f4276d783aa5ffbbce964d1589f619a82a359471c1cd00c4d1b1b8d"
+}

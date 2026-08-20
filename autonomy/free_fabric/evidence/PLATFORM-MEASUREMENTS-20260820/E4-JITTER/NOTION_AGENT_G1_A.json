@@ -1,0 +1,27 @@
+{
+  "kind": "FREE_FABRIC_EVIDENCE",
+  "task_id": "E4-JITTER",
+  "run_id": "PLATFORM-MEASUREMENTS-20260820",
+  "manifest_generation": 1,
+  "brain": "NOTION_AGENT",
+  "execution": "NOTION_AGENT-G1-E4E5-A",
+  "provenance": {
+    "owner_override": "/Autonomy/FREE_FABRIC/control/OWNER_OVERRIDE_G1.json",
+    "platform_contract": "/Autonomy/FREE_FABRIC/control/PLATFORM_CONTRACT_V0.json",
+    "run_manifest": "/Autonomy/FREE_FABRIC/manifests/RUN_PLATFORM_MEASUREMENTS_G1.json",
+    "probe_path": "autonomy/free_fabric/probes/e4_jitter_probe.py",
+    "probe_local_sha256_before_publish": "a1d45d0026f6efa753fc6482320f26a0753c51eb69f55e46e671cd80ce04192f"
+  },
+  "observation": {
+    "nominal_schedule_local": "2026-08-20T13:48:00+03:00",
+    "observed_runtime_context_local": "2026-08-20T13:45:15+03:00",
+    "signed_jitter_seconds": -165.0,
+    "correctness_use": false,
+    "interpretation": "telemetry_only"
+  },
+  "verdict": "OBSERVED_EARLY_WAKE_CONTEXT",
+  "notes": [
+    "Wall clock is telemetry only and is not used for ownership, acceptance, or correctness.",
+    "A single observation does not establish a jitter distribution or scheduled-compute capability."
+  ]
+}

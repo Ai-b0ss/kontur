@@ -1,0 +1,35 @@
+{
+  "schema": "qwen_pool_fix_evidence_v1",
+  "date": "2026-08-20",
+  "defect": "accepted-stream CAPTCHA was persisted through generic markFailure, giving about 30s cooldown instead of account-local 10m CAPTCHA cooldown",
+  "source": {
+    "repo": "Ai-b0ss/qwen-free-api",
+    "branch": "autopilot/qwen-runtime-preflight-20260818",
+    "pre_server_blob": "d655c7c06ac01c64924f875c3480cdfe4b1772b2"
+  },
+  "fix": {
+    "server_commit": "3f71c47a1a96dbceeab438622f1e2bb857eaa6d2",
+    "regression_commit": "4157de61703f5ddc7e5d6efef5d6c90946a9a946",
+    "package_commit": "245f6faa9e04b8d7e9069bee5b9128d5822f871c",
+    "post_server_blob": "1cc090da4bb82d149a459e818f5b8f5f5844690e",
+    "behavior": [
+      "WAF_CAPTCHA_CHALLENGE is classified before generic failure handling",
+      "markCaptchaChallenge applies account-local CAPTCHA cooldown",
+      "existing captchaResolver hook is preserved",
+      "non-CAPTCHA accepted-stream errors still use generic markFailure",
+      "streamAccepted remains false so failed accepted streams do not commit session ownership"
+    ]
+  },
+  "verification": {
+    "hosted_fragment_patch": "PASS",
+    "github_post_write_readback": "PASS",
+    "provider_traffic": 0,
+    "hosted_ci_runs": 0,
+    "full_exact_tree_npm_test": "NOT_RUN_IN_THIS_TURN"
+  },
+  "next_edge_review": {
+    "late_rate_limit": "generic markFailure preserves 6h RateLimited cooldown",
+    "automatic_retry_after_visible_error": "pipeThroughOpenAI retries only explicit empty-response failures; accepted-stream CAPTCHA/RateLimited are not automatically replayed",
+    "session_commit": "streamAccepted=false prevents sessionStore.set after accepted-stream error"
+  }
+}

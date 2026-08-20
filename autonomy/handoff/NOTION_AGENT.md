@@ -1,6 +1,6 @@
 # Notion — ротация, агентность, prompt-mode и делегирование
 
-## 2026-08-20 — lifecycle status исправлен, v4 memory опубликована, exact server blob получен
+## 2026-08-20 — lifecycle status исправлен, v4 memory обновлена, exact server blob получен
 
 Notion Core: `candidate/ncm28-windows-fixed-v1`, head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`; Core/NCM28 не менялся.
 
@@ -20,13 +20,13 @@ Notion Core: `candidate/ncm28-windows-fixed-v1`, head `b6f4eef28ea7acdbba5fc3255
 - CircleCI/GitHub Actions/Cloudflare/provider traffic/production не использовались.
 
 Постоянная память v4:
-- на старте прочитан старый `LATEST.json`, его родительский Git blob SHA был `5cccbcc0548a85a099bb40c7b8c4b08ff590afb9`;
-- старый LATEST указывал на несовместимую v3 capsule `20260820T1506Z-67ebdc9fc0`; PREVIOUS тогда отсутствовал, поэтому по failure policy протокола v2 продолжили от exact GitHub source;
-- создана и полностью локально проверена нормативная v4 capsule `20260820T170428Z-3d21b8ccf9`, schema `free_fabric_worker_capsule_v4`, archive SHA-256 `92100874f2dc65cccc22ff3435ba39db7e8b89a1be703264e79ee9f2a29f1f0b`;
-- immutable part и manifest загружены, повторно прочитаны; их Git blob SHA совпали с локально рассчитанными;
-- старый LATEST сохранён как `PREVIOUS.json`;
-- перед публикацией LATEST был перечитан и всё ещё имел exact parent blob `5cccbcc...`; новый LATEST опубликован CAS-обновлением без force-write;
-- текущий `LATEST.json` указывает на v4 capsule `20260820T170428Z-3d21b8ccf9`, Git blob SHA нового указателя `749c3ce5e0e2680512046b4876b944dabfcdce47`.
+- на старте прочитан старый `LATEST.json`, его родительский Git blob SHA был `5cccbcc0548a85a099bb40c7b8c4b08ff590afb9`; он указывал на несовместимую v3 capsule `20260820T1506Z-67ebdc9fc0`, PREVIOUS отсутствовал;
+- по failure policy протокола v2 продолжили от exact GitHub source и затем создали первую нормативную v4 capsule `20260820T170428Z-3d21b8ccf9`;
+- после дальнейшей существенной работы создана новая нормативная v4 capsule `20260820T171209Z-703d81d6fa`; `capsule_runtime_v4.py verify` и `restore` дали PASS, восстановленные `CHECKPOINT.json`/`README.md` побайтово совпали с исходным workspace;
+- archive SHA-256 новой capsule: `3a6d37743613ed24eb31a92917ad6589e8bb26022fce0d5b29055c7c431ff752`;
+- immutable part и manifest загружены и повторно прочитаны; Git blob SHA readback совпал с локально рассчитанным: part `30f103caffe311b4b5afa549b364b82a0b6527a6`, manifest `2bea3d856413b29fe79354967a8f277e6056a028`;
+- перед второй публикацией LATEST был перечитан и имел exact parent blob `749c3ce5e0e2680512046b4876b944dabfcdce47`; этот указатель сохранён как новый `PREVIOUS.json`;
+- новый LATEST опубликован CAS-обновлением без force-write; текущий `LATEST.json` указывает на capsule `20260820T171209Z-703d81d6fa`, Git blob SHA указателя `0fa9434ed01d4feae240272871e95ef972064dff`.
 
 Следующий шаг:
 1. Материализовать exact bytes blob `f02cef...` локально без преобразования escape/newline; пересчитать Git blob SHA и потребовать точное `f02cef...`.

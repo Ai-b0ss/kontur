@@ -1,0 +1,23 @@
+{
+  "kind": "FREE_FABRIC_CHECKPOINT",
+  "generation": 1,
+  "run_id": "PLATFORM-MEASUREMENTS-20260820",
+  "task_id": "E5-SCHEDULED-RECOVERY",
+  "brain": "NOTION_AGENT",
+  "execution": "NOTION_AGENT-G1-E4E5-A",
+  "state": {
+    "phase": "prepared_for_next_scheduled_recovery",
+    "sequence": 1,
+    "effect_committed": false,
+    "brain": "NOTION_AGENT",
+    "execution": "NOTION_AGENT-G1-E4E5-A"
+  },
+  "state_sha256": "de4b0fc04b0df52da9424090f3f5ab94e0dc047d812c9ca9fbc73a6a0eb62bbe",
+  "provenance": {
+    "owner_override": "/Autonomy/FREE_FABRIC/control/OWNER_OVERRIDE_G1.json",
+    "platform_contract": "/Autonomy/FREE_FABRIC/control/PLATFORM_CONTRACT_V0.json",
+    "run_manifest": "/Autonomy/FREE_FABRIC/manifests/RUN_PLATFORM_MEASUREMENTS_G1.json",
+    "probe_path": "autonomy/free_fabric/probes/e5_scheduled_recovery_probe.py",
+    "probe_local_sha256_before_publish": "82d8a508c43b3eea0d02c4d719394c7cc7c5ec8ac64d5bb62253b538e5aa1fc1"
+  }
+}

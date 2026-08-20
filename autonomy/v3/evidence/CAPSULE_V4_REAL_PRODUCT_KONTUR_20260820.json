@@ -1,0 +1,36 @@
+{
+  "schema": "capsule_v4_real_product_kontur_evidence_v1",
+  "date": "2026-08-20",
+  "source_pr": 12,
+  "source_sha": "32034e8af92923a2abe09ad00e3220f6da1ed21c",
+  "restored_previous_capsule": {
+    "capsule_id": "20260820T1510Z-partial-exact-pr12-v3",
+    "archive_sha256": "31b9fb5fb7712520f61539de3548417d29336108eeb6b253e689b9ae5f4a0d58",
+    "checkpoint_sha256": "b58d73b11f4276d783aa5ffbbce964d1589f619a82a359471c1cd00c4d1b1b8d",
+    "independent_chat_restore": "PASS"
+  },
+  "new_v4_capsule": {
+    "capsule_id": "20260820T145855Z-dc1ca0cc3a",
+    "archive_size": 4775,
+    "archive_sha256": "797ae8277ab9b0a79fc3a8a3f3a0a5d0c1351ede91d62e72bfa26516adc2f246",
+    "local_restore": "PASS",
+    "part_git_blob_sha_readback": [
+      "f8c8b09bacad0aa380aedfa91bd6c014c24166c6",
+      "3cf9bfdb3efd8cd5d6048be3ffb576e8cf25f22b",
+      "48b440db06b355dad4fb05715b50798acf4888bc",
+      "3f210e74e65a5a74f7dccf8f26b6eb0f2500bd35"
+    ]
+  },
+  "fault_injection": {
+    "wrong_parts_detected_before_latest_publish": true,
+    "old_latest_remained_intact": true,
+    "wrong_parts_replaced_and_reverified": true
+  },
+  "github_cas_publish": {
+    "parent_latest_blob_sha": "490ad50fa10e152a56fc1325e5b1d7f288f100b5",
+    "latest_update_commit": "b2c4fa707e65383839cb9fffccb4fb68a49bf556",
+    "previous_pointer_preserved": true,
+    "verdict": "PASS"
+  },
+  "verdict": "REAL_PRODUCT_RESTORE_AND_HARDENED_REPUBLISH_PASS"
+}

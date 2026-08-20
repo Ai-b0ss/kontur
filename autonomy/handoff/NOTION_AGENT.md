@@ -1,24 +1,41 @@
 # Notion — ротация, агентность, prompt-mode и делегирование
 
-## 2026-08-20 — FREE FABRIC G1, повторный запуск
+## 2026-08-20 — продуктовая смена: single-slot deadlock найден до материализации
 
 Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
-Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8, head `700f3f12a5bbbd82021ace64fbee3be93f99a1e0`.
+Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8, текущий head после этой смены `b518d0a9c349f8530d680bc46c35bc8752ddd8de`.
 
-Перед работой повторно проверены канонические FREE FABRIC G1. Режим остаётся `STATIC_NO_CAS`; для `NOTION_AGENT` назначены только `E4-JITTER` и `E5-SCHEDULED-RECOVERY`. Поэтому проектный код Notion, Windows/NCM28 и чужие задачи в этой смене не менялись.
+Владелец явно вернул этого исполнителя к продуктовой работе Notion Agent; FREE FABRIC-эксперименты здесь больше не являются задачей этой автоматизации.
 
-Что сделано бесплатно:
-- по точному пути/ref прочитан checkpoint предыдущего запуска `NOTION_AGENT_G1_A_CHECKPOINT.json`;
-- проверены fence-поля `generation=1`, `run_id=PLATFORM-MEASUREMENTS-20260820`, `task_id=E5-SCHEDULED-RECOVERY`, `brain=NOTION_AGENT`;
-- SHA-256 состояния пересчитан каноническим JSON-алгоритмом из `e5_scheduled_recovery_probe.py`; получено ровно `de4b0fc04b0df52da9424090f3f5ab94e0dc047d812c9ca9fbc73a6a0eb62bbe`, что совпало с checkpoint;
-- опубликован новый неизменяемый evidence-объект `autonomy/free_fabric/evidence/PLATFORM-MEASUREMENTS-20260820/E5-SCHEDULED-RECOVERY/NOTION_AGENT_G1_B_RECOVERY.json`;
-- это закрывает именно `cross_schedule_checkpoint_recovery` между двумя отдельными запусками. Это НЕ повышает автоматически `scheduled.compute` или `scheduled.library_publish`: оба статуса остаются `UNKNOWN` до нового канонического platform manifest/contract;
-- по E4 опубликовано второе телеметрическое наблюдение `autonomy/free_fabric/evidence/PLATFORM-MEASUREMENTS-20260820/E4-JITTER/NOTION_AGENT_G1_B_JITTER.json`. Время по-прежнему не используется для correctness, ownership или acceptance.
+Главная новая находка: прежний fail-closed materializer для single-slot reservation был логически опасен. Он заставлял независимую задачу ждать sticky-reservation уже внутри `handle_openai_responses`, то есть после захвата единственного `responses_inference_gate`. В таком порядке независимая задача могла удерживать gate, пока ждёт reservation, а настоящий владелец незавершённой tool-chain не мог снова войти через тот же gate, чтобы закончить цепочку и снять reservation. Получался тупик до TTL.
 
-Долговечные evidence снабжены `brain/execution/provenance`; semantic search и wall clock не использовались как источник правильности. Hosted CI, Windows, production, реальные Notion-аккаунты и provider traffic не использовались.
+Исправлено на Agent-ветке:
+- ожидание single-slot reservation перенесено ДО захвата `responses_inference_gate`;
+- `responses_inference_slot(...)` получает `turn_key` и на одном аккаунте ждёт только чужие sticky-reservations;
+- владелец своей reservation исключается по `owner_turn_key` и может сразу продолжить собственную tool-chain;
+- multi-account логика внутри `handle_openai_responses` оставлена прежней (`account_pool.size > 1`), чтобы не смешивать два разных механизма;
+- TTL по-прежнему освобождает брошенную reservation;
+- оба места входа Responses (stream и non-stream) обязаны передавать `turn_key` в inference slot;
+- materializer по-прежнему fail-closed по точным preimage/count anchors.
 
-Следующий шаг в текущем manifest generation: не забирать проектные задачи Notion и не заниматься work stealing. Для E5 полезный кусок уже выполнен; до нового manifest generation только проверять, не появился ли новый назначенный эксперимент/фаза. После снятия `STATIC_NO_CAS` основной проектный шаг остаётся прежним: материализовать проверенный `ServerSubagentLifecycle` и single-slot reservation wiring в точную копию `payload/server.py`, затем бесплатно прогнать локальные prompt/routing/delegation/tool-loop проверки и только потом делать один bounded live two-slot/failover probe.
+Дополнительно усилен startup wiring:
+- `ConversationSegmentStore`, `ServerSubagentLifecycle` и bind нового lifecycle теперь полностью строятся до публикации новых server globals;
+- при любой ошибке/отмене до публикации новый pool закрывается через `except BaseException`;
+- только после успешной сборки публикуются `account_pool`, `subagent_lifecycle`, `conversation_segments`;
+- shutdown сохраняет порядок `unbind_and_drain -> обязательный account_pool.aclose -> очистка BRIDGE_AUTH_SECRET`.
+
+Локально на hosted Python отдельно проверена семантика нового reservation-примитива: чужая задача при pool_size=1 действительно ждёт, владелец собственной reservation входит сразу, брошенная reservation снимается по TTL. Hosted CI/CircleCI/GitHub Actions не запускались.
+
+Коммиты этой смены в PR #8: `677824675ff7aff386275e761a1d9355a0ccaa1f`, `26e5e05e7a94e54d5f9261e8b2393fd74c902cb4`, `34b0d81c6ab82b3305a74cc3b345d0309a29bddd`, `b518d0a9c349f8530d680bc46c35bc8752ddd8de`.
+
+Что остаётся следующим:
+1. Материализовать именно этот уже исправленный wiring в реальный `payload/server.py`. Не применять старую версию materializer: она могла создать single-slot deadlock.
+2. После материализации локально прогнать prompt/routing/delegation/tool-loop/lifecycle и отдельный сценарий «owner reservation + unrelated waiter + owner continuation» на настоящем server path.
+3. Только после крепкого локального PASS — один bounded live Codex project run, затем two-slot run и реальный A→B failover без переноса старого Notion thread и без повторения уже выполненного локального side effect.
+4. NCM28/Windows Core не менять без отдельной необходимости.
+
+Техническое ограничение текущей ChatGPT-среды: доступный GitHub write-tool заменяет файл целиком и не умеет применить patch к большому `payload/server.py`; поэтому в этой смене опасный материализатор сначала исправлен и усилен, но сам большой server-файл ещё не перезаписан вслепую. Следующий исполнитель должен материализовать точный diff только при наличии полной локальной копии файла, а не реконструировать `server.py` кусками.
 
 ## Предыдущая проектная точка Notion Agent
 
@@ -27,8 +44,5 @@ Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, head `b6f4eef28ea7acdbba
 - независимые foreground-задачи распределяются по свободным легитимным слотам, незавершённая tool-цепочка сохраняет правильный account/thread;
 - допустимый failover переносит полную локальную историю на другой слот, но не переносит старый Notion `thread_id` и не повторяет уже выполненный локальный side effect;
 - готовы `DelegationDispatcher`, provider-ready Notion child-runtime, `ServerSubagentLifecycle`, bounded tool-loop и live two-slot/failover/Codex project probes;
-- single-slot reservation gap закрыт в fail-closed materializer: независимая задача должна ждать единственный sticky-слот до `clear()` или TTL, а не красть его;
 - malformed MCP `isError` закрывается fail-closed: если поле присутствует, оно обязано быть настоящим JSON boolean;
 - исправлен `ServerSubagentLifecycle._swap_pool()`: неудачная сборка replacement больше не публикует ложное новое generation; старый runtime и generation остаются текущими.
-
-Коммиты последней проектной Agent-смены: `3899d5faaf6c7441cf2afae2319c755616404562` и `700f3f12a5bbbd82021ace64fbee3be93f99a1e0`.

@@ -1,33 +1,29 @@
 # Qwen — агентное ядро
 
-## 2026-08-20
+## 2026-08-21
 
-`qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`, текущий head `394f048991003df5980aef3e8a2f2121db60ae58`, PR draft/open.
+`qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`, текущий head `b19b8d19f9a19170feb19ed27cbd6676ecffe831`, PR draft/open.
 
 `qwen-workspace`: PR #5, ветка `fix/u01-cache-coherence`, head `ce51b26c227b08032301a8574fee4fe2ee9330a3` по последней проверке.
 
 ### Свежий результат Qwen Core
 
-- В начале прохода нормативно восстановлен LATEST `20260820T210201Z-7d8dcd7309` через exact `capsule_runtime_v4.py`; archive SHA-256 совпал: `ccb644d51a9806b969892e9bfb0bda559b5ae66b049930e1fef28321fe2554e7`. Стартовый Git blob SHA LATEST для CAS этого прохода: `b18662a6523b4a45531f7eacda208cd16281017d`.
-- Свежий PR #6 перед изменением оставался на `a89d4066…`; non-stream OpenCode уже правильно отделяет `QWEN_TOOL_CHECKPOINT_REJECTED` от ошибок Qwen и не штрафует аккаунт за локальный persist failure. Повторно этот слой не переделывался.
-- Найден и воспроизведён другой настоящий дефект persisted coding-subagents: если сам coding turn уже успешно завершился (в том числе после `write_file`/`bash`), но `markDone()` не смог долговечно записать результат, общий catch превращал эту локальную ошибку в обычный `failed`. На следующем запуске `failed` автоматически выполнялся повторно, поэтому уже случившийся side effect мог повториться. Дофиксовый offline repro: `QWEN_SUBAGENT_DONE_PERSIST_BUG_REPRO_PASS durable_status=failed duplicate_execution=1`.
-- Исправление в `src/subagent-agent-runner.js`: ошибка фиксации уже завершённого результата теперь получает `QWEN_SUBAGENT_RESULT_PERSIST_FAILED`, `uncertain=true` и сохраняется через существующий `markUncertain`. Если даже запись uncertain-состояния не удалась, старый durable `running` остаётся fail-closed и также блокирует автоматический повтор.
-- Усилен существующий постоянный regression `scripts/subagent-side-effect-uncertainty-test.js`: добавлен сценарий `write_file -> успешный финал -> transient markDone EIO`. Он требует `uncertain`, отдельный код ошибки и отсутствие второго запуска задачи без `retryUncertain=true`.
-- Продуктовые коммиты этого прохода: `42a8da5d0abc9f8d15d2ca02c8b03b3576d3aca5`, затем тестовый `394f048991003df5980aef3e8a2f2121db60ae58`.
-- На ChatGPT-hosted машине целевая логика после исправления прошла: `QWEN_SUBAGENT_RESULT_PERSIST_FAIL_CLOSED_PASS uncertain=1 duplicate_execution_blocked=1 original_persist_code=EIO`.
-- Полный exact-tree `npm test` всё ещё **не заявлен**: целиком приватное дерево локально не материализовано. GitHub Actions/CircleCI/Cloudflare и живой Qwen намеренно не запускались.
+- Нормативный входной LATEST: `20260820T215201Z-7440afb0bf`, archive SHA-256 `25d502e7b826536964c3276840ed83d64ad366d981b168d33ec11404a5a85258`, Git blob SHA указателя `9a1da451efececcac9a12d19af8c23c124c931c0`. Manifest имеет нормативную схему `free_fabric_worker_capsule_v4`, один part с SHA `902f6b8755f116cafdddb42cd17ec0ef23e758fbe2152286bbdebf6421675d10`; неизвестные bytes не реконструировались.
+- PR #6 ушёл вперёд от предыдущего Core head `394f0489…` до `b19b8d19…` ровно на два коммита другого работника; compare показывает изменения только в `src/account-store.js` и `scripts/account-store-mutation-atomicity-test.js`. Core-файлы subagent/session/stream не менялись, поэтому предыдущие Core-инварианты не были затёрты.
+- Проверен следующий boundary из прошлого handoff: сбой `markUncertain`/`markRunning` batch-store **не воспроизводит автоматический повтор** при текущей архитектуре. `markRunning` выполняется до coding turn, поэтому его отказ происходит до любого tool side effect; durable состояние остаётся прежним. Если после возможного side effect падает `markUncertain`, предшествующий успешно записанный `running` остаётся durable и следующий запуск уже блокирует автоматический retry тем же guard, что и `uncertain`. Аналогично неудачный `markFailed` после read-only failure оставляет более консервативный `running`, то есть может потребовать ручного разрешения, но не создаёт duplicate side effect. Продуктовый код по этому месту не менялся: нарушение безопасности не доказано.
+- Важная деталь: `retryUncertain=true` сначала пытается долговечно записать новый `running`; если эта запись падает, старое `uncertain/running` не снимается, а coding turn не стартует. Это тоже fail-closed.
+- Полный exact-tree `npm test` всё ещё не заявлен: целиком приватное дерево локально не материализовано. GitHub Actions/CircleCI/Cloudflare и живой Qwen намеренно не запускались.
 
-### Предыдущий streaming-result этого же дня
+### Предыдущий существенный Core-result
 
-- Локальная ошибка сохранения принятого streaming tool-call (`QWEN_TOOL_CHECKPOINT_REJECTED`) раньше проходила через provider/account observer и ошибочно могла штрафовать здоровый Qwen-аккаунт. Это исправлено в `src/stream-session-guard.js`: local persistence failure теперь отдельный server-side класс, не вызывает provider/account observer, не выпускает удержанный tool-call и reject-ится обратно в route.
-- Постоянный regression `scripts/stream-session-local-persist-failure-test.js` проверяет direct + replacement stream, `provider_health_untouched`, fail-closed tool output и сохранение `QWEN_TOOL_CHECKPOINT_REJECTED`.
-- Целевой offline результат: `QWEN_STREAM_LOCAL_PERSIST_FAILURE_PASS provider_health_untouched=1 route_reject=1 retry_reject_propagated=1 tool_output_withheld=1`.
+- Если coding-subagent уже успешно закончил работу, но `markDone()` не смог долговечно записать результат, задача получает `QWEN_SUBAGENT_RESULT_PERSIST_FAILED`, `uncertain=true`; автоматический повтор блокируется. Постоянный regression `scripts/subagent-side-effect-uncertainty-test.js` покрывает этот случай.
+- Локальная ошибка сохранения принятого streaming tool-call (`QWEN_TOOL_CHECKPOINT_REJECTED`) отделена от provider/account health и не штрафует здоровый Qwen-аккаунт.
 
 ### Постоянная память / capsule runtime
 
-- Входной валидный checkpoint: `20260820T210201Z-7d8dcd7309`, archive SHA-256 `ccb644d51a9806b969892e9bfb0bda559b5ae66b049930e1fef28321fe2554e7`, LATEST blob SHA `b18662a6523b4a45531f7eacda208cd16281017d`; PREVIOUS: `20260820T195254Z-3a16acdb61`.
+- Текущий входной checkpoint: `20260820T215201Z-7440afb0bf`, archive SHA-256 `25d502e7b826536964c3276840ed83d64ad366d981b168d33ec11404a5a85258`, LATEST blob SHA `9a1da451efececcac9a12d19af8c23c124c931c0`.
 - Невалидные immutable orphan capsule `20260820T210123Z-c4c0632939`, `20260820T185657Z-a15bcde178`, `20260820T190401Z-9dcd764069` никогда не использовать и не чинить на месте.
-- Финальный checkpoint этого прохода должен быть опубликован только по нормативному v4: pack -> verify/restore -> immutable upload -> reread/verify every part + manifest -> reread LATEST -> CAS от стартового blob SHA. При CAS-конфликте новый immutable capsule оставить без принудительной записи указателя.
+- Финальный checkpoint после следующей существенной мутации/локального exact-tree доказательства публиковать только по нормативному v4: pack -> verify/restore -> immutable upload -> reread/verify every part + manifest -> reread LATEST -> CAS от стартового blob SHA. При CAS-конфликте новый immutable capsule оставить без принудительной записи указателя.
 
 ### Уже доказанные инварианты Core
 
@@ -39,7 +35,8 @@
 - Synchronous parser/retry factory failures удерживаются внутри streaming lifecycle; replacement rejection не остаётся unhandled.
 - Error observers streaming-пути не способны сорвать штатное закрытие клиентского ответа.
 - Persisted subagents после потенциально изменяющего инструмента переходят в `uncertain`; автоматический повтор после restart блокируется до явного разрешения.
-- Новый инвариант: если coding-subagent уже завершился, но его финальный результат не удалось долговечно зафиксировать, задача тоже становится `uncertain` и не исполняется повторно автоматически.
+- Если coding-subagent уже завершился, но его финальный результат не удалось долговечно зафиксировать, задача тоже становится `uncertain` и не исполняется повторно автоматически.
+- Сбой записи `markUncertain` после потенциального side effect оставляет durable `running`, который также блокирует автоматический retry; сбой `markRunning` происходит до старта coding turn.
 - `onEvent` изолирован от исполнения подагента.
 - `opencode-sessions.json` имеет crash-safe primary/backup и откат неудачной записи.
 - Qwen thread хранится вместе с аккаунтом-владельцем; при допустимой смене аккаунта старый `chatId` соседу не передаётся.
@@ -52,7 +49,7 @@
 
 ### Следующее
 
-1. Начать со свежего нормативного QWEN_CORE LATEST и перечитать PR #6 head; не считать `394f0489…` вечным.
+1. Начать со свежего нормативного QWEN_CORE LATEST и перечитать PR #6 head; не считать `b19b8d19…` вечным.
 2. При первой возможности материализовать exact private tree на ChatGPT-hosted машине и прогнать `scripts/subagent-side-effect-uncertainty-test.js`, `scripts/subagent-batch-resume-test.js`, соседние subagent/session/restart regressions; если получится всё дерево — полный `npm test`, без внешнего CI/provider traffic.
-3. Проверить следующий локальный boundary: ошибка `markUncertain`/`markRunning` самого batch-store не должна превратить durable state в автоматически повторяемый `failed`; менять код только после воспроизводимого нарушения.
+3. Следующий Core boundary: проверить не только статус, но и **сохранность диагностического результата**, когда запись `markUncertain` сама падает после side effect. Безопасность от duplicate retry уже есть за счёт durable `running`, но причина исходной ошибки может потеряться; менять поведение только если воспроизводимый тест покажет, что это мешает безопасному явному восстановлению `retryUncertain=true`.
 4. После полного offline green — Windows/live только по прежним ограничениям и без дублирования provider traffic.

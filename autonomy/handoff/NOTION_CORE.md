@@ -12,6 +12,17 @@
 
 Канонический control state перед внешними записями перепроверен: owner generation 1, `external_writes=true`, `hosted_ci=false`, обязательны effect gate/current task fence/current owner generation/verified result before integration.
 
+## Постоянная рабочая капсула NOTION_CORE
+
+До этого запуска `autonomy/v3/workspaces/NOTION_CORE/LATEST.json` отсутствовал.
+Теперь опубликована и перечитана первая v4-капсула:
+- `LATEST.json` blob SHA: `ae4883366b831e864d0b6bb64f627d679c052829`;
+- capsule: `20260820T174029Z-8cce2e0f14`;
+- archive SHA-256: `4fbe91a258cae98339781ff5f711612ad155a68b2727e71491260466bc154ce0`;
+- parts: 2, оба перечитаны после публикации; manifest перечитан.
+
+В капсуле лежат checkpoint, локальные доказательства и кандидат безопасного runtime restore. На следующем запуске начинать с v4 restore по `LATEST`; неизвестные bytes не реконструировать.
+
 ## NCM28 / Windows
 
 Последняя доказанная хорошая основа файлового слоя — v23. Её native Windows write primitive без нового точного доказательства не менять.
@@ -33,6 +44,40 @@
 Если существующий digest-разрез позже даст `outside-digest`, уже подготовлен единственный следующий call-cut: `autonomy/ncm28-callcut-ready-20260820@f72c450fdb8877981c8a79c550e7bc0479c7f8f4`. В ZERO-MINUTE MODE это максимум один native Windows gate на бесплатном/уже оплаченном исполнителе.
 
 После точного callsite: минимальный фикс → бесплатные Linux/Python регрессии → один native Windows gate `build + happy-running + happy-stopped + rerun-noop + auth-rollback` → `tests.test_crash_recovery` + полный `RUN_NCM28_LOCAL_VERIFY.py`.
+
+## Новый Core blocker: атомарность восстановления runtime state
+
+На exact Core head найдена отдельная safety-проблема, не зависящая от pending Windows digest.
+
+Текущие `RESTORE_RUNTIME_STATE.sh` и `RESTORE_RUNTIME_STATE.ps1` уже правильно убирают `RUNTIME_STATE_KEY` из argv/дочернего env и передают пароль через stdin `--passphrase-fd 0`. Это повторно динамически подтверждено для shell.
+
+Но оба скрипта передают **конечный путь восстановления прямо в `gpg --output`**. Если `gpg` пишет часть plaintext и завершается ошибкой, конечный файл остаётся частично записанным; если там был ранее хороший восстановленный архив, он может быть испорчен.
+
+Бесплатный Linux reproduction на точном shell source:
+- fake `gpg` записывает `PARTIAL-PLAINTEXT` и выходит с кодом 2;
+- restore script выходит с кодом 2;
+- в конечном restore path остаются 17 bytes partial plaintext.
+
+Подготовлен минимальный кандидат для обоих скриптов:
+- decrypt во временный случайный sibling;
+- при ошибке удалить temp и сохранить прежний final;
+- только после exit 0 сделать rename/move в final;
+- secret-channel остаётся stdin-only.
+
+Shell-кандидат динамически проверен:
+- success promotion PASS;
+- failure preserves previous final PASS;
+- failed temp cleanup PASS;
+- `RUNTIME_STATE_KEY` отсутствует в child env PASS;
+- passphrase отсутствует в argv PASS.
+
+PowerShell-кандидат пока только статический: `pwsh` в бесплатном Linux executor отсутствует. Нативную Windows атомарность по Linux не объявлять.
+
+Долговечные материалы:
+- `autonomy/evidence/notion/20260820T1745Z_runtime_restore_atomicity_evidence.json`;
+- `autonomy/evidence/notion/20260820T1745Z_runtime_restore_atomicity_candidate.patch`.
+
+Продуктовую PR #7 не меняли, чтобы не запускать hosted CI в ZERO-MINUTE.
 
 ## Codex / Agent — single-slot reservation
 
@@ -75,10 +120,12 @@ Evidence привязан к `brain=NOTION_CORE`, `execution=chat.compute.linux`
 
 NCM28: установить точный источник оставшегося `PermissionError` в `auth-rollback` на exact Core `b6f4eef…`. Никакие Linux/Wine результаты не считать доказательством Windows-семантики. Не размножать диагностику.
 
+Отдельно runtime restore atomicity требует native Windows проверки PowerShell-кандидата перед интеграцией, но не требует нового fanout и не должен смешиваться с digest-разрезом.
+
 ## Следующий порядок
 
-1. Read-only снять результат уже существующего Windows digest workflow, если статус изменился; ничего не запускать.
-2. В среде с нормальным git/patch применить опубликованный two-line single-slot patch на свежий exact Agent head, добавить две регрессии `pool_size=1 waits until clear` и `expires by TTL`, затем бесплатно прогнать routing/agent/delegation/server-wiring.
-3. Если `server-wiring` проходит локально — материализовать `ServerSubagentLifecycle` в настоящий `payload/server.py` и повторить бесплатные контракты.
-4. Затем один настоящий `codex exec` project probe только в уже авторизованной среде без нового hosted CI: реальный файл → локальное действие → конкретный провал verifier → tool result → исправление → повтор verifier → `VERIFY_OK`.
-5. Затем two-slot/failover + restart/recovery незавершённой цепочки без повторения уже выполненного локального side effect.
+1. Restore `NOTION_CORE` workspace из v4 `LATEST`; затем read-only снять результат уже существующего Windows digest workflow, если статус изменился; ничего не запускать.
+2. В нормальном exact git workspace применить `20260820T1745Z_runtime_restore_atomicity_candidate.patch`; добавить targeted regressions: failed decrypt preserves prior final, no partial final, no temp leak, secret absent from argv/env. Бесплатно прогнать shell/Linux. PowerShell — статический контракт до разрешённого native Windows gate.
+3. Не заходить глубже в rotation/prompt/delegation: single-slot patch остаётся зоной `NOTION_AGENT`, кроме проверки стыка с Core lifecycle.
+4. После снятия Core blockers — один настоящий `codex exec` project probe только в уже авторизованной среде без нового hosted CI: реальный файл → локальное действие → конкретный провал verifier → tool result → исправление → повтор verifier → `VERIFY_OK`.
+5. Затем restart/recovery незавершённой Core-цепочки без повторения уже выполненного локального side effect.

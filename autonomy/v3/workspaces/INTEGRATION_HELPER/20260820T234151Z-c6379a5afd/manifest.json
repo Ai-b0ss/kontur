@@ -1,0 +1,64 @@
+{
+  "archive": {
+    "parts": 4,
+    "sha256": "ccfaba49c3c32cdfee3d8b4d1e6ea595a31f66fa2d33f4a59056a0b6c2ad7aee",
+    "size": 4753
+  },
+  "capsule_id": "20260820T234151Z-c6379a5afd",
+  "created_at_utc": "2026-08-20T23:41:51Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "026691f6f2512b79728d92d55ffdf0f49e4e58884f68dcfa844c96abeee1d4b9"
+    },
+    {
+      "chars": 2048,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "795b3250f62c00131280f879b3fcc0b8f743e618b94d68ba2b261382bd0f79c4"
+    },
+    {
+      "chars": 2048,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "dacf19b4b05886de64748c7aca737c28db1129a7d601bb7c28b2010b114b48f1"
+    },
+    {
+      "chars": 196,
+      "index": 3,
+      "name": "part-0003.b64",
+      "sha256_text": "4e7727c77e0965ef2ced5fc2218d587ba9c2456eca578b21e98aa3e6258b6c49"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@dc7a6d790846cf10920f296d400f8ceb882f9842 + Ai-b0ss/notion-agent-bridge@732002fff1bef2e9143d8d735b2b80aad0433009",
+  "worker": "INTEGRATION_HELPER",
+  "workspace": {
+    "CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "c55fb702164ba7ddb12345ac5eefe7d70fd86ae489e97c6692d70fe8bac677b8",
+      "size": 1998,
+      "type": "file"
+    },
+    "EVIDENCE.json": {
+      "mode": "0o644",
+      "sha256": "8735412eb0aa4ee1dc1c2282292ad3b4729d1992ff601a7ed8ed4b93f9ae999c",
+      "size": 4580,
+      "type": "file"
+    },
+    "integration_notion_cancel_side_effect_probe.py": {
+      "mode": "0o755",
+      "sha256": "97de481028b64ace5cdfa9ae91446dfff41001206922f7c24eee3708cddda79a",
+      "size": 3748,
+      "type": "file"
+    },
+    "integration_qwen_tool_error_uncertainty_probe.py": {
+      "mode": "0o755",
+      "sha256": "25067d3d9ef43fb508d2dc32a457c93d3f4c3a93dfc31953752ef5e493a4c66a",
+      "size": 2052,
+      "type": "file"
+    }
+  }
+}

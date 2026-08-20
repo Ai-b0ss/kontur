@@ -1,0 +1,52 @@
+{
+  "schema": "notion_core_runtime_restore_atomicity_v3",
+  "worker": "NOTION_CORE",
+  "source": {
+    "repo": "Ai-b0ss/notion-agent-bridge",
+    "branch": "candidate/ncm28-windows-fixed-v1",
+    "head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "restore_sh_blob": "8c31a7a524730f53c3d4a9128991050eb04bd0ae",
+    "restore_ps1_blob": "d174463100e681411bf58b8eaff6c4337cb48410"
+  },
+  "windows_digest": {
+    "workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "status_observed": "ALL_FIVE_PENDING",
+    "rerun": false
+  },
+  "v2_review": {
+    "finding": "The previous shell candidate still had two fail-closed gaps: mv failure after successful decrypt could leave plaintext temp behind, and plain mv treats an existing destination directory as a directory target and can move the temp file inside it instead of replacing/failing.",
+    "impact": "A corrupt or hostile pre-existing restore destination could cause plaintext to be published under an unexpected nested path; a promotion failure could leave plaintext temp residue.",
+    "native_windows_claim": "NOT_APPLICABLE_TO_SHELL_REVIEW"
+  },
+  "candidate_v3": {
+    "shell": "reject any existing destination that is not a regular non-symlink file; decrypt into random sibling temp; preserve decrypt exit code; cleanup on decrypt failure and promotion failure; promote only after decrypt exit 0",
+    "powershell": "reject an existing non-leaf destination; decrypt into random sibling temp; cleanup in finally; File.Move(tmp,out,true) only after decrypt exit 0",
+    "secret_channel": "unchanged: RUNTIME_STATE_KEY removed from child env and supplied only on stdin to gpg --passphrase-fd 0"
+  },
+  "linux_dynamic_results": {
+    "successful_decrypt_replaces_existing_regular_file": "PASS",
+    "failed_decrypt_preserves_existing_final": "PASS",
+    "failed_decrypt_preserves_exit_code_7": "PASS",
+    "failed_decrypt_with_no_existing_final_publishes_nothing": "PASS",
+    "failed_temp_cleanup": "PASS",
+    "existing_directory_rejected_before_decrypt": "PASS",
+    "existing_symlink_rejected_before_decrypt": "PASS",
+    "promotion_failure_preserves_existing_final": "PASS",
+    "promotion_failure_preserves_exit_code_9": "PASS",
+    "promotion_failure_cleans_plaintext_temp": "PASS",
+    "secret_absent_from_child_env": "PASS",
+    "secret_absent_from_argv": "PASS",
+    "secret_present_on_stdin": "PASS",
+    "candidate_shell_sha256": "2669b7c859267f53b829e8c10a4d2daf5c122474503eb7c03d7499822a75675d",
+    "targeted_test_sha256": "72d6d2487bb2179d97cd37c295b46a0b51eeab2a56a51d654e93dde1f7bf37a1",
+    "verdict": "RUNTIME_RESTORE_ATOMICITY_V3_LINUX_PASS"
+  },
+  "powershell_static_review": {
+    "temp_cleanup_on_exception": "PASS_BY_INSPECTION",
+    "existing_container_rejected": "PASS_BY_INSPECTION",
+    "native_windows_replace_semantics": "NOT_PROVEN"
+  },
+  "hosted_ci_started": false,
+  "provider_traffic": false,
+  "secrets_used": false
+}

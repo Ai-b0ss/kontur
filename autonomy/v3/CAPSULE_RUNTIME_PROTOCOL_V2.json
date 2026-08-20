@@ -1,0 +1,37 @@
+{
+  "schema": "free_fabric_capsule_runtime_protocol_v2",
+  "status": "HARDENED_EXECUTABLE_RUNTIME",
+  "implementation": "autonomy/v3/tools/capsule_runtime_v4.py",
+  "supersedes": "autonomy/v3/CAPSULE_RUNTIME_PROTOCOL.json",
+  "invariants": {
+    "local_mnt_data_is_disposable": true,
+    "github_is_durable_store": true,
+    "immutable_capsules": true,
+    "latest_pointer_is_two_phase": true,
+    "previous_pointer_is_rollback_target": true,
+    "latest_never_points_to_unverified_capsule": true,
+    "restore_verifies_every_part_and_archive": true,
+    "restore_verifies_workspace_bytes_and_metadata": true,
+    "unsafe_tar_paths_symlinks_devices_hardlinks_are_rejected": true,
+    "cheap_dependency_caches_should_not_be_persisted": true
+  },
+  "worker_start": [
+    "Fetch LATEST.json; if invalid, fetch PREVIOUS.json.",
+    "Fetch the referenced immutable manifest and each part separately.",
+    "Materialize them locally and run capsule_runtime_v4.py restore.",
+    "If neither pointer restores, materialize exact source from GitHub and continue useful product work."
+  ],
+  "worker_finish": [
+    "Write checkpoint.json inside the workspace before packing.",
+    "Run capsule_runtime_v4.py pack; this creates an immutable capsule and LATEST.json.pending locally.",
+    "Upload every part and manifest to a new immutable GitHub capsule directory.",
+    "Read every uploaded part back and verify exact length/hash plus archive SHA.",
+    "Only then publish the new LATEST.json pointer; preserve the old pointer as PREVIOUS.json.",
+    "If publication is interrupted before LATEST, the old capsule remains current."
+  ],
+  "failure_policy": [
+    "Never repair unknown capsule bytes from conversation memory.",
+    "On corrupt LATEST, fall back to PREVIOUS.",
+    "If both capsules fail, exact GitHub source is the recovery floor, not a reason to stop product work."
+  ]
+}

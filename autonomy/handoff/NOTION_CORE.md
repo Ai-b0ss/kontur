@@ -4,7 +4,11 @@
 Текущий Core head: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
 Агентная ветка: `Ai-b0ss/notion-agent-bridge:autonomy/notion-prompt-modes-20260819`, draft PR #8.
-Текущий Agent head: `a35e6fe3bfdb00dadad4ea49ae7d798b9c69aae8`.
+Текущий Agent head по свежему PR: `da7057ec71f90c1e544ce493bf4351ab93f7bbdb`.
+
+## Режим исполнения
+
+Действует ZERO-MINUTE MODE: не запускать CircleCI/GitHub Actions и не делать push только ради hosted CI. Linux/Python/offline проверки сначала выполнять в бесплатной ChatGPT/container среде. Native Windows не имитировать через Linux/Wine; для NCM28 оставлять один минимальный Windows-gate.
 
 ## NCM28 / Windows
 
@@ -17,17 +21,17 @@
 - auth/stable rollback падают с `PermissionError`;
 - `remove_plain_tree` уже исключён как источник этого `PermissionError`.
 
-Точный digest-разрез на Core всё ещё ждёт CircleCI:
+Текущий точный digest-разрез на Core НЕ перезапускать:
 - exact Core head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`;
 - workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3`;
 - пять задач: `auth`, `codex`, `migration`, `runtime` tree-digest и `outside-digest`;
-- на конец этой смены все пять по-прежнему `pending`.
+- свежая read-only проверка статусов на 2026-08-20: все пять всё ещё `pending`.
 
-Дубликат не запускать. Продуктовый файловый слой пока не менять вслепую.
+Бесплатный статический разбор этого запуска подтвердил важную границу: v32 уже проводит held `managed_guard` в destructive rollback/delete paths, а базовые `tree_digest()` / `_strict_tree_listing()` остаются pathname-based. Это делает digest/read family правдоподобным оставшимся Windows callsite, но считать это доказанной первопричиной нельзя до одного native Windows результата. Никакой новый Windows fan-out не запускался.
 
-Если результат окажется `outside-digest`, уже подготовлен более точный call-cut на ветке `autonomy/ncm28-callcut-ready-20260820`, commit `f72c450fdb8877981c8a79c550e7bc0479c7f8f4`. Он различает прямые `sanitized_active`, `sha_file`, `pending_atomic`, recovery/validation, `_strict_tree_listing`, отдельные `tree_digest`, `_path_lexists` и `outside_known`.
+Если текущий digest-разрез в итоге укажет `outside-digest`, уже есть более точный read-only call-cut: ветка `autonomy/ncm28-callcut-ready-20260820`, commit `f72c450fdb8877981c8a79c550e7bc0479c7f8f4`. Он различает `sanitized_active`, `sha_file`, отдельные `tree_digest`, `_strict_tree_listing`, pending atomic, migration/runtime validation, `_path_lexists` и `outside_known`. В ZERO-MINUTE MODE его не запускать автоматически: использовать только как минимальный единственный native Windows gate, когда доступен бесплатный/уже оплаченный Windows-исполнитель без расходования hosted minutes.
 
-После нахождения одного точного вызова: минимальный фикс → `build + happy-running + happy-stopped + rerun-noop + auth-rollback` → Windows `tests.test_crash_recovery` → полный `RUN_NCM28_LOCAL_VERIFY.py`. После этого NCM28 закрываем.
+После нахождения одного точного вызова: минимальный фикс → локальные Linux/Python регрессии → один native Windows gate `build + happy-running + happy-stopped + rerun-noop + auth-rollback` → затем `tests.test_crash_recovery` + полный `RUN_NCM28_LOCAL_VERIFY.py`. После этого NCM28 закрываем.
 
 ## Codex / Agent
 
@@ -41,38 +45,39 @@
 - настоящий проектный `codex exec` гейт и двухслотовые/failover варианты;
 - server-wiring materializer, который пока ещё не внесён напрямую в `payload/server.py`.
 
-### Что сделано в этой смене
+### Что реально проверено бесплатно в этом запуске
 
-Сначала заново проверены реальные головы PR. Core не изменился (`b6f4eef2…`). Agent к началу смены уже был на `5cecbdf3…`, то есть старая передача отставала.
+Свежий `payload/server.py` на Agent head `da7057ec…` всё ещё содержит single-slot reservation gap:
+- `ForegroundAccountReservations.wait_for_background_route()` при `pool_size <= 1` сразу возвращает пустой avoid-set;
+- вызывающий Responses path вообще вызывает эту защиту только при `account_pool.size > 1`;
+- значит при единственном легитимном слоте независимый новый foreground/background route может взять аккаунт, который незавершённый foreground tool-loop считает зарезервированным.
 
-Пока CircleCI ждёт executor, найден и исправлен реальный дефект возврата на старый Notion-слот внутри незавершённой дочерней задачи.
+Подготовлен и локально проверен минимальный кандидат исправления без hosted CI и без provider traffic:
+1. `wait_for_background_route()` возвращает пустой set немедленно только при `pool_size <= 0`; при `pool_size == 1` он ждёт clear/TTL, если единственный аккаунт зарезервирован;
+2. вызывающий path применяет `should_avoid_reserved_foreground_accounts(...)` для любого положительного размера пула, без внешнего `account_pool.size > 1`;
+3. anchored continuation остаётся на своей affinity-path и не ждёт сама себя, потому что `should_avoid...(... has_affinity_anchor=True)` для foreground Sol возвращает false.
 
-Проблема: child-session хранила remote thread отдельно для каждого client object. При A → B всё было правильно: B получал полную локальную историю и новый Notion thread. Но если позже A снова становился доступен, код мог вернуться в старый `thread-a` и отправить туда только incremental delta. Этот старый thread не видел assistant tool-calls, которые делал B, поэтому A мог получить «сиротские» tool-result, неверно понять историю или повторить уже выполненный локальный side effect.
+В бесплатном Python executor пройдены 6 целевых сценариев:
+- single-slot независимый foreground ждёт clear;
+- abandoned single-slot reservation освобождается по TTL;
+- multi-slot semantics сохраняют avoid-set;
+- anchored continuation не блокируется своей reservation;
+- memory/background при одном слоте тоже ждёт release;
+- `pool_size=0` fail-safe возвращает пустой set.
 
-Исправление:
-- incremental continuation разрешено только для подряд идущих ходов на одном и том же exact client;
-- любая смена provider client заставляет следующий успешный слот получить полный локальный transcript и создать свежий Notion thread;
-- после успешной смены старые remote thread states выбрасываются, поэтому возврат B → A тоже идёт через полный rebase, а не через старый thread;
-- integer-id collision guard сохранён.
+Этот продуктовый patch пока намеренно НЕ отправлен в `notion-agent-bridge`: доступный GitHub write-интерфейс требует замену всего большого `payload/server.py`, а в ZERO-MINUTE MODE нельзя делать недоказанную/ручную реконструкцию огромного файла только ради push. Следующий исполнитель должен применить ровно эти две маленькие правки из clean exact source и повторить те же бесплатные тесты перед коммитом.
 
-Коммиты Agent этой смены:
-- `0debadaef4df44aa2662e6f9367520ba9bce61ce` — product fix + отдельная регрессия A → B → A;
-- `a35e6fe3bfdb00dadad4ea49ae7d798b9c69aae8` — новая регрессия включена в постоянные `agent-contracts` и `delegation-contracts`.
+Нового provider traffic не было. Production и живой Notion не трогались. Hosted CI не запускался.
 
-Новый CircleCI workflow на exact Agent head: `105c36b1-d6d0-4adf-92c1-9b88ee492f07`; `agent-contracts`, `delegation-contracts`, `prompt-contracts`, `routing-contracts`, `server-wiring-rehearsal` на конец смены `pending`. Дубликат не запускать.
+## Единственный оставшийся native-Windows blocker/gate
 
-Отдельно найден следующий продуктовый риск в `payload/server.py`: `ForegroundAccountReservations.wait_for_background_route()` сейчас для `pool_size <= 1` сразу возвращает пустой avoid-set, а вызывающий путь вообще включает защиту reserved foreground slot только при `account_pool.size > 1`. Это означает, что при одном легитимном слоте новая независимая работа теоретически может забрать аккаунт, который незавершённый foreground tool-loop считает зарезервированным. Исправлять это следующим независимым шагом: при одном слоте новая работа должна ждать clear/TTL, а anchored continuation — сохранять свой affinity path.
-
-Нового provider traffic не было. Production и живой Notion не трогались.
+NCM28: установить точный источник оставшегося `PermissionError` в `auth-rollback` на exact Core `b6f4eef…`. Никакие Linux/Wine результаты не считать доказательством Windows-семантики. Не размножать диагностику: сначала использовать уже ожидающий digest-result; если он недоступен/не стартует без минут, следующий допустимый Windows шаг — один минимальный call-cut на готовом `f72c450f…`, а не fan-out из новых workflow.
 
 ## Следующий порядок
 
-1. Снять результат Windows workflow `1cd6d894-...`. Если всё ещё `pending`, не плодить дубликаты.
-2. Снять CircleCI exact-head Agent `a35e6fe3…`, workflow `105c36b1-...`. Если конкретная задача красная — чинить её точную причину.
-3. Если Windows digest укажет `outside-digest`, использовать уже готовый `autonomy/ncm28-callcut-ready-20260820@f72c450f…`; не строить ещё одну общую диагностику.
-4. После точного NCM28 callsite: минимальный продуктовый фикс → 5 Windows сценариев → crash recovery → полный NCM28 verify.
-5. Если Agent CI всё ещё ждёт executor, исправить single-slot reservation gap в `payload/server.py` и добавить регрессию: при `pool_size=1` независимый route ждёт освобождения reserved slot; anchored continuation не блокируется самой собой.
-6. Если `server-wiring-rehearsal` зелёный — применить `tools/apply_server_subagent_lifecycle_wiring.py` к настоящему `payload/server.py` и повторить контракты уже на сохранённом сервере.
-7. Затем выполнить один настоящий `tools/run_real_codex_cli_project_probe.py`: реальный файл → локальное действие → конкретный провал verifier → новый tool result → исправление → повтор verifier → `VERIFY_OK`.
-8. Затем один настоящий two-slot run и failover run: новый легитимный слот получает новый Notion thread и полную локальную историю без повторения уже выполненного локального side effect.
-9. После этого проверить restart/recovery незавершённой цепочки. Только затем углублять субагентов и Qwen adapter.
+1. Read-only проверить, не появился ли результат уже существующего Windows digest workflow; ничего не запускать.
+2. В Agent clean exact source применить локально проверенный single-slot reservation fix + регрессии в `tests/test_foreground_slot_routing.py`; прогнать бесплатно локально, затем коммитить.
+3. После этого бесплатно прогнать agent/prompt/routing/delegation/server-wiring контракты в ChatGPT container насколько позволяет exact source/deps.
+4. Если server-wiring материализатор проходит локально — внести lifecycle в настоящий `payload/server.py` и повторить бесплатные контракты.
+5. Затем один настоящий `codex exec` project probe в уже авторизованной среде только когда это можно сделать без нового hosted CI расхода: реальный файл → локальное действие → конкретный провал verifier → новый tool result → исправление → повтор verifier → `VERIFY_OK`.
+6. Затем two-slot/failover + restart/recovery незавершённой цепочки, без повторения уже выполненного локального side effect.

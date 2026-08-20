@@ -1,0 +1,78 @@
+{
+  "archive": {
+    "parts": 3,
+    "sha256": "b183a152be9111a6491dc60d95df29034201108af656628eb9f6db3e2bd77339",
+    "size": 4581
+  },
+  "capsule_id": "20260820T225643Z-867784cee7",
+  "created_at_utc": "2026-08-20T22:56:43Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "1c9b15e211ae4c8d603f3ab27ce5308a7c0f3ca17707d2d16cf5e614e9ae0ba5"
+    },
+    {
+      "chars": 2048,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "24845d09c5f1092ba2511a09a831caa57edca6b7d834fcc6cc03f7b71227c605"
+    },
+    {
+      "chars": 2012,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "c037a9d71b64d9c49efdad5b791f46759ef9a15fe9961af0672c272172727286"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@dc7a6d790846cf10920f296d400f8ceb882f9842",
+  "worker": "QWEN_RELIABILITY",
+  "workspace": {
+    "evidence": {
+      "mode": "0o755",
+      "type": "dir"
+    },
+    "evidence/CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "cca94309d1661906ff36d5b039b0ee067c382821e553ae528c71bd276450f684",
+      "size": 2460,
+      "type": "file"
+    },
+    "evidence/NONSTREAM_SET_FALSE_NEXT.md": {
+      "mode": "0o644",
+      "sha256": "ec520e20d125510d7ffabc812bbf7daf910e8f4515ebdaeeb30c8d05c2a3f35b",
+      "size": 428,
+      "type": "file"
+    },
+    "evidence/set-false-boundary-test.js": {
+      "mode": "0o644",
+      "sha256": "b2a99cd466da1fbff496cd00e5036db759a8a45bb2b414e9110fea68e591ce1b",
+      "size": 901,
+      "type": "file"
+    },
+    "evidence/side-effect-window-test.js": {
+      "mode": "0o644",
+      "sha256": "2e9321fbf5a2d5baef197b58f5ec6b2e1f0d5318d51e55a96ff69fcfef3c4c79",
+      "size": 2551,
+      "type": "file"
+    },
+    "patches": {
+      "mode": "0o755",
+      "type": "dir"
+    },
+    "patches/server-checkpoint-set-false-guard.patch": {
+      "mode": "0o644",
+      "sha256": "a1490b3b604e141bb8ac3977ac381bd39fd0e5c4ca4fe1e98a559dfbb6c76c23",
+      "size": 719,
+      "type": "file"
+    },
+    "patches/stream-tool-checkpoint-guard.patch": {
+      "mode": "0o644",
+      "sha256": "ca272a8d062cd2a0929fb89c1f2b86640430eeea9bcd7d4ff31bf3e70199c01c",
+      "size": 3189,
+      "type": "file"
+    }
+  }
+}

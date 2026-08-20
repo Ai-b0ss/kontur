@@ -1,0 +1,10 @@
+{
+  "schema": "capsule_crossrun_small_v1",
+  "archive_size": 10142,
+  "archive_sha256": "2a29f84a31faa87b842c97caf11ea5a1c5966f41e12bc7bc4623348807755867",
+  "marker_sha256": "e09e2baf2b8605823edec414853edfdd9bff6152af468bd5bfa28962568a2a70",
+  "sqlite_rows": 100,
+  "sqlite_checksum": "685d92ad847fb597b65e2c206a1040c2a43a12de3a579d2d49401820750d48f9",
+  "checkpoint_step": 41,
+  "checkpoint_final_sha256": "4841cd660156f3ac22a437b203bc223db630b7cd38d9e897558962bff4ed7086"
+}

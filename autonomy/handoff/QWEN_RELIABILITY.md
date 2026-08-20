@@ -1,44 +1,51 @@
 # Qwen — надёжность, пул аккаунтов и расширение возможностей
 
-Обновлено: 2026-08-20 12:35 МСК.
+Обновлено: 2026-08-20.
 
-Основная линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6, head `b87793e39ba4a03571dafbaad96b099b38742cf1`.
-Подготовительная линия Auto-Skills: `autopilot/qwen-auto-skills-session-20260820`, head `8aac48866595981804589c91d695cb3f1be39b76`.
-`Ai-b0ss/qwen-workspace` — отдельная линия; перед изменениями снова сверять свежий head.
+Основная линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. На момент этой смены свежий head: `4bfe1cf36bb5022d30e924a4a871502c34b96622`.
+Подготовительная линия Auto-Skills: `autopilot/qwen-auto-skills-session-20260820`, последний известный head `8aac48866595981804589c91d695cb3f1be39b76`.
 
 ## Что уже доказано и не надо переделывать
 
 - пул различает локальные проблемы аккаунта и общие проблемы провайдера; CAPTCHA/rate limit/expired auth допускают ограниченное переключение, WAF/trust/pressure закрывают дальнейшее прощупывание;
 - существующий Qwen-тред сохраняет владельца-аккаунт, а при допустимом failover локальная история переносится в свежий тред другого аккаунта;
-- критичное состояние аккаунтов, OpenCode-сессий, provider circuit и других долгоживущих частей сохраняется с защитой от падения процесса;
-- есть режимы `engineer` и `owner`, Skills, tool-using субагенты и восстановление их пачек;
-- Skills понимают `name/SKILL.md`, `priority`, `user-invocable`, `disable-model-invocation` и `paths:`;
-- Auto-Skills каталог передаёт модели только метаданные подходящих навыков, а не тела всех `SKILL.md`;
-- `src/session-touched-paths.js` учитывает только подтверждённые файловые tool-result для `read_file/write_file/edit_file/append_file/list_dir`; `bash`, traversal и явные ошибки навык не активируют;
-- `session-store` на подготовительной ветке уже сохраняет `touchedPaths` в crash-safe checkpoint и восстанавливает их после restart;
-- два Auto-Skills теста включены в обычный `npm test`.
+- критичное состояние аккаунтов, OpenCode-сессий и provider circuit сохраняется с защитой от падения процесса;
+- fail-open через stale `current()`/`preferredAccount`, когда `accountStore.candidates()` пуст, уже закрыт: configured-but-none-eligible даёт `503 QWEN_NO_ELIGIBLE_ACCOUNT`, отсутствие настроенных аккаунтов остаётся `401`;
+- cooldown монотонный: слабая последующая ошибка не сокращает более сильную CAPTCHA/rate-limit паузу;
+- вторичный дефект `Failed to generate chat_id` уже закрыт на текущем PR: `sendChatRequest()` больше не делает второй generic `markFailure` после `generateChatID()`, а `scripts/qwen-client-chat-id-classification-test.js` добавлен и включён в обычный `npm test` на commit `4bfe1cf36bb5022d30e924a4a871502c34b96622`;
+- старый FREE FABRIC E1 DIRECT PROBE завершён и не повторяется.
 
-## Эта смена
+## Новое существенное наблюдение этой смены
 
-- прочитаны `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, предыдущий handoff и свежий PR #6. Основной PR #6 по-прежнему на `b87793e3...`, поэтому подготовительная Auto-Skills ветка не пересекается со свежей работой основной линии;
-- соблюдён ZERO-MINUTE MODE: CircleCI и GitHub Actions не запускались и не перезапускались, runner-ветки не создавались, provider traffic = 0;
-- найден реальный ложноположительный случай Auto-Skills: `read_file` для файла больше 5 MiB возвращает обычную строку `File too large (...)`, а прежний `resultLooksFailed()` считал её успешным чтением. В результате path-gated Skill мог активироваться, хотя содержимое файла модель не получила;
-- исправлено в `src/session-touched-paths.js`: `File too large (...)` теперь считается неподтверждённым файловым результатом и не активирует Skill. Коммит `b347c50ba95a34b810841ab64bca968e43ad200e`;
-- `scripts/session-touched-paths-test.js` расширен реальным форматом ответа `read_file`: большой файл не попадает в `touchedPaths`, обычное чтение по-прежнему попадает. Коммит/head `8aac48866595981804589c91d695cb3f1be39b76`;
-- `server.js` намеренно не переписывался через Contents API целиком: следующий wiring остаётся отдельным ограниченным изменением и должен делаться только после свежей сверки основной ветки;
-- hosted CI для нового head специально не запускался. Поэтому `8aac4886...` не объявлять полностью зелёным только по факту коммита.
+Найден следующий независимый дефект пула на exact head `4bfe1cf36bb5022d30e924a4a871502c34b96622`.
 
-## Следующий шаг
+`src/chat-adapter.js` умеет обнаружить `RGV587_ERROR` и после того, как initial SSE gate уже отпустил поток, и превращает его в `Error('WAF_CAPTCHA_CHALLENGE:<url>')`. Но `server.js` в streaming `onError` сначала безусловно вызывает `accountStore.markFailure(error.message)`, а только затем вызывает `captchaResolver`.
 
-1. Снова проверить свежий PR #6 и не заходить в файлы, которые параллельно меняет другой Qwen-рабочий.
-2. На подготовительной ветке подключить `server.js`: после `restoreCheckpoint()` собрать подтверждённые пути из `effectiveBody.messages`, объединить их с `record.touchedPaths` и передавать итог как `touchedPaths` во все вызовы `preparePublicPayloadGoverned()` — обычный, failover-rebase, non-stream retry и stream retry.
-3. Тот же набор сохранять во всех `sessionStore.set()` путях. Неуспешный файловый вызов и неподтверждённый tool-call не должны активировать Skill.
-4. Добавить серверный регресс: успешный file tool → path-gated Skill появился → следующий ход без нового файла → Skill остался → reload session-store → Skill остался; failed/oversized read Skill не активирует.
-5. Проверять сначала бесплатным локальным Node в ChatGPT container. Пока действует ZERO-MINUTE MODE, не запускать CircleCI/GitHub Actions и не делать push только ради CI.
-6. После закрытия session-scoped каталога добавить ограниченную загрузку тела только явно выбранного/вызванного Skill, а не всех Skills сразу.
-7. Старый разрешённый live-trigger `4de8bdae6d0c28789181f31b6212f97e6e283333` не дублировать вслепую. Provider traffic без нового доказанного основания не запускать.
-8. После одного доказанного live tool-loop PASS проверить настоящий `restart → восстановление незавершённой цели → аккаунт A недоступен → продолжение через B` с сохранённой tool history.
+Из-за этого поздняя CAPTCHA конкретного аккаунта получает обычный первый backoff около 30 секунд вместо установленного локального CAPTCHA cooldown 10 минут. Provider-wide circuit при этом не открывается, но аккаунт возвращается в пул слишком рано.
+
+На ChatGPT hosted Node без provider traffic воспроизведена сама политика текущего кода и минимального исправления:
+- текущая поздняя CAPTCHA: ~30 000 мс;
+- после CAPTCHA-specific `markCaptchaChallenge`: 600 000 мс;
+- контрольный RateLimited остаётся 21 600 000 мс;
+- одна ошибка учитывается один раз.
+
+Долговечное evidence: `autonomy/v3/evidence/QWEN_LATE_STREAM_CAPTCHA_COOLDOWN_20260820.json`.
+Кандидат продуктовой правки: `autonomy/v3/candidates/QWEN_LATE_STREAM_CAPTCHA_COOLDOWN_20260820.patch`.
+Кандидат регрессии: `autonomy/v3/candidates/QWEN_LATE_STREAM_CAPTCHA_COOLDOWN_REGRESSION_20260820.patch`.
+
+Минимальная правка: в streaming `onError` сначала выделить `WAF_CAPTCHA_CHALLENGE`, вызвать `markCaptchaChallenge(..., 'CAPTCHA in accepted SSE response')`, сохранить существующий `captchaResolver.solveCaptcha(...)` и выйти; generic `markFailure` оставить только для остальных ошибок. Account/thread affinity, replay, provider circuit и rate-limit семантику не менять.
 
 ## Граница доказательства
 
-Подготовительный head `8aac4886...` содержит исправление ложной активации Skill на oversized read и регрессионный тест, но полный проектный `npm test` на exact head в этой смене не выполнялся. Главный незакрытый кусок Auto-Skills — настоящее `server.js` wiring сохранённых `touchedPaths` во всех обычных/retry/failover/stream путях.
+- CircleCI/GitHub Actions не запускались и не перезапускались.
+- Живых запросов к Qwen не было.
+- Production, реальные аккаунты и секреты не тронуты.
+- Полный exact-tree `npm test` на hosted машине в этой смене не заявляется: приватное дерево репозитория напрямую в контейнер не материализовано.
+- Поэтому продуктовый patch поздней CAPTCHA пока оставлен кандидатом, а не перенесён через рискованную полную замену большого `server.js` посредством Contents API.
+
+## Следующее
+
+1. При доступном безопасном patch/git-исполнителе применить только `QWEN_LATE_STREAM_CAPTCHA_COOLDOWN_20260820.patch` к свежему head и добавить регрессию.
+2. Локально прогнать минимум `server-late-stream-captcha-test`, `account-store-cooldown-test`, `account-selection-policy-test`, `server-no-eligible-account-test`, `qwen-client-chat-id-classification-test`, `qwen-client-thread-owner-test`, `opencode-thread-affinity-test`, связанные server/session tests; hosted CI для этого не нужен.
+3. После PASS проверить следующий pool edge: late accepted-stream RateLimited/CAPTCHA не должны ни сокращать cooldown, ни менять thread owner, ни приводить к автоматическому повтору уже видимого клиенту ответа.
+4. Старый разрешённый live-trigger не дублировать вслепую. Provider traffic без нового доказанного основания не запускать.

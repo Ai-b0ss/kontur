@@ -1,0 +1,32 @@
+{
+  "bridge_secret_visible_to_shell": false,
+  "candidate_policy": {
+    "ignore_default_excludes": false,
+    "inherit": "core"
+  },
+  "candidate_visible_env": [
+    "HOME",
+    "PATH",
+    "USER"
+  ],
+  "candidate_fix": "Set shell_environment_policy inherit=core and ignore_default_excludes=false in the temporary probe config; add contract assertions.",
+  "current_config_has_shell_environment_policy": false,
+  "hosted_ci_started": false,
+  "live_provider_traffic": false,
+  "notes": "Simulation mirrors current openai/codex create_env order for inherit=core and ignore_default_excludes=false; source hashes recorded separately in durable evidence.",
+  "notion_agent_pr8_head": "37abfaa5f0b972a84736c7da669432cd2ed08075",
+  "openai_codex_shell_environment_source_sha": "6f886bf065491fcf68eed2c21ad8f58d7f36f811",
+  "openai_codex_shell_policy_config_source_sha": "7e7c056ba6fb54824ef5df5c866ec2e20128df18",
+  "probe_source_sha": "2f6d5873606975771b5ab418d5f9d45cd602304c",
+  "probe_test_sha": "2958fac16ecf6ded815c6dfc12aa1060319a62e8",
+  "root_cause": "The generated Codex config omits shell_environment_policy. Current Codex main defaults inherit=all and ignore_default_excludes=true, so model-reachable shell commands may inherit the launcher environment, including NOTION_BRIDGE_API_KEY, unless an explicit policy overrides it.",
+  "runtime_state_key_visible_to_shell": false,
+  "scope": "Core/Codex integration safety only; no NOTION_AGENT rotation/prompt/delegation logic changed.",
+  "simulated_parent_secret_names": [
+    "NOTION_BRIDGE_API_KEY",
+    "RUNTIME_STATE_KEY",
+    "AWS_SECRET_ACCESS_KEY",
+    "CUSTOM_COOKIE"
+  ],
+  "verdict": "CODEX_PROBE_SHELL_ENV_POLICY_CANDIDATE_PASS"
+}

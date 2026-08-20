@@ -46,27 +46,29 @@
 
 Репозиторий: `Ai-b0ss/notion-agent-bridge`.
 Текущая Core-ветка: `candidate/ncm28-windows-fixed-v1`, PR #7, head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
-Отдельная ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8, head `4c151c6ea4925ca8f04771c773aeeb1443785a9a`.
+Отдельная ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8, head `a35e6fe3bfdb00dadad4ea49ae7d798b9c69aae8`.
 
 Что уже есть:
 - основная Windows-линия v32 сохраняет доказанные `build + happy-running + happy-stopped + rerun-noop`; красным остаётся только аварийный `auth-rollback`;
 - точный разрез `tree_digest` на Core уже запущен, но пять Windows-задач workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3` всё ещё ожидают CircleCI; дубликат не запускать;
 - в агентной ветке материализованы режимы `engineer/owner`, реальный Responses wiring, foreground reservations, lease-level routing, cooldown failover и provider-neutral delegation envelope;
 - child-session переживает допустимую смену аккаунта, сохраняет историю/tool-result/call id и не повторяет уже выполненный локальный side effect после failover;
+- исправлен возврат на ранее использованный слот A → B → A: старый `thread-a` больше не возобновляется после того, как локальную историю продвинул B; любой возврат после смены клиента получает полный локальный transcript и свежий Notion thread;
 - provider-ready Notion child-agent уже собран поверх обычного account pool и существующих foreground reservations; lifecycle умеет bind/rebind/unbind и drain старой генерации перед закрытием пула;
 - есть настоящий `codex exec` проектный гейт с неизвестным заранее маркером, реальными локальными действиями и обязательным повторным verifier до `VERIFY_OK`; есть и двухслотовый вариант, который требует разных account/thread владельцев;
-- дочерним инструментам теперь передаются точные схемы реальных аргументов `list_files/read_file/write_file/edit_file/run_shell`, а не только имена и описания;
+- дочерним инструментам передаются точные схемы реальных аргументов `list_files/read_file/write_file/edit_file/run_shell`, а не только имена и описания;
 - MCP-ошибка уровня инструмента (`isError=true`) больше не маскируется как успешное локальное действие: дочерний агент получает `ok=false` и может исправить вызов на следующем ходе; malformed runtime-result закрывается fail-closed;
-- новый тест `tests/test_server_subagent_tool_catalog.py` фиксирует реальные схемы аргументов и обработку success/error; он добавлен в agent/delegation/server-wiring проверки.
+- регрессия `tests/test_notion_delegated_thread_reentry.py` фиксирует full-history rebase при возврате на старый client и включена в постоянные agent/delegation проверки.
 
 Что мешает прямо сейчас:
 - Windows digest-разрез NCM28 всё ещё ждёт исполнителя; без результата не менять доказанный v23 файловый примитив и не запускать такой же прогон повторно;
-- Agent exact-head workflow `7b7fa638-b994-49e6-8799-42e898b9c3b9` тоже пока `pending`;
-- `ServerSubagentLifecycle` ещё не внесён напрямую в настоящий `payload/server.py`: сначала нужен зелёный `server-wiring-rehearsal`, после него применить fail-closed материализатор и повторить контракты;
+- Agent exact-head workflow `105c36b1-d6d0-4adf-92c1-9b88ee492f07` тоже пока `pending`;
+- в `payload/server.py` остаётся отдельный single-slot reservation gap: при `pool_size <= 1` независимый новый route сейчас не ждёт освобождения аккаунта, зарезервированного незавершённым foreground tool-loop; это надо закрыть до живого Codex failover/restart теста;
+- `ServerSubagentLifecycle` ещё не внесён напрямую в настоящий `payload/server.py`: сначала нужен зелёный `server-wiring-rehearsal`, после него применить fail-closed materializer и повторить контракты;
 - затем нужен один ограниченный настоящий Codex project run и один two-slot run в уже авторизованной среде; после них — restart/recovery и реальный failover на новый Notion thread без повторения локального side effect;
 - после устойчивого Codex/Notion ядра — Qwen adapter под тот же `DelegationDispatcher`, без общего account/thread state.
 
-Ближайший смысловой приоритет: снять первый реальный результат Windows-разреза и exact-head Agent CI. Пока они ждут, не добавлять синтетические probes; следующая продуктовая операция после зелёного server-wiring — материализовать lifecycle в `server.py` и перейти к настоящему Codex CLI.
+Ближайший смысловой приоритет: снять первый реальный результат Windows-разреза и exact-head Agent CI. Пока они ждут, закрыть single-slot reservation gap; после зелёного server-wiring — материализовать lifecycle в `server.py` и перейти к настоящему Codex CLI.
 
 ## Kontur
 

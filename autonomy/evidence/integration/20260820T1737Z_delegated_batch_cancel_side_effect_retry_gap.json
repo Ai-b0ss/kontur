@@ -1,0 +1,41 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding_id": "DELEGATED_BATCH_CANCEL_SIDE_EFFECT_RETRY_GAP",
+  "severity": "high-integration-risk",
+  "source": {
+    "notion_head": "60c53b3dd95c16e8d18266211aab4b859a0578f7",
+    "subagent_lifecycle_blob": "fefb6b4fded58b62671cfc19732cfcbf3a1f896b",
+    "subagent_lifecycle_test_blob": "0f95c048ae2c70de257901a0f95fbc46a65dcea3",
+    "qwen_head": "896dea540fa3c73aefb69e319dd07d8622fef383",
+    "qwen_subagent_runner_blob": "48ea5e2b3a4b7470b2bfedb3d32db00dd024b406"
+  },
+  "reproduction": {
+    "first_error": "B_FAIL",
+    "active_after_batch_failure": 0,
+    "provider_calls": {"a": 2, "b": 1},
+    "side_effect_markers": ["A_SIDE_EFFECT", "A_SIDE_EFFECT"],
+    "same_task_retry_allowed": true,
+    "verdict": "REPRODUCED"
+  },
+  "finding": "Notion SubagentLifecycle cancels unfinished siblings after one run_many child fails, then removes their task ids. The current regression explicitly calls a cancelled child safe to retry, but cancellation does not prove that local/provider side effects did not already happen. A sibling that mutated state before cancellation can therefore be retried with the same logical task id and repeat the side effect. The lifecycle has no durable completed/uncertain child ledger.",
+  "cross_project_contract": "Qwen coding subagents already persist running/uncertain/done state and block automatic retry after possible mutating tool side effects. A future Qwen delegation adapter must preserve this invariant instead of flattening QWEN_SUBAGENT_AGENT_UNCERTAIN_RETRY_BLOCKED into a generic retryable delegation failure.",
+  "recommended_owner_action": [
+    "Replace the existing 'cancelled child ... safe retry' assumption with a fail-closed uncertainty regression.",
+    "Do not enable side-effect-capable run_many as automatically retryable all-or-nothing work until per-child durable outcome/uncertainty survives cancellation and restart.",
+    "For the Qwen adapter, map delegation task identity to a stable persisted Qwen batch/task identity and preserve uncertain status.",
+    "For Notion local-tool children, add an equivalent accepted-tool/side-effect checkpoint before automatic retry is allowed.",
+    "Do not lose already completed sibling outcomes when a different child fails."
+  ],
+  "capsule": {
+    "id": "20260820T173725Z-6b336f0071",
+    "archive_sha256": "3940bd359019923cd0f885983e1b84c18ae12761e347584898f82acb9ead90ae"
+  },
+  "boundaries": {
+    "hosted_ci": false,
+    "provider_calls": false,
+    "production": false,
+    "windows_claim": false,
+    "product_files_mutated": false
+  }
+}

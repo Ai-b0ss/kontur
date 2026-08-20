@@ -1,0 +1,27 @@
+{
+  "kind": "FREE_FABRIC_JITTER_OBSERVATION",
+  "generation": 1,
+  "run_id": "PLATFORM-MEASUREMENTS-20260820",
+  "task_id": "E4-JITTER",
+  "brain": "NOTION_AGENT",
+  "execution": "NOTION_AGENT-G1-E4E5-B",
+  "nominal_schedule_local": "2026-08-20T14:48:00+03:00",
+  "observed_runtime_context_local": "2026-08-20T14:48:19+03:00",
+  "signed_jitter_seconds": 19.0,
+  "correctness_use": false,
+  "interpretation": "telemetry_only",
+  "claims": {
+    "scheduled_wakeup_observed": true,
+    "scheduled_compute_status": "UNKNOWN_UNCHANGED",
+    "wall_clock_used_for_correctness": false,
+    "semantic_search_used_for_correctness": false
+  },
+  "provenance": {
+    "owner_override": "/Autonomy/FREE_FABRIC/control/OWNER_OVERRIDE_G1.json",
+    "platform_contract": "/Autonomy/FREE_FABRIC/control/PLATFORM_CONTRACT_V0.json",
+    "run_manifest": "/Autonomy/FREE_FABRIC/manifests/RUN_PLATFORM_MEASUREMENTS_G1.json",
+    "probe_path": "autonomy/free_fabric/probes/e4_jitter_probe.py",
+    "probe_blob_sha": "ffb5758b65cd3502aeaa3df4652861d4c74e25fb",
+    "measurement_source": "runtime context only; telemetry, not ownership or acceptance input"
+  }
+}

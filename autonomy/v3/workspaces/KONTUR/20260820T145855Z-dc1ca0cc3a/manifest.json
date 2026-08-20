@@ -1,0 +1,34 @@
+{
+  "archive": {
+    "parts": 4,
+    "sha256": "797ae8277ab9b0a79fc3a8a3f3a0a5d0c1351ede91d62e72bfa26516adc2f246",
+    "size": 4775
+  },
+  "capsule_id": "20260820T145855Z-dc1ca0cc3a",
+  "created_at_utc": "2026-08-20T14:58:55Z",
+  "parts": [
+    {"chars": 2048, "index": 0, "name": "part-0000.b64", "sha256_text": "bad27707064f01dc96588a0c195df0467d1a908bfeadcba25fffaeb4d1393afe"},
+    {"chars": 2048, "index": 1, "name": "part-0001.b64", "sha256_text": "04fb3a414ceb8371cbb7459d589c8fd89ff39a9751062fc83c2dccfa4b964c95"},
+    {"chars": 2048, "index": 2, "name": "part-0002.b64", "sha256_text": "d193da450b36591c11c52ff25d3e0188e4b13b601856647bb97d25d1d4dac8d4"},
+    {"chars": 224, "index": 3, "name": "part-0003.b64", "sha256_text": "4784dc6b37c86f852cef0b840d32f8ce4246d5f0f13854256744c1a2e939e358"}
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "32034e8af92923a2abe09ad00e3220f6da1ed21c",
+  "worker": "KONTUR",
+  "workspace": {
+    "WORKSPACE_MANIFEST.json": {"mode": "0o644", "sha256": "dd97d337fc67b97f159029688d20ed2ec30afab82586911ea315e593bbb6ca11", "size": 835, "type": "file"},
+    "apps": {"mode": "0o2755", "type": "dir"},
+    "apps/miniapp": {"mode": "0o2755", "type": "dir"},
+    "apps/miniapp/package.json": {"mode": "0o644", "sha256": "852ea9a8d1d8cd772193612c9a8f3149c05ff9a1ac9d84bfd0048ce422e8bacf", "size": 764, "type": "file"},
+    "apps/miniapp/src": {"mode": "0o2755", "type": "dir"},
+    "apps/miniapp/src/components": {"mode": "0o2755", "type": "dir"},
+    "apps/miniapp/src/components/QuizEgg.tsx": {"mode": "0o644", "sha256": "3d4ae62b83c6775163799c801b3edd81abb1cbc693bdab847071a32254f8e457", "size": 1758, "type": "file"},
+    "apps/miniapp/test": {"mode": "0o2755", "type": "dir"},
+    "autonomy": {"mode": "0o2755", "type": "dir"},
+    "autonomy/patches": {"mode": "0o2755", "type": "dir"},
+    "autonomy/patches/KONTUR_PR12_BOUNDED_FIX_20260820.patch": {"mode": "0o644", "sha256": "30764c9e562bd0371cb659e22743fb1ec6b47cabb0e57e95bdb7443b4650755a", "size": 5614, "type": "file"},
+    "checkpoints": {"mode": "0o2755", "type": "dir"},
+    "checkpoints/CHECKPOINT.json": {"mode": "0o644", "sha256": "b58d73b11f4276d783aa5ffbbce964d1589f619a82a359471c1cd00c4d1b1b8d", "size": 1552, "type": "file"},
+    "checkpoints/ROUNDTRIP_V4.json": {"mode": "0o644", "sha256": "1c32c7da8611b08b6eeeece39317356ca32bdc8ab059e7f8aa2897d990521652", "size": 540, "type": "file"}
+  }
+}

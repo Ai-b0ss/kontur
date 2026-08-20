@@ -1,0 +1,32 @@
+{
+  "archive": {
+    "base64_chars": 2220,
+    "format": "tar.gz",
+    "part_chars": 2048,
+    "part_count": 2,
+    "sha256": "4bf99520d0e7ca0332bf8fd7731970d1a1ec5820eca86339cd08d068ecab5538",
+    "size": 1663
+  },
+  "capsule_id": "20260820T1450Z-late-stream-captcha",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256": "5fa94871604ba9e1cafc440a538afea3be188d408ab7ec1eedacca442bd0ff44"
+    },
+    {
+      "chars": 172,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256": "e8d06e56dedbde8091e34237c3efff30d2464f06b13243ae1d2cd252c465d561"
+    }
+  ],
+  "schema": "free_fabric_capsule_v3_b64",
+  "source": {
+    "branch": "autopilot/qwen-runtime-preflight-20260818",
+    "product_commit": "245f6faa9e04b8d7e9069bee5b9128d5822f871c",
+    "repo": "Ai-b0ss/qwen-free-api"
+  },
+  "worker": "QWEN_RELIABILITY"
+}

@@ -1,14 +1,8 @@
 {
-  "schema": "free_fabric_capsule_latest_v1",
-  "worker": "QWEN_RELIABILITY",
-  "capsule_id": "20260820T1450Z-late-stream-captcha",
-  "manifest_path": "autonomy/v3/workspaces/QWEN_RELIABILITY/20260820T1450Z-late-stream-captcha/manifest.json",
-  "archive_sha256": "4bf99520d0e7ca0332bf8fd7731970d1a1ec5820eca86339cd08d068ecab5538",
-  "product": {
-    "repo": "Ai-b0ss/qwen-free-api",
-    "branch": "autopilot/qwen-runtime-preflight-20260818",
-    "commit": "245f6faa9e04b8d7e9069bee5b9128d5822f871c"
-  },
-  "verified_parts": 2,
-  "status": "VALID"
+  "archive_sha256": "6a6fd2bbaf520587e42b1b1de4d713831dfd4bb0d4675dfa3e7fdfa0c5e75fd6",
+  "capsule_id": "20260820T155435Z-f29775a5df",
+  "manifest": "20260820T155435Z-f29775a5df/manifest.json",
+  "schema": "free_fabric_latest_v1",
+  "updated_at_utc": "2026-08-20T15:54:35Z",
+  "worker": "QWEN_RELIABILITY"
 }

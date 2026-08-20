@@ -1,0 +1,25 @@
+{
+  "schema": "notion_core_codex_restart_contract_drift_v1",
+  "created_at_utc": "2026-08-20T21:40:00Z",
+  "core_ref": "Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_ref_observed": "Ai-b0ss/notion-agent-bridge@a68c9296c517cfd8712d0baa21db43a36a13ccd8",
+  "windows_digest": "workflow 1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3 remains all-five-pending; not rerun",
+  "finding": "Core PR7 persistent ConversationSegment identity hashes only Responses input items. After a bridge restart, if the tool catalog/instructions/output contract changes while the old input remains a prefix and a new function_call_output is appended, Core treats the segment as continuable and builds an incremental continuation that says to reuse the catalog from the earlier Notion thread. This can bind the continuation to stale runtime/tool contract state.",
+  "offline_reproduction": {
+    "previous_input_items": 1,
+    "current_input_items": 3,
+    "core_prefix_length": 1,
+    "tool_contract_changed": "read_file -> write_file",
+    "incremental_delta_after_core_filter": ["function_call_output"],
+    "verdict": "CORE_CODEX_LIFECYCLE_CONTRACT_DRIFT_REPRO_PASS"
+  },
+  "cross_lane_resolution": {
+    "owner": "NOTION_AGENT PR8",
+    "reason": "PR8 already changes response_input_fingerprints so tool catalog, structured output, engineer instructions and content-free prompt-policy fingerprint participate in each input-item fingerprint without changing prefix index semantics.",
+    "current_agent_test": "tests/test_prompt_policy_identity.py contains targeted tool-catalog, structured-output, engineer-context and owner-policy rollover cases.",
+    "offline_formula_check": "same scenario under PR8 context-bound fingerprint returns prefix=None, forcing segment rollover",
+    "verdict": "PR8_CONTEXT_ROLLOVER_FORMULA_PASS"
+  },
+  "core_action": "Do not duplicate Agent-owned prompt-mode code into PR7. Treat PR8 context-bound segment identity as a mandatory Core integration dependency before NOTION_CORE lifecycle DONE; when Core and Agent are synchronized, run the restart/tool-result regression on the combined exact head.",
+  "live_or_hosted_activity": "none"
+}

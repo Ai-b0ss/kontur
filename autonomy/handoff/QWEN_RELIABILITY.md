@@ -2,7 +2,7 @@
 
 Обновлено: 2026-08-20.
 
-Основная линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Свежий продуктовый head после этого запуска: `521cf13b04076deee57dc2544f7b29b4dd8a841f`.
+Основная линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Свежий продуктовый head: `a485c11e9f18470989b9e36086ef1aced1c68d39`.
 
 ## Уже доказано и не переделывать
 
@@ -16,83 +16,67 @@
 - automatic retry поздней SSE-ошибки отсутствует;
 - pending tool-call в durable checkpoint блокирует короткий `continue` через `409 QWEN_PENDING_TOOL_RESULT`;
 - `src/stream-session-guard.js` удерживает потоковые mutating tool-calls до durable acceptance; поздняя SSE-ошибка не выпускает их клиенту;
+- streaming `sessionStore.set() === false` fail-open закрыт через `QWEN_TOOL_CHECKPOINT_REJECTED`;
 - регрессия охватывает два tool-call в одном потоке и позднюю CAPTCHA.
 
-## Закрыто в этом запуске: `sessionStore.set() === false` на streaming acknowledgement boundary
+## Закрыто в этом запуске: два non-stream acknowledgement boundary
 
-На входе был head `0834b5c6b3c710342db8f4454eb75140f95d18d5`. В `server.js` callback `checkpointStreamingToolCalls(calls)` вызывал `sessionStore.set(...)`, игнорировал boolean-результат и затем безусловно обновлял `streamAcceptedHistory`.
+На входе PR #6 уже ушёл вперёд до `d14691184735f1b9c2840f31fc24bc227c14b759`. Свежий `server.js` подтвердил два оставшихся места того же класса:
 
-Это было fail-open: `sessionStore.set()` законно возвращает `false`, когда нет ключа/`chatId` или когда тот же upstream `chatId` пытаются переобозначить на другой `accountId` (защита account/thread affinity). При таком отказе guard мог счесть mutating tool-call надёжно сохранённым и выпустить его клиенту.
+1. основной non-stream путь после `collectNonStream(...)` игнорировал `sessionStore.set(...) === false`;
+2. non-stream retry после успешного `collectNonStream(...)` делал то же самое и сразу возвращал JSON.
 
-Исправлено коммитом `ccae1e23042eb136448eeb596926375e188359f4`:
+Если ответ содержал mutating tool-call, а checkpoint был отвергнут защитой account/thread affinity, клиент мог получить действие без durable pending-tool record.
 
-```js
-const saved = sessionStore.set(...);
-if (!saved) {
-  const error = new Error('Accepted streaming tool call checkpoint was rejected');
-  error.code = 'QWEN_TOOL_CHECKPOINT_REJECTED';
-  throw error;
-}
-streamAcceptedHistory = nextHistory;
-```
+Исправлено коммитом `5cb63f419c2fb711e1832367f22d20d5e8c33d7f`:
 
-Read-back commit diff подтверждает: изменение ограничено этой границей подтверждения. Затем коммитом `521cf13b04076deee57dc2544f7b29b4dd8a841f` усилен существующий `scripts/server-stream-session-guard-wiring-test.js`: он теперь требует проверку результата `sessionStore.set`, код `QWEN_TOOL_CHECKPOINT_REJECTED` и порядок `save -> reject guard -> history commit -> guarded pipe -> final checkpoint`.
+- оба non-stream пути требуют `sessionStore.set(...) === true` до возврата JSON;
+- отказ получает стабильный код `QWEN_TOOL_CHECKPOINT_REJECTED` и fail-closed;
+- локальный отказ checkpoint не передаётся в `accountStore.markFailure`, поэтому Qwen-аккаунт не получает ложные failures/cooldown;
+- верхний route catch возвращает тот же стабильный код ошибки.
 
-На hosted Node 22 фактически выполнен bounded invariant test из восстановленной capsule: `sessionStore.set(false)` блокирует выпуск streaming tool-call; `true` разрешает продолжение. Нормативный v4 verify/restore новой capsule также PASS. Полный exact-tree `npm test` в этом запуске не заявляется.
+Коммитом `a485c11e9f18470989b9e36086ef1aced1c68d39` усилен уже существующий `scripts/server-nonstream-session-commit-test.js`: он теперь требует checked-save для основного и retry пути, проверяет порядок `collect -> save -> reject guard -> response`, отсутствие штрафа аккаунта и стабильный код ошибки. Этот тест уже входит в обычный `npm test`.
 
-## Freshest defect: два non-stream пути игнорируют тот же boolean-return
+GitHub read-back на exact head подтверждает оба checked-save и отдельный route error code. На hosted Node выполнены `node --check` и узкая проверка инварианта; PASS. Полный exact-tree `npm test` не заявляется: hosted-машина не смогла материализовать репозиторий по сети, а внешние CI по правилам этой линии не запускались.
 
-После закрытия streaming-границы проверен текущий `server.js`. Остались два аналогичных места:
+## Что не менять без нового доказательства
 
-1. Основной non-stream путь после `collectNonStream(...)` вызывает `sessionStore.set(...)`, игнорирует `false`, затем возвращает `res.json(json)`.
-2. Non-stream retry-путь после успешного `collectNonStream(...)` также игнорирует `false` и немедленно возвращает JSON.
+Финальный streaming `sessionStore.set(...)` после уже принятого guarded-потока пока не считать тем же дефектом автоматически. Mutating tool-call к этому моменту уже обязан иметь отдельный durable acknowledgement до выдачи клиенту. Сначала нужно доказать реальное окно повторного side effect или другой acknowledgement/failover инвариант.
 
-Если ответ содержит mutating tool-call, а checkpoint отвергнут из-за account/thread affinity, клиент может получить и выполнить действие без durable pending-tool record. Это тот же класс риска повторного side effect после restart.
-
-Важная тонкость для исправления: нельзя просто бросить `QWEN_TOOL_CHECKPOINT_REJECTED` внутри нынешнего `try` и оставить catch без изменений, потому что общий catch сейчас вызывает `accountStore.markFailure(response.account, err.message)`. Локальный отказ session checkpoint не является ошибкой Qwen-аккаунта и не должен портить его failures/cooldown. Следующий fix должен одновременно:
-
-- требовать `sessionStore.set(...) === true` до возврата non-stream tool-call JSON;
-- на `false` выдавать стабильный `QWEN_TOOL_CHECKPOINT_REJECTED` и fail-closed;
-- не вызывать `accountStore.markFailure` для этого локального кода ошибки;
-- покрыть основной и retry non-stream путь;
-- доказать: rejected checkpoint => mutating tool-call JSON не возвращён; accepted checkpoint => после restart короткий `continue` видит pending tool-call и блокируется до matching tool result.
-
-Финальный streaming `sessionStore.set(...)` после уже принятого guarded-потока отдельно не менять без анализа: mutating tool-call к этому моменту уже обязан иметь durable acknowledgement.
+Следующий поиск вести только по boolean-return/crash-safe store на настоящих границах подтверждения: где клиенту или следующему аккаунту становится видимо действие/тред только после надёжной записи. Не расширять работу на Qwen Core.
 
 ## Capsule runtime
 
-В начале запуска `LATEST.json` имел Git blob SHA `281fa187c07c12b0959f0e45bcb5af4539759e9a` и указывал на `20260820T175839Z-e9ef25c0bf`. Manifest и все 3 части были получены отдельно; после устранения локально добавленных переводов строки exact bytes прошли нормативные `capsule_runtime_v4.py verify` и `restore`, archive SHA-256 `ba56ae4ed6dc52c4bc5e5761334d5204ba2e9b293f1c38daf1cc32f460d91f8c`.
+В начале запуска `LATEST.json` имел Git blob SHA `dce683580308f5ad727c6a0ae49afdde81208968` и указывал на `20260820T185733Z-1fc6dd7627`. Manifest и все 4 части были получены отдельно и восстановлены нормативным `capsule_runtime_v4.py`; archive SHA-256 `5fa1f6f0f603d08dc01930e5d427085171cff558b53635d1cb8090e9c6c96335`.
 
-Первая новая immutable попытка `20260820T185550Z-799159dd0e` НЕ опубликована: manifest был загружен с семантически тем же JSON, но не с byte-identical форматированием, поэтому remote Git blob SHA не совпал с локально рассчитанным. Этот каталог считать orphan/evidence of failed verification, никогда не назначать LATEST.
+После продуктовой работы checkpoint записан в восстановленное workspace и выполнен нормативный `pack` v4. Новая immutable capsule:
 
-После повторного нормативного `pack` создана чистая capsule:
-
-- id `20260820T185733Z-1fc6dd7627`;
-- source ref `Ai-b0ss/qwen-free-api@521cf13b04076deee57dc2544f7b29b4dd8a841f`;
-- archive SHA-256 `5fa1f6f0f603d08dc01930e5d427085171cff558b53635d1cb8090e9c6c96335`;
-- archive size 4687 bytes;
-- 4 parts: 2048 / 2048 / 2048 / 108 chars;
-- remote manifest Git blob SHA `6eb88ebb262bb1cd0128a4d84683b032372d0701` совпал с локально рассчитанным;
-- remote part blob SHA совпали с локальными: `539155e9...`, `4885332e...`, `a89eb7c4...`, `3e720e96...`;
-- локальный `capsule_runtime_v4.py verify` PASS;
-- локальный `capsule_runtime_v4.py restore` PASS с тем же archive SHA;
-- перед публикацией LATEST перечитан повторно и его parent blob остался исходным `281fa187...`;
+- id `20260820T200145Z-22a145762d`;
+- source ref `Ai-b0ss/qwen-free-api@a485c11e9f18470989b9e36086ef1aced1c68d39`;
+- archive SHA-256 `1fb1a101a1f1bc5de1dccbea32c2a1a3deeb3aa57998f2f2a3a3c4293680df90`;
+- archive size 4169 bytes;
+- 3 parts: 2048 / 2048 / 1464 chars;
+- remote manifest Git blob SHA `eafb87df100f93cb445bf7eb28db0cd8e448e79b`;
+- remote part blob SHA: `369cace69ec6b7c9cfbc9d9caf0d92199e738e1f`, `6402061c731919a7898265e4344529c41902d97b`, `e7bcdb016b3ef75aafb3a047e89ddf6c74d9731f`;
+- все remote blob SHA совпали с локально рассчитанными;
+- нормативные local `verify` и `restore` после upload-readback PASS с тем же archive SHA;
+- непосредственно перед публикацией LATEST перечитан: Git blob SHA остался стартовым `dce683580308f5ad727c6a0ae49afdde81208968`;
 - старый LATEST сохранён в PREVIOUS;
-- LATEST опубликован CAS с exact parent SHA;
-- новый LATEST content blob после read-back: `dce683580308f5ad727c6a0ae49afdde81208968`.
+- новый LATEST опубликован CAS через exact parent SHA;
+- read-back нового LATEST: Git blob SHA `b7e0d3d38573fb1ef6e2f93a54904c3af2c5462c`.
 
 ## Граница доказательства
 
 - CircleCI, GitHub Actions, Cloudflare и provider/live не запускались;
 - production, реальные аккаунты и секреты не тронуты;
 - полный `npm test` не заявляется;
-- сделаны два продуктовых коммита: `ccae1e...` и `521cf13...`;
+- продуктовые коммиты этого запуска: `5cb63f4...`, `a485c11...`;
 - permanent memory опубликована по нормативному v2/v4 протоколу с CAS.
 
 ## Следующее
 
-1. Восстановить LATEST `20260820T185733Z-1fc6dd7627` через нормативный v4.
-2. Проверить, не ушёл ли PR #6 вперёд от `521cf13...`; при изменении перечитать свежий `server.js`.
-3. Закрыть два non-stream `sessionStore.set(false)` acknowledgement boundary без штрафа Qwen-аккаунту за локальный отказ checkpoint.
-4. Добавить regression на основной и retry-путь: rejected checkpoint не выпускает mutating tool-call JSON; accepted checkpoint после restart даёт `QWEN_PENDING_TOOL_RESULT` до matching tool result.
-5. Затем проверить другие boolean-return crash-safe stores только на реальных acknowledgement/failover boundary, не расширяя область на Qwen Core.
+1. Восстановить LATEST `20260820T200145Z-22a145762d` через нормативный v4.
+2. Проверить, не ушёл ли PR #6 вперёд от `a485c11...`; если ушёл — перечитать свежие затронутые границы.
+3. Искать следующий реальный fail-open только на acknowledgement/failover boundary: игнорирование boolean-return crash-safe stores, публикация thread/account state до durable commit, либо путь повторного side effect после restart.
+4. Не трогать финальный streaming checkpoint без отдельного воспроизведения риска; текущий mutating tool-call уже защищён более ранним durable guard.
+5. При доступном exact-tree исполнителе прогнать обычный `npm test` на текущем head; внешние CI и provider/live для этого не нужны.

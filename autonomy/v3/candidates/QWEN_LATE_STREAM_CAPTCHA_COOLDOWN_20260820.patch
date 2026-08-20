@@ -1,0 +1,19 @@
+diff --git a/server.js b/server.js
+--- a/server.js
++++ b/server.js
+@@
+       onError: (error) => {
+         streamAccepted = false;
+-        accountStore.markFailure(streamRouteResponse.account, error.message);
+         if (error.message && error.message.includes('WAF_CAPTCHA_CHALLENGE')) {
++          accountStore.markCaptchaChallenge(
++            streamRouteResponse.account,
++            'CAPTCHA in accepted SSE response',
++          );
+           const parts = error.message.split('WAF_CAPTCHA_CHALLENGE:');
+           const captchaUrl = parts[1] || '';
+           captchaResolver.solveCaptcha(streamRouteResponse.account.id, captchaUrl);
++          return;
+         }
++        accountStore.markFailure(streamRouteResponse.account, error.message);
+       },

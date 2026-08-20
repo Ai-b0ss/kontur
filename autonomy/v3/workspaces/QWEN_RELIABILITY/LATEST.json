@@ -1,0 +1,14 @@
+{
+  "schema": "free_fabric_capsule_latest_v1",
+  "worker": "QWEN_RELIABILITY",
+  "capsule_id": "20260820T1450Z-late-stream-captcha",
+  "manifest_path": "autonomy/v3/workspaces/QWEN_RELIABILITY/20260820T1450Z-late-stream-captcha/manifest.json",
+  "archive_sha256": "4bf99520d0e7ca0332bf8fd7731970d1a1ec5820eca86339cd08d068ecab5538",
+  "product": {
+    "repo": "Ai-b0ss/qwen-free-api",
+    "branch": "autopilot/qwen-runtime-preflight-20260818",
+    "commit": "245f6faa9e04b8d7e9069bee5b9128d5822f871c"
+  },
+  "verified_parts": 2,
+  "status": "VALID"
+}

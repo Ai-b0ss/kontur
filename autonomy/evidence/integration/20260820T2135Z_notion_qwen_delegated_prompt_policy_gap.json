@@ -1,0 +1,56 @@
+{
+  "candidate_contract": {
+    "identity_note": "combine with the already-recorded parent-scoped delegated identity; no provider account/thread ids",
+    "owner_system_prompt": "in-memory exact string only; required for owner; forbidden for engineer",
+    "persistence": "never persist/log plaintext owner prompt; if identity needs it, persist only SHA-256 fingerprint",
+    "prompt_mode": "engineer|owner",
+    "qwen_mapping": {
+      "engineer": {
+        "mode": "engineer"
+      },
+      "owner": {
+        "mode": "owner",
+        "ownerSystemPrompt": "<exact in-memory bytes>"
+      }
+    }
+  },
+  "finding": "NOTION_QWEN_DELEGATED_PROMPT_POLICY_LOSS",
+  "limits": [
+    "No product file was changed.",
+    "No provider/Notion/Codex traffic.",
+    "No hosted CI, Cloudflare, Windows, production, real user data or secrets."
+  ],
+  "observed_gap": [
+    "Notion DelegationRequest/DelegationContext carries task/parent/conversation/objective/max-turns but no prompt mode and no owner system prompt.",
+    "Notion delegated child runtime builders do not accept a prompt-policy argument.",
+    "Qwen coding-subagent defaults missing mode to engineer and requires ownerSystemPrompt for owner mode.",
+    "Therefore owner-mode semantics cannot cross the current provider-neutral delegation envelope without an undocumented side channel."
+  ],
+  "offline_probe": {
+    "checks": [
+      "exact owner prompt preserved byte-for-byte including surrounding whitespace/newlines",
+      "owner without prompt rejected",
+      "engineer with owner prompt rejected to avoid ambiguous policy",
+      "stable content-free fingerprint for same prompt",
+      "different prompt produces different fingerprint",
+      "evidence output contains no plaintext prompt"
+    ],
+    "path": "autonomy/v3/tools/integration_delegated_prompt_policy_probe.py",
+    "result": "PASS"
+  },
+  "risk": "A delegated child of an owner-mode parent can silently run under engineer mode or lose the exact private owner prompt, violating the two-mode product invariant. A future Qwen adapter would inherit this mismatch.",
+  "schema": "integration_helper_evidence_v1",
+  "source_blobs": {
+    "notion_delegation_dispatcher.py": "66d839a1db347684f2fa2681ceaf98600415298d",
+    "notion_delegation_policy.py": "cc50fc7373578262e6051e76716563a98f8f4935",
+    "notion_notion_subagent_runtime.py": "801ea26dc25cfd59938b5f62cc177fd993d2d065",
+    "notion_server_subagent_runtime.py": "19362b1c73862247d833bfdc7d0ae5cd648e76c2",
+    "qwen_subagent_agent_runner.js": "48ea5e2b3a4b7470b2bfedb3d32db00dd024b406"
+  },
+  "source_heads": {
+    "notion_agent": "a68c9296c517cfd8712d0baa21db43a36a13ccd8",
+    "qwen": "a89d4066b030e7b15119583db1029d1bb371d66e"
+  },
+  "verdict": "REPRODUCED_CONTRACT_GAP_AND_CANDIDATE_REGRESSION_PASS",
+  "worker": "INTEGRATION_HELPER"
+}

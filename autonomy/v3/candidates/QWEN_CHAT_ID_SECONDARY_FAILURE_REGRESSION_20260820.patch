@@ -1,0 +1,44 @@
+diff --git a/scripts/qwen-client-chat-id-classification-test.js b/scripts/qwen-client-chat-id-classification-test.js
+new file mode 100644
+--- /dev/null
++++ b/scripts/qwen-client-chat-id-classification-test.js
+@@
++'use strict';
++
++const assert = require('assert');
++const fs = require('fs');
++
++const source = fs.readFileSync('src/qwen-client.js', 'utf8');
++
++assert.doesNotMatch(
++  source,
++  /if\s*\(!accountChatId\)\s*\{[\s\S]*?markFailure\(account,\s*['"]Failed to generate chat_id['"]\)/,
++  'sendChatRequest must not double-count a chat-creation failure already classified by generateChatID',
++);
++
++assert.match(
++  source,
++  /markCaptchaChallenge\(account,[\s\S]*?continue;/,
++  'CAPTCHA classification must remain owned by generateChatID',
++);
++
++assert.match(
++  source,
++  /RateLimited[\s\S]*?markFailure\(account/,
++  'rate-limit classification must remain owned by generateChatID',
++);
++
++assert.match(
++  source,
++  /Qwen did not return a chat id[\s\S]*?markFailure\(account/,
++  'generic no-chat-id responses must still be persisted once by generateChatID',
++);
++
++console.log('QWEN_CHAT_ID_CLASSIFICATION_PASS single_owner=1 double_failure=blocked');
++
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@
+-    "test": "<existing tests>"
++    "test": "<existing tests> && node scripts/qwen-client-chat-id-classification-test.js"

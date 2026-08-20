@@ -1,0 +1,100 @@
+{
+  "archive": {
+    "parts": 1,
+    "sha256": "1a6cbec858476279027ad2551a87026179139b4c6038d284ea5b83f338be88cd",
+    "size": 7324
+  },
+  "capsule_id": "20260820T225631Z-94b0ef88fe",
+  "created_at_utc": "2026-08-20T22:56:31Z",
+  "parts": [
+    {
+      "chars": 9768,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "f671613bae0191e800216ea10c5161342e5a0abc1cafcbcd639352f265382bbb"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "worker": "NOTION_CORE",
+  "workspace": {
+    "CHECKPOINT.json": {
+      "mode": "0o644",
+      "sha256": "dbb600cc7ac1f3393fc98a86078b5f78fd5c20ef3f7f6c1291f4ee9515aefb45",
+      "size": 1500,
+      "type": "file"
+    },
+    "evidence": {
+      "mode": "0o2755",
+      "type": "dir"
+    },
+    "evidence/codex_probe_shell_env_policy_20260820T2255Z.json": {
+      "mode": "0o644",
+      "sha256": "3a21b5279b5ed271d3f3d7bc3b60a8058475d61adfbf4d4c51470b1f0a6e1041",
+      "size": 1698,
+      "type": "file"
+    },
+    "evidence/codex_probe_shell_env_policy_candidate_20260820T2255Z.patch": {
+      "mode": "0o644",
+      "sha256": "8c6e99d2c5b1343f22b901dfe4f5e3dbb0f2f60f13e38fa85e233815bc8a3d83",
+      "size": 1071,
+      "type": "file"
+    },
+    "evidence/codex_restart_contract_drift_20260820T2140Z.json": {
+      "mode": "0o644",
+      "sha256": "95f15f0d029a98b55d50210395693209c7daa47a5530ef0df899e0ec9b3fc373",
+      "size": 2177,
+      "type": "file"
+    },
+    "evidence/runtime_restore_atomicity_v4_candidate.patch": {
+      "mode": "0o644",
+      "sha256": "b1f25e2b6857cd9074c234bc01b92376998d5b4dc96664ff081db3bb5242d4d9",
+      "size": 3710,
+      "type": "file"
+    },
+    "evidence/runtime_restore_atomicity_v4_evidence.json": {
+      "mode": "0o644",
+      "sha256": "60c17c5ce25ecce8a0fcf7da633851fb21c2fbcf9590336bb06a7dcfe67b1b53",
+      "size": 2450,
+      "type": "file"
+    },
+    "runtime_restore_v3": {
+      "mode": "0o2755",
+      "type": "dir"
+    },
+    "runtime_restore_v3/RESTORE_RUNTIME_STATE.sh": {
+      "mode": "0o755",
+      "sha256": "2669b7c859267f53b829e8c10a4d2daf5c122474503eb7c03d7499822a75675d",
+      "size": 967,
+      "type": "file"
+    },
+    "runtime_restore_v3/test_restore.sh": {
+      "mode": "0o755",
+      "sha256": "72d6d2487bb2179d97cd37c295b46a0b51eeab2a56a51d654e93dde1f7bf37a1",
+      "size": 3223,
+      "type": "file"
+    },
+    "runtime_restore_v4": {
+      "mode": "0o2755",
+      "type": "dir"
+    },
+    "runtime_restore_v4/RESTORE_RUNTIME_STATE.ps1": {
+      "mode": "0o644",
+      "sha256": "40b99bfbed5b3652a1d76e6ba90b0cf32f2629fec621fac755eb5aefa90ac4e4",
+      "size": 2108,
+      "type": "file"
+    },
+    "runtime_restore_v4/RESTORE_RUNTIME_STATE.sh": {
+      "mode": "0o755",
+      "sha256": "953dab1e5c49fc2a799113389f86f5187d8454ffd47280d5765ddaa1e2939f25",
+      "size": 1150,
+      "type": "file"
+    },
+    "runtime_restore_v4/test_restore_v4.sh": {
+      "mode": "0o755",
+      "sha256": "badf7f6d30424015fb5487892813a2f41964e94d2dbf6e37d8c726bdd0690d94",
+      "size": 3968,
+      "type": "file"
+    }
+  }
+}

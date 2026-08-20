@@ -1,0 +1,42 @@
+{
+  "experiment": "E13_GITHUB_CAPSULE",
+  "phase": "B",
+  "status": "FAIL",
+  "boot_id": "b62b81ba-f1de-48b8-a8b2-3fb4a802fc43",
+  "source_boot_id": "5d9f1cac-146c-42b1-8d58-dea08c98c97f",
+  "source_repository": "Ai-b0ss/kontur",
+  "source_branch": "autonomy/e13-github-capsule-20260820",
+  "source_phase_a_path": "autonomy/v3/evidence/E13_PHASE_A.json",
+  "source_capsule_path": "autonomy/v3/capsules/E13_WORKSPACE.tar.gz.b64",
+  "retrieval": {
+    "method": "GitHub connector fetch_file",
+    "github_blob_sha": "b183df1a7bd5cdd67c2c31765c09de7f47cd0099",
+    "observed_base64_length": 10532,
+    "expected_base64_length": 10532,
+    "observed_base64_sha256": "7e5f05844c3bd48ab78957badd353c409dba26ac19494e600ad68964d724907c",
+    "expected_base64_sha256": "8941f9745244bc23e459a05aba65f0b429ad6af4e0dc133e9c7697dd7e1b0f94",
+    "git_blob_sha_recomputed_from_retrieved_bytes": "b183df1a7bd5cdd67c2c31765c09de7f47cd0099",
+    "git_blob_sha_matches_connector": true
+  },
+  "first_failure": {
+    "step": 2,
+    "check": "sha256_exact_base64_text",
+    "reason": "The exact 10532-byte text fetched from the requested GitHub branch has SHA-256 7e5f05844c3bd48ab78957badd353c409dba26ac19494e600ad68964d724907c, not the required 8941f9745244bc23e459a05aba65f0b429ad6af4e0dc133e9c7697dd7e1b0f94. The recomputed Git blob SHA matches the connector-reported blob SHA, so the mismatch is in the stored source bytes, not a local reconstruction artifact."
+  },
+  "stopped_after_first_failure": true,
+  "archive_decoded": false,
+  "workspace_restored": false,
+  "marker_read": false,
+  "marker_hex": null,
+  "metadata_checks_run": false,
+  "sqlite_checks_run": false,
+  "checkpoint_continuation_run": false,
+  "final_accumulator": null,
+  "prohibited_systems_used": {
+    "circleci": false,
+    "github_actions": false,
+    "cloudflare": false,
+    "provider_traffic": false,
+    "production": false
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "schema": "free_fabric_v3_e8_verdict_v1",
+  "experiment": "E8/E9/E11 cross-run local persistence",
+  "observed_utc": "2026-08-20T12:15:51Z",
+  "phase_a_evidence_path": "autonomy/v3/evidence/E8_PHASE_A.json",
+  "phase_b_evidence_path": "autonomy/v3/evidence/E8_PHASE_B.json",
+  "cross_run_local_disk": "NON_PERSISTENT_OR_PARTIAL",
+  "cross_run_checkpoint": "FAIL",
+  "reason": "At the beginning of the second run, /mnt/data/free_fabric_v3_e8, PHASE_A_DONE and phase_a_manifest.json were all absent. Therefore marker.bin and every workspace object from Phase A were unavailable on local disk, and checkpoint continuation from step 37 could not be performed.",
+  "no_reconstruction_used": true,
+  "provider_traffic": false,
+  "hosted_ci": false,
+  "cloudflare": false,
+  "production": false,
+  "repeat_experiment": false
+}

@@ -1,0 +1,47 @@
+{
+  "kind": "FREE_FABRIC_CROSS_SCHEDULE_RECOVERY_EVIDENCE",
+  "generation": 1,
+  "run_id": "PLATFORM-MEASUREMENTS-20260820",
+  "task_id": "E5-SCHEDULED-RECOVERY",
+  "brain": "NOTION_AGENT",
+  "execution": "NOTION_AGENT-G1-E4E5-B",
+  "result": "PASS",
+  "recovered_from": {
+    "repository": "Ai-b0ss/kontur",
+    "ref": "autopilot/control-v2-20260819",
+    "path": "autonomy/free_fabric/evidence/PLATFORM-MEASUREMENTS-20260820/E5-SCHEDULED-RECOVERY/NOTION_AGENT_G1_A_CHECKPOINT.json",
+    "blob_sha": "25d37f43c407b9019279f89af5ae2d1f31b99f32",
+    "producer_execution": "NOTION_AGENT-G1-E4E5-A"
+  },
+  "fence_checks": {
+    "generation": "PASS",
+    "run_id": "PASS",
+    "task_id": "PASS",
+    "brain": "PASS"
+  },
+  "state": {
+    "phase": "prepared_for_next_scheduled_recovery",
+    "sequence": 1,
+    "effect_committed": false,
+    "brain": "NOTION_AGENT",
+    "execution": "NOTION_AGENT-G1-E4E5-A"
+  },
+  "state_sha256_expected": "de4b0fc04b0df52da9424090f3f5ab94e0dc047d812c9ca9fbc73a6a0eb62bbe",
+  "state_sha256_recomputed": "de4b0fc04b0df52da9424090f3f5ab94e0dc047d812c9ca9fbc73a6a0eb62bbe",
+  "claims": {
+    "cross_schedule_checkpoint_recovery": true,
+    "checkpoint_integrity_verified": true,
+    "scheduled_compute_status": "UNKNOWN_UNCHANGED",
+    "scheduled_library_publish_status": "UNKNOWN_UNCHANGED",
+    "wall_clock_used_for_correctness": false,
+    "semantic_search_used_for_correctness": false
+  },
+  "provenance": {
+    "owner_override": "/Autonomy/FREE_FABRIC/control/OWNER_OVERRIDE_G1.json",
+    "platform_contract": "/Autonomy/FREE_FABRIC/control/PLATFORM_CONTRACT_V0.json",
+    "run_manifest": "/Autonomy/FREE_FABRIC/manifests/RUN_PLATFORM_MEASUREMENTS_G1.json",
+    "probe_path": "autonomy/free_fabric/probes/e5_scheduled_recovery_probe.py",
+    "probe_blob_sha": "3ed45f9bb5c0c95980840745193f05b2e05c9ef8",
+    "verification_method": "exact checkpoint path/ref + manifest fence checks + canonical JSON SHA-256 recomputation"
+  }
+}

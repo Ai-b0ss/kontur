@@ -1,0 +1,98 @@
+--- a/RESTORE_RUNTIME_STATE.sh
++++ b/RESTORE_RUNTIME_STATE.sh
+@@ -3,14 +3,41 @@
+ : "${RUNTIME_STATE_KEY:?RUNTIME_STATE_KEY is required}"
+ runtime_state_key=$RUNTIME_STATE_KEY
+ unset RUNTIME_STATE_KEY
+-mkdir -p "$HOME/runtime-state-restored"
++trap 'unset runtime_state_key' EXIT
++out_root="$HOME/runtime-state-restored"
++if [ -e "$out_root" ] || [ -L "$out_root" ]; then
++  if [ ! -d "$out_root" ] || [ -L "$out_root" ]; then
++    echo "refusing unsafe restore root" >&2
++    exit 1
++  fi
++else
++  mkdir -m 700 -- "$out_root"
++fi
+ for f in .runtime-state/*.gpg; do
+   [ -e "$f" ] || continue
+-  out="$HOME/runtime-state-restored/$(basename "${f%.gpg}")"
+-  printf '%s\n' "$runtime_state_key" | \
+-    gpg --quiet --batch --yes --pinentry-mode loopback \
+-        --passphrase-fd 0 \
+-        --output "$out" --decrypt "$f"
++  out="$out_root/$(basename "${f%.gpg}")"
++  if [ -e "$out" ] || [ -L "$out" ]; then
++    if [ ! -f "$out" ] || [ -L "$out" ]; then
++      echo "refusing unsafe restore destination: $(basename "$out")" >&2
++      exit 1
++    fi
++  fi
++  tmp=$(mktemp "${out}.tmp.XXXXXXXX")
++  if printf '%s\n' "$runtime_state_key" | \
++      gpg --quiet --batch --yes --pinentry-mode loopback \
++          --passphrase-fd 0 \
++          --output "$tmp" --decrypt "$f"; then
++    if mv -f -- "$tmp" "$out"; then
++      :
++    else
++      rc=$?
++      rm -f -- "$tmp"
++      exit "$rc"
++    fi
++  else
++    rc=$?
++    rm -f -- "$tmp"
++    exit "$rc"
++  fi
+ done
+-unset runtime_state_key
+ echo "RUNTIME_STATE_RESTORE_COMPLETE"
+--- a/RESTORE_RUNTIME_STATE.ps1
++++ b/RESTORE_RUNTIME_STATE.ps1
+@@ -4,7 +4,16 @@
+ $runtimeStateKey = $env:RUNTIME_STATE_KEY
+ Remove-Item Env:RUNTIME_STATE_KEY -ErrorAction SilentlyContinue
+ $outRoot = Join-Path $HOME "runtime-state-restored"
+-New-Item -ItemType Directory -Path $outRoot -Force | Out-Null
++
++if (Test-Path -LiteralPath $outRoot) {
++    $rootItem = Get-Item -LiteralPath $outRoot -Force
++    $rootIsReparsePoint = (($rootItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)
++    if (-not $rootItem.PSIsContainer -or $rootIsReparsePoint) {
++        throw "unsafe restore root"
++    }
++} else {
++    New-Item -ItemType Directory -Path $outRoot | Out-Null
++}
+ 
+ $gpg = (Get-Command gpg.exe -ErrorAction SilentlyContinue).Source
+ if (-not $gpg) {
+@@ -17,8 +26,23 @@
+     Get-ChildItem -LiteralPath ".runtime-state" -Filter "*.gpg" -File | ForEach-Object {
+         $name = $_.Name.Substring(0,$_.Name.Length-4)
+         $out = Join-Path $outRoot $name
+-        $runtimeStateKey | & $gpg --quiet --batch --yes --pinentry-mode loopback --passphrase-fd 0 --output $out --decrypt $_.FullName
+-        if ($LASTEXITCODE -ne 0) { throw "gpg decrypt failed: $($_.Name)" }
++        if (Test-Path -LiteralPath $out) {
++            $outItem = Get-Item -LiteralPath $out -Force
++            $outIsReparsePoint = (($outItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)
++            if ($outItem.PSIsContainer -or $outIsReparsePoint) {
++                throw "unsafe restore destination: $name"
++            }
++        }
++        $tmp = Join-Path $outRoot (".{0}.tmp-{1}-{2}" -f $name,$PID,[guid]::NewGuid().ToString("N"))
++        try {
++            $runtimeStateKey | & $gpg --quiet --batch --yes --pinentry-mode loopback --passphrase-fd 0 --output $tmp --decrypt $_.FullName
++            if ($LASTEXITCODE -ne 0) { throw "gpg decrypt failed: $($_.Name)" }
++            [System.IO.File]::Move($tmp, $out, $true)
++        } finally {
++            if (Test-Path -LiteralPath $tmp) {
++                Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
++            }
++        }
+     }
+ } finally {
+     $runtimeStateKey = $null
+ }

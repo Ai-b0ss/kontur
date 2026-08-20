@@ -1,0 +1,54 @@
+{
+  "kind": "EXPERIMENT_EVIDENCE",
+  "task_id": "E7-LIBRARY-VISIBILITY",
+  "run_id": "PLATFORM-MEASUREMENTS-20260820",
+  "manifest_generation": 1,
+  "brain": "KONTUR",
+  "execution": {
+    "mode": "scheduled_chat",
+    "scheduler_mode": "STATIC_NO_CAS",
+    "global_mode": "ZERO_MINUTE",
+    "hosted_ci_used": false,
+    "product_mutation": false
+  },
+  "provenance": {
+    "owner_override": "/Autonomy/FREE_FABRIC/control/OWNER_OVERRIDE_G1.json",
+    "platform_contract": "/Autonomy/FREE_FABRIC/control/PLATFORM_CONTRACT_V0.json",
+    "manifest": "/Autonomy/FREE_FABRIC/manifests/RUN_PLATFORM_MEASUREMENTS_G1.json",
+    "task_spec": "E7-LIBRARY-VISIBILITY.json"
+  },
+  "observations": [
+    {
+      "id": "scheduled_read_existing_library_objects",
+      "result": "PASS",
+      "detail": "This scheduled KONTUR execution could open and read the existing OWNER_OVERRIDE_G1, PLATFORM_CONTRACT_V0, RUN_PLATFORM_MEASUREMENTS_G1 and E7 task spec from File Library after exact-name navigation."
+    },
+    {
+      "id": "recent_library_navigation_visibility",
+      "result": "PASS",
+      "detail": "Non-semantic recent-upload navigation for 2026-08-20 exposed the E7 task spec plus the manifest and control objects created before this execution."
+    },
+    {
+      "id": "canonical_bootstrap_exact_filename_discovery",
+      "result": "NOT_PROVEN",
+      "detail": "An exact filename lookup for FREE_FABRIC_BOOTSTRAP_V0_20260820.zip did not return the bootstrap object itself. This does not invalidate the existing durable-roundtrip proof in PLATFORM_CONTRACT_V0; it means direct path/filename retrieval of arbitrary Library objects is not proven by this surface."
+    },
+    {
+      "id": "scheduled_library_publish",
+      "result": "UNKNOWN",
+      "detail": "No supported direct File Library write/version-replace action was available or exercised. PLATFORM_CONTRACT_V0 already marks library.versioned_write BLOCKED and scheduled.library_publish UNKNOWN; this run does not upgrade either capability."
+    }
+  ],
+  "verdict": {
+    "scheduled_library_read_visibility": "PROVEN_FOR_EXISTING_RECENT_OBJECTS",
+    "arbitrary_exact_path_lookup": "NOT_PROVEN",
+    "scheduled_library_publish": "UNKNOWN",
+    "versioned_library_write": "BLOCKED"
+  },
+  "safety": {
+    "semantic_search_used_for_correctness": false,
+    "work_stealing": false,
+    "external_effect_reconciled": true,
+    "notes": "Only assigned E7 work was performed. No CircleCI/GitHub Actions/provider traffic/product branch mutation."
+  }
+}

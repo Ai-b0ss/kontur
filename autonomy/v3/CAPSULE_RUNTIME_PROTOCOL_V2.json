@@ -1,13 +1,20 @@
 {
   "schema": "free_fabric_capsule_runtime_protocol_v2",
-  "status": "HARDENED_EXECUTABLE_RUNTIME",
+  "status": "HARDENED_EXECUTABLE_RUNTIME_WITH_GITHUB_CAS",
   "implementation": "autonomy/v3/tools/capsule_runtime_v4.py",
   "supersedes": "autonomy/v3/CAPSULE_RUNTIME_PROTOCOL.json",
+  "proof": {
+    "synthetic_cross_machine": "PASS",
+    "real_product_kontur_restore": "PASS",
+    "real_product_kontur_v4_cas_publish": "PASS",
+    "kontur_latest_commit": "b2c4fa707e65383839cb9fffccb4fb68a49bf556"
+  },
   "invariants": {
     "local_mnt_data_is_disposable": true,
     "github_is_durable_store": true,
     "immutable_capsules": true,
     "latest_pointer_is_two_phase": true,
+    "latest_pointer_update_uses_github_blob_sha_compare_and_swap": true,
     "previous_pointer_is_rollback_target": true,
     "latest_never_points_to_unverified_capsule": true,
     "restore_verifies_every_part_and_archive": true,
@@ -16,22 +23,24 @@
     "cheap_dependency_caches_should_not_be_persisted": true
   },
   "worker_start": [
-    "Fetch LATEST.json; if invalid, fetch PREVIOUS.json.",
+    "Fetch LATEST.json and remember its Git blob SHA; if its capsule is invalid, fetch PREVIOUS.json.",
     "Fetch the referenced immutable manifest and each part separately.",
     "Materialize them locally and run capsule_runtime_v4.py restore.",
     "If neither pointer restores, materialize exact source from GitHub and continue useful product work."
   ],
   "worker_finish": [
-    "Write checkpoint.json inside the workspace before packing.",
-    "Run capsule_runtime_v4.py pack; this creates an immutable capsule and LATEST.json.pending locally.",
+    "Write checkpoint inside the workspace before packing.",
+    "Run capsule_runtime_v4.py pack; this creates an immutable capsule and local pending pointer.",
     "Upload every part and manifest to a new immutable GitHub capsule directory.",
-    "Read every uploaded part back and verify exact length/hash plus archive SHA.",
-    "Only then publish the new LATEST.json pointer; preserve the old pointer as PREVIOUS.json.",
+    "Read every uploaded part back and verify its Git blob SHA/length against local bytes; verify manifest and archive SHA.",
+    "Re-read LATEST.json immediately before publication. If its Git blob SHA changed since this run started, another writer won: do not overwrite it; preserve this capsule as an immutable orphan/checkpoint and reconcile on the next run.",
+    "If the parent SHA is unchanged, preserve old LATEST as PREVIOUS, then update LATEST using GitHub update_file with that exact parent blob SHA. A stale writer must fail rather than overwrite a newer pointer.",
     "If publication is interrupted before LATEST, the old capsule remains current."
   ],
   "failure_policy": [
     "Never repair unknown capsule bytes from conversation memory.",
     "On corrupt LATEST, fall back to PREVIOUS.",
+    "On CAS conflict, never force-write LATEST; accept the newer writer and reconcile next run.",
     "If both capsules fail, exact GitHub source is the recovery floor, not a reason to stop product work."
   ]
 }

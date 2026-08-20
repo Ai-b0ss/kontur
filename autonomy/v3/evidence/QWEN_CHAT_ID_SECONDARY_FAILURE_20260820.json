@@ -1,0 +1,35 @@
+{
+  "kind": "FREE_FABRIC_V3_PRODUCT_EVIDENCE",
+  "date": "2026-08-20",
+  "project": "qwen-free-api",
+  "source_head": "3c240d713ebc3a5b6237ff3336dae9e5465f356f",
+  "finding": "sendChatRequest applies a second generic markFailure('Failed to generate chat_id') after generateChatID has already classified and persisted the concrete failure for the same account",
+  "exact_source": {
+    "qwen_client_fact": "generateChatID marks CAPTCHA/rate-limit/auth/no-chat-id itself and returns null; sendChatRequest then marks the same account again when accountChatId is null",
+    "account_store_fact": "markFailure increments failures and replaces lastError while preserving the stronger cooldown via max(existing unavailableUntil, new backoff)",
+    "observed_pattern": "if (!accountChatId) { accountStore.markFailure(account, 'Failed to generate chat_id'); continue; }"
+  },
+  "local_reproduction": {
+    "environment": "ChatGPT hosted Node 22",
+    "provider_traffic": false,
+    "captcha_baseline": {
+      "failures": 2,
+      "lastError": "Failed to generate chat_id",
+      "meaning": "the original CAPTCHA classification is overwritten by a synthetic follow-up failure"
+    },
+    "patched_behavior": {
+      "captcha_failures": 1,
+      "captcha_lastError": "CAPTCHA on /chats/new status=200",
+      "generic_no_chat_id_failures": 1,
+      "generic_no_chat_id_lastError": "Qwen did not return a chat id"
+    }
+  },
+  "required_behavior": {
+    "classified_failure": "count and persist exactly once at the layer that classifies it",
+    "sendChatRequest_null_chat_id": "continue failover without adding a second generic failure",
+    "cooldown": "preserve the existing monotonic cooldown invariant",
+    "thread_affinity": "do not change account/chat ownership semantics"
+  },
+  "hosted_ci": false,
+  "live_qwen": false
+}

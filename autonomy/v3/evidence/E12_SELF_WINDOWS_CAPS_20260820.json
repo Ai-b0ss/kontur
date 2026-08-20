@@ -1,0 +1,37 @@
+{
+  "kind": "FREE_FABRIC_V3_CAPABILITY_EVIDENCE",
+  "date": "2026-08-20",
+  "goal": "measure how close the ChatGPT hosted machine is to running a Windows VM internally",
+  "observed": {
+    "host_arch": "x86_64",
+    "cpu_virtualization_flag": "svm present",
+    "dev_kvm": false,
+    "qemu_installed": false,
+    "wine_installed": false,
+    "docker_installed": false,
+    "podman_installed": false,
+    "dev_fuse": false,
+    "dev_net_tun": false,
+    "user_namespace_unshare": true,
+    "cap_sys_admin": false,
+    "mount_tmpfs": "permission denied",
+    "outbound_dns_github": "blocked/timeout",
+    "outbound_direct_ip": "blocked",
+    "cpu_cgroup": "400000 100000",
+    "memory_cgroup": "4294967296",
+    "filesystem_total_approx": "63 GiB",
+    "filesystem_free_approx": "38 GiB"
+  },
+  "interpretation": {
+    "hardware_virtualization": "host CPU supports it but the guest is not given /dev/kvm",
+    "full_emulation": "technically still possible if a user-space emulator such as QEMU plus firmware and image can be injected into the machine",
+    "normal_package_install_from_internet": "not available through the container network",
+    "next_best_route": "inject emulator/packages/image through an allowed file bridge, then attempt software-only x86_64 emulation"
+  },
+  "safety": {
+    "cloudflare": false,
+    "circleci": false,
+    "github_actions_started": false,
+    "production": false
+  }
+}

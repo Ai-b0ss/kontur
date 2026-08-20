@@ -1,0 +1,34 @@
+{
+  "kind": "FREE_FABRIC_V3_PRODUCT_EVIDENCE",
+  "date": "2026-08-20",
+  "project": "qwen-free-api",
+  "source_head": "b87793e39ba4a03571dafbaad96b099b38742cf1",
+  "finding": "server route can revive an unavailable current/preferred account after accountStore.candidates() correctly returns an empty list",
+  "exact_source": {
+    "server_js": {
+      "observed_patterns": [
+        "options.account || accountStore.candidates()[0] || accountStore.current()",
+        "savedAccountAvailable ? savedAccount : (accountStore.candidates()[0] || accountStore.current())",
+        "const nextAccount = accountStore.candidates()[0] || preferredAccount"
+      ]
+    },
+    "account_store_js_sha": "713bb195b0bf05a438480e30dffcd87b95a7939e",
+    "account_store_fact": "candidates() filters through isAvailable() and returns [] when none are eligible; current() does not perform that eligibility check",
+    "qwen_v3_capabilities_sha": "d91782d8199f4fcd7a0f0eeb995831f4dd328321",
+    "capabilities_fact": "resolveCapabilityAccount already fails closed with QWEN_NO_ELIGIBLE_ACCOUNT when no candidate exists"
+  },
+  "required_behavior": {
+    "no_accounts_configured": "401 unauthorized",
+    "accounts_configured_but_none_eligible": "503 QWEN_NO_ELIGIBLE_ACCOUNT",
+    "stream_empty_retry_with_no_candidate": "return null; never revive preferredAccount",
+    "governed_preprocessing_with_no_candidate": "fail closed"
+  },
+  "verification_required": [
+    "existing account-selection-policy regression",
+    "new server-source/runtime regression for no eligible account",
+    "opencode thread-affinity regression",
+    "relevant server session/restart regressions"
+  ],
+  "provider_traffic": false,
+  "hosted_ci": false
+}

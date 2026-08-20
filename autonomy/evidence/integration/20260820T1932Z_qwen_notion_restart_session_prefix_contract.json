@@ -1,0 +1,61 @@
+{
+  "schema": "integration_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "created_at_utc": "2026-08-20T19:32:00Z",
+  "status": "REPRODUCED_CONTRACT_GAP",
+  "scope": "Notion delegation -> persisted Qwen coding subagent restart identity",
+  "sources": {
+    "notion_pr8_head": "a0f4c4082e9ef356522d441eb7b3172a3f5fdd47",
+    "notion_delegation_policy_blob": "779f3f6cfa35f9e576d283aadc54fdc57a8efec8",
+    "notion_delegation_dispatcher_blob": "66d839a1db347684f2fa2681ceaf98600415298d",
+    "qwen_pr6_head": "87ae1c6af2440f92ff054de894e1e12535787dbd",
+    "qwen_subagent_runner_blob": "48ea5e2b3a4b7470b2bfedb3d32db00dd024b406",
+    "qwen_batch_store_blob": "2daf62dcbf2a38293c3655b9e437374edbf0bd25"
+  },
+  "finding": {
+    "summary": "Stable taskId/batchId alone is insufficient for persisted Qwen delegation. Qwen includes sessionPrefix in the persisted batch execution signature, while the coding-subagent runner generates a random sessionPrefix when the caller does not provide one. A restarted Notion->Qwen adapter that reuses the same batchId but omits a deterministic sessionPrefix will hit QWEN_SUBAGENT_BATCH_SIGNATURE_MISMATCH before it can observe/resume done, running, or uncertain task state.",
+    "qwen_contract": [
+      "safeSessionPrefix() defaults to subagent-agent-<randomUUID>",
+      "executionSignatureContext() includes sessionPrefix",
+      "subagent-batch-store ensure() rejects an existing batchId when its signature differs"
+    ],
+    "notion_contract": "DelegationRequest currently carries stable task_id/parent_turn_id/conversation_key but no Qwen-specific restart identity. The future Qwen adapter therefore must derive every persisted Qwen identity deterministically rather than relying on Qwen defaults."
+  },
+  "offline_reproduction": {
+    "environment": "ChatGPT hosted Python; no provider/CI/network execution",
+    "fixture": "same task/model/settings/batch identity, two different random-style sessionPrefix values",
+    "first_signature": "daae001599f97d458bfd5fdcb02549c2e11c3bfae9c9e37d0ee24d7103bf45d0",
+    "restart_signature": "eaadb64216dc853b8e2ea75f34f87bf6064a43cc6c311506a71eb39a4126239d",
+    "signatures_equal": false,
+    "consequence": "existing batchId would be rejected as QWEN_SUBAGENT_BATCH_SIGNATURE_MISMATCH"
+  },
+  "candidate_contract": {
+    "canonical_external_identity": "normalized parent_turn_id + NUL + normalized task_id",
+    "derive_with": "sha256(canonical_external_identity)",
+    "qwen_task_id": "qwen-task-<first24hex>",
+    "qwen_batch_id": "qwen-batch-<first32hex>",
+    "qwen_session_prefix": "qwen-delegate-<first32hex>",
+    "example_for_parent_alpha_child_1": {
+      "task_id": "qwen-task-9dc6cbe0a2136f775f2ddcce",
+      "batch_id": "qwen-batch-9dc6cbe0a2136f775f2ddcce52765aac",
+      "session_prefix": "qwen-delegate-9dc6cbe0a2136f775f2ddcce52765aac"
+    },
+    "requirements": [
+      "all three values must remain identical after process restart",
+      "retryUncertain must remain false unless an explicit owner/recovery decision enables it",
+      "adapter must not create a fresh batchId/sessionPrefix to escape uncertain/running state",
+      "max_model_turns above Qwen HARD_MAX_ROUNDS must be rejected or explicitly negotiated, never silently weakened",
+      "successful Qwen result with empty text must preserve completed status rather than cause a fresh execution"
+    ]
+  },
+  "regression_probe": "autonomy/v3/tools/integration_qwen_notion_restart_identity_probe.py",
+  "recommended_owner_fix": "Implement the deterministic mapping in the future Qwen delegation adapter and add a restart regression that creates a persisted uncertain/running batch, reconstructs the adapter, and proves the same taskId/batchId/sessionPrefix reaches the existing record. Do not change Qwen persistence semantics merely to hide the adapter identity bug unless Qwen Core explicitly chooses that API contract.",
+  "mutations": {
+    "qwen_product": false,
+    "notion_product": false,
+    "hosted_ci": false,
+    "provider_traffic": false,
+    "production": false,
+    "secrets": false
+  }
+}

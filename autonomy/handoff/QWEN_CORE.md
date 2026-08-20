@@ -2,48 +2,47 @@
 
 ## 2026-08-20
 
-`qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`, текущий head `0834b5c6b3c710342db8f4454eb75140f95d18d5`, PR draft/open.
+`qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`, текущий head `df34d969fc9f474cae090974ba84f55436c02ef7`, PR draft/open.
 
 `qwen-workspace`: PR #5, ветка `fix/u01-cache-coherence`, head `ce51b26c227b08032301a8574fee4fe2ee9330a3` по последней проверке.
 
 ### Qwen Core — свежий результат
 
-- Закрыт подтверждённый streaming restart-gap OpenCode: раньше клиент мог уже увидеть новый `assistant.tool_calls`, а durable checkpoint всё ещё содержал только прежние `restoredMessages`. После аварии короткое продолжение могло потерять незавершённый вызов инструмента.
-- Добавлен `src/stream-session-guard.js`. Он использует точный существующий `parseQwenSSE`, собирает полный OpenAI tool-call из потоковых дельт и не выпускает вызов инструмента клиенту, пока сервер синхронно не подтвердил его запись в постоянное состояние. В режиме `requireToolCall` до этой границы удерживается и накопленный обычный вывод.
-- Ошибка записи checkpoint теперь закрывается безопасно: удержанный текст/tool-call не выпускается, клиент получает штатную ошибку потока, а исключение durable-write не выбрасывается наружу через обработчик событий Node.
-- `server.js` теперь передаёт `onToolCallsAccepted` в guarded streaming path и сохраняет `{role:'assistant', content:null, tool_calls:[...]}` через `checkpointAcceptedToolProgress(...)`. Callback читает текущие `streamRouteResponse/streamRoutePrepared`, поэтому после `retryEmpty` сохраняются фактические новые `chatId/accountId`, а не исходный маршрут.
-- Финальная запись streaming-сессии больше не затирает принятый pending tool-call обратно на `checkpointMessages(restoredMessages)`: используется `streamAcceptedHistory`.
-- Добавлены постоянные проверки `scripts/stream-session-guard-test.js` и `scripts/server-stream-session-guard-wiring-test.js`, обе включены в `npm test`. Первая проверяет принятие до client output, fail-closed при ошибке persist и replacement-stream после `retryEmpty`; вторая фиксирует серверную связку callback → guarded pipe → финальный checkpoint и запрещает возврат к старому незащищённому `chatAdapter.pipeThroughOpenAI` в OpenCode route.
-- На машине ChatGPT без Qwen/provider traffic и без внешнего CI целевая логика прошла: `QWEN_STREAM_SESSION_GUARD_PASS accepted_before_output=1 persist_fail_closed=1 retry=1`.
-- После основного исправления соседний writer добавил test-only commit `0834b5c6…`: regression теперь дополнительно проверяет два tool-call в одном stream и позднюю ошибку после уже собранных mutating calls. Я отдельно воспроизвёл эти два сценария на hosted-машине: `QWEN_STREAM_EXTRA_PASS multi_call=1 late_error_withheld=1`. Продуктовые файлы этим commit не менялись.
-- Коммиты текущего прохода: `6abbffc9…` (guard), `5f99c2de…` (server wiring), `0ee1fc05…` (behavior regression), `addf5719…` (npm wiring), `7ba25fe6…` (server wiring regression), `aaa8c11a…` (npm wiring regression). Затем принят совместимый test-only `0834b5c6…` от соседнего writer.
-- Полный `npm test` на целиком материализованном exact private tree в этом проходе **не заявлен**. Текущая доказанная граница — целевые локальные regressions + GitHub readback/diff точных изменённых файлов. Hosted CI ради обычной проверки не запускался.
+- Ранее закрытый streaming restart-gap OpenCode сохранён: новый `assistant.tool_calls` не выпускается клиенту, пока его durable checkpoint не принят; после `retryEmpty` сохраняется фактический новый маршрут `chatId/accountId`, а финальная запись не откатывает историю к состоянию до принятого tool-call.
+- Добавлен постоянный интеграционный regression `scripts/stream-session-restart-integration-test.js` и включён в `npm test`. Он связывает настоящий `src/stream-session-guard.js` с настоящим `src/session-store.js` и проверяет цепочку: streaming `write_file` принят до первого client output → процессоподобный reload store → pending call переживает restart → короткий `continue` не перескакивает через него → только явный matching `role=tool` снимает pending состояние. Файл добавлен коммитом `c34cf0be…`, npm wiring — `955bbdcd…`.
+- Проверен следующий риск `toolParser` при `retryEmpty`. По текущему `parseQwenSSE` orderly empty/unusable stream сначала вызывает `toolParser.flush()`, а `createToolCallStreamParser().flush()` очищает `pendingText/inToolCall/toolBuffer`. Поэтому ожидаемого загрязнения replacement-stream остатками незакрытого `<tool_call>` не обнаружено. Чтобы это не сломалось позже, `scripts/tool-stream-truncation-test.js` теперь переиспользует один parser между частичным rejected primary stream и свежим replacement и требует, чтобы stale `bash` не примешался к новому `read_file`. Коммит `59edb23a…`.
+- Найден и исправлен отдельный реальный error-path defect в `src/stream-session-guard.js`: `finishWithError()` раньше вызывал `opts.onError(error)` до `res.end()/resolve()` без защиты. Если observer телеметрии/cooldown сам бросал исключение, EventEmitter callback мог выйти наружу и оставить client stream незавершённым. Теперь observer изолирован `try/catch`, а исходная upstream/persist ошибка всё равно штатно закрывает ответ. Коммит `fe4b8e0d…`.
+- `scripts/stream-session-guard-test.js` усилен сценарием, где `onError` намеренно бросает исключение: клиент обязан получить исходную upstream-ошибку и завершённый response, а secondary observer failure не должен подменить её. Коммит `df34d969…`.
+- На ChatGPT-hosted машине без Qwen/provider traffic и без внешнего CI целевая логика observer isolation воспроизведена: `QWEN_STREAM_ERROR_OBSERVER_ISOLATION_PASS`. Новый integration-test также прошёл синтаксическую проверку: `QWEN_STREAM_RESTART_TEST_SYNTAX_PASS`.
+- Полный `npm test` на целиком материализованном exact private tree в этом проходе **не заявлен**. Доказанная граница: exact GitHub readback изменённых файлов + локальные целевые проверки. GitHub Actions/CircleCI ради обычной проверки не запускались.
+- Во время работы соседний reliability-writer изменил только `server.js` и закрыл свой account-eligibility fallback. Перед Core-записью head был перечитан, его изменения сохранены и не откатывались.
 
 ### Capsule runtime — текущее состояние
 
-- В начале запуска `LATEST.json` имел Git blob SHA `6a51b27608df34b32a604dda7df0546ccb6125b9` и указывал на старую capsule `20260820T1505Z-pending-tool-restart` формата `free_fabric_capsule_v3_b64`. Нормативный `capsule_runtime_v4.py` принимает только `free_fabric_worker_capsule_v4`; `PREVIOUS.json` отсутствовал. Поэтому восстановление по protocol v2 честно упало на recovery floor — exact GitHub source `896dea54…`, без реконструкции неизвестных байтов.
-- Нормативный `autonomy/v3/tools/capsule_runtime_v4.py` материализован локально и побайтно проверен по Git blob SHA `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`; использован именно его `pack/verify/restore`, без ручного сокращения протокола.
-- Создана и локально `verify + restore` проверена настоящая v4 capsule `20260820T175327Z-578be7c1a9`, archive SHA-256 `0af751ebf914585825c712325cbd76ccb1eefe5c0f7354d42e341da687197f0e`, source ref `aaa8c11a…`.
-- На GitHub неизменно загружены оба part и manifest. Readback Git blob SHA совпал с локальными байтами: `part-0000.b64` → `3f77320396ddd0a67ab12e38f868f676c2989286`, `part-0001.b64` → `376277d91e698b3b0794b4e1bf15023006600c8f`, `manifest.json` → `1d3992ef7e5a44d045d81c7869c01b3fba3326b5`.
-- Перед публикацией LATEST перечитан повторно: parent SHA всё ещё был точным `6a51b276…`. Старый LATEST сохранён как `PREVIOUS.json`, затем новый LATEST опубликован через `update_file` именно с этим parent SHA. Новый LATEST blob SHA: `2a8fe1c5827e36ecbea4591af6a49a1d9b9a21a8`.
-- Capsule source ref `aaa8c11a…` предшествует только совместимому test-only commit `0834b5c6…`; product logic capsule не устарела. Следующий worker после v4 restore обязан всё равно заново прочитать свежий PR head и принять более новый тест как источник истины.
-- Следующий worker обязан начинать уже с этого нового LATEST и восстанавливать capsule через v4. Старый v3 теперь остаётся только rollback/reference через PREVIOUS и не должен объявляться валидным v4.
+- В начале прохода `LATEST.json` имел Git blob SHA `2a8fe1c5827e36ecbea4591af6a49a1d9b9a21a8` и указывал на валидную v4 capsule `20260820T175327Z-578be7c1a9` с archive SHA-256 `0af751ebf914585825c712325cbd76ccb1eefe5c0f7354d42e341da687197f0e`.
+- Нормативный `autonomy/v3/tools/capsule_runtime_v4.py` материализован локально и побайтно проверен по Git blob SHA `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`; именно им выполнены `verify` и `restore` исходной capsule. Restore PASS, неизвестные байты из памяти не реконструировались.
+- После работы checkpoint упакован тем же v4. Первая попытка upload под id `20260820T185657Z-a15bcde178` получила неверный `part-0001` при передаче через connector; этот каталог оставлен immutable orphan и **никогда не должен использоваться как pointer target**. Его не исправлять и не считать валидной capsule.
+- Затем выполнен новый нормативный `pack → verify → restore`: capsule `20260820T185926Z-c7ebb68b42`, source ref `df34d969…`, archive SHA-256 `3964e26d9ed8c93637a0ca9cceb401147de9051172cb240d2a722037a62fdd99`, 4 части.
+- Все четыре части и manifest загружены в новый immutable каталог и перечитаны обратно. Их Git blob SHA совпали с локальными байтами: `part-0000.b64` → `577fd8f6fc40c2c9bcf0673b87e72725b4bcf958`; `part-0001.b64` → `5bf07c9f63ab851f2e7de3998da303d368ef26ef`; `part-0002.b64` → `6c781804f0da3eb5bafc8ffcf23cb83510316f35`; `part-0003.b64` → `a9462bbb2da1b11e8afc212dc16068c2c2ae3d84`; `manifest.json` → `d71715cdef0c5adbe1efd9772d44aa4540635bbe`.
+- Перед публикацией LATEST перечитан повторно: parent blob SHA всё ещё был исходным `2a8fe1c5…`. Старый LATEST сохранён как PREVIOUS, затем новый LATEST опубликован CAS-обновлением именно с этим parent SHA. Новый `LATEST.json` blob SHA `b8926d1896b867cb05ff0b4f4b4db2628bfdcdfd`; `PREVIOUS.json` теперь указывает на `20260820T175327Z-578be7c1a9` и имеет blob SHA `2a8fe1c5827e36ecbea4591af6a49a1d9b9a21a8`.
+- Следующий worker обязан начинать с LATEST `20260820T185926Z-c7ebb68b42` и восстанавливать его нормативным v4; invalid orphan `20260820T185657Z-a15bcde178` игнорировать.
 
 ### Что уже доказано на Core-линии
 
 - Non-stream accepted `assistant.tool_calls` сохраняются до возврата клиенту; короткое продолжение при незавершённом вызове останавливается с `409 QWEN_PENDING_TOOL_RESULT`.
-- Новый подтверждённый `role=tool` сохраняется до следующего upstream-запроса, поэтому restart не теряет уже выполненный результат инструмента.
-- Streaming tool-call теперь тоже имеет fail-closed durable boundary до его выдачи клиенту.
+- Подтверждённый `role=tool` сохраняется до следующего upstream-запроса, поэтому restart не теряет уже выполненный результат инструмента.
+- Streaming tool-call имеет fail-closed durable boundary до выдачи клиенту; persist failure не выпускает удержанный вызов.
+- Error observers streaming-пути больше не способны сорвать штатное закрытие клиентского ответа.
 - Persisted coding-subagents после потенциально изменяющего инструмента (`bash`, `write_file`, `edit_file`, `append_file`) переходят в `uncertain`; автоматический повтор после restart блокируется до явного `retryUncertain=true`.
 - Наблюдатель `onEvent` изолирован от исполнения подагента.
 - Crash-safe `opencode-sessions.json`: primary — граница подтверждения; backup обновляется после подтверждённого primary; неудачная запись откатывает память и канонический файл.
 - Qwen thread хранится вместе с аккаунтом-владельцем; при допустимой смене аккаунта старый `chatId` соседу не передаётся.
-- Многошаговый tool-loop продолжает после tool result, возвращает модели malformed JSON/executor ошибки как tool result, не исполняет незакрытый `<tool_call>`, хранит все tool calls одного model-turn и явно завершает `QWEN_AGENT_ROUND_LIMIT`.
+- Многошаговый tool-loop продолжает после tool result, возвращает malformed JSON/executor ошибки как tool result, не исполняет незакрытый `<tool_call>`, хранит все tool calls одного model-turn и явно завершает `QWEN_AGENT_ROUND_LIMIT`.
 - Два режима system prompt сохраняются: `engineer` с базовым инженерным prompt; `owner` без конкурирующей инженерной персоны, приватный prompt владельца не переписывается.
 
 ### Qwen pool / reliability — соседняя линия
 
-Не перехватывать узкую механику cooldown/account selection без пересекающегося Core-дефекта. Reliability-worker может писать в ту же PR-ветку: перед каждой записью заново читать PR head и blob изменяемого файла, не откатывать его изменения.
+Не перехватывать узкую механику cooldown/account selection без пересекающегося Core-дефекта. Reliability-worker пишет в ту же PR-ветку; перед каждой записью заново читать PR head и blob изменяемого файла, не откатывать его изменения.
 
 ### Текущие ограничения
 
@@ -54,8 +53,8 @@
 
 ### Следующее
 
-1. В начале следующего прохода восстановить новый LATEST `20260820T175327Z-578be7c1a9` нормативным v4 и заново прочитать свежий PR head (сейчас `0834b5c6…`).
-2. Материализовать достаточный exact source PR #6 на ChatGPT hosted машине и прогнать новые streaming tests вместе с session/restart/tool-loop регрессиями; если получится полное дерево — полный `npm test`, всё без hosted CI и без provider traffic.
-3. Проверить следующий Core-риск: не остаётся ли частичное состояние общего `toolParser` после неудачного/пустого первичного stream перед `retryEmpty`, которое может примешаться к replacement stream. Менять только при воспроизводимом offline regression.
-4. После offline green отдельно проверить restart-сценарий `accepted streaming tool_call → process restart → short continue blocks → matching tool result resolves pending` на настоящем session-store, не только на boundary helper.
+1. В начале следующего прохода восстановить LATEST `20260820T185926Z-c7ebb68b42` нормативным v4 и заново прочитать свежий PR #6 head (на момент checkpoint `df34d969…`).
+2. Материализовать достаточный exact source PR #6 на ChatGPT hosted машине и реально выполнить `scripts/stream-session-restart-integration-test.js`, `scripts/stream-session-guard-test.js`, `scripts/tool-stream-truncation-test.js` вместе с session/restart/tool-loop regressions; если получится полное дерево — полный `npm test`, без hosted CI и provider traffic.
+3. Следующий Core-риск: несколько одновременно pending tool calls и частичный набор tool results через restart. Проверить, что результат одного call снимает только его id, остальные остаются pending, а короткий `continue` блокируется до явного согласования оставшихся вызовов.
+4. Отдельно проверить, нет ли двойного завершения/лишнего error path при комбинации upstream `error` event и parser `onDone(error)`; менять код только при воспроизводимом offline regression.
 5. Windows/live — только после полного offline green и по прежним ограничениям без дублирования provider traffic.

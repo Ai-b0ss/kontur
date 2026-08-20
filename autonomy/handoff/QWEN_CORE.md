@@ -2,7 +2,7 @@
 
 ## 2026-08-20
 
-`qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`, текущий head `aaa8c11a32c8b4a88d31c48cddde178b4677addf`, PR draft/open.
+`qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`, текущий head `0834b5c6b3c710342db8f4454eb75140f95d18d5`, PR draft/open.
 
 `qwen-workspace`: PR #5, ветка `fix/u01-cache-coherence`, head `ce51b26c227b08032301a8574fee4fe2ee9330a3` по последней проверке.
 
@@ -15,8 +15,9 @@
 - Финальная запись streaming-сессии больше не затирает принятый pending tool-call обратно на `checkpointMessages(restoredMessages)`: используется `streamAcceptedHistory`.
 - Добавлены постоянные проверки `scripts/stream-session-guard-test.js` и `scripts/server-stream-session-guard-wiring-test.js`, обе включены в `npm test`. Первая проверяет принятие до client output, fail-closed при ошибке persist и replacement-stream после `retryEmpty`; вторая фиксирует серверную связку callback → guarded pipe → финальный checkpoint и запрещает возврат к старому незащищённому `chatAdapter.pipeThroughOpenAI` в OpenCode route.
 - На машине ChatGPT без Qwen/provider traffic и без внешнего CI целевая логика прошла: `QWEN_STREAM_SESSION_GUARD_PASS accepted_before_output=1 persist_fail_closed=1 retry=1`.
-- Коммиты текущего прохода: `6abbffc9…` (guard), `5f99c2de…` (server wiring), `0ee1fc05…` (behavior regression), `addf5719…` (npm wiring), `7ba25fe6…` (server wiring regression), `aaa8c11a…` (npm wiring regression).
-- Полный `npm test` на целиком материализованном exact private tree в этом проходе **не заявлен**. Текущая доказанная граница — целевой локальный regression + GitHub readback/diff точных изменённых файлов. Hosted CI ради обычной проверки не запускался.
+- После основного исправления соседний writer добавил test-only commit `0834b5c6…`: regression теперь дополнительно проверяет два tool-call в одном stream и позднюю ошибку после уже собранных mutating calls. Я отдельно воспроизвёл эти два сценария на hosted-машине: `QWEN_STREAM_EXTRA_PASS multi_call=1 late_error_withheld=1`. Продуктовые файлы этим commit не менялись.
+- Коммиты текущего прохода: `6abbffc9…` (guard), `5f99c2de…` (server wiring), `0ee1fc05…` (behavior regression), `addf5719…` (npm wiring), `7ba25fe6…` (server wiring regression), `aaa8c11a…` (npm wiring regression). Затем принят совместимый test-only `0834b5c6…` от соседнего writer.
+- Полный `npm test` на целиком материализованном exact private tree в этом проходе **не заявлен**. Текущая доказанная граница — целевые локальные regressions + GitHub readback/diff точных изменённых файлов. Hosted CI ради обычной проверки не запускался.
 
 ### Capsule runtime — текущее состояние
 
@@ -25,6 +26,7 @@
 - Создана и локально `verify + restore` проверена настоящая v4 capsule `20260820T175327Z-578be7c1a9`, archive SHA-256 `0af751ebf914585825c712325cbd76ccb1eefe5c0f7354d42e341da687197f0e`, source ref `aaa8c11a…`.
 - На GitHub неизменно загружены оба part и manifest. Readback Git blob SHA совпал с локальными байтами: `part-0000.b64` → `3f77320396ddd0a67ab12e38f868f676c2989286`, `part-0001.b64` → `376277d91e698b3b0794b4e1bf15023006600c8f`, `manifest.json` → `1d3992ef7e5a44d045d81c7869c01b3fba3326b5`.
 - Перед публикацией LATEST перечитан повторно: parent SHA всё ещё был точным `6a51b276…`. Старый LATEST сохранён как `PREVIOUS.json`, затем новый LATEST опубликован через `update_file` именно с этим parent SHA. Новый LATEST blob SHA: `2a8fe1c5827e36ecbea4591af6a49a1d9b9a21a8`.
+- Capsule source ref `aaa8c11a…` предшествует только совместимому test-only commit `0834b5c6…`; product logic capsule не устарела. Следующий worker после v4 restore обязан всё равно заново прочитать свежий PR head и принять более новый тест как источник истины.
 - Следующий worker обязан начинать уже с этого нового LATEST и восстанавливать capsule через v4. Старый v3 теперь остаётся только rollback/reference через PREVIOUS и не должен объявляться валидным v4.
 
 ### Что уже доказано на Core-линии
@@ -52,7 +54,7 @@
 
 ### Следующее
 
-1. В начале следующего прохода восстановить новый LATEST `20260820T175327Z-578be7c1a9` нормативным v4 и заново прочитать свежий PR head.
+1. В начале следующего прохода восстановить новый LATEST `20260820T175327Z-578be7c1a9` нормативным v4 и заново прочитать свежий PR head (сейчас `0834b5c6…`).
 2. Материализовать достаточный exact source PR #6 на ChatGPT hosted машине и прогнать новые streaming tests вместе с session/restart/tool-loop регрессиями; если получится полное дерево — полный `npm test`, всё без hosted CI и без provider traffic.
 3. Проверить следующий Core-риск: не остаётся ли частичное состояние общего `toolParser` после неудачного/пустого первичного stream перед `retryEmpty`, которое может примешаться к replacement stream. Менять только при воспроизводимом offline regression.
 4. После offline green отдельно проверить restart-сценарий `accepted streaming tool_call → process restart → short continue blocks → matching tool result resolves pending` на настоящем session-store, не только на boundary helper.

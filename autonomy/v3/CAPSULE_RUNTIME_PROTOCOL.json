@@ -1,0 +1,56 @@
+{
+  "schema": "free_fabric_capsule_runtime_protocol_v1",
+  "status": "ENABLED_AFTER_CROSSRUN_PASS",
+  "proof": {
+    "branch": "autonomy/capsule-v3-crossrun-20260820",
+    "verdict_path": "autonomy/v3/evidence/CAPSULE_V3_CROSSRUN_VERDICT.json",
+    "verdict": "PASS"
+  },
+  "implementation": "autonomy/v3/tools/capsule_v3.py",
+  "purpose": "Keep a worker workspace and checkpoint across disposable ChatGPT hosted machines without CircleCI or Cloudflare.",
+  "rules": {
+    "github_is_durable_store": true,
+    "local_mnt_data_is_disposable": true,
+    "file_library_is_optional_only": true,
+    "hosted_ci_for_capsules": false,
+    "provider_traffic_for_capsules": false,
+    "immutable_capsules": true,
+    "one_writer_per_worker": true
+  },
+  "layout": {
+    "capsule_root": "autonomy/v3/workspaces/<WORKER>/<CAPSULE_ID>/",
+    "manifest": "manifest.json",
+    "parts": "parts/part-0000.b64 ...",
+    "latest_pointer": "autonomy/v3/workspaces/<WORKER>/LATEST.json"
+  },
+  "start_of_run": [
+    "Read the worker handoff and LATEST.json if it exists.",
+    "Fetch every listed capsule part separately through the GitHub connector.",
+    "Verify each part length/hash from manifest before concatenation.",
+    "Decode and verify archive size/SHA before extraction.",
+    "Extract only with path traversal protection.",
+    "Verify workspace manifest before continuing work.",
+    "If no valid capsule exists, materialize exact source once and then create the first capsule."
+  ],
+  "end_of_run": [
+    "After meaningful work, make a checkpoint inside the workspace describing exact source SHA, completed work, tests and next action.",
+    "Pack the smallest useful workspace, not caches that can cheaply be regenerated.",
+    "Split base64 representation into separate GitHub files small enough to be fetched without truncation; default 2048 characters per part for maximum reliability.",
+    "Create all immutable part files and manifest first.",
+    "Only after every part is durably readable and its Git blob SHA matches the local bytes, update this worker's LATEST.json to the new capsule.",
+    "Never point LATEST.json at a partial capsule."
+  ],
+  "failure_policy": [
+    "If restore verification fails, do not reconstruct missing bytes from conversation memory.",
+    "Fall back to the previous valid capsule referenced by history/handoff if available.",
+    "A capsule failure is not permission to stop useful product work when exact source can still be materialized from GitHub."
+  ],
+  "crossrun_acceptance": {
+    "archive_bytes": "PASS",
+    "unknown_marker_recovery": "PASS",
+    "symlink": "PASS",
+    "chmod": "PASS",
+    "sqlite": "PASS",
+    "checkpoint_continuation": "PASS"
+  }
+}

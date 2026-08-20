@@ -21,7 +21,7 @@
 - transport error после принятого SSE проходит в account/provider classification ровно один раз;
 - удаление аккаунта после durable rename больше не расходится между диском и памятью при сбое cleanup tombstone.
 
-## Закрыто в этом запуске: пустой initial SSE снова выбирал тот же preferred account
+## Закрыто: пустой initial SSE снова выбирал тот же preferred account
 
 Исходный дефект был в связке `src/qwen-client.js` + non-stream retry `server.js`.
 
@@ -33,28 +33,37 @@
 - `sendChatRequest()` классифицирует этот случай как локальный сбой конкретного аккаунта через `markFailure(account, 'Qwen upstream closed without a usable response')` и продолжает уже существующий bounded candidate loop;
 - если первый кандидат владел старым `chatId`, следующий sibling не может переиспользовать чужой upstream thread: `canReuseOriginalChatId()` остаётся прежним, sibling получает свежий `generateChatID(..., account)`.
 
-Коммиты этой правки были технически в три шага из-за ошибки при первой полной записи большого файла; финальный read-back приведён к минимальному diff относительно предыдущего head. Итоговый diff `b19b8d1... -> dc7a6d7...` по продукту:
+Финальный diff `b19b8d1... -> dc7a6d7...` по продукту:
 
 - `src/qwen-client.js`: +16/-2;
 - новый `scripts/qwen-client-empty-response-failover-test.js`;
 - одна вставка теста в штатный `npm test`.
 
-Регресс проверяет:
+Регресс проверяет пустой и metadata-only initial SSE, обязательный `markFailure + continue`, а также запрет sibling переиспользовать `originalChatId` другого аккаунта.
 
-1. полностью пустой завершившийся initial SSE => `empty_response`;
-2. metadata-only завершившийся initial SSE => `empty_response`;
-3. в исходнике `empty_response` обязан вызвать `markFailure` и `continue` bounded failover;
-4. sibling не переиспользует `originalChatId` другого аккаунта.
+На hosted-машине отдельно выполнена модель изменённого `gateInitialStream`: пустой поток, metadata-only поток и usable `choices` — PASS (`HOSTED_EMPTY_GATE_PASS`). Exact-tree `npm test` не заявляется: hosted git по-прежнему не имеет DNS до GitHub, а внешние CI по правилам не запускались.
 
-На hosted-машине отдельно выполнена модель именно изменённого `gateInitialStream`: пустой поток, metadata-only поток и usable `choices` — PASS (`HOSTED_EMPTY_GATE_PASS`). Exact-tree `npm test` не заявляется: hosted git по-прежнему не имеет DNS до GitHub, а внешние CI по правилам не запускались.
+## Следующий подтверждённый дефект: terminal-only SSE
 
-## Следующий безопасный кусок
+После предыдущего исправления прочитан exact `src/chat-adapter.js`. Уточнение к прежней гипотезе: terminal-only поток сейчас не просто попадает в server retry — он может быть принят как **успешный пустой ответ**.
 
-Проверить terminal-only initial SSE.
+Причина:
 
-Сейчас `inspectInitialSSE()` считает одиночный `data: [DONE]` usable-ответом. Для non-stream это подозрительно: `collectNonStream()` без model content/tool-call такой ответ всё равно должен считать непригодным. Если подтвердится, `[DONE]`-only снова обходит новый `empty_response` и попадает в старый server-level retry с тем же preferred account.
+- `inspectInitialSSE()` считает одиночный `data: [DONE]` usable;
+- `gateInitialStream()` поэтому выпускает поток как подтверждённый до `end`;
+- `parseQwenSSE()` на `[DONE]` вызывает `close()` без ошибки;
+- `collectNonStream()` после этого возвращает OpenAI completion с `content: null`, `finish_reason: 'stop'`.
 
-Минимальный регресс: `data: [DONE]\n\n` без `choices/data:true` не должен считаться usable completion; при этом нормальный поток с `choices` до terminal marker не должен ломаться. Исправлять только после точного офлайн-доказательства, не менять provider-wide circuit и не ломать thread affinity.
+Похожая граница есть у одиночного `data: true`: initial gate тоже считает его usable, хотя сам по себе он не содержит model output. Нормальный поток не пострадает от ужесточения, потому что при настоящем `choices` gate выпускает поток раньше terminal marker.
+
+Следующее минимальное исправление:
+
+1. `[DONE]` и `data:true` сами по себе не должны делать initial SSE usable;
+2. если до terminal marker не было `choices`/другого настоящего model frame, `end` должен классифицироваться как `empty_response` и идти в уже исправленный account-local bounded failover;
+3. поток с настоящим `choices` перед `[DONE]`/`true` остаётся usable;
+4. добавить regression на `[DONE]`-only, `true`-only и `choices -> terminal`.
+
+Не менять provider-wide circuit, account/thread affinity и side-effect guards.
 
 При первой доступной exact-tree материализации выполнить:
 
@@ -69,11 +78,17 @@
 
 Нормативный протокол: `autonomy/v3/CAPSULE_RUNTIME_PROTOCOL_V2.json` + `autonomy/v3/tools/capsule_runtime_v4.py`.
 
-На старте `LATEST.json` прочитан по `autonomy/v3/workspaces/QWEN_RELIABILITY/LATEST.json`; стартовый Git blob SHA: `b7e0d3d38573fb1ef6e2f93a54904c3af2c5462c`. Он указывает на v4 capsule `20260820T200145Z-22a145762d`, archive SHA-256 `1fb1a101a1f1bc5de1dccbea32c2a1a3deeb3aa57998f2f2a3a3c4293680df90`.
+На старте `LATEST.json` имел Git blob SHA `b7e0d3d38573fb1ef6e2f93a54904c3af2c5462c` и указывал на v4 capsule `20260820T200145Z-22a145762d` с archive SHA-256 `1fb1a101a1f1bc5de1dccbea32c2a1a3deeb3aa57998f2f2a3a3c4293680df90`.
 
-В этом запуске удалось наконец материализовать все три immutable part-файла побайтно из GitHub, проверить их длины и SHA-256, собрать archive с точным SHA `1fb1a101...` и выполнить нормативные `capsule_runtime_v4.py verify` + `restore`: оба PASS. То есть работа действительно продолжена из восстановленного v4 workspace, а не из ручного пересказа.
+Все три part-файла старой capsule были материализованы побайтно, длины/SHA проверены, archive собран с точным SHA и нормативные `capsule_runtime_v4.py verify` + `restore` дали PASS.
 
-Финальный checkpoint/pack/publish выполняется после записи этого handoff по обязательной двухфазной схеме. Если CAS родитель `LATEST` изменится относительно стартового blob SHA, новый указатель не форсировать.
+После работы создан новый checkpoint и нормативным `pack` собрана capsule:
+
+- capsule `20260820T225643Z-867784cee7`;
+- archive SHA-256 `b183a152be9111a6491dc60d95df29034201108af656628eb9f6db3e2bd77339`;
+- 3 immutable part-файла.
+
+После загрузки все parts и manifest перечитаны из GitHub; их Git blob SHA совпали с локально рассчитанными exact blob SHA, manifest указывает на тот же archive SHA. Перед публикацией `LATEST` перечитан: родительский blob SHA всё ещё был стартовым `b7e0d3d...`, поэтому CAS-конфликта не было. Старый LATEST сохранён в PREVIOUS, новый LATEST опубликован через `update_file` с exact родительским SHA и после записи перечитан. Текущий LATEST blob SHA: `b52c19488cc0e0a3149d04efd2700c376314d699`.
 
 ## Граница доказательства
 
@@ -81,5 +96,6 @@
 - production, реальные аккаунты и секреты не тронуты;
 - exact-tree `npm test` пока не заявляется;
 - продуктовый head: `dc7a6d790846cf10920f296d400f8ceb882f9842`;
-- текущий главный закрытый дефект: ended empty/metadata-only initial SSE теперь получает account-local classification и bounded sibling failover;
-- следующий приоритет: проверить `[DONE]`-only initial SSE.
+- текущий LATEST: `20260820T225643Z-867784cee7`;
+- закрыто: ended empty/metadata-only initial SSE получает account-local classification и bounded sibling failover;
+- следующий приоритет: terminal-only `[DONE]`/`data:true` не должен считаться успешным пустым completion.

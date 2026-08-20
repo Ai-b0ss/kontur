@@ -1,0 +1,49 @@
+{
+  "schema": "notion_core_runtime_restore_atomicity_v4_evidence_v1",
+  "created_at_utc": "2026-08-20T20:43:51Z",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "windows_digest_status": "all-five-pending; not rerun",
+  "new_reproduced_defect": {
+    "name": "restore_root_symlink_plaintext_redirect",
+    "platform_proof": "Linux exact v3 shell candidate",
+    "reproduction": "HOME/runtime-state-restored -> attacker-controlled directory symlink; fake gpg successful decrypt; script exits 0 and publishes plaintext through symlink target",
+    "observed": "RUNTIME_STATE_RESTORE_COMPLETE; exfil/state.tar.gz == LEAKED-PLAINTEXT",
+    "security_impact": "decrypted runtime state can be redirected outside intended restore directory when restore root is a symlink/junction-like path"
+  },
+  "v4_candidate": {
+    "shell": {
+      "sha256": "953dab1e5c49fc2a799113389f86f5187d8454ffd47280d5765ddaa1e2939f25",
+      "changes": [
+        "reject existing restore root unless real non-symlink directory",
+        "create missing restore root directly",
+        "retain v3 destination checks, sibling temp decrypt, cleanup, exit-code preservation, stdin-only secret channel"
+      ]
+    },
+    "powershell": {
+      "sha256": "40b99bfbed5b3652a1d76e6ba90b0cf32f2629fec621fac755eb5aefa90ac4e4",
+      "changes": [
+        "reject restore root reparse points and non-directories",
+        "reject destination reparse points/directories",
+        "retain sibling temp decrypt and cleanup",
+        "File.Move overwrite semantics still require native Windows proof"
+      ],
+      "native_windows_verdict": "NOT_PROVEN"
+    },
+    "test_sha256": "badf7f6d30424015fb5487892813a2f41964e94d2dbf6e37d8c726bdd0690d94"
+  },
+  "linux_tests": [
+    "success replaces existing regular final",
+    "failed decrypt preserves old final",
+    "failed decrypt with no prior final publishes nothing",
+    "gpg rc=7 preserved",
+    "directory destination rejected",
+    "destination symlink rejected",
+    "restore-root symlink rejected with no plaintext written to target",
+    "restore-root regular file rejected",
+    "missing root safely created",
+    "forced mv failure preserves old final and cleans temp",
+    "secret absent from child argv/env and present only on stdin"
+  ],
+  "verdict": "RUNTIME_RESTORE_ATOMICITY_V4_LINUX_PASS",
+  "boundary": "No Linux result is claimed as proof of Windows reparse/File.Move behavior."
+}

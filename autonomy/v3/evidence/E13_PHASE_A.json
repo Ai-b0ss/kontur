@@ -1,0 +1,28 @@
+{
+  "experiment": "E13_GITHUB_CAPSULE",
+  "phase": "A",
+  "source": "manual_chat_hosted_container",
+  "workspace_archive": "tar.gz",
+  "marker_sha256": "171c93b0c6b40b8c04403f7a7d7c2566c543ef4202cfe0f66c4aa374abceb971",
+  "archive_sha256": "5a0fdc506623f6a81b361c34fc476ca1457ad581464c0ead402e23ec82e10e31",
+  "archive_size": 7897,
+  "base64_sha256": "8941f9745244bc23e459a05aba65f0b429ad6af4e0dc133e9c7697dd7e1b0f94",
+  "base64_length": 10532,
+  "checkpoint_step": 41,
+  "manifest": {
+    "checkpoint.json": {"mode": "0o644", "is_symlink": false, "size": 168, "sha256": "e6f47654f6d0fe0f8ef720e37ac63f750a49063f25ae0a44c75bd3a1aefa5701"},
+    "marker.bin": {"mode": "0o644", "is_symlink": false, "size": 32, "sha256": "171c93b0c6b40b8c04403f7a7d7c2566c543ef4202cfe0f66c4aa374abceb971"},
+    "note.link": {"mode": "0o777", "is_symlink": true, "target": "note.txt"},
+    "note.txt": {"mode": "0o644", "is_symlink": false, "size": 38, "sha256": "b44e58f6ca92d17ea6cb63e592352c6ca1ccbce7c8a561ba4e676520dcb1b677"},
+    "probe.sh": {"mode": "0o751", "is_symlink": false, "size": 28, "sha256": "d98c537636df34556346cc5f22926f428b94d71958a55bcc51022fef5844b6c0"},
+    "random.bin": {"mode": "0o644", "is_symlink": false, "size": 2048, "sha256": "572d2da2addc8fc31215bfdc157db2cf8c20a2d19c0618dc5f139d2863403d0f"},
+    "state.sqlite3": {"mode": "0o644", "is_symlink": false, "size": 16384, "sha256": "9b558986a57726e770f3d63c4f9a7decf5e21d23ffa38d9293eb44a4647f9a03", "logical_rows": 100, "logical_checksum": "f88891e04724e4cf63b67a66f331369d2cbb7d4d534b79b7d4a75ef78c8c075d"}
+  },
+  "source_boot_id": "5d9f1cac-146c-42b1-8d58-dea08c98c97f",
+  "capsule_branch": "autonomy/e13-github-capsule-20260820",
+  "capsule_path": "autonomy/v3/capsules/E13_WORKSPACE.tar.gz.b64",
+  "rules": {
+    "phase_b_must_recover_marker_from_github_only": true,
+    "phase_b_must_continue_from_step": 42
+  }
+}

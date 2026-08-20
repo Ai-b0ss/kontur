@@ -1,0 +1,32 @@
+{
+  "kind": "NOTION_CORE_ZERO_MINUTE_EVIDENCE",
+  "brain": "NOTION_CORE",
+  "execution": "chat.compute.linux",
+  "provenance": {
+    "owner_generation": 1,
+    "run_manifest_generation": 1,
+    "scheduler_mode": "STATIC_NO_CAS",
+    "source_repo": "Ai-b0ss/notion-agent-bridge",
+    "source_branch": "autonomy/notion-prompt-modes-20260819",
+    "source_head": "700f3f12a5bbbd82021ace64fbee3be93f99a1e0",
+    "server_blob_sha": "3bb268933763f72bc4987173af0da5e1f38ef27e",
+    "test_blob_sha": "e321ae37e6c4bf9943691a82662acc30c0162b12"
+  },
+  "claim": "single-slot reservation gap reproduced in extracted exact logic; two-line candidate restores wait-until-clear-or-TTL while preserving multi-slot, zero-pool, and anchored-continuation semantics",
+  "old_behavior": {
+    "single_wait_clear": "FAIL: returned immediately",
+    "single_ttl": "FAIL: returned immediately"
+  },
+  "candidate_behavior": {
+    "single_wait_clear": "PASS",
+    "single_ttl": "PASS (~0.12s in local bounded harness)",
+    "multi_avoid": "PASS",
+    "zero_pool": "PASS",
+    "anchor_bypass": "PASS",
+    "single_callsite_routing_enabled": "PASS"
+  },
+  "windows_claim": "NONE; Linux/Python result is not evidence for native Windows NCM28 semantics",
+  "hosted_ci_used": false,
+  "provider_traffic": false,
+  "local_artifact_sha256": "a3d05e442bdc651c33130ad3c147093059bc57dc62d3d9623e59147b51a4dd11"
+}

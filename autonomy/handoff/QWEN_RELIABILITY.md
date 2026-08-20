@@ -2,7 +2,7 @@
 
 Обновлено: 2026-08-20.
 
-Основная линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Свежий head после этой смены: `245f6faa9e04b8d7e9069bee5b9128d5822f871c`.
+Основная линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Свежий head по read-back: `896dea540fa3c73aefb69e319dd07d8622fef383`.
 Подготовительная линия Auto-Skills: `autopilot/qwen-auto-skills-session-20260820`, последний известный head `8aac48866595981804589c91d695cb3f1be39b76`.
 
 ## Что уже доказано и не надо переделывать
@@ -12,52 +12,72 @@
 - критичное состояние аккаунтов, OpenCode-сессий и provider circuit сохраняется с защитой от падения процесса;
 - fail-open через stale `current()`/`preferredAccount`, когда `accountStore.candidates()` пуст, уже закрыт: configured-but-none-eligible даёт `503 QWEN_NO_ELIGIBLE_ACCOUNT`, отсутствие настроенных аккаунтов остаётся `401`;
 - cooldown монотонный: слабая последующая ошибка не сокращает более сильную CAPTCHA/rate-limit паузу;
-- вторичный дефект `Failed to generate chat_id` закрыт: `sendChatRequest()` больше не делает второй generic `markFailure` после `generateChatID()`, а `scripts/qwen-client-chat-id-classification-test.js` входит в обычный `npm test`;
+- вторичный дефект `Failed to generate chat_id` закрыт: `sendChatRequest()` больше не делает второй generic `markFailure` после `generateChatID()`;
+- поздняя CAPTCHA в уже принятом SSE-потоке идёт через `markCaptchaChallenge`, а не generic `markFailure`;
 - старый FREE FABRIC E1 DIRECT PROBE завершён и не повторяется.
 
-## Закрыто в этой смене: поздняя CAPTCHA в уже принятом SSE-потоке
+## Freshest finding: окно повторного side effect после streaming tool-call
 
-Freshest незавершённый дефект из прошлого handoff закрыт в продуктовой ветке.
+Проверен следующий edge из прошлого handoff. Дефект подтверждён по текущим исходникам PR #6.
 
-До исправления `src/chat-adapter.js` мог обнаружить `RGV587_ERROR` уже после initial SSE gate и передать `WAF_CAPTCHA_CHALLENGE:<url>` в streaming `onError`, но `server.js` сначала безусловно делал `accountStore.markFailure(...)`. В результате конкретный аккаунт получал обычный первый backoff около 30 секунд вместо локального CAPTCHA cooldown 10 минут.
+Сейчас `src/chat-adapter.js` может полностью эмитировать OpenAI `tool_calls` клиенту внутри `writeToolCallDeltas()`, а `server.js` сохраняет streaming checkpoint только после успешного завершения `pipeThroughOpenAI()`. Если после эмитированного tool-call приходит поздняя SSE-ошибка, `streamAccepted=false`, и streaming `sessionStore.set(...)` не выполняется.
 
-Исправление:
-- commit `3f71c47a1a96dbceeab438622f1e2bb857eaa6d2`: в `server.js` CAPTCHA-ветка теперь идёт до generic failure, вызывает `markCaptchaChallenge(account, 'CAPTCHA in accepted SSE response')`, сохраняет существующий `captchaResolver.solveCaptcha(...)` и делает `return`; остальные ошибки по-прежнему идут в `markFailure`;
-- commit `4157de61703f5ddc7e5d6efef5d6c90946a9a946`: добавлен `scripts/server-late-stream-captcha-test.js`;
-- commit `245f6faa9e04b8d7e9069bee5b9128d5822f871c`: новый регресс включён в обычный `npm test`.
+Опасное окно:
+1. клиент получил mutating tool-call и выполнил side effect;
+2. поздняя SSE-ошибка не сохранила assistant tool-call в checkpoint;
+3. процесс/сервер падает до следующего tool-result запроса клиента;
+4. после restart короткий `continue` восстанавливает старый checkpoint без pending tool-call;
+5. существующий `QWEN_PENDING_TOOL_RESULT` guard не срабатывает, поэтому модель теоретически может повторить уже выполненное действие.
 
-Read-back текущего `server.js` подтверждает именно нужный порядок: `WAF_CAPTCHA_CHALLENGE -> markCaptchaChallenge -> captchaResolver -> return -> generic markFailure`. Новый blob `server.js`: `1cc090da4bb82d149a459e818f5b8f5f5844690e`.
+Имеющиеся защиты остаются правильными:
+- automatic retry поздней ошибки отсутствует;
+- non-stream путь сохраняет accepted tool-call через `checkpointAcceptedToolProgress()`;
+- когда tool-result уже дошёл до сервера, `restoreCheckpoint()` сохраняет завершённый прогресс до следующего upstream-запроса;
+- если pending tool-call уже есть в checkpoint, короткий continuation даёт `409 QWEN_PENDING_TOOL_RESULT`.
 
-Долговечное evidence: `autonomy/v3/evidence/QWEN_LATE_STREAM_CAPTCHA_FIX_20260820.json`.
+### Bounded fix candidate
 
-## Следующий pool edge уже проверен по исходникам
+Подготовлен и локально проверен кандидат без изменения Qwen Core:
+- `parseQwenSSE/pipeThroughOpenAI` получает синхронный callback `onToolCallsAccepted(calls)`;
+- callback вызывается в `writeToolCallDeltas()` ДО первого tool-call delta клиенту;
+- если durable checkpoint падает, поток fail-closed и tool-call не эмитируется;
+- `server.js` внутри callback сохраняет `checkpointAcceptedToolProgress(restoredMessages, assistantMessage)` с текущими route account/chat id;
+- поздняя CAPTCHA/rate-limit затем может пометить аккаунт, но pending-call checkpoint уже остаётся долговечным;
+- matching tool result штатно снимает pending guard на следующем ходе.
 
-Late accepted-stream `RateLimited` сейчас проходит через generic `markFailure`, который распознаёт `RateLimited` и оставляет шестичасовой cooldown. Дополнительной специальной ветки для этого не требуется.
+Локальный hosted-тест `side-effect-window-test.js` PASS: старый checkpoint не видит pending call; guarded checkpoint видит ровно один pending call; matching tool-result снимает его.
 
-`pipeThroughOpenAI()` автоматически повторяет только строго пустой ответ с ошибкой `Qwen upstream closed without a usable response`. Поздние CAPTCHA/RateLimited после принятого SSE не попадают под этот retry, поэтому уже видимый клиенту ответ автоматически не проигрывается повторно. В `server.js` любой streaming `onError` оставляет `streamAccepted=false`, поэтому неуспешный поток не переносит `account/thread affinity` через `sessionStore.set`.
+Patch и тест лежат в v4 capsule `20260820T155435Z-f29775a5df`:
+- `patches/stream-tool-checkpoint-guard.patch`;
+- `evidence/side-effect-window-test.js`;
+- `evidence/CHECKPOINT.md`.
 
-Это пока source-level проверка, а не полный exact-tree runtime-прогон.
+Продуктовые `server.js` и `src/chat-adapter.js` в эту смену не переписывались через GitHub Contents API: оба большие и общие для нескольких линий, а коннектор отдаёт их частями; полная замена из усечённого read-back создаёт ненужный риск повреждения/перетирания свежих изменений. Следующий безопасный исполнитель должен применить маленький patch нормальным git/patch способом или иным byte-safe способом и затем добавить настоящий regression на SSE `tool_call -> late error -> restart -> continue`.
 
-## Capsule v3
+## Capsule runtime
 
-До этой смены `autonomy/v3/workspaces/QWEN_RELIABILITY/LATEST.json` отсутствовал. Создан первый immutable checkpoint/capsule:
-- capsule id: `20260820T1450Z-late-stream-captcha`;
-- manifest: `autonomy/v3/workspaces/QWEN_RELIABILITY/20260820T1450Z-late-stream-captcha/manifest.json`;
-- archive SHA-256: `4bf99520d0e7ca0332bf8fd7731970d1a1ec5820eca86339cd08d068ecab5538`;
-- 2 base64 parts, обе перечитаны после записи;
-- `LATEST.json` обновлён только после read-back частей и manifest.
+На старте `LATEST.json` был прочитан с Git blob SHA `1a96f9899bff959230bd3253e7d6a74bb0024b85`. Он указывал на legacy capsule `20260820T1450Z-late-stream-captcha` со схемой `free_fabric_capsule_v3_b64`. Нормативный `capsule_runtime_v4.py restore` отклонил её с `RuntimeError: bad schema`; `PREVIOUS.json` отсутствовал. По protocol v2 применён recovery floor: exact GitHub source/evidence и продолжение полезной работы без угадывания байтов.
+
+После работы создан настоящий v4 capsule:
+- capsule id: `20260820T155435Z-f29775a5df`;
+- manifest: `autonomy/v3/workspaces/QWEN_RELIABILITY/20260820T155435Z-f29775a5df/manifest.json`;
+- archive SHA-256: `6a6fd2bbaf520587e42b1b1de4d713831dfd4bb0d4675dfa3e7fdfa0c5e75fd6`;
+- 2 parts, обе перечитаны с GitHub и проверены: 2048 / 1960 chars, SHA-256 совпадают; reconstructed archive 3005 bytes, SHA-256 совпадает manifest.
+
+Перед публикацией `LATEST` обязательно перечитать pointer и применить CAS по исходному blob SHA; при конфликте pointer не форсировать.
 
 ## Граница доказательства
 
-- CircleCI/GitHub Actions не запускались и не перезапускались.
+- CircleCI, GitHub Actions и Cloudflare не запускались.
 - Живых запросов к Qwen не было.
 - Production, реальные аккаунты и секреты не тронуты.
-- На hosted машине выполнена точная проверка применения минимального патча к fetched streaming-fragment; GitHub read-back после продуктовой записи PASS.
-- Полный exact-tree `npm test` на hosted машине в этой смене не заявляется: приватное дерево репозитория напрямую в контейнер не материализуется без сетевого clone.
+- Полный exact-tree `npm test` не заявляется.
+- Продуктовый fix side-effect window пока не применён; подготовлен точный bounded patch + локальный инвариантный тест.
 
 ## Следующее
 
-1. На следующем запуске сначала восстановить capsule `20260820T1450Z-late-stream-captcha` через `LATEST.json` и проверить archive/parts перед продолжением.
-2. Если exact-tree удастся материализовать через доступный локальный/patch-исполнитель, прогнать минимум `server-late-stream-captcha-test`, `account-store-cooldown-test`, `account-selection-policy-test`, `server-no-eligible-account-test`, `qwen-client-chat-id-classification-test`, `qwen-client-thread-owner-test`, `opencode-thread-affinity-test` и связанные server/session tests; hosted CI для этого не нужен.
-3. Следующий независимый безопасный кусок в зоне пула: проверить, может ли поздняя ошибка после уже эмитированного tool-call оставить локальный checkpoint в состоянии, при котором следующий пользовательский ход повторно воспроизведёт потенциальный side effect. Автоматический retry уже отсутствует; надо проверить именно поведение session checkpoint/client retry, не трогая Qwen Core.
-4. Старый разрешённый live-trigger не дублировать вслепую. Provider traffic без нового доказанного основания не запускать.
+1. Сначала восстановить новый v4 capsule через нормативный `capsule_runtime_v4.py`.
+2. Применить `stream-tool-checkpoint-guard.patch` byte-safe способом в свежий head PR #6.
+3. Добавить regression, который реально моделирует `accepted streaming tool-call -> late SSE error -> process restart -> short continue` и требует `409 QWEN_PENDING_TOOL_RESULT`; после matching tool result continuation должен снова работать.
+4. Проверить, что callback вызывается до первого tool-call delta и ошибка durable save не позволяет клиенту увидеть mutating call.
+5. Provider/live не повторять без отдельной доказанной необходимости.

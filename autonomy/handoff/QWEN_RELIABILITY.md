@@ -1,49 +1,44 @@
 # Qwen — надёжность, пул аккаунтов и расширение возможностей
 
-Обновлено: 2026-08-20 11:48 МСК.
+Обновлено: 2026-08-20 12:35 МСК.
 
 Основная линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6, head `b87793e39ba4a03571dafbaad96b099b38742cf1`.
-Подготовительная линия Auto-Skills: `autopilot/qwen-auto-skills-session-20260820`, новый head `9671aaa0cb09b9cc1ebccfb21882e61a957a5160`.
-Старая промежуточная ветка каталога `autopilot/qwen-auto-skills-catalog-20260820` больше не является рабочей основой.
-`Ai-b0ss/qwen-workspace` PR #5: head `ce51b26c227b08032301a8574fee4fe2ee9330a3`, `mergeable=true`.
+Подготовительная линия Auto-Skills: `autopilot/qwen-auto-skills-session-20260820`, head `8aac48866595981804589c91d695cb3f1be39b76`.
+`Ai-b0ss/qwen-workspace` — отдельная линия; перед изменениями снова сверять свежий head.
 
-## Что уже есть
+## Что уже доказано и не надо переделывать
 
-- локальные CAPTCHA/rate limit/expired auth не останавливают весь пул без причины: bounded failover по соседним подходящим аккаунтам, provider-wide WAF/trust/pressure по-прежнему закрывают дальнейшее прощупывание;
-- новые независимые задачи распределяются по давно не использовавшимся аккаунтам, существующий Qwen-тред сохраняет приоритет своего аккаунта-владельца;
-- failover незавершённой tool-цепочки переносит локальную историю в новый Qwen-тред и продолжает работу;
-- crash-safe сохранение есть для account state, OpenCode session checkpoint/backup, provider circuit, batch progress и vision cache;
-- два режима системного промпта (`engineer`/`owner`), явно выбираемые Skills, tool-using субагенты и восстановление пачки между перезапусками уже реализованы;
+- пул различает локальные проблемы аккаунта и общие проблемы провайдера; CAPTCHA/rate limit/expired auth допускают ограниченное переключение, WAF/trust/pressure закрывают дальнейшее прощупывание;
+- существующий Qwen-тред сохраняет владельца-аккаунт, а при допустимом failover локальная история переносится в свежий тред другого аккаунта;
+- критичное состояние аккаунтов, OpenCode-сессий, provider circuit и других долгоживущих частей сохраняется с защитой от падения процесса;
+- есть режимы `engineer` и `owner`, Skills, tool-using субагенты и восстановление их пачек;
 - Skills понимают `name/SKILL.md`, `priority`, `user-invocable`, `disable-model-invocation` и `paths:`;
-- подготовительный Auto-Skills слой уже умеет строить metadata-only каталог по подтверждённым `touchedPaths`, не подгружая тело всех Skills;
-- `src/session-touched-paths.js` извлекает пути только из подтверждённой пары `assistant tool_call -> tool result` для `read_file/write_file/edit_file/append_file/list_dir`; `bash`, traversal и явно неуспешные tool-result не активируют навык;
-- ChatGPT relay не активная задача до появления нового owner session/регрессии.
+- Auto-Skills каталог передаёт модели только метаданные подходящих навыков, а не тела всех `SKILL.md`;
+- `src/session-touched-paths.js` учитывает только подтверждённые файловые tool-result для `read_file/write_file/edit_file/append_file/list_dir`; `bash`, traversal и явные ошибки навык не активируют;
+- `session-store` на подготовительной ветке уже сохраняет `touchedPaths` в crash-safe checkpoint и восстанавливает их после restart;
+- два Auto-Skills теста включены в обычный `npm test`.
 
 ## Эта смена
 
-- заново прочитаны `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, этот handoff и свежий PR #6; PR #6 не двигался с `b87793e3...`, поэтому конфликтов с основной Qwen-линией не обнаружено;
-- соблюдён ZERO-MINUTE MODE: CircleCI/GitHub Actions не запускались и не перезапускались; provider traffic = 0;
-- в подготовительной ветке обнаружен реальный пробел: новые `model-skill-catalog-capability-test.js` и `session-touched-paths-test.js` существовали, но не входили в штатный `npm test`; исправлено коммитом `0ab96ca653f6c8f7507a977c4fdd19dd26b67565`;
-- `src/session-store.js` теперь сохраняет `touchedPaths` внутри существующего crash-safe session checkpoint. Новые пути монотонно объединяются со старыми, нормализуются и ограничиваются тем же лимитом 256; после restart запись восстанавливается вместе с остальной сессией. Содержательное изменение начато в `3ea1ffc79894f34d68a78f1a8c020b87a482aff0`, затем лишний комментарийный diff убран коммитом `9671aaa0cb09b9cc1ebccfb21882e61a957a5160`;
-- добавлен отдельный регресс `scripts/session-touched-paths-persistence-test.js`: нормализация Windows-пути, отбрасывание traversal, монотонное объединение, запись на диск и восстановление после нового `require()`/перезапуска. Коммит `9ded04556b33662db42c16ce475ff2142a07a0d1`;
-- этот регресс включён в штатный `npm test`; пакетный список тестов обновлён коммитом `68a2237f255743c7c7cef3ab289a88a9e6c5a4dc`;
-- локально в ChatGPT container на Node `v22.16.0` реально прошли: точный `session-touched-paths-test`, отдельная интеграционная проверка `confirmed file tool -> merge -> JSON persist -> restart -> preserved`, а также проверка durable `session-store` семантики. Получены маркеры `session-touched-paths-test: PASS`, `AUTO_SKILLS_SESSION_INTEGRATION_PASS` и `SESSION_TOUCHED_PATHS_DURABLE_PASS`;
-- отдельно выполнен `node --check` для `model-skill-catalog-capability-test.js`; полный проектный `npm test` не запускался, потому что контейнер не имеет сетевого доступа для клонирования/установки всего репозитория;
-- проверено, что на подготовительной ветке не появилось GitHub Actions workflow runs: hosted-минуты этими изменениями не расходовались;
-- `server.js` намеренно не переписан через GitHub Contents API вслепую: для следующего шага подготовлен bounded candidate patch, который передаёт merged `touchedPaths` во все четыре `preparePublicPayloadGoverned()` пути и сохраняет их во всех трёх `sessionStore.set()` путях.
+- прочитаны `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, предыдущий handoff и свежий PR #6. Основной PR #6 по-прежнему на `b87793e3...`, поэтому подготовительная Auto-Skills ветка не пересекается со свежей работой основной линии;
+- соблюдён ZERO-MINUTE MODE: CircleCI и GitHub Actions не запускались и не перезапускались, runner-ветки не создавались, provider traffic = 0;
+- найден реальный ложноположительный случай Auto-Skills: `read_file` для файла больше 5 MiB возвращает обычную строку `File too large (...)`, а прежний `resultLooksFailed()` считал её успешным чтением. В результате path-gated Skill мог активироваться, хотя содержимое файла модель не получила;
+- исправлено в `src/session-touched-paths.js`: `File too large (...)` теперь считается неподтверждённым файловым результатом и не активирует Skill. Коммит `b347c50ba95a34b810841ab64bca968e43ad200e`;
+- `scripts/session-touched-paths-test.js` расширен реальным форматом ответа `read_file`: большой файл не попадает в `touchedPaths`, обычное чтение по-прежнему попадает. Коммит/head `8aac48866595981804589c91d695cb3f1be39b76`;
+- `server.js` намеренно не переписывался через Contents API целиком: следующий wiring остаётся отдельным ограниченным изменением и должен делаться только после свежей сверки основной ветки;
+- hosted CI для нового head специально не запускался. Поэтому `8aac4886...` не объявлять полностью зелёным только по факту коммита.
 
-## Что делать следующим запуском
+## Следующий шаг
 
 1. Снова проверить свежий PR #6 и не заходить в файлы, которые параллельно меняет другой Qwen-рабочий.
-2. На `autopilot/qwen-auto-skills-session-20260820` аккуратно подключить `server.js`: после `restoreCheckpoint()` вычислить `confirmed = collectConfirmedTouchedPaths(effectiveBody.messages)`, затем `touchedPaths = mergeTouchedPaths(record?.touchedPaths, confirmed)`.
-3. Передать `touchedPaths` в каждый `preparePublicPayloadGoverned()` путь: обычный, failover-rebase, non-stream retry и stream retry.
-4. Сохранить тот же merged набор во всех трёх `sessionStore.set()` путях: обычный non-stream, retry и stream. Неподтверждённый tool-call путь активировать не должен.
-5. После этого добавить полный серверный регресс: успешный file tool -> path-gated Skill появился -> следующий ход без нового файла -> Skill остался -> reload session-store -> Skill остался; failed file tool Skill не активирует.
-6. Проверять сначала бесплатным локальным Node в ChatGPT container. Пока действует ZERO-MINUTE MODE, не запускать и не перезапускать CircleCI/GitHub Actions, не делать runner-ветки и не делать push только ради CI.
-7. Только после закрытия session-scoped каталога добавлять bounded on-demand загрузку тела ровно выбранного Skill по имени; не затаскивать тела всех Skills в каждый запрос.
-8. Старый разрешённый live-trigger `4de8bdae6d0c28789181f31b6212f97e6e283333` не дублировать вслепую. Provider traffic без нового доказанного основания не запускать.
-9. После одного доказанного live tool-loop PASS проверить настоящий `restart -> восстановление незавершённой цели -> аккаунт A недоступен -> продолжение через B` с сохранённой tool history.
+2. На подготовительной ветке подключить `server.js`: после `restoreCheckpoint()` собрать подтверждённые пути из `effectiveBody.messages`, объединить их с `record.touchedPaths` и передавать итог как `touchedPaths` во все вызовы `preparePublicPayloadGoverned()` — обычный, failover-rebase, non-stream retry и stream retry.
+3. Тот же набор сохранять во всех `sessionStore.set()` путях. Неуспешный файловый вызов и неподтверждённый tool-call не должны активировать Skill.
+4. Добавить серверный регресс: успешный file tool → path-gated Skill появился → следующий ход без нового файла → Skill остался → reload session-store → Skill остался; failed/oversized read Skill не активирует.
+5. Проверять сначала бесплатным локальным Node в ChatGPT container. Пока действует ZERO-MINUTE MODE, не запускать CircleCI/GitHub Actions и не делать push только ради CI.
+6. После закрытия session-scoped каталога добавить ограниченную загрузку тела только явно выбранного/вызванного Skill, а не всех Skills сразу.
+7. Старый разрешённый live-trigger `4de8bdae6d0c28789181f31b6212f97e6e283333` не дублировать вслепую. Provider traffic без нового доказанного основания не запускать.
+8. После одного доказанного live tool-loop PASS проверить настоящий `restart → восстановление незавершённой цели → аккаунт A недоступен → продолжение через B` с сохранённой tool history.
 
-## Важная граница доказательства
+## Граница доказательства
 
-Текущий подготовительный head `9671aaa0...` не объявлять полностью зелёным: локально доказаны pure touched-path extraction и durable session persistence, но настоящий `server.js` wiring ещё не применён, а полный `npm test` на exact head не выполнялся. Hosted CI специально не использовался.
+Подготовительный head `8aac4886...` содержит исправление ложной активации Skill на oversized read и регрессионный тест, но полный проектный `npm test` на exact head в этой смене не выполнялся. Главный незакрытый кусок Auto-Skills — настоящее `server.js` wiring сохранённых `touchedPaths` во всех обычных/retry/failover/stream путях.

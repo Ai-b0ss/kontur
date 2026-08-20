@@ -1,0 +1,63 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "status": "REPRODUCED_WITH_MINIMAL_CANDIDATE",
+  "source": {
+    "notion_repo": "Ai-b0ss/notion-agent-bridge",
+    "notion_pr": 8,
+    "notion_head": "e12ab315cb365650f56dc1e48551f04e55e5276c",
+    "delegation_policy_blob": "cc50fc7373578262e6051e76716563a98f8f4935",
+    "delegation_dispatcher_blob": "66d839a1db347684f2fa2681ceaf98600415298d",
+    "qwen_repo": "Ai-b0ss/qwen-free-api",
+    "qwen_pr": 6,
+    "qwen_head": "d367bf0c4a5091d29bbed2b7546e352ddd2b1ff9"
+  },
+  "defect": {
+    "title": "delegated conversation identity is not scoped by parent turn",
+    "current_rule": "delegate:{target}:{task_id}",
+    "counterexample": [
+      {"target": "notion", "parent_turn_id": "parent-A", "task_id": "child-1"},
+      {"target": "notion", "parent_turn_id": "parent-B", "task_id": "child-1"}
+    ],
+    "current_key_for_both": "delegate:notion:child-1",
+    "impact": [
+      "two independent parent turns can collide in one local delegated conversation namespace",
+      "provider affinity/thread state or persisted adapter state keyed by conversation_key can bleed across parents",
+      "a future Qwen adapter deriving stable task/batch/session identity from conversation_key can produce false resume/signature conflicts across independent parents"
+    ],
+    "why_parent_scope_is_not_parent_affinity_inheritance": "Including a canonical parent-turn identifier in the local child identity only namespaces the child. It does not copy any Notion account id, remote thread id, Qwen account id, or provider thread state."
+  },
+  "candidate": {
+    "rule": "delegate:{target}:{sha256(JSON([target, canonical_parent_turn_id, canonical_task_id]))}",
+    "properties": [
+      "deterministic across restart",
+      "different parent turns with the same child id remain isolated",
+      "whitespace aliases canonicalize before hashing",
+      "provider target remains part of identity",
+      "bounded ASCII key is suitable as an input to later Qwen-safe task/batch/session ids"
+    ]
+  },
+  "offline_probe": {
+    "tool": "autonomy/v3/tools/integration_delegate_parent_scope_probe.py",
+    "verdict": "PASS",
+    "current_collision_reproduced": true,
+    "candidate_parent_scoped": true,
+    "candidate_deterministic": true,
+    "candidate_fuzz_cases": 10000,
+    "candidate_collision_count": 0,
+    "candidate_example_a": "delegate:notion:4c03556be99879e1c2a74b9e1288683165b9c7245ebe3ae9036df83ace24fd9c",
+    "candidate_example_b": "delegate:notion:f62802ec2143917e65369cce76df37a4ba8320d374a9329ac702a84bfb34b0e6"
+  },
+  "owner_handoff": {
+    "recommended_owner": "NOTION_AGENT",
+    "minimal_regression": "create two DelegationRequest values with the same task_id and different parent_turn_id; assert delegated_conversation_key differs, remains deterministic, and contains no provider account/thread identifiers",
+    "do_not_do": "Do not solve this by making child inherit the parent account/thread affinity. The fix is local identity namespacing only."
+  },
+  "execution_boundary": {
+    "hosted_ci_used": false,
+    "live_provider_used": false,
+    "production_used": false,
+    "secrets_used": false,
+    "native_windows_claimed": false
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "schema": "integration_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "created_at_utc": "2026-08-20T18:52:00Z",
+  "scope": "Notion DelegationRequest -> future Qwen coding-subagent adapter",
+  "sources": {
+    "notion_agent_head": "1aa166cc2336ce69595e3fc7fa1f26930784b49a",
+    "notion_delegation_policy_blob": "779f3f6cfa35f9e576d283aadc54fdc57a8efec8",
+    "qwen_head": "0834b5c6b3c710342db8f4454eb75140f95d18d5",
+    "qwen_subagent_agent_runner_blob": "48ea5e2b3a4b7470b2bfedb3d32db00dd024b406"
+  },
+  "finding": {
+    "id": "DELEGATED_MODEL_TURN_BUDGET_DOMAIN_MISMATCH",
+    "severity": "integration_contract",
+    "facts": [
+      "Notion validate_delegation_request accepts max_model_turns from 1 through 24.",
+      "Qwen coding subagent HARD_MAX_ROUNDS is 12.",
+      "Qwen taskSettings uses clampInteger(..., 1, HARD_MAX_ROUNDS), so an adapter that passes max_model_turns=13..24 through as maxRounds silently executes at 12 rather than preserving or rejecting the parent contract."
+    ],
+    "examples": [
+      {"notion_requested": 8, "qwen_effective": 8, "mismatch": false},
+      {"notion_requested": 12, "qwen_effective": 12, "mismatch": false},
+      {"notion_requested": 13, "qwen_effective": 12, "mismatch": true},
+      {"notion_requested": 24, "qwen_effective": 12, "mismatch": true}
+    ]
+  },
+  "recommended_adapter_contract": [
+    "Do not silently clamp a provider-neutral request.",
+    "Before provider work, reject target=qwen requests above Qwen's proven max with a provider-capability error, or explicitly negotiate/store effective_max_model_turns in a structured delegation result.",
+    "Keep validation before provider/local side effects so an unsupported budget cannot partially start a child task."
+  ],
+  "execution": {
+    "hosted_ci": false,
+    "provider_calls": false,
+    "production": false,
+    "secrets": false
+  }
+}

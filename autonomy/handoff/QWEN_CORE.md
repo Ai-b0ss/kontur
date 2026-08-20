@@ -2,32 +2,30 @@
 
 ## 2026-08-20
 
-`qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`, текущий head `53a2c6cb70a4153f041c3e3f5b4bf59c201efd6b`, PR остаётся draft/open и `mergeable=false` относительно текущего `main`.
+`qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`, живой head `cb213bd17fa1033cec741564908fa5d4d0e95c63`, PR draft/open, `mergeable=false` относительно текущего `main`.
 
-`qwen-workspace`: PR #5, ветка `fix/u01-cache-coherence`, head `468733b2e3c8a2fb9bc04220fb6fd909ae0a4e80`, `mergeable=true`. В этом запуске исходники `orchestrator/cache.mjs` заново просмотрены; новых изменений там не понадобилось.
+`qwen-workspace`: PR #5, ветка `fix/u01-cache-coherence`, новый head `ce51b26c227b08032301a8574fee4fe2ee9330a3`, `mergeable=true`.
 
 Что сделано сейчас:
-- В начале заново прочитаны `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, старый handoff, живые PR и исходники обоих Qwen-репозиториев. Старый handoff уже был устаревшим: до начала работы PR #6 дошёл до `6a62bd5c…`; последние чужие изменения развивали metadata/catalog skills и не откатывали агентное ядро.
-- Закрыта граница eligibility для ранней V3/vision-подготовки. До исправления сервер мог передать туда `accountStore.current()`, даже когда этот активный аккаунт уже был в cooldown и `candidates()` был пуст. Теперь `src/qwen-v3-capabilities.js` принимает переданный аккаунт только если `accountStore.isAvailable(account)`; иначе берёт первый настоящий кандидат. Если кандидатов нет, запрос завершается `QWEN_NO_ELIGIBLE_ACCOUNT` до vision/браузера и без provider traffic.
-- `scripts/account-selection-policy-test.js` усилен: cooled-down active account заменяется на разрешённый кандидат, а при cooldown всего пула V3 обязан fail-closed и не «оживлять» `current()`.
-- После этого найден и закрыт такой же fallback во внутреннем автономном агенте. В `src/agent.js` новая работа больше не делает `candidates()[0] || current()`: добавлен `firstEligibleAccount()`, который либо возвращает реального кандидата, либо завершает ход `QWEN_NO_ELIGIBLE_ACCOUNT` до подготовки треда и до запроса к Qwen.
-- `scripts/offline-agent-loop-test.js` теперь кроме цепочки `read_file → result → account/thread failover → full rebase → bash → result → final` проверяет пустой пул: активный, но недоступный `current()` не используется и provider mock вообще не вызывается.
+- В начале заново прочитаны `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, старый handoff, живые PR и исходники обоих Qwen-репозиториев. Старый head `53a2c6cb…` уже устарел: `qwen-free-api` дошёл до `cb213bd1…`; три свежих коммита развивают локальные skills — metadata/catalog, priority и path-gates — и не откатывают CAPTCHA-ротацию или агентный tool-loop.
+- В `qwen-workspace` найден реальный дефект пути к кэшу по умолчанию. Комментарий и контракт ожидают `.runtime/cache.json`, но конструктор при отсутствии `runtimeDir` строил `.runtime/.runtime/cache.json` из-за двойного добавления `.runtime`.
+- Исправлено: базовый `runtimeDir` по умолчанию теперь `.`; явный `runtimeDir` по-прежнему означает корень проекта/временной рабочей папки и даёт `<runtimeDir>/.runtime/cache.json`.
+- Добавлен регресс, который запускает `OrchestratorCache()` без параметров в отдельной временной рабочей папке, делает `flush()` и требует наличие ровно `.runtime/cache.json` и отсутствие `.runtime/.runtime/cache.json`.
 
-Коммиты этого запуска в `qwen-free-api`:
-- `adb84d33290008f63f04c2fa543565143381ba2a` — `fix: keep V3 preprocessing off cooled-down accounts`;
-- `53a2c6cb70a4153f041c3e3f5b4bf59c201efd6b` — `fix: fail closed when agent pool has no eligible account`.
+Коммиты этого запуска в `qwen-workspace`:
+- `efbc3bd86326bf0aa11260901c5adc5ccf770a16` — `fix: keep default cache path at .runtime/cache.json`;
+- `ce51b26c227b08032301a8574fee4fe2ee9330a3` — `test: pin default orchestrator cache location`.
 
 Что проверено:
-- PR #6 после записи действительно продвинут до новой продуктовой линии; изменения сделаны поверх живого head, без отката CAPTCHA-ротации, account/thread affinity, checkpoint, skills и двух режимов system prompt.
-- Оба новых регресса уже входят в существующий `npm test`; package scripts менять не пришлось.
-- `qwen-client` по-прежнему делает bounded failover только по `accountStore.candidates()` и не считает CAPTCHA отдельного аккаунта provider-wide отказом.
-- `qwen-workspace` PR #5 остаётся на `468733b2…`, `mergeable=true`.
+- PR #5 действительно продвинут до `ce51b26c…` и остаётся `mergeable=true`.
+- Исправление не меняет TTL, stale-while-revalidate, атомарную запись или очистку протухших значений; затронут только ошибочный путь по умолчанию и его тест.
+- Через доступный GitHub status API для новых exact heads сейчас нет опубликованных CI-statuses, поэтому ни `qwen-workspace ce51b26c…`, ни `qwen-free-api cb213bd1…` не объявлять полностью зелёными без фактического результата CircleCI/локального прогона.
 - Новый живой запрос к Qwen не запускался; прежний разрешённый provider-run не дублировать вслепую.
-- Фактический CircleCI result для exact head `53a2c6cb…` через доступную GitHub-поверхность пока не виден, поэтому полный regression зелёным не объявлять без реального результата.
 
 Следующее:
-1. Снять фактический обычный CircleCI/`npm test` на `53a2c6cb…`; если красный — чинить конкретную ошибку, не откатывая CAPTCHA-ротацию и account/thread семантику.
-2. После green — один bounded Windows offline parity на exact продуктовой линии без provider traffic.
-3. Затем восстановить результат прежней разрешённой live-попытки. Второй provider-run вслепую не запускать.
-4. Если прежняя попытка до провайдера не дошла, провести ровно один живой многошаговый проход `read_file → Qwen → tool result → bash → Qwen → final`, затем проверить restart и безопасный failover незавершённой цели.
-5. После live PASS аккуратно свести PR #6 с текущим `main`, не возвращая старые небезопасные secret-bridge/checkpoint решения.
+1. Снять фактический обычный CircleCI/`npm test` на `qwen-free-api cb213bd1…`; если красный — чинить конкретную ошибку без отката CAPTCHA-ротации, account/thread affinity и двух режимов system prompt.
+2. Для `qwen-workspace ce51b26c…` выполнить точный `node --test orchestrator/test/cache.test.mjs`; новый регресс должен подтвердить правильный путь по умолчанию.
+3. В `qwen-free-api` отдельно проверить OpenCode streaming retry: там ещё есть fallback `accountStore.candidates()[0] || preferredAccount`; нельзя позволить retry повторно оживлять аккаунт, который уже ушёл в cooldown. Если это воспроизводится — fail-closed либо переход только на реального кандидата и отдельный регресс.
+4. После полного offline green — один bounded Windows offline parity на exact продуктовой линии без provider traffic.
+5. Затем восстановить результат прежней разрешённой live-попытки. Второй provider-run вслепую не запускать. Если прежняя попытка до провайдера не дошла — ровно один живой многошаговый проход `read_file → Qwen → tool result → bash → Qwen → final`, затем restart и безопасный failover незавершённой цели.
+6. После live PASS аккуратно свести PR #6 с текущим `main`, не возвращая старые небезопасные secret-bridge/checkpoint решения.

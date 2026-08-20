@@ -1,39 +1,34 @@
 # Notion — ротация, агентность, prompt-mode и делегирование
 
-## 2026-08-20 02:50–03:15 МСК
+## 2026-08-20 03:50–04:10 МСК
 
 Notion Core: `candidate/ncm28-windows-fixed-v1`, PR #7, head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
-Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8. Текущий head после этой смены: `691af38d9bcf5e42b245c5f7e704fc9bed8c1d4f`.
+Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8. Текущий head после этой смены: `d546c2b4bc575e8d3aa18ee1d0d8be3ab8382246`.
 
-Что уже было готово к началу смены:
-- режимы `engineer/owner`, причём приватный prompt владельца не переписывается и не смешивается с нашей большой инженерной персоной;
-- независимые foreground-задачи распределяются по свободным легитимным слотам, незавершённая tool-цепочка сохраняет свой аккаунт/контекст;
-- допустимый failover переносит полную локальную историю на новый слот, но не переносит старый Notion `thread_id`;
-- child-session сохраняет историю/tool-result/call id через смену слота и не повторяет уже выполненный локальный side effect;
-- собраны `DelegationDispatcher`, lifecycle и Notion child-runtime; серверный lifecycle пока проверяется через fail-closed materializer и `server-wiring-rehearsal`;
-- реальный project-probe уже умеет `read_file → write_file → bash/verify`, а two-slot project-probe требует два независимых проекта, два разных аккаунта и два разных Notion thread;
-- к началу этой смены Agent-ветка уже дошла до `4c151c6e...`: реальные схемы инструментов child-runtime и правильная обработка MCP `isError=true` уже присутствуют.
+Что уже есть в Agent-линии:
+- два режима системного промпта `engineer/owner`; приватный prompt владельца не переписывается и не смешивается с нашей инженерной персоной;
+- независимые foreground-задачи распределяются по свободным легитимным слотам, а незавершённая tool-цепочка сохраняет правильный account/thread;
+- допустимый failover переносит полную локальную историю на другой легитимный слот, но не переносит старый Notion `thread_id`;
+- child-session хранит историю, результаты инструментов и `call_id`, поэтому после failover уже выполненный локальный side effect не должен повторяться;
+- готовы `DelegationDispatcher`, Notion child-runtime, `ServerSubagentLifecycle`, fail-closed server materializer и живые two-slot/failover project probes;
+- живой failover-probe уважает реальное `disabled/cooldown/circuit-breaker` состояние и меняет только временный тестовый пул.
 
 Что сделал в этой смене:
-1. Перечитал `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, handoff и заново сверил PR #7/#8. В Windows/NCM28 не заходил.
-2. Проверил exact Agent head `4c151c6e...`: пять CircleCI jobs (`agent`, `routing`, `prompt`, `delegation`, `server-wiring-rehearsal`) всё ещё `pending`. Не стал ждать и не стал добавлять очередной синтетический тест.
-3. Подготовил следующий обязательный живой гейт: `tools/live_codex_failover_project_probe.py`, первый коммит `b09b2b48da4476e7b95392c810de51380d8d9c28`.
-4. Сценарий failover теперь конкретный: модель сама читает неизвестный токен из `input.txt`, делает `write_file`, после первого успешного локального write текущий слот временно исключается только внутри тестового пула; следующий модельный ход обязан перейти на другой легитимный аккаунт и новый Notion thread, получить уже готовый tool-result из полной локальной истории и закончить через `python verify.py`. Условия PASS: account A != B, thread A != B, локальная запись выполнена ровно один раз, verifier прошёл.
-5. Расширил уже подключённый к `agent-contracts`/`routing-contracts` `tests/test_live_two_slot_probe_contract.py`: он теперь запрещает ложный PASS failover при том же аккаунте, том же thread или повторной локальной записи. Коммит `0b1b4330a948dd023668bb3ba5e4cf4abd58569b`.
-6. После самопроверки усилил безопасность живого probe. Он по-прежнему использует отдельный временный `NotionAccountPool` без `state_path` и временные thread-state каталоги, но теперь **не обходит реальное состояние scheduler-а**: из обычного пула копируются `disabled`, текущий `cooldown_until` и глобальный circuit-breaker. Если сейчас нет двух реально готовых слотов, probe закрывается отказом, а не «оживляет» охлаждающийся/запрещённый аккаунт. Финальный коммит: `691af38d9bcf5e42b245c5f7e704fc9bed8c1d4f`.
-7. Искусственный cooldown для переключения A→B существует только в ephemeral pool, поэтому обычный `pool-state.json` владельца не меняется. Тестовые локальные thread-state удаляются вместе с временным каталогом.
-8. Probe не печатает account id, thread id, токены, пути credentials или provider payload. Пул и глобальный `server.account_pool` очищаются в `finally`.
-9. На exact head `691af38d...` автоматически стартовал CircleCI workflow `09cd8a7c-da20-438d-85f7-18e31f29d940`; пять Agent jobs на момент handoff ещё `pending`. Provider/live traffic в этой смене не запускался.
+1. Перечитал `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, предыдущий handoff и заново сверил PR #7/#8. В Windows/NCM28 не заходил.
+2. Установил, что прошлый Agent head уже сдвинулся до `cca981db...`; пять CircleCI-проверок на нём всё ещё ожидали исполнителя. Не стал ждать и не запускал provider/live traffic.
+3. Нашёл конкретную дыру в изоляции remote-thread state дочернего агента. `_NotionDelegatedModelSession` хранил состояние по одному `id(client)`. Python может переиспользовать целочисленный `id` после уничтожения старого объекта; в длинной child-сессии это теоретически позволяло новому provider-client получить состояние старого клиента и чужой `thread_id`.
+4. Исправил `payload/notion_delegated_model_step.py`: `_RemoteThreadState` теперь удерживает точный объект клиента, а перед incremental-продолжением дополнительно проверяется `state.client is client`. Если числовой id совпал, но объект другой, это считается новым provider-client: ему отправляется полный локальный контекст без старого `thread_id`. Коммит `0fc20367d117c852cb4646cec4f7c6812edf54e9`.
+5. Добавил регрессию `test_client_identity_guard_rejects_integer_id_collision`. Тест искусственно моделирует опасный результат повторного использования `id`: в ячейке нового клиента лежит thread-state старого. Ожидаемое поведение — новый клиент получает полный prompt и ни одного `thread_id`. Коммит `d546c2b4bc575e8d3aa18ee1d0d8be3ab8382246`.
+6. На exact head `d546c2b4...` автоматически стартовал новый CircleCI workflow `49465f4d-f06f-4459-9b87-6b815404a36a`; `agent-contracts`, `routing-contracts`, `prompt-contracts`, `delegation-contracts`, `server-wiring-rehearsal` на момент handoff ещё `pending`.
 
 Главное новое понимание:
-- реальный failover можно проверять без загрязнения обычного scheduler/thread состояния и без обхода уже действующих cooldown/disabled/circuit-breaker;
-- для доказательства безопасного продолжения недостаточно увидеть смену account: одновременно нужны новый remote thread и отсутствие повторного локального side effect;
-- этот probe проверяет bridge-level Responses/Codex путь. Настоящий `codex exec` остаётся отдельным последующим гейтом.
+- для безопасной ротации недостаточно связывать Notion thread с числовым `id()` Python-объекта; child-session должна проверять именно идентичность живого provider-client. Это особенно важно при смене поколений пула и долгих делегированных задачах.
+- найденная проблема не относится к NCM28 и исправляется полностью внутри Agent-линии.
 
 Что делать дальше:
-1. Снять итог CircleCI для exact head `691af38d...`. Если красный — исправлять только конкретный упавший контракт; если `server-wiring-rehearsal` зелёный, больше не откладывать материализацию уже проверенного lifecycle в настоящий `payload/server.py`.
-2. Перед любым provider-run убедиться, что другой живой прогон не идёт. Первый живой прогон — `live_two_slot_codex_project_probe.py`: два независимых проекта на двух свободных слотах с sticky account+thread и двумя verifier.
-3. После его PASS запустить ровно один `live_codex_failover_project_probe.py`: A выполняет локальный write, затем временно исключается только в ephemeral pool; B обязан продолжить с полной историей в новом Notion thread без повторного write.
-4. После bridge-level PASS провести тот же смысловой путь через настоящий `codex exec`, не создавая второго конкурирующего реестра account/thread.
-5. Затем подключать уже готовый `ServerSubagentLifecycle` к реальному startup/auth-refresh/shutdown (субагенты по умолчанию выключены), а после устойчивого Notion/Codex ядра — Qwen adapter под тот же `DelegationDispatcher`, без общего provider state.
+1. Снять итог CircleCI exact head `d546c2b4...`. Если новая регрессия красная — исправлять только конкретную причину; если зелёная и `server-wiring-rehearsal` PASS, материализовать уже проверенный `ServerSubagentLifecycle` в настоящий `payload/server.py`.
+2. Перед provider-run убедиться, что другой живой прогон не идёт. Затем ровно один `live_two_slot_codex_project_probe.py`: два независимых проекта должны занять два разных готовых легитимных слота и сохранить свои account/thread через tool-result.
+3. После PASS — ровно один `live_codex_failover_project_probe.py`: A выполняет локальный write, затем временно исключается только в ephemeral pool; B продолжает полную локальную историю в новом Notion thread без повторного write.
+4. Затем повторить тот же смысловой сценарий через настоящий `codex exec`.
+5. Только после устойчивого Notion/Codex ядра подключать запуск subagent lifecycle к реальному server startup/auth-refresh/shutdown и затем добавлять Qwen adapter под тот же `DelegationDispatcher`, без общего provider state.

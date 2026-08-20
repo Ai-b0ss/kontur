@@ -1,0 +1,14 @@
+{
+  "schema": "free_fabric_capsule_latest_v1",
+  "worker": "QWEN_CORE",
+  "capsule_id": "20260820T1505Z-pending-tool-restart",
+  "manifest_path": "autonomy/v3/workspaces/QWEN_CORE/20260820T1505Z-pending-tool-restart/manifest.json",
+  "archive_sha256": "4c2433a87fafcf5cd6a9a6b52e93617d08438959863f38f0adfdbaf30766183b",
+  "product": {
+    "repo": "Ai-b0ss/qwen-free-api",
+    "branch": "autopilot/qwen-runtime-preflight-20260818",
+    "commit": "896dea540fa3c73aefb69e319dd07d8622fef383"
+  },
+  "verified_parts": 2,
+  "status": "VALID"
+}

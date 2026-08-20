@@ -1,11 +1,13 @@
 {
   "schema": "capsule_v3_crossrun_verdict_v1",
   "verdict": "PASS",
-  "boot_id": "62d596ba-506a-4489-b9ed-22954a8fcfda",
+  "boot_id": "15872610-45ae-4aba-ba19-7f56aeea7366",
   "source": {
     "repository": "Ai-b0ss/kontur",
     "branch": "autonomy/capsule-v3-crossrun-20260820",
     "manifest": "autonomy/v3/capsules/CROSSRUN_SMALL/manifest.json",
+    "manifest_blob_sha": "4a55ebd498fc1e5d5596c96be117a7f451dbf820",
+    "read_via_github_connector_separately": true,
     "parts": [
       {"index": 0, "normalized_size": 2048, "blob_sha": "a75e69f25f00abc87864d17aad7d2817bc530d5e"},
       {"index": 1, "normalized_size": 2048, "blob_sha": "961e95d34f3fa22c955748f3b9d0341479eb7b75"},
@@ -59,5 +61,6 @@
     "sqlite": true,
     "checkpoint_continuation": true
   },
-  "first_failure": null
+  "first_failure": null,
+  "forbidden_services_used": []
 }

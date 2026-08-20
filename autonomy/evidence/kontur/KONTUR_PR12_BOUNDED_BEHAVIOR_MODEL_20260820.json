@@ -1,12 +1,14 @@
 {
   "date": "2026-08-20",
   "product_head": "32034e8af92923a2abe09ad00e3220f6da1ed21c",
-  "scope": "bounded patch behavioral model; no hosted CI, no production writes",
+  "scope": "bounded patch behavioral + type model; no hosted CI, no production writes",
   "source_files": [
     "apps/miniapp/src/screens/LocalKontur.tsx",
     "apps/miniapp/test/local-kontur.test.ts",
     "apps/miniapp/src/components/CanonicalBirdVisual.tsx",
-    "apps/miniapp/src/kontur-core-corrections.css"
+    "apps/miniapp/src/components/QuizEgg.tsx",
+    "apps/miniapp/src/kontur-core-corrections.css",
+    "packages/contracts/src/state.ts"
   ],
   "results": {
     "current_back_during_response_race": "REPRODUCED",
@@ -16,13 +18,14 @@
     "q8_reduced_motion_gate": "PASS",
     "replay_identity_counterexample": "REPRODUCED",
     "patched_replay_identity": "PASS",
-    "palette_hatch_home_reload_contract": "PASS"
+    "palette_hatch_home_reload_contract": "PASS",
+    "patched_palette_prop_type_fixture": "PASS"
   },
   "details": {
     "back_race": "On q2-q7 the current head allows Back while answerLock/eggResponding is active; the captured answer timer then advances from the old index, producing index=2 with visualQuestionIndex=0 in the deterministic reproduction. The bounded patch hides the control and fails closed in the handler, preserving index/visual continuity.",
     "q8": "The existing shouldEnterQ8Hatching/effect contract correctly waits for both response gesture completion and hatchReady; fast API, slow API and reduced-motion ordering were modeled separately.",
     "replay": "A valid counterexample exists where replay answers resolve to a different presentation bird than the saved profile. The patch uses birdPresentation(saved role/userId), matching Home.",
-    "palette": "The patch uses the canonical state.player.palette through QuizEgg reveal and Home, so the same equipped palette is preserved across hatch -> reveal -> Home -> reload, assuming localState returns the persisted player palette as the current contract specifies."
+    "palette": "PlayerState.palette is a required Palette, QuizEgg and CanonicalBirdVisual both accept Palette|null, and QuizEgg forwards palette to CanonicalBirdVisual. A strict TypeScript fixture for the exact patched prop expressions compiled successfully."
   },
   "limitations": [
     "This is not a full Mini App dependency/build/browser PASS.",

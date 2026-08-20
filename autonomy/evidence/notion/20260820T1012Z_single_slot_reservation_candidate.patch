@@ -1,0 +1,57 @@
+# provenance: brain=NOTION_CORE execution=chat.compute.linux source_ref=Ai-b0ss/notion-agent-bridge:autonomy/notion-prompt-modes-20260819@700f3f12a5bbbd82021ace64fbee3be93f99a1e0
+# purpose: fix independent-route starvation/affinity theft when exactly one legitimate Notion slot is reserved by an unfinished foreground tool loop
+--- a/payload/server.py
++++ b/payload/server.py
+@@
+     async def wait_for_background_route(self, pool_size: int) -> set[str]:
+         """Return foreground account IDs to avoid; wait if every lane is reserved."""
+-        if pool_size <= 1:
++        if pool_size <= 0:
+             return set()
+@@
+-    if account_pool.size > 1 and should_avoid_reserved_foreground_accounts(
++    if account_pool.size > 0 and should_avoid_reserved_foreground_accounts(
+         request_kind,
+         requested_model,
+         has_affinity_anchor=(anchor is not None),
+     ):
+--- a/tests/test_foreground_slot_routing.py
++++ b/tests/test_foreground_slot_routing.py
+@@
+ @pytest.mark.asyncio
+ async def test_two_reserved_foreground_turns_block_unrelated_route_until_release() -> None:
+@@
+     assert avoided == {"account-a"}
++
++
++@pytest.mark.asyncio
++async def test_single_reserved_foreground_turn_blocks_unrelated_route_until_release() -> None:
++    reservations = server.ForegroundAccountReservations()
++    await reservations.reserve("turn-a", "account-a")
++
++    waiter = asyncio.create_task(reservations.wait_for_background_route(pool_size=1))
++    await asyncio.sleep(0.02)
++    assert not waiter.done()
++
++    await reservations.clear("turn-a")
++    assert await asyncio.wait_for(waiter, timeout=0.5) == set()
++
++
++@pytest.mark.asyncio
++async def test_abandoned_single_slot_reservation_expires_without_pin_leak(
++    monkeypatch: pytest.MonkeyPatch,
++) -> None:
++    reservations = server.ForegroundAccountReservations()
++    now = time.monotonic()
++    monkeypatch.setattr(server, "FOREGROUND_TOOL_ACCOUNT_RESERVATION_TTL_SECONDS", 0.01)
++    monkeypatch.setattr(server.time, "monotonic", lambda: now)
++    await reservations.reserve("turn-a", "account-a")
++
++    waiter = asyncio.create_task(reservations.wait_for_background_route(pool_size=1))
++    await asyncio.sleep(0)
++    assert not waiter.done()
++
++    monkeypatch.setattr(server.time, "monotonic", lambda: now + 1.0)
++    async with reservations._condition:
++        reservations._condition.notify_all()
++    assert await asyncio.wait_for(waiter, timeout=0.5) == set()

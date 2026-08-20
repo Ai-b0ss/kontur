@@ -1,0 +1,20 @@
+{
+  "kind": "FREE_FABRIC_V3_EVIDENCE",
+  "date": "2026-08-20",
+  "experiment": "E13 binary Git path precheck",
+  "temporary_branch": "autonomy/v3-capsule-test-20260820",
+  "raw_binary_size": 4096,
+  "raw_binary_sha256": "01ec7c168a21ac4713c7f292ad3ce26a8e2798f5c32bdbb2401f33143da2defa",
+  "git_blob_sha": "563e2a7d4a60b3d9916950d7ed7a1c7531363899",
+  "tree_sha": "1d0c4b7be631383ab5b2b09a4b739a015b75f9ad",
+  "commit_sha": "0995b5f5323e5db8a5e225242c614ccfe3c5b0a5",
+  "path": "autonomy/v3/capsule/random.bin",
+  "checks": {
+    "create_binary_blob": "PASS",
+    "attach_blob_to_git_tree": "PASS",
+    "commit_and_update_branch": "PASS",
+    "fetch_binary_path_as_base64": "PASS",
+    "direct_fetch_blob_as_utf8": "FAIL_EXPECTED_FOR_BINARY"
+  },
+  "verdict": "GitHub repository paths can carry binary capsule bytes; connector retrieval must use fetch_file(base64), not raw UTF-8 blob fetch"
+}

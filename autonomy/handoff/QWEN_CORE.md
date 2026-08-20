@@ -6,22 +6,27 @@
 
 `qwen-workspace`: PR #5, ветка `fix/u01-cache-coherence`, head `ce51b26c227b08032301a8574fee4fe2ee9330a3`, `mergeable=true`.
 
-Что сделано:
-- Заново прочитаны OWNER_INTENT/CURRENT/handoff, затем живые PR и исходники обоих Qwen-репозиториев. Живой `qwen-free-api` head в начале запуска был `e7d7ca50…`, как в handoff.
-- Найден дефект в coding-subagents: пользовательский/диагностический `onEvent` выполнялся внутри основного agent-loop. Если такой наблюдатель падал после уже выполненного tool-события, он мог оборвать задачу и последующий повтор рисковал повторить файловый/terminal side effect.
+### Текущий запуск QWEN_CORE / ZERO_MINUTE
+
+- FREE FABRIC control-plane подтверждён: generation=1, `ZERO_MINUTE`, `STATIC_NO_CAS`, назначение `E1-QWEN-CORE -> QWEN_CORE`, work stealing запрещён.
+- Одноразовый E1-v2 compute-probe реально выполнен в ChatGPT hosted Linux без hosted CI и без provider traffic. Challenge digest: `da181495e2ea060f8025ff931cebca05e04ee231b4831913181dbd90b7f47ce0`; CPU cgroup `400000 100000`, memory `4294967296`, Python 3.13.5, Node 22.16.0, Chromium `/usr/bin/chromium`, ffmpeg `/usr/bin/ffmpeg`.
+- До probe в `Ai-b0ss/kontur#16` не было маркеров `E1_V2_EXECUTABLE_COMPUTE_RESULT`/`E1_V2_NO_EXECUTABLE_COMPUTE`. Попытка добавить обязательный комментарий через доступный GitHub write-tool была дважды заблокирована safety-layer до внешней записи. Повторный provider/CI путь не использовался. Локальный evidence: `/mnt/data/SCHEDULED_QWEN_CORE_E1_V2.json`. Прямого Library write/replace интерфейса в этом запуске нет, поэтому `/Autonomy/FREE_FABRIC/experiments/E1/SCHEDULED_QWEN_CORE_E1_V2.json` не опубликован.
+- Fresh read-only сверка PR #6 и `src/account-store.js` обнаружила узкий fail-open в `server.js`: `accountStore.candidates()` корректно фильтрует cooldown/provider-circuit, но верхний OpenCode route при пустом списке всё ещё может оживить `accountStore.current()`. Аналогично `retryEmpty` может вернуть старый `preferredAccount`, если пул стал пустым.
+- Подготовлен bounded candidate без push: удалить `|| accountStore.current()` из выбора `preferredAccount`; если аккаунты настроены, но все временно недоступны — `503 QWEN_NO_ELIGIBLE_ACCOUNT`, а отсутствие аккаунтов оставить `401`; в `retryEmpty` при пустом `candidates()` возвращать `null`, не оживляя stale preferred. Candidate/evidence созданы локально: `QWEN_CORE_ZERO_MINUTE_ELIGIBILITY_PATCH_20260820.diff` и `QWEN_CORE_ZERO_MINUTE_ELIGIBILITY_EVIDENCE_20260820.json`.
+- Уровень проверки кандидата пока только `STATIC_EXACT_SOURCE_REVIEW_PLUS_POLICY_CANDIDATE`: полный `npm test` на exact tree в этом запуске не выполнен, потому что приватное дерево репозитория не материализовано в локальный контейнер. Не переносить patch в PR до локального regression.
+- Hosted CI, CircleCI, GitHub Actions, provider traffic, deploy и production writes в этом запуске не использовались.
+
+### Что было сделано ранее на текущей линии
+
 - В `src/subagent-agent-runner.js` наблюдатель событий изолирован от исполнения задачи: исключение `onEvent` больше не роняет coding-subagent и не превращает сбой UI/логирования в повтор tool-эффекта.
-- Сохранён точный `taskId` в событиях, включая идентификаторы с дефисами; промежуточная реализация сразу поправлена до записи регресса.
-- В `scripts/subagent-agent-runner-test.js` добавлен сценарий, где `onEvent` намеренно бросает исключение после `read_file`; сама coding-задача обязана завершиться успешно, а событие — сохранить точные `taskId/sessionId`.
-- `qwen-workspace` заново перечитан. Текущий cache-код на `ce51b26c…` сохраняет исправленный путь `.runtime/cache.json`, очистку протухших записей и безопасные временные файлы; новых правок туда не потребовалось.
+- Сохранён точный `taskId` в событиях, включая идентификаторы с дефисами; в `scripts/subagent-agent-runner-test.js` есть сценарий, где `onEvent` намеренно падает после `read_file`, а coding-задача обязана завершиться успешно.
+- CAPTCHA-ротация, account/thread affinity, bounded failover, provider circuit, основной tool-loop, crash-safe session store и оба режима system prompt остаются частью текущей линии.
+- `qwen-workspace` на `ce51b26c…` сохраняет исправленный путь `.runtime/cache.json`, очистку протухших записей и безопасные временные файлы; новых правок туда сейчас не требуется.
 
-Что проверено:
-- PR #6 реально обновлён до `b87793e39ba4a03571dafbaad96b099b38742cf1`.
-- CAPTCHA-ротация, account/thread affinity, bounded failover, provider circuit, основной tool-loop, crash-safe session store и оба режима system prompt этим изменением не ослаблялись.
-- Живой Qwen не запускался и старая разрешённая provider-попытка не дублировалась.
-- Через GitHub combined-status для exact head пока нет опубликованных CircleCI checks (`statuses=[]`), поэтому полный regression зелёным не объявлять без фактического результата.
+### Следующее
 
-Следующее:
-1. Снять фактический CircleCI/`npm test` на `b87793e3…`; в первую очередь проверить `subagent-agent-runner-test.js` вместе с session-store регрессами. Если красный — чинить конкретное падение, не откатывая CAPTCHA-ротацию и observer isolation.
-2. После offline green — один bounded Windows offline parity на exact продуктовой линии, без provider traffic.
-3. Затем восстановить судьбу старой разрешённой live-попытки. Только если доказано, что она до провайдера не дошла, выполнить ровно один живой `read_file → tool result → следующий модельный ход → bash → tool result → final`, затем restart и безопасный failover незавершённой задачи.
-4. После live PASS аккуратно свести PR #6 с текущим `main`, не возвращая старые небезопасные secret/checkpoint решения.
+1. В бесплатном ChatGPT-container материализовать достаточный exact-tree PR #6 и прогнать локально существующие account-selection/server/session/thread regressions вместе с новым zero-minute eligibility сценарием. Hosted CI не использовать.
+2. Если regression зелёный — только тогда перенести bounded patch в ветку, после повторной проверки owner/control state; push не делать ради CI.
+3. Windows native validation пока считать BLOCKED согласно PLATFORM_CONTRACT (`windows.validation_os`/`windows.native_ntfs_oracle`), не подменять её hosted CI.
+4. Живой Qwen не запускать, пока не восстановлена судьба прежней разрешённой live-попытки; второй provider-run вслепую запрещён.
+5. После доказанного offline ядра и одного допустимого live-run закрыть `read_file → tool result → следующий модельный ход → bash → tool result → final`, restart и безопасный failover незавершённой задачи.

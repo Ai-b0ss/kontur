@@ -55,13 +55,18 @@ Notion Core: `candidate/ncm28-windows-fixed-v1`, head `b6f4eef28ea7acdbba5fc3255
 
 Новый `reservation_aware_lease.py` уже является общим механизмом, который после direct five-change server wiring можно использовать для закрытия аналогичной гонки обычного Responses-пути. Сам ordinary Responses пока всё ещё использует замороженный `avoided_reserved_accounts`; не объявлять этот риск исправленным для обычных пользовательских запросов.
 
-### Постоянная память v4 — старт этого запуска
+### Постоянная память v4
 
-В начале запуска `LATEST.json` перечитан с exact Git blob `305378c5db7fa6450027e8bdf5b7568168807588`, capsule `20260820T200941Z-e690b2dc3f`, archive SHA-256 `fe94dfced8f16d3956b2354f9c5e4a917cbffed6ba4a2ffb65aaab8fb3c35fad`.
+В начале запуска `LATEST.json` был прочитан с exact Git blob `305378c5db7fa6450027e8bdf5b7568168807588`, capsule `20260820T200941Z-e690b2dc3f`, archive SHA-256 `fe94dfced8f16d3956b2354f9c5e4a917cbffed6ba4a2ffb65aaab8fb3c35fad`. Удалённые manifest/part были перечитаны, затем capsule прошла штатные `verify` и `restore` через `capsule_runtime_v4.py`.
 
-Удалённые `manifest.json` и `part-0000.b64` прочитаны, затем capsule восстановлена штатным `capsule_runtime_v4.py`: `verify` PASS, `restore` PASS. Восстановленный checkpoint подтверждает source ref `Ai-b0ss/notion-agent-bridge@e12ab315...` и exact server blob `f02cef...`.
+После этой работы создана новая capsule `20260820T211441Z-772c2d436c`, source ref `Ai-b0ss/notion-agent-bridge@a68c9296c517cfd8712d0baa21db43a36a13ccd8`, archive SHA-256 `23ce56531be6ca721824cd961031827b44938a900d4a2a7c54b98fbdf5bfd4da`.
 
-Финишная capsule этого запуска должна быть опубликована только после `pack v4 -> immutable upload -> reread/verify parts+manifest -> reread LATEST -> CAS`, с исходным parent blob `305378c5...`; при изменившемся LATEST force-write запрещён.
+- локальные `pack -> verify -> restore`: PASS;
+- immutable `part-0000.b64`, `part-0001.b64` и `manifest.json` загружены и перечитаны обратно;
+- remote Git blob SHA полностью совпали с локальными байтами: `part0=4d3dcecd9ff0336675727fe40c21bb098a103495`, `part1=c2838f2abcb3ce15d46595fde66bb75526189707`, `manifest=fe96e43102959368b9b5d2d4cc94b8ffc9b385e1`;
+- перед CAS `LATEST` перечитан и остался на исходном blob `305378c5...`;
+- старый LATEST сохранён в `PREVIOUS.json` (content blob `305378c5...`);
+- новый `LATEST.json` опубликован CAS-обновлением; content blob `30cd6257f9ef9f90e15d09d47462abcfcc482f03` и повторно перечитан — он указывает на новую capsule и exact archive SHA.
 
 ### Следующий шаг
 

@@ -1,0 +1,39 @@
+{
+  "schema": "free_fabric_capsule_v3_local_evidence",
+  "date": "2026-08-20",
+  "implementation": "autonomy/v3/tools/capsule_v3.py",
+  "implementation_commit": "98661455f54ea6e4cbaacd734865d6854acd07f9",
+  "test_workspace": {
+    "text_file": true,
+    "random_binary_bytes": 131072,
+    "sqlite_rows": 1000,
+    "executable_mode": "0751",
+    "symlink": "note.link -> note.txt",
+    "checkpoint_step": 41
+  },
+  "capsule": {
+    "archive_format": "tar.gz",
+    "chunk_size": 32768,
+    "chunk_count": 5,
+    "archive_sha256": "8edef257f903b184b2bc8b7774eaf9f84c6fe8adeefefd4e7de537ec9f007ca6"
+  },
+  "checks": {
+    "pack": "PASS",
+    "per_chunk_sha256": "PASS",
+    "archive_reassembly": "PASS",
+    "archive_sha256": "PASS",
+    "safe_extract": "PASS",
+    "workspace_byte_and_metadata_match": "PASS",
+    "sqlite_restore": "PASS",
+    "symlink_restore": "PASS",
+    "executable_mode_restore": "PASS",
+    "checkpoint_continue_41_to_100": "PASS",
+    "checkpoint_reference_from_zero_match": "PASS"
+  },
+  "checkpoint_final_sha256": "38d6009ca06d225361fe8c65d831534561d48db60e50e12f5109d2c41880d0a0",
+  "verdict": "LOCAL_CAPSULE_IMPLEMENTATION_PASS",
+  "not_yet_claimed": [
+    "cross_scheduled_machine GitHub raw-binary chunk roundtrip",
+    "automatic integration into product workers"
+  ]
+}

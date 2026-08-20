@@ -1,0 +1,64 @@
+{
+  "coordination": {
+    "do_not_rewrite_owner_files": true,
+    "no_ci_or_live_provider_used": true,
+    "notion_agent_owner_should_integrate": true,
+    "qwen_reliability_owner_should_not_be_disturbed": true
+  },
+  "findings": [
+    {
+      "candidate_contract": {
+        "output_may_be_empty": true,
+        "provider_account_or_thread_ids_in_neutral_contract": false,
+        "resumed_is_metadata_not_success_state": true,
+        "states": ["completed", "uncertain", "failed", "skipped"],
+        "uncertain_must_block_automatic_retry": true
+      },
+      "id": "NOTION_QWEN_DELEGATION_OUTCOME_STATE_LOSS",
+      "offline_probe": "INTEGRATION_DELEGATION_OUTCOME_CONTRACT_PROBE.py",
+      "probe_result": {
+        "completed_empty_text_rejected": true,
+        "current_representable_cases": 1,
+        "fabricated_nonempty_text_would_be_misclassified_completed": true,
+        "total_cases": 6,
+        "uncertain_state_unrepresentable": true
+      },
+      "problem": "Notion DelegationAdapter is Awaitable[str] and dispatcher rejects empty text; Qwen coding subagent returns structured ok/uncertain/skipped/resumed/code/text states. The current neutral envelope cannot losslessly carry Qwen completion safety state.",
+      "reproduced": true,
+      "severity": "high"
+    },
+    {
+      "candidate_invariant": "A failure after a mutating tool may have committed must not be represented as ordinary retryable tool error unless the executor can prove no side effect occurred. Surface/persist UNCERTAIN or require idempotency/reconciliation before another mutation.",
+      "cross_project_comparison": "Qwen already tracks possible mutating tools and marks later failures uncertain via markUncertainAfterPotentialSideEffect, blocking automatic persisted retry.",
+      "id": "NOTION_TOOL_EXCEPTION_AFTER_SIDE_EFFECT_IS_RETRYABLE",
+      "offline_probe": "INTEGRATION_NOTION_TOOL_EXCEPTION_UNCERTAINTY_PROBE.py",
+      "probe_result": {
+        "first_call_then_raised": true,
+        "first_mutating_call_side_effect_committed": true,
+        "model_received": "tool_execution_failed",
+        "model_retried_new_call_id": true,
+        "side_effect_count": 2
+      },
+      "problem": "DelegatedToolLoopSession catches any Exception from tool_executor and turns it into ordinary tool_execution_failed. If a mutating tool committed its side effect and then failed during acknowledgement/serialization/transport boundary, the model sees a retryable failure and may repeat the mutation with a new call_id.",
+      "reproduced": true,
+      "severity": "high"
+    }
+  ],
+  "schema": "integration_helper_evidence_v1",
+  "source": {
+    "notion_agent_pr8_head": "37abfaa5f0b972a84736c7da669432cd2ed08075",
+    "notion_blobs": {
+      "payload/delegated_tool_loop.py": "ee789e92c5c3f63296923fc6584c55a44c082798",
+      "payload/delegation_dispatcher.py": "66d839a1db347684f2fa2681ceaf98600415298d",
+      "payload/subagent_lifecycle.py": "c90ff249e2199dcdc43002dfb3277fc60fc63b53"
+    },
+    "qwen_blobs": {
+      "src/subagent-agent-runner.js": "d0fd306a3ddea026f63324cef9038429749d4bbd",
+      "src/subagent-dispatcher.js": "50ec101735c08a9efd60405301f18c34d5bbecab",
+      "src/subagent-side-effect-state.js": "3143c9b699070e6e1ee20cef9c5f80d84488b6fd"
+    },
+    "qwen_pr6_head": "b19b8d19f9a19170feb19ed27cbd6676ecffe831"
+  },
+  "timestamp_utc": "20260820T2230Z",
+  "worker": "INTEGRATION_HELPER"
+}

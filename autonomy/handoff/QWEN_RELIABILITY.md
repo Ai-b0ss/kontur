@@ -1,9 +1,9 @@
 # Qwen — надёжность, пул аккаунтов и расширение возможностей
 
-Обновлено: 2026-08-20 06:55 МСК.
+Обновлено: 2026-08-20 07:38 МСК.
 
-Текущая рабочая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Текущий head: `cb213bd17fa1033cec741564908fa5d4d0e95c63`.
-`Ai-b0ss/qwen-workspace` PR #5 без изменений: `468733b2e3c8a2fb9bc04220fb6fd909ae0a4e80`, mergeable=true.
+Текущая рабочая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Текущий head: `5121e4ba7da529decec0f630960099fe8f9c862b`.
+`Ai-b0ss/qwen-workspace` PR #5 тоже сдвинулся: текущий head `ce51b26c227b08032301a8574fee4fe2ee9330a3`, mergeable=true.
 
 ## Что уже есть
 
@@ -14,33 +14,34 @@
 - crash-safe сохранение есть для account state, OpenCode session checkpoint/backup, provider circuit, batch progress и vision cache;
 - два режима системного промпта (`engineer`/`owner`), явно выбираемые Skills, последовательные tool-using субагенты и восстановление пачки между перезапусками уже реализованы;
 - локальные картинки проверяются по реальному пути после раскрытия symlink/junction, ограничены 8 МБ и сохраняют cache crash-safe;
+- Skills понимают стандартный `name/SKILL.md`, `priority`, `user-invocable`, `disable-model-invocation` и `paths:`; path-gated Skill уже можно фильтровать по `touchedPaths`, но реальная сессия пока не накапливает этот набор;
 - ChatGPT relay не активная задача до появления owner session; outbox не включать.
 
 ## Эта смена
 
-- заново прочитаны `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, этот handoff; перепроверены PR #6 и `qwen-workspace` PR #5;
-- на старте PR #6 уже ушёл с `6a62bd5c...` до `53a2c6cb...`; два чужих свежих коммита меняли `src/agent.js`, `src/qwen-v3-capabilities.js` и их тесты, поэтому эти файлы не трогались;
-- по официальной документации Qwen Code подтверждена семантика `paths:`: path-gated Skill не показывается модели, пока в сессии не затронут подходящий файл; ручной список при этом может продолжать его показывать;
-- в `src/skills.js` добавлен безопасный фундамент `paths:`: разбор многострочного и inline списка, нормализация путей, ограничение числа/длины шаблонов, glob-сопоставление `*`, `**`, `?`, фильтрация model-visible каталога по `touchedPaths`;
-- path-gated Skill теперь скрыт из `listModelInvocableSkills()` и `renderModelSkillCatalog()` до совпадения, но остаётся доступен через `listUserInvocableSkills()` для явного вызова;
-- создан отдельный `scripts/skills-path-gate-test.js`: проверяет `src/**/*.ts`, `scripts/*.ts`, Windows-разделители, inline/multiline `paths:`, ручную видимость, model gating и лимиты;
-- тест добавлен в обычный `npm test`;
-- коммиты этой смены в PR #6: `e11d927b03eb09d4498e4c54fb4a5c208bbe7b46`, `87a0e5d4a2162bea472d93315e2dcf7258597f7a`, `cb213bd17fa1033cec741564908fa5d4d0e95c63`;
-- provider traffic = 0; живые аккаунты, encrypted runtime, production и relay не тронуты;
-- локально отдельно проверена семантика нового glob-преобразования для `src/**/*.ts` и `scripts/*.ts`: вложенные/невложенные совпадения работают ожидаемо;
-- важное ограничение: `paths:` пока только готовый слой фильтрации. Реальная сессия ещё не накапливает и не передаёт `touchedPaths`, поэтому Auto-Skills по факту ещё не включены в рабочем agent loop;
-- после записи изменений найден свежий owner-комментарий о временном zero-minute режиме: не запускать/не перезапускать hosted CI и не делать новые push только ради получения runner. Поэтому никакой CircleCI/GitHub Actions в этой смене вручную не запускался и после обнаружения этого ограничения новые Qwen-product push не делались. Если автоматический CircleCI уже стартовал от трёх предыдущих commit, его не дублировать.
+- заново прочитаны `OWNER_INTENT_RU.md`, `CURRENT_RU.md`, этот handoff; перепроверены текущие PR обоих Qwen-репозиториев;
+- PR #6 сдвинулся с прежнего `cb213bd1...` до `5121e4ba...`, поэтому старый head больше не считать текущим;
+- `qwen-workspace` PR #5 тоже уже не на старом `468733b2...`: текущий head `ce51b26c...`, PR остаётся mergeable;
+- перепроверен фактический код `src/skills.js`, `src/session-store.js`, `src/tool-executor.js`, `src/agent.js` и серверный OpenAI/OpenCode путь;
+- подтверждено, что следующий Auto-Skills кусок лучше делать не через отдельный журнал инструментов, а через уже сохраняемую историю сессии: assistant `tool_calls` содержат аргументы файловых инструментов, а `session-store` уже crash-safe хранит эту историю между перезапусками;
+- для встроенного agent-loop пути реальные файловые операции проходят через `tool-executor`, поэтому там можно фиксировать нормализованный относительный путь сразу после успешного `read_file/write_file/edit_file/append_file/list_dir`; для OpenCode пути можно извлекать пути из подтверждённых tool-call аргументов при checkpoint, не требуя от клиента нового протокола;
+- накопленный `touchedPaths` должен быть монотонным множеством с жёстким лимитом (например, 256 нормализованных относительных путей), сохраняться в session record и переживать restart; один раз активированный `paths:` Skill не должен исчезать на следующем ходе;
+- не следует считать `bash` источником точных touched paths: произвольную shell-команду надёжно разобрать невозможно. Для `bash` path-gated Skill активируется только если тот же файл был затронут файловым инструментом/явным tool-call с путём;
+- текущий zero-minute режим владельца всё ещё считается действующим: в этой смене не запускались hosted CI/manual rerun и не делались продуктовые push в `qwen-free-api`. Provider traffic = 0; аккаунты, encrypted runtime, production и relay не тронуты;
+- вместо запрещённого продуктового push обновлён только этот control-handoff с актуальными head и точной схемой следующего патча.
 
-## Что проверить следующим запуском
+## Что делать следующим запуском
 
-1. Сначала заново проверить, действует ли zero-minute режим. Пока действует — никаких hosted CI/manual rerun и никаких push, сделанных только ради CI.
-2. Не редактировать `src/qwen-v3-capabilities.js` и `src/agent.js` параллельно, пока другой Qwen-рабочий продолжает эту линию.
-3. Следующий независимый продуктовый кусок: хранить в session state накопленный набор реально затронутых файлов и передавать его в `renderModelSkillCatalog(..., { touchedPaths })`. Активация `paths:` должна сохраняться до конца сессии, а не исчезать на следующем ходе.
-4. После активации добавить bounded on-demand загрузку ровно выбранного Skill по имени. Не загружать тела всех Skills в каждый запрос.
-5. Старый разрешённый live-trigger `4de8bdae6d0c28789181f31b6212f97e6e283333` не дублировать вслепую.
-6. Когда hosted/free runner снова разрешён, сначала полный offline `npm test` на exact head, затем один bounded Windows parity, потому что `paths:` и vision затрагивают Windows path/junction semantics.
-7. После одного доказанного live tool-loop PASS проверить настоящий `restart → восстановление незавершённой цели → аккаунт A недоступен → продолжение через B` с сохранённой tool history.
+1. Сначала проверить, снят ли zero-minute режим. Пока он действует — никаких hosted CI/manual rerun и никаких Qwen-product push, которые заведомо запускают hosted CI.
+2. Снова проверить свежий head PR #6 и не редактировать файлы, которые в этот момент меняет другой Qwen-рабочий.
+3. Когда product push снова разрешён, реализовать session-scoped `touchedPaths` crash-safe: нормализация, дедупликация, bounded set, сохранение в `session-store` и восстановление после restart.
+4. Для встроенного agent-loop отмечать путь только после успешного файлового действия; для OpenCode/OpenAI пути извлекать подтверждённые `path`/`cwd` из файловых tool-call аргументов, не пытаться парсить произвольный `bash`.
+5. Передавать накопленный набор в `renderModelSkillCatalog(..., { touchedPaths })`; добавить регресс `файл затронут → Skill появился → следующий ход без нового файла → Skill остался → restart → Skill всё ещё активен`.
+6. После этого добавить bounded on-demand загрузку ровно выбранного Skill по имени. Не загружать тела всех Skills в каждый запрос.
+7. Старый разрешённый live-trigger `4de8bdae6d0c28789181f31b6212f97e6e283333` не дублировать вслепую.
+8. Когда hosted/free runner снова разрешён, сначала полный offline `npm test` на exact head, затем один bounded Windows parity, потому что `paths:` и vision затрагивают Windows path/junction semantics.
+9. После одного доказанного live tool-loop PASS проверить настоящий `restart → восстановление незавершённой цели → аккаунт A недоступен → продолжение через B` с сохранённой tool history.
 
 ## Отдельно про qwen-workspace
 
-PR #5 остаётся без изменений на `468733b2e3c8a2fb9bc04220fb6fd909ae0a4e80`, mergeable=true. Его кэш-линия с этой работой не пересекается.
+PR #5 остаётся mergeable, но его head уже `ce51b26c227b08032301a8574fee4fe2ee9330a3`, а не старый `468733b2...`. Перед любыми изменениями перечитать свежий diff; считать прежнюю запись о неизменности этой линии устаревшей.

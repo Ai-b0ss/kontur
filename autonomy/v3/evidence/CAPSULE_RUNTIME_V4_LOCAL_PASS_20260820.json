@@ -1,0 +1,17 @@
+{
+  "schema": "capsule_runtime_v4_local_evidence",
+  "date": "2026-08-20",
+  "implementation_sha256": "e472ab626bca862be8af920d603e4c20a86ba69d2ae35bd4f4175a3f5eee4ef3",
+  "checks": {
+    "pack": "PASS",
+    "part_hash_verification": "PASS",
+    "archive_reassembly": "PASS",
+    "workspace_byte_and_mode_restore": "PASS",
+    "symlink_restore": "PASS",
+    "two_phase_latest_publish": "PASS",
+    "previous_pointer_preserved": "PASS",
+    "corrupt_latest_falls_back_to_previous": "PASS",
+    "unsafe_symlink_escape_rejected": "PASS"
+  },
+  "verdict": "PASS"
+}

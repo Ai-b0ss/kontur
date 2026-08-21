@@ -83,34 +83,21 @@ Fresh audit остальных safety stores:
 1. `__w2load()` глотает любую read/JSON ошибку и превращает corrupt `wafmin2-global-pressure.json` в пустое здоровое state. После restart это может забыть активную global WAF penalty и открыть provider admission раньше времени.
 2. `__w2save()` пишет tmp без fsync/parent-dir durability; при rename failure делает `rmSync(canonical)` + second rename, а если и она падает, ошибку глотает. В результате ранее подтверждённое safety state может исчезнуть, а caller считает сохранение успешным.
 
-Готов byte-small candidate v2 + executable regression:
-`autonomy/v3/candidates/QWEN_RELIABILITY_GLOBAL_GOVERNOR_DURABILITY_V2_20260821.patch`
+Промежуточные V1/V2/V3 superseded. Использовать только финальный кандидат:
+`autonomy/v3/candidates/QWEN_RELIABILITY_GLOBAL_GOVERNOR_DURABILITY_V4_20260821.patch`
 
-V1 candidate не использовать: у него был хрупкий package.json hunk. V2 намеренно содержит только `request-governor.js` и новый `scripts/request-governor-durable-state-test.js`; после успешного targeted PASS подключить тест в текущий свежий npm test отдельной exact правкой.
+V4 содержит полный целевой контракт:
+- corrupt/invalid canonical => `QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN` до provider admission;
+- обычный `ENOENT` считается чистым стартом только если рядом нет owned `.tmp-*` / `.txn-backup-*` recovery artifacts;
+- missing canonical + такие artifacts => fail-closed, потому что это может быть оборванная транзакция, а не первый старт;
+- запись: temp file + fsync -> old canonical to txn-backup -> candidate install -> parent-dir fsync -> cleanup best-effort;
+- ошибка до commit point видна caller и пытается вернуть предыдущие acknowledged bytes;
+- после любой неподтверждённой durable save ошибки текущий процесс ставит `persistenceUncertain` latch, и новые `before()` блокируются до provider traffic;
+- cleanup-only ошибка после подтверждённого commit не откатывает новое safety state;
+- `quota-telemetry.finish()` изолирует post-response governor persistence exception: логирует, но не роняет процесс после уже отправленного ответа; governor остаётся fail-closed;
+- кандидат содержит `request-governor-durable-state-test.js` (corrupt, orphan artifact, clean ENOENT, rollback, save-failure latch) и `quota-telemetry-governor-failure-test.js`.
 
-Целевой контракт V2:
-- corrupt/invalid persisted global governor state => `QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN` до provider admission, а не empty healthy state;
-- absent state (`ENOENT`) остаётся нормальным чистым стартом;
-- запись: temp fsync -> old canonical to txn-backup -> candidate install -> parent fsync -> cleanup best-effort;
-- ошибка до commit point видна caller и восстанавливает предыдущие acknowledged bytes;
-- cleanup-only failure после commit не откатывает новый safety state.
-
-## Helper correction — 2026-08-21 21:05Z
-
-Предыдущий V2 superseded и удалён вместе с V1. Использовать только финальный кандидат:
-`autonomy/v3/candidates/QWEN_RELIABILITY_GLOBAL_GOVERNOR_DURABILITY_V3_20260821.patch`
-
-V3 добавляет к предыдущему контракту ещё две обязательные границы:
-- после любой неподтверждённой durable save ошибки текущий процесс ставит `persistenceUncertain` latch; все новые `before()` завершаются локальным `QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN` до provider admission, а не продолжают работу на недоказанном состоянии;
-- `quota-telemetry.finish()` изолирует уже post-response ошибку governor persistence: она логируется, но не вылетает из `finish/close` EventEmitter handler и не роняет процесс после уже отправленного клиенту ответа. Сам governor при этом остаётся fail-closed для следующего admission.
-
-V3 содержит:
-1. product patch `src/request-governor.js` с fsync/rollback/fail-closed latch;
-2. небольшой стык `src/quota-telemetry.js` для post-response isolation;
-3. `scripts/request-governor-durable-state-test.js` — corrupt state, ENOENT clean start, rollback после injected replacement EIO, subsequent admission blocked;
-4. `scripts/quota-telemetry-governor-failure-test.js` — governor durability exception после response не выходит из telemetry finish.
-
-После targeted PASS подключить оба новых теста в свежий exact `npm test` отдельной маленькой правкой. Старые V1/V2 пути больше не существуют.
+После targeted PASS подключить оба новых теста в свежий exact `npm test` отдельной маленькой правкой. Старые V1/V2 были удалены; V3 также удалить/игнорировать как superseded.
 
 Дополнительно в product уже закрыта небольшая защитная недостача классификатора side effects:
 - `df0f83e8e96cd459d81cc054131e0110b95c435c` добавил `run_command` в possible-side-effect tools;

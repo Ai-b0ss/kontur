@@ -4,7 +4,7 @@
 
 Основная продуктовая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6.
 
-Свежий product head после этого прохода: `925682bc36338a249a26dae2c684380c21ba8db7`.
+Свежий product head после этого прохода: `d605db5d8f8411f9054ffabf258616d5b9e0132d`.
 
 ## Уже доказано и не переделывать
 
@@ -28,80 +28,76 @@
 - `qwen-client.operationCandidates()` делегирует порядок каноническому `accountStore.candidates(preferredAccount)`;
 - request-wide bounded retry закрыт: обычный/stream retry делят один `attemptedAccountIds`, distinct-account usage ограничен `MAX_ACCOUNTS_PER_OPERATION`, same-owner rebase не расходует новый distinct slot;
 - provider-wide circuit, найденный до реального provider path, не расходует request-wide slot;
-- истёкший provider circuit при неподтверждённой durable cleanup остаётся fail-closed через `state_cleanup_failed`.
+- истёкший provider circuit при неподтверждённой durable cleanup остаётся fail-closed через `state_cleanup_failed`;
+- четыре границы local/provider из предыдущего прохода закрыты: local preparation до provider I/O, durable `markSuccess`, durable CAPTCHA/rate-limit/account failure и durable provider-circuit trip. Product head той волны: `925682bc36338a249a26dae2c684380c21ba8db7`.
 
-## Закрыто в этом проходе — четыре границы локальной ошибки и провайдера
+## Закрыто в этом проходе
 
-Свежий PR был перечитан перед изменением. Все четыре подготовленных кандидата оставались актуальными и были внесены в продукт через exact full-file CAS по свежему blob SHA, без реконструкции из частичных фрагментов.
+### 1. Ошибка записи состояния внутри accepted-stream error observer больше не проглатывается
 
-### 1. Локальная подготовка запроса не расходует provider budget
-
-`buildHeaders()` включает cookie/timezone и может упасть локально до сетевого запроса. Раньше аккаунт мог уже попасть в request-wide `attemptedAccountIds`, а локальная ошибка затем классифицировалась как provider transport.
+`stream-session-guard` раньше намеренно изолировал любые исключения из `opts.onError`. Это правильно для обычной ошибки observer-кода, но в реальном `server.js` этот callback записывает CAPTCHA/ошибку аккаунта. Если `account-store` бросал `EIO/ENOSPC/EDQUOT/EROFS/EACCES/EPERM`, ошибка записи состояния исчезала, клиент видел только upstream error, а маршрут завершался как будто запись cooldown/error состоялась.
 
 Теперь:
-- добавлен `QWEN_LOCAL_PREPARATION`;
-- headers/cookie/timezone готовятся до `markProviderAttempt()`;
-- при локальной ошибке provider I/O не считается состоявшимся, cooldown здорового аккаунта не меняется и sibling failover не запускается.
+- известные ошибки долговечности из observer преобразуются в `QWEN_LOCAL_PERSISTENCE`;
+- guard отвергает Promise обратно маршруту и пишет `server_error`, а не маскирует проблему как provider error;
+- обычные observer-ошибки без признака storage/persistence по-прежнему изолируются, чтобы не заменять исходную ошибку провайдера.
 
-Коммиты: `5c8957b578e501fc8ac075b99888d14b69accbbb`, `0548e7c3cf20228e0abc1c296e76b32724799694`, `fe3b93c7d336712a932d96ff61aaa6b0dffbfdd7`.
+Коммиты:
+- `723174444b4c5240aa5350e7a32c094b1b2dc23a` — продуктовый guard;
+- `08a08d1bd62165c818fcb1558751ba051f57e5bd` — регрессия.
 
-### 2. Ошибка durable `markSuccess()` после успешного ответа не становится ошибкой Qwen
+Hosted targeted marker: `STREAM_OBSERVER_PERSISTENCE_FAIL_CLOSED_MODEL_PASS`.
 
-Добавлен `QWEN_LOCAL_PERSISTENCE` и `markSuccessDurably()`. Если Qwen уже успешно ответил, но локальная запись состояния аккаунта падает, запрос завершается как `local_persistence` и не переключается на соседний аккаунт. Это защищает от повторения уже состоявшейся provider-side работы.
+### 2. Durable account/cooldown state больше не откатывается из-за cleanup-only ошибки
 
-### 3. Ошибка записи уже классифицированной CAPTCHA/rate-limit/account failure — fail-closed
+В `account-store.persist()` после `rename(temp -> canonical)` и успешного `fsync` родительского каталога новый JSON уже является подтверждённым каноническим состоянием. Но удаление старого `.txn-backup-*` было внутри общего `try`: если именно cleanup давал `EIO`, общий `catch` удалял уже подтверждённый новый файл и возвращал старый backup. Для CAPTCHA/rate-limit это могло откатить свежий cooldown к старому доступному состоянию.
 
-Добавлены `markFailureDurably()` и `markCaptchaDurably()`. Если provider outcome уже известен, но durable запись cooldown/error не подтверждена, ошибка диска не переклассифицируется в transport и не открывает sibling probing.
+Теперь удаление transaction backup после подтверждённого canonical replacement — best-effort cleanup и не может откатить новый account/cooldown state. Ошибка до подтверждающего directory `fsync` по-прежнему откатывается и бросается наружу.
 
-### 4. Ошибка durable записи provider-wide circuit — fail-closed
+Коммиты:
+- `c1112b4fa33dbe987cee2bbc430a1e0b8db5f6a0` — продуктовый фикс;
+- `d605db5d8f8411f9054ffabf258616d5b9e0132d` — регрессия на synthetic backup-cleanup `EIO`.
 
-`stopError()` теперь защищает `accountStore.markRestriction()` / `providerCircuit.trip()`. Если общий WAF/trust/pressure уже обнаружен, но состояние circuit не удалось надёжно записать, запрос заканчивается `local_persistence`, а не идёт к соседнему аккаунту.
+Hosted markers:
+- `ACCOUNT_DURABLE_REPLACEMENT_CLEANUP_REPRO_PASS` — старый rollback воспроизведён;
+- `ACCOUNT_DURABLE_REPLACEMENT_CLEANUP_PASS` — новый инвариант подтверждён моделью.
 
-Общий продуктовый commit для трёх persistence-boundaries: `7390387ee5720b747d06397899199f95a18949f1`.
-Регрессии: `9dba76416ca4536e3cf3f323cc51d3c8105ad61d`, `92e795c39bd8225362203912cad352e755c97da7`, `5b0f6d52aba895e70604dd70f07ddb2b5934af8e`, включение в штатный `npm test`: `925682bc36338a249a26dae2c684380c21ba8db7`.
+## Проверки и ограничения этого прохода
 
-Hosted behavioral model: `QWEN_FOUR_BOUNDARY_BEHAVIOR_MODEL_PASS`.
-
-Важно: полный exact-tree `npm test` в этом проходе не заявлен — hosted контейнер не смог клонировать GitHub по DNS. Изменённый код перечитан из GitHub после записи, а новые регрессии включены в штатный test script. Внешний CI ради этого не запускался.
-
-Дополнительная проверка `account-store`: `markCaptchaChallenge(account, reason, undefined)` сохраняет штатный default CAPTCHA cooldown 10 минут; managed-account ссылки канонизируются по id перед availability/state mutation.
+- изменённые файлы перечитаны после записи через GitHub;
+- внешний exact-tree `npm test` не заявлен: hosted контейнер не резолвит `github.com`, поэтому полный checkout недоступен;
+- выполнены только локальные целевые модели на hosted Node;
+- CircleCI/GitHub Actions/Cloudflare: 0 запусков;
+- provider/live Qwen: 0 запросов;
+- реальные аккаунты, секреты и production не тронуты.
 
 ## Постоянная память
 
-В начале запуска прочитан `LATEST.json`:
-- capsule `20260821T135651Z-b77269c19c`;
-- стартовый parent Git blob SHA `dc9a778b8e6777cee6f398a4fcdcdd81db356e31`;
-- archive SHA-256 `90f973f85b3ddedfaa9edfe08f2ecac434901ed9f86e2d17910c70246c89ef2c`.
+В начале запуска прочитан `LATEST.json` и запомнен parent Git blob SHA `fd5bbad19679273346da3e46da8ebfeefc56f5a6`.
 
-Manifest и обе части были материализованы точными байтами; нормативные `capsule_runtime_v4.py verify` и `restore` дали PASS.
+Стартовая capsule `20260821T170333Z-9e3802c8f0` была материализована из exact manifest + 2 parts и прошла нормативные `capsule_runtime_v4.py verify` и `restore`; archive SHA-256 `687dad1f2d54982eef042663705bfc33f8096846157154722d2513fefb58d263`.
 
 После работы выполнен `checkpoint -> pack v4`. Новая immutable capsule:
-- `20260821T170333Z-9e3802c8f0`;
-- source ref `Ai-b0ss/qwen-free-api@925682bc36338a249a26dae2c684380c21ba8db7`;
-- archive SHA-256 `687dad1f2d54982eef042663705bfc33f8096846157154722d2513fefb58d263`;
-- 2 части: 2048 и 624 символа.
+- `20260821T180127Z-57d53429ab`;
+- source ref `Ai-b0ss/qwen-free-api@d605db5d8f8411f9054ffabf258616d5b9e0132d`;
+- archive SHA-256 `e26712f0911509a4258e3a2bae4884052bfe7e9a76c984e08b6d4850fddbb6f5`;
+- 1 part, 2048 символов, SHA-256 text `9732f6a325bceeeb5dbc1473fa0fe91c3cd362e7159e49562e1c8cdc64681a9a`;
+- uploaded part Git blob SHA `eea62fe0dfc4ea19fff0a16a8f085690fe64b9f4`;
+- uploaded manifest Git blob SHA `84ec7c51ddbbc21ac7ee45c3d932a14b444ceb8a`.
 
-После загрузки обе parts и manifest перечитаны из GitHub. Их Git blob SHA точно совпали с локально вычисленными:
-- part-0000: `209a05d057856be0464c347593a09866e29fac2e`;
-- part-0001: `50181bb21f2c83ba21795b7f85a21b77901b5179`;
-- manifest: `85f61611beed22b635935d5914c575cbf531e412`.
+После upload part и manifest перечитаны; их Git blob SHA совпали с локально вычисленными. Локальные `verify + restore` новой capsule дали PASS.
 
-Непосредственно перед публикацией `LATEST` был перечитан и всё ещё имел стартовый parent SHA `dc9a778b...`, то есть CAS-конфликта не было. Старый `LATEST` сохранён как `PREVIOUS`, затем новый `LATEST` опубликован exact-CAS и перечитан после записи.
+Непосредственно перед CAS `LATEST` был перечитан и сохранил стартовый parent SHA `fd5bbad...`; конфликтов не было. Старый `LATEST` сохранён в `PREVIOUS`, затем новый `LATEST` опубликован exact CAS и перечитан.
 
 Текущий `LATEST`:
-- capsule `20260821T170333Z-9e3802c8f0`;
-- Git blob SHA `fd5bbad19679273346da3e46da8ebfeefc56f5a6`;
-- archive SHA-256 `687dad1f2d54982eef042663705bfc33f8096846157154722d2513fefb58d263`.
+- capsule `20260821T180127Z-57d53429ab`;
+- Git blob SHA `7c6b4cc41788564284bf5a425231eac0e3c5058e`;
+- archive SHA-256 `e26712f0911509a4258e3a2bae4884052bfe7e9a76c984e08b6d4850fddbb6f5`.
 
 ## Следующий безопасный кусок
 
 1. В начале следующего запуска восстановить новый `LATEST` через v4.
-2. Перечитать свежий PR #6: параллельный writer может уже сдвинуть head.
-3. Не переделывать четыре закрытые границы. Искать следующий независимый fail-open вокруг локальной persistence/provider-state границы или bounded failover.
-4. Если станет доступен byte-safe exact-tree materialization на hosted машине, выполнить локально новые четыре regression scripts и релевантный `npm test` без CircleCI/GitHub Actions/provider traffic.
-
-## Ограничения этого прохода
-
-- CircleCI/GitHub Actions/Cloudflare: 0 запусков;
-- provider/live Qwen: 0 запросов;
-- реальные аккаунты, секреты и production не тронуты.
+2. Перечитать свежий PR #6: параллельный writer может сдвинуть head.
+3. Не переделывать два исправления выше.
+4. Проверить остальные post-fsync cleanup-пути в account/session state и stream route: после подтверждённой canonical записи cleanup-only ошибка не должна откатывать более новое safety state; локальная persistence-ошибка не должна теряться или превращаться в provider transport.
+5. Если станет доступен byte-safe exact-tree materialization на hosted машине, выполнить релевантные штатные regression scripts и `npm test` локально без CircleCI/GitHub Actions/provider traffic.

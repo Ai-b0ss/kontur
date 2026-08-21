@@ -1,0 +1,41 @@
+{
+  "schema": "notion_core_durable_replay_v19_evidence_v1",
+  "created_at_utc": "2026-08-22T00:05:00Z",
+  "base_candidate": "V12+V12-fixup+V17+V14+V15+V16+V16-fixup+V18",
+  "new_candidate": "autonomy/evidence/notion/20260822T0005Z_durable_replay_v19_post_compaction_marker_gate.patch",
+  "reproduced_gap": {
+    "name": "post-compaction stale-prefix exemption can execute delayed pre-compaction retry",
+    "precondition": "segment.awaiting_compacted_history=true after exact durable V16 compaction publication",
+    "old_behavior": "V18 skips the shorter-prefix stale gate for the first normal post-compaction turn; existing rollover_reason=post_compaction accepts any normal request in that window",
+    "risk": "a delayed pre-compaction request can be mistaken for the new compacted history and reach provider planning again"
+  },
+  "fix_contract": {
+    "source_of_truth": "V16 replay_response stores the exact compact_payload returned to Codex",
+    "proof_marker": "SHA-256 over {type:'compaction', encrypted_content:<opaque compacted content>}",
+    "post_compaction_rule": "while awaiting_compacted_history, a normal request must contain exactly the latest durable compaction marker before any provider planning",
+    "missing_or_ambiguous_durable_marker": "fail closed",
+    "additional_user_data_persisted": false,
+    "notes": "The hash ignores incidental metadata/id fields so harmless transport decoration does not invalidate the opaque compacted state."
+  },
+  "local_model": {
+    "verdict": "DURABLE_REPLAY_V19_POST_COMPACTION_MARKER_MODEL_PASS",
+    "cases": {
+      "latest_compaction_item_plus_new_user_input": "ALLOWED",
+      "same_encrypted_content_with_extra_metadata": "ALLOWED",
+      "stale_pre_compaction_prefix_without_marker": "BLOCKED",
+      "mutated_compaction_encrypted_content": "BLOCKED",
+      "missing_durable_compaction_payload": "BLOCKED",
+      "multiple_durable_compaction_items": "BLOCKED"
+    }
+  },
+  "external_contract_check": {
+    "openai_responses_compact": "official Responses API returns compacted output items for use as the next request input; Codex automatically continues from compacted output",
+    "checked_at": "2026-08-22"
+  },
+  "safety": {
+    "product_branch_mutated": false,
+    "hosted_ci_started": false,
+    "provider_traffic": false,
+    "native_windows_claimed": false
+  }
+}

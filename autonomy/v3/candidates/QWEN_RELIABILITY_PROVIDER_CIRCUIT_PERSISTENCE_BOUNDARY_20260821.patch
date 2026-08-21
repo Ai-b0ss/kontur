@@ -1,0 +1,89 @@
+diff --git a/src/qwen-client.js b/src/qwen-client.js
+--- a/src/qwen-client.js
++++ b/src/qwen-client.js
+@@
+ function stopError(errorClass, account, detail) {
+   const reason = String(detail || errorClass).slice(0, 200);
+-  if (errorClass === 'waf_restriction') {
+-    accountStore.markRestriction(account, reason, 'waf');
+-  } else if (errorClass === 'trust_restriction') {
+-    accountStore.markRestriction(account, reason, 'trust_restriction');
+-  } else {
+-    providerCircuit.trip(errorClass, null, reason);
++  try {
++    if (errorClass === 'waf_restriction') {
++      accountStore.markRestriction(account, reason, 'waf');
++    } else if (errorClass === 'trust_restriction') {
++      accountStore.markRestriction(account, reason, 'trust_restriction');
++    } else {
++      providerCircuit.trip(errorClass, null, reason);
++    }
++  } catch (cause) {
++    // The provider-wide stop condition has already been observed, but its
++    // durable safety state could not be confirmed locally. Never feed this EIO
++    // back into provider classification and never probe a sibling account.
++    throw localPersistenceError('provider_circuit_trip', cause);
+   }
+   const err = new Error(`Qwen provider safety circuit opened (${errorClass}); sibling-account probing stopped.`);
+@@
+ async function generateChatID(model, chatType = 't2t', targetAccount = null, attemptContext = null) {
+@@
+     } catch (err) {
++      if (err && err.localPersistence) throw err;
+       if (err && err.providerStop) throw err;
+@@
+ async function sendChatRequest(payload, preferredAccount = null, attemptContext = null) {
+@@
+     } catch (err) {
+       if (err && err.localPersistence) {
+         logger.error(`local Qwen state persistence failed while recording provider outcome: ${err.cause?.message || err.message}`, 'QWEN');
+         return {
+           status: false,
+           message: 'Local Qwen state persistence failed while recording provider outcome.',
+           errorClass: 'local_persistence',
+           account,
+         };
+       }
+*** End Patch
+
+diff --git a/scripts/provider-circuit-persistence-boundary-test.js b/scripts/provider-circuit-persistence-boundary-test.js
+new file mode 100644
+--- /dev/null
++++ b/scripts/provider-circuit-persistence-boundary-test.js
+@@
++'use strict';
++
++// Once a provider-wide stop condition (WAF/trust/pressure/ambiguous timeout)
++// has been observed, failure to durably record that circuit is local state
++// failure. It must not be reclassified as transport and must never cause a
++// sibling provider request while the safety state is uncertain.
++
++const fs = require('fs');
++const path = require('path');
++
++const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'qwen-client.js'), 'utf8');
++
++function assert(condition, message) {
++  if (!condition) throw new Error(message);
++}
++
++const stopStart = source.indexOf('function stopError(');
++const circuitStart = source.indexOf('function circuitError(', stopStart);
++const stopBody = source.slice(stopStart, circuitStart);
++assert(stopBody.includes("localPersistenceError('provider_circuit_trip', cause)"), 'provider circuit persistence failure must become local_persistence');
++
++const createStart = source.indexOf('async function generateChatID');
++const sendStart = source.indexOf('async function sendChatRequest');
++const createBody = source.slice(createStart, sendStart);
++const createLocal = createBody.indexOf('if (err && err.localPersistence) throw err;');
++const createClassify = createBody.indexOf('const failureClass = classifyUpstreamFailure', createLocal);
++assert(createLocal >= 0 && createClassify > createLocal, 'chat creation must exit on circuit persistence failure before provider reclassification');
++
++const sendBody = source.slice(sendStart);
++const sendLocal = sendBody.indexOf('if (err && err.localPersistence)');
++const sendClassify = sendBody.indexOf('const failureClass = classifyUpstreamFailure', sendLocal);
++assert(sendLocal >= 0 && sendClassify > sendLocal, 'completion must exit on circuit persistence failure before provider reclassification');
++
++console.log('QWEN_PROVIDER_CIRCUIT_PERSISTENCE_BOUNDARY_PASS');
++
+*** End Patch

@@ -1,0 +1,42 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "QWEN_TRUNCATED_PARTIAL_TOOL_RESULT_DURABLE_SIBLING_LOSS",
+  "verdict": "REPRODUCED_AND_CANDIDATE_PASS",
+  "qwen_head": "861a8f176a6037acaec5721b2f6bbad3041d7dd9",
+  "session_store_blob": "d13f79a1c999ca5221cac190ad7b155f4854ae9b",
+  "current_semantics": {
+    "restore_checkpoint_progress_choice": "for incoming transcripts with >1 non-system message, persistCompletedToolProgress receives caller messages instead of merged durable history",
+    "reproduction": "stored assistant turn contains two accepted mutating calls A and B; caller returns a truncated explicit transcript containing only call A plus result A",
+    "observed": {
+      "pending_after_persist": [],
+      "stored_system_prompt_preserved": false,
+      "unresolved_sibling_call_B_erased": true
+    }
+  },
+  "risk": "A stale/truncated OpenAI-compatible transcript can acknowledge one accepted mutating tool call while accidentally deleting an unresolved sibling from durable state. A later restart then sees no pending obligation and may plan/replay work over an unknown side effect. The same overwrite also drops stored system history when the caller omits it.",
+  "candidate_contract": {
+    "rule": "tool-result progress must be persisted from the authoritative merged history, never from a caller transcript that can erase previously accepted unresolved calls",
+    "minimal_change": "inside restoreCheckpoint use mergedMessages for persistCompletedToolProgress regardless of incoming transcript length; the function may still return caller messages for the immediate provider request if that compatibility behavior is intentionally retained",
+    "expected": {
+      "matching_result_A_durable": true,
+      "pending_B_preserved": true,
+      "stored_system_preserved": true,
+      "full_transcript_no_duplicate_assistant_turn": true
+    }
+  },
+  "offline_probe": "autonomy/v3/tools/integration_qwen_partial_tool_result_truncated_transcript_probe.js",
+  "probe_output": {
+    "current_pending_after_persist": [],
+    "candidate_pending_after_persist": ["call-B"],
+    "candidate_full_transcript_pending": ["call-B"],
+    "candidate_full_transcript_assistant_turns": 1
+  },
+  "coordination": "Not current Qwen Core mixed-stream checkpoint work, not Qwen Reliability request-wide retry/account accounting, and does not touch Notion lanes.",
+  "limits": [
+    "No product source rewritten",
+    "No hosted CI",
+    "No live Qwen/Notion/Codex/provider traffic",
+    "No production, real accounts, user data or secrets"
+  ]
+}

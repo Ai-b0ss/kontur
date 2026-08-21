@@ -1,0 +1,34 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "worker": "NOTION_CORE",
+  "created_at_utc": "2026-08-21T13:48:00Z",
+  "integration_head": "Ai-b0ss/notion-agent-bridge@1b4f9eb195f1fc2aadf6344a5e0b55ef7588201e",
+  "verdict": "DURABLE_REPLAY_V11_STALE_ACCOUNT_REHYDRATION_REPRODUCED",
+  "finding": "V10 replay rehydration must not blindly reserve persisted account_id after restart. ForegroundAccountReservations accepts any account_id and wait_for_turn_route compares the count of reserved IDs to account_pool.size without checking pool membership. If the persisted owner account was removed/replaced/invalidated between runs, rehydrating that stale ID can make unrelated work wait until the 300s reservation TTL despite all currently configured accounts being free.",
+  "exact_source": {
+    "payload/server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "payload/account_pool.py": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f",
+    "payload/conversation_segments.py": "553bd3496c21a7949c3a5dfa03f33b9e09293213"
+  },
+  "reproduction": {
+    "pool_size": 1,
+    "persisted_account_id": "removed-account",
+    "configured_accounts": ["replacement-account"],
+    "reservation_owner_turn": "old-turn",
+    "unrelated_turn": "new-turn",
+    "observed_model_result": {
+      "active_reserved_ids": ["removed-account"],
+      "would_wait": true
+    }
+  },
+  "required_core_invariant": [
+    "Before post-restart reservation rehydration, prove persisted account_id is a currently configured pool member.",
+    "If the persisted account is absent, do not create a ghost reservation.",
+    "Do not silently route the same persisted tool-call continuation through a different account/thread. Fail closed for that replay unless the Agent lane supplies an explicitly proven safe full-history rebase contract.",
+    "A persisted final response may still clear the turn reservation regardless of account membership."
+  ],
+  "boundary": "This finding does not change rotation/failover policy. It only constrains Core crash-recovery rehydration so stale durable account identities cannot poison live capacity or silently move an unfinished tool chain to another account.",
+  "hosted_ci": "NOT_RUN",
+  "provider_traffic": "NOT_RUN",
+  "native_windows": "NOT_CLAIMED"
+}

@@ -1,0 +1,30 @@
+# Apply after 20260821T1948Z_durable_compaction_replay_v16_overlay.patch.
+# Closes V16-SR-1: a legacy segment can prove that exact compaction history was
+# already committed while lacking the exact compact payload Codex may have seen.
+# Never re-plan that ambiguous exact request after restart.
+
+diff --git a/payload/server.py b/payload/server.py
+--- a/payload/server.py
++++ b/payload/server.py
+@@
+     replay_fingerprint = durable_replay_fingerprint(body, turn_key, "compaction")
++    current_fingerprints = response_input_fingerprints(body)
+     if segment is not None:
+         persisted_fingerprint = getattr(segment, "replay_request_fingerprint", None)
+         persisted_response = getattr(segment, "replay_response", None)
+         stale_fingerprints = set(getattr(segment, "stale_replay_fingerprints", ()))
+@@
+         if replay_fingerprint in stale_fingerprints:
+             return replay_error("stale prior compaction cannot be executed again")
++        if (
++            int(getattr(segment, "replay_schema_version", 0) or 0) == 0
++            and bool(getattr(segment, "awaiting_compacted_history", False))
++            and tuple(segment.input_fingerprints) == tuple(current_fingerprints)
++        ):
++            return replay_error("legacy committed compaction has no exact durable replay")
+@@
+-    current_fingerprints = response_input_fingerprints(body)
+     prefix = (
+         input_prefix_length(segment.input_fingerprints, current_fingerprints)
+         if segment is not None else None
+     )

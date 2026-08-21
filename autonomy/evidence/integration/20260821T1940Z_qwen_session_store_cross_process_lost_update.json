@@ -1,0 +1,41 @@
+{
+  "candidate_contract": [
+    "serialize every session-store mutation across processes, not only inside one Node process",
+    "after acquiring the store-wide transaction lease, reread the latest canonical state before applying the mutation",
+    "write primary and recovery metadata atomically before releasing the lease",
+    "a stale writer must never replace a fresher pending/uncertain/done session record from another process",
+    "regression must use two real Node processes and two independent session keys"
+  ],
+  "finding": "QWEN_SESSION_STORE_CROSS_PROCESS_LOST_UPDATE",
+  "limits": [
+    "offline only",
+    "no provider traffic",
+    "no hosted CI",
+    "no production/secrets/accounts"
+  ],
+  "non_overlap": "Distinct from QWEN_RELIABILITY current post-fsync cleanup fix: this finding is stale whole-store overwrite across processes; distinct from earlier subagent-batch-store lost-update finding because this is the OpenCode session/thread checkpoint store.",
+  "observed": [
+    "session-store loads one process-local Map at module startup",
+    "commitMutation clones that process-local Map and persist writes the whole sessions object",
+    "there is no store-wide interprocess serialization around reread->mutate->persist",
+    "two overlapping processes updating different sessions can overwrite each other with stale whole-file snapshots",
+    "a lost session update can erase an already accepted pending mutating tool call, defeating restart duplicate-side-effect protection"
+  ],
+  "probe": {
+    "path": "autonomy/v3/tools/integration_qwen_session_store_cross_process_lost_update_probe.js",
+    "result": {
+      "candidate_A_pending": "call-A",
+      "candidate_B_pending": "call-B",
+      "current_A_pending": null,
+      "current_B_pending": "call-B"
+    }
+  },
+  "schema": "integration_helper_evidence_v1",
+  "source": {
+    "qwen_head": "5c8fc5299f77a1c3502082da8827b6d3f20e7592",
+    "session_store_blob": "4390c00ab7b2c5ac5267b930cf895c6acc3c82ad"
+  },
+  "timestamp_utc": "2026-08-21T19:40:00Z",
+  "verdict": "REPRODUCED_CANDIDATE_CONTRACT_PASS",
+  "worker": "INTEGRATION_HELPER"
+}

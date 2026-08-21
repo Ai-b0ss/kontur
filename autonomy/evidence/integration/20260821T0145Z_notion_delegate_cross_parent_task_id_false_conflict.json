@@ -1,0 +1,53 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "NOTION_DELEGATE_CROSS_PARENT_TASK_ID_FALSE_CONFLICT",
+  "verdict": "REPRODUCED_OFFLINE",
+  "source": {
+    "repository": "Ai-b0ss/notion-agent-bridge",
+    "pr": 8,
+    "head": "a016664796720c085fd5356af30f6f959e4971bc",
+    "subagent_lifecycle_blob": "c90ff249e2199dcdc43002dfb3277fc60fc63b53",
+    "delegation_policy_blob": "cc50fc7373578262e6051e76716563a98f8f4935",
+    "delegation_dispatcher_blob": "66d839a1db347684f2fa2681ceaf98600415298d",
+    "lifecycle_test_blob": "2d0451ee466502799fb28bfa3236534bbb7d01a5"
+  },
+  "observed": {
+    "description": "SubagentLifecycle reserves active work by canonical task_id alone. Two independent parents using the same child-local task_id therefore conflict even though parent_turn_id and target make them distinct delegated identities.",
+    "example": [
+      "parent-A -> notion child-1 is active",
+      "parent-B -> notion child-1 is rejected before provider work with delegated task_id is already active"
+    ],
+    "batch_variant": "run_many also rejects duplicate canonical task_id values without considering parent_turn_id or target.",
+    "existing_tests_gap": "Current duplicate-id tests use the same parent. There is no regression proving equal child-local task ids under distinct parents/targets can coexist."
+  },
+  "integration_risk": [
+    "Independent parent turns can spuriously block each other's delegated work.",
+    "A future Qwen adapter under the same neutral lifecycle inherits the same false conflict across providers.",
+    "Using bare task_id for lifecycle reservation disagrees with the required parent-scoped persistent identity needed for restart-safe Qwen taskId/batchId/sessionPrefix derivation."
+  ],
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_notion_delegate_identity_scope_probe.py",
+    "result": "PASS",
+    "current_cross_parent_false_conflict": true,
+    "candidate_cross_parent_allowed": true,
+    "candidate_same_exact_identity_blocked": true
+  },
+  "candidate_patch": "autonomy/v3/candidates/NOTION_DELEGATE_PARENT_SCOPED_LIFECYCLE_20260821.patch",
+  "recommended_contract": {
+    "active_identity": "(target, canonical parent_turn_id, canonical task_id)",
+    "conversation_identity": "must use the same parent-scoped canonical identity; provider account/thread ids remain excluded",
+    "same_exact_identity": "reject while active",
+    "different_parent_same_task_id": "allow",
+    "different_target_same_parent_task_id": "allow",
+    "provider_work_on_admission_failure": "zero"
+  },
+  "scope": {
+    "product_files_modified": false,
+    "hosted_ci": false,
+    "provider_traffic": false,
+    "production": false,
+    "secrets": false,
+    "native_windows_claim": false
+  }
+}

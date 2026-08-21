@@ -1,0 +1,31 @@
+{
+  "verdict": "RESPONSES_SEMANTIC_CACHE_NOT_IDEMPOTENT_REPRODUCED",
+  "scope": "NOTION_CORE Codex Responses retry/restart lifecycle",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_head": "a016664796720c085fd5356af30f6f959e4971bc",
+  "facts": [
+    "The current in-memory TurnAffinity cache persists only completion_text plus usage/provider affinity metadata, not the rendered OpenAI Responses payload.",
+    "On a cache hit, handle_openai_responses calls responses_payload(completion_text, ...) again.",
+    "responses_payload creates new random response_id, tool call_id, and output item id with uuid.uuid4() on each rendering.",
+    "Therefore two cache renders of the same semantic tool recommendation produce different protocol identities even without a process restart."
+  ],
+  "reproduction": {
+    "same_completion_text": true,
+    "response_ids_equal": false,
+    "call_ids_equal": false,
+    "item_ids_equal": false,
+    "harness_sha256": "6979c9535e998f02f715c640ed19a6148e4b6790563bf862d6c539f04c2733f4",
+    "output_sha256": "963afe5cf79ab457d795299b70de28ce56d845f14a7ee90f90e01d9cfcdb86f0"
+  },
+  "risk": "For tool-producing Responses, semantic text caching is not an idempotent protocol replay. A client retry can receive a new call_id for the same already-planned action. Combined with the separately reproduced post-restart exact-replay fallback, this means durable recovery must preserve the rendered Responses result or deterministically preserve its protocol identities; storing only completion_text is insufficient.",
+  "acceptance_direction": [
+    "Persist/replay the exact rendered Responses result required for a completed request, including response/output item/call IDs and enough usage/model metadata to reproduce both non-streaming and SSE completion without provider inference.",
+    "Bind the replay record to a content-free exact request fingerprint plus conversation/turn identity and lifecycle/version boundary.",
+    "Publish the replay record atomically with conversation progress so a crash cannot leave provider progress marked durable while the matching response replay is absent.",
+    "Until that atomic durable replay exists, the prepared 409 fail-closed exact-replay guard is the safety floor and is preferable to silently re-planning an already processed tool result."
+  ],
+  "status": "CORE_BLOCKER_REPRODUCED_OFFLINE",
+  "hosted_ci_started": false,
+  "provider_traffic_started": false,
+  "native_windows_claimed": false
+}

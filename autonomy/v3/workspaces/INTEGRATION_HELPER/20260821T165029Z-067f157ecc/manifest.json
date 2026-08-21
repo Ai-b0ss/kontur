@@ -1,0 +1,130 @@
+{
+  "archive": {
+    "parts": 7,
+    "sha256": "51554522af96f4800cb6dadd97ad58930a80aa0f35a9a9a69125ba473939773a",
+    "size": 10263
+  },
+  "capsule_id": "20260821T165029Z-067f157ecc",
+  "created_at_utc": "2026-08-21T16:50:29Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "240e0169d6ae3b4e1934559ad923013e8c1310450a3ed0b20216ca7fab7d736e"
+    },
+    {
+      "chars": 2048,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "84755185beeb37634aea1b4da9ad79e4c46c58600450d4c25838515509cab7ff"
+    },
+    {
+      "chars": 2048,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "e6809bdcf4435c1b0bf69ddc35dd37e2e8ed65e18153aa32e5e55a35cb372691"
+    },
+    {
+      "chars": 2048,
+      "index": 3,
+      "name": "part-0003.b64",
+      "sha256_text": "995233047742cb1f44ee0203ab1d46f078c51c01fb98599e1e9fad5d860ccfcb"
+    },
+    {
+      "chars": 2048,
+      "index": 4,
+      "name": "part-0004.b64",
+      "sha256_text": "029ba0e75a58b83aae9517bd604eb33c7ab00a1540f2ccbf3d68851853887498"
+    },
+    {
+      "chars": 2048,
+      "index": 5,
+      "name": "part-0005.b64",
+      "sha256_text": "3912eed2594a8c436f74b81e1ebba41ba31b9a7732344cb4afc6b1dac33042dd"
+    },
+    {
+      "chars": 1396,
+      "index": 6,
+      "name": "part-0006.b64",
+      "sha256_text": "8c6de824013b29eba5afc672766cdb4b223a94700caa8d14eea9fa9b39ac88fa"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@a656d42522c463ca36937c9a2a552df0836fd020 + Ai-b0ss/notion-agent-bridge@cd442df4e4574822627761d7d3ea81df37844a41",
+  "worker": "INTEGRATION_HELPER",
+  "workspace": {
+    "CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "eb116fee78e4d9672d203ad09f341fd518a97e28a2f8a6578a60bfb9bd938ae7",
+      "size": 2021,
+      "type": "file"
+    },
+    "EVIDENCE.json": {
+      "mode": "0o644",
+      "sha256": "eef24d28c3d73099680d3ad29de53a7202a786d101fff884b1b7fb242132f7b0",
+      "size": 484,
+      "type": "file"
+    },
+    "EVIDENCE_20260821T1638Z_QWEN_STALE_BACKUP_MISSING_SESSION.json": {
+      "mode": "0o644",
+      "sha256": "f95b4f750f256a587ced769c76db9281f374a4b1706fff97bece16fff48f4281",
+      "size": 4033,
+      "type": "file"
+    },
+    "QWEN_PENDING_TOOL_DURABLE_OBLIGATION_GUARD.patch": {
+      "mode": "0o644",
+      "sha256": "1e56e97fa0de06db46dcce9e7e6e238643800ea1418823e3146d2dddf85074b6",
+      "size": 709,
+      "type": "file"
+    },
+    "QWEN_STALE_BACKUP_MISSING_SESSION_FAIL_CLOSED_20260821.patch": {
+      "mode": "0o644",
+      "sha256": "d53ed7d99a969bcfa9b26845781e730003e06b04452266950f9cd71e838c1109",
+      "size": 3145,
+      "type": "file"
+    },
+    "STATE.json": {
+      "mode": "0o644",
+      "sha256": "ebab4ed93c2f52ed7165b0a7ca45f450dcd9460ee8d7f254b6a5fe41a63509b7",
+      "size": 392,
+      "type": "file"
+    },
+    "integration_qwen_partial_tool_result_truncated_transcript_probe.js": {
+      "mode": "0o644",
+      "sha256": "9aefb1855cd18a3cb47ab3e87d01380cada4cd341e4f53d5d1548ea00ccce719",
+      "size": 5282,
+      "type": "file"
+    },
+    "integration_qwen_pending_tool_durable_obligation_probe.js": {
+      "mode": "0o644",
+      "sha256": "d636cc44cef87d64683a99005d8280ffbd825e7d65de9545b338fdb7d56ddf4c",
+      "size": 7695,
+      "type": "file"
+    },
+    "integration_qwen_stale_backup_missing_session_probe.js": {
+      "mode": "0o644",
+      "sha256": "8a43695c14e03fcc1c6ccb49e7bac8d26b2068ffd6c2c1eb89f008b2936132fe",
+      "size": 4958,
+      "type": "file"
+    },
+    "integration_qwen_truncated_tool_result_failover_rebase_probe.js": {
+      "mode": "0o644",
+      "sha256": "0bcbf95f7923700cdb37576583941545815f4f0f6231ea4b6fe32c4007a17f54",
+      "size": 3603,
+      "type": "file"
+    },
+    "probe-output.json": {
+      "mode": "0o644",
+      "sha256": "439d1424680f5e3c96746585c9adf8c81496fa31f941a052c821a96754b28379",
+      "size": 1090,
+      "type": "file"
+    },
+    "stale-backup-missing-session-output.json": {
+      "mode": "0o644",
+      "sha256": "6f0ac842561a6d4bd18a37dd7f32a4a8fe1d6d07157ca8c903885df15810c808",
+      "size": 579,
+      "type": "file"
+    }
+  }
+}

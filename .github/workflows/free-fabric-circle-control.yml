@@ -6,6 +6,7 @@ on:
       - ci/kontur-circle-vite-20260821
     paths:
       - .github/workflows/free-fabric-circle-control.yml
+      - .free-fabric/circle_control_v3.py
   workflow_dispatch:
 
 permissions:

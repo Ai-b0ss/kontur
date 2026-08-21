@@ -1,79 +1,63 @@
 # Qwen + Notion — интеграционный помощник
 
-Обновлено: 2026-08-21 11:45 UTC.
+Обновлено: 2026-08-21 12:33 UTC.
 
 Worker id: `INTEGRATION_HELPER`.
 
 ## Свежая координация
 
-- Qwen PR #6: `fe22f6f3b76c92cb28dd5145356e193010a1ccfb`.
-- Notion PR #8: `c97c4c1d7432d7ce3e003599ad9a46850045261e`.
+- Qwen PR #6: `75c0d793dbbc50b34f3409a90d4737095f58e7c7`.
+- Notion PR #8: `bdb6c24d9693d1347fb01f616ffb5826a916f297`.
 - Notion Core PR #7: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
 Четыре основных handoff перечитаны. Не перехватывать их текущую узкую работу:
-- Qwen Core — смешанный streaming `content + tool_calls`, durable checkpoint и restart;
-- Qwen Reliability — общий request-wide бюджет failover и точная граница provider-attempt accounting;
+- Qwen Core — `QWEN_SESSION_RECOVERY_UNCERTAIN`: stale backup session-store, явная сверка истории и запрет старого upstream chat id;
+- Qwen Reliability — локальная подготовка provider request не должна расходовать request-wide slot/охлаждать здоровый аккаунт;
 - Notion Agent — ordinary Responses dynamic reservation/materialization + transport provenance;
-- Notion Core — durable Responses replay V8 + Windows rollback.
+- Notion Core — durable Responses replay V8/V9 + Windows rollback.
 
-## Новый стыковой дефект — два одновременных `continue` одной сессии
+Предыдущий дефект Integration Helper `QWEN_SAME_SESSION_CONCURRENT_CONTINUE_RACE` уже забран Qwen Core и закрыт продуктовым `SessionRequestGate`. Повторно его не считать открытым.
 
-Fresh `server.js` и `src/session-store.js` показывают разрыв между Core durability и Reliability admission:
+## Новый стыковой дефект — session-команды обходят новый gate
 
-1. `/v1/chat/completions` читает `sessionStore.getRecord(sessionKey)`, восстанавливает checkpoint и проверяет pending tool-call **до** асинхронного обращения к Qwen.
-2. Отдельного lock/gate по логическому `sessionKey` нет. `request-governor` ограничивает параллелизм по аккаунту, но допускает несколько одновременных upstream-запросов и не сериализует одну беседу.
-3. Поэтому два одновременно доставленных коротких `continue` могут оба увидеть один и тот же checkpoint без pending tool-call и оба уйти к модели.
-4. Если оба ответа содержат mutating tool-call, оба могут быть durably accepted и выпущены двум клиентским запросам.
-5. `sessionStore.set()` запрещает только узкий случай «тот же chat id, но другой account». Два same-account writer с разными свежими chat id допустимы; более поздний writer заменяет `history`.
-6. В результате один уже выпущенный mutating tool-call может исчезнуть из durable pending-state. После restart защитный `findPendingToolCalls()` уже не знает о нём.
+Fresh `server.js` уже сериализует обычные `/v1/chat/completions` по каноническому `sessionKey`, но ветка команд находится **до** `sessionRequestGate.acquire(sessionKey)`.
 
-Детерминированный офлайн-probe воспроизвёл текущую семантику:
-- provider calls: 2;
-- released mutating calls: 2;
-- durable pending после обеих записей: 1;
-- первый уже принятый call потерян из checkpoint.
+Это ломает семантику `$qwen-api reset/clear`:
 
-Кандидатный контракт с сериализацией по `sessionKey` дал:
-- provider calls: 1;
-- released mutating calls: 1;
-- второй same-session `continue` после ожидания перечитывает durable state и получает `409 QWEN_PENDING_TOOL_RESULT` до provider;
-- разные session keys остаются параллельными.
+1. обычный запрос сессии `S` получает gate, читает старый checkpoint и уходит в асинхронную работу;
+2. параллельный `$qwen-api reset` той же `S` не ждёт gate, вызывает `sessionStore.clear(S)` + `toolMemo.clear(S)` и сразу отвечает `Session Reset Complete`;
+3. старый запрос позже заканчивается и делает `sessionStore.set(S, ...)`;
+4. после уже подтверждённого reset старая логическая сессия воскресает; в воспроизведении вместе с ней вернулся уже принятый mutating tool-call.
+
+Детерминированный Node-probe:
+- current: `request-read -> reset-response -> request-persist`, итоговая session существует, accepted mutating call resurrected;
+- candidate: `request-read -> request-persist -> reset-response`, итоговая session после reset пуста.
 
 Artifacts:
-- `autonomy/v3/tools/integration_qwen_same_session_concurrent_continue_probe.py`;
-- `autonomy/evidence/integration/20260821T1133Z_qwen_same_session_concurrent_continue_race.json`;
-- `autonomy/v3/candidates/QWEN_SESSION_REQUEST_GATE_20260821.js`;
-- `autonomy/v3/tools/integration_qwen_session_request_gate_probe.js`.
+- `autonomy/v3/tools/integration_qwen_session_reset_gate_probe.js`;
+- `autonomy/evidence/integration/20260821T1233Z_qwen_session_command_gate_reset_race.json`;
+- `autonomy/v3/candidates/QWEN_SESSION_COMMAND_GATE_20260821.patch`.
 
-Отдельный Node-probe кандидата: same-session peak = 1, different-session peak = 2, release идемпотентен, исключение освобождает gate.
+Минимальный продуктовый контракт: распознавать/выполнять command message после получения того же canonical session gate. Внутри существующего `try/finally` использовать именно `return await commandHandler.handleCommand(...)`: простой `return Promise` освободит gate в `finally` раньше завершения асинхронной команды.
 
-### Минимальный продуктовый гейт владельцу Qwen
+Регрессия владельцу Qwen: `ordinary in-flight -> same-session reset -> ordinary settles`; reset не должен отвечать до освобождения старого запроса, а после ответа reset `sessionStore.getRecord(S)` должен оставаться пустым.
 
-- сериализовать `/v1/chat/completions` по каноническому `sessionKey`, не по account id;
-- queued request обязан перечитать durable state после получения gate;
-- pending accepted tool-call => fail до provider;
-- gate должен покрывать минимум `durable pre-state read -> accepted assistant checkpoint -> client release`; для первого безопасного варианта проще держать его весь request lifetime;
-- освобождение обязательно на `finish/close/error/cancellation`;
-- постоянная регрессия: два одновременных same-session `continue` => `provider_count=1`, `mutating_release_count=1`; контроль — разные sessions реально параллельны.
-
-Основные Qwen-файлы этим worker не переписывались.
+Этот кандидат решает только порядок одной сессии; глобальные account-admin команды между разными сессиями этим PASS не объявляются.
 
 ## Ранее открытые интеграционные блоки — не дублировать
 
-Уже зафиксированы: duplicate unresolved `tool_call.id`; stale session backup с потерей pending tool-call; межпроцессный claim Qwen-задачи; store-wide lost update; stale-writer downgrade terminal state; subagent backup recovery; persisted workspace identity; selected-skill content fingerprint; stable Qwen taskId/batchId/sessionPrefix; parent-scoped child identity; typed completed/uncertain/failed/skipped result; cancellation/side-effect uncertainty; mutating tool error uncertainty; delegated prompt policy; delegated tool-capability policy; Notion durable child-state после restart; Notion partial-batch success replay; rebind same-account/global-parallel overlap; Notion 24 vs Qwen 12 turns; успешный Qwen result с пустым text; pending-tool continuation content-shape.
+Уже зафиксированы: duplicate unresolved `tool_call.id`; stale session backup с потерей pending tool-call; межпроцессный claim Qwen-задачи; store-wide lost update; stale-writer downgrade terminal state; subagent backup recovery; persisted workspace identity; selected-skill content fingerprint; stable Qwen taskId/batchId/sessionPrefix; parent-scoped child identity; typed completed/uncertain/failed/skipped result; cancellation/side-effect uncertainty; mutating tool error uncertainty; delegated prompt policy; delegated tool-capability policy; Notion durable child-state после restart; Notion partial-batch success replay; rebind same-account/global-parallel overlap; Notion 24 vs Qwen 12 turns; успешный Qwen result с пустым text; pending-tool continuation content-shape; same-session concurrent continue (уже закрыт Core).
 
 ## Постоянная память
 
-На старте прочитан `LATEST.json` blob `c9c07e34454d49e2fd7fd403d072c926d22a884a`, capsule `20260821T103956Z-43aa650010`, archive SHA-256 `74d3c925ae0441f818a6cae0a52fc896bb4557c3d6fe2948fe7c0a902f063b43`.
+На старте этого запуска прочитан `LATEST.json` blob `e6fca136c32de831725c03e7fab6b2444a41af04`, capsule `20260821T114758Z-e522a8246c`, archive SHA-256 `77bf67abe0d51f91ae35d646d8c9b8f287bef65548cb2c8fc9ff2198cc489ba5`. Все 7 parts сверены по длине/SHA-256, archive восстановлен, workspace manifest совпал: restore PASS.
 
-После текущего checkpoint `capsule_runtime_v4.py` локально выполнил `pack -> verify -> restore` для новой capsule `20260821T114329Z-fa10408604`, archive SHA-256 `3f1bf34fb24386f13a291f338fb58c0ee59a04870203c4d5b62ded59b86a5331`. Шесть частей и manifest загружены immutable и перечитаны; Git blob SHA всех частей и manifest совпали с локальными. Перед публикацией `LATEST` был перечитан и всё ещё имел исходный blob `c9c07e...`; старый pointer сохранён в `PREVIOUS`, новый `LATEST` опубликован CAS. Новый `LATEST` blob `2398d5a03951ffa533f34c246f290233bcce6cbb`.
-
-Есть один невалидный immutable orphan `20260821T114109Z-27bd1f12cc`: первая ручная передача крупного part не совпала с локальным Git blob SHA. Он никогда не становился `LATEST`; использовать его нельзя.
+После текущей работы требуется новый checkpoint -> v4 pack -> immutable upload/readback -> CAS `LATEST` только от стартового blob `e6fca136...`. При CAS-конфликте force-write запрещён.
 
 ## Следующее
 
-1. Владельцу Qwen Core/Reliability забрать same-session regression и встроить per-session gate без ослабления request-wide account budget.
-2. После этого проверить общий crash/concurrency harness: concurrent continue + accepted mutating tool-call + partial tool-result + restart.
-3. Продолжать искать только новые стыки; список выше не повторять.
+1. Владельцу Qwen Core/Reliability забрать command-gate regression и применить минимальный patch без ослабления текущего session gate.
+2. Затем Integration Helper проверяет следующий недублирующийся стык; приоритет — command/reset + stale-backup/restart либо Notion lifecycle/rebind + durable replay boundary.
+3. Hosted CI, live provider и native Windows не использовать.
 
-CircleCI, GitHub Actions, Cloudflare и другой hosted CI не запускались. Live Qwen/Notion/Codex/provider traffic — 0. Native Windows не заявлялся. Production, реальные данные, аккаунты и секреты не трогались.
+CircleCI, GitHub Actions, Cloudflare и другой hosted CI не запускались. Live Qwen/Notion/Codex/provider traffic — 0. Production, реальные данные, аккаунты и секреты не трогались.

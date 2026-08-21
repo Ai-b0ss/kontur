@@ -1,0 +1,97 @@
+# Apply after V12/V12-fixup/V17/V14/V15/V16/V16-fixup/V18.
+#
+# V18 deliberately exempted a normal turn while segment.awaiting_compacted_history
+# because a legitimate Codex post-compaction input is shorter than the previous
+# full history. That exemption is too broad: a delayed stale pre-compaction retry
+# can arrive in the same window and be treated as the new post-compaction segment.
+#
+# V16 already durably stores the exact compact_payload returned to Codex. Responses
+# compaction semantics require the compacted output items to be passed into the
+# next request. Use a content-free SHA-256 of the opaque compaction item to prove
+# that a normal post-compaction request really descends from the latest durable
+# compaction, rather than accepting any arbitrary shorter history.
+
+diff --git a/payload/server.py b/payload/server.py
+--- a/payload/server.py
++++ b/payload/server.py
+@@
+ def replay_error(message: str, status_code: int = 409) -> JSONResponse:
+@@
+     )
++
++
++def compacted_item_fingerprint(item: object) -> str | None:
++    if not isinstance(item, dict) or item.get("type") != "compaction":
++        return None
++    encrypted_content = item.get("encrypted_content")
++    if not isinstance(encrypted_content, str) or not encrypted_content:
++        return None
++    return hashlib.sha256(
++        json.dumps(
++            {"type": "compaction", "encrypted_content": encrypted_content},
++            ensure_ascii=False,
++            sort_keys=True,
++            separators=(",", ":"),
++        ).encode("utf8")
++    ).hexdigest()
++
++
++def durable_compaction_fingerprint(response: object) -> str | None:
++    if not isinstance(response, dict):
++        return None
++    output = response.get("output")
++    if not isinstance(output, list):
++        return None
++    fingerprints = [
++        fingerprint
++        for item in output
++        for fingerprint in [compacted_item_fingerprint(item)]
++        if fingerprint is not None
++    ]
++    # The bridge's compact_payload has exactly one opaque compaction item. More
++    # than one is ambiguous and must not authorize a post-compaction transition.
++    if len(fingerprints) != 1:
++        return None
++    return fingerprints[0]
++
++
++def request_contains_compaction_fingerprint(
++    body: dict[str, Any], expected: str
++) -> bool:
++    value = body.get("input")
++    items = value if isinstance(value, list) else []
++    return any(compacted_item_fingerprint(item) == expected for item in items)
+@@
+ async def handle_openai_responses(
+@@
+     affinity = await turn_affinities.get(turn_key)
+     segment = await conversation_segments.get(conversation_key)
+     replay_fingerprint = durable_replay_fingerprint(body, turn_key, request_kind)
+@@
+     if segment is not None:
+         persisted_fingerprint = getattr(segment, "replay_request_fingerprint", None)
+         persisted_response = getattr(segment, "replay_response", None)
+         stale_fingerprints = set(getattr(segment, "stale_replay_fingerprints", ()))
+@@
+         if replay_fingerprint in stale_fingerprints:
+             return replay_error("stale prior request cannot be executed again")
++
++        # A post-compaction normal turn is allowed to be shorter than the old
++        # full history only if it proves descent from the exact compacted output
++        # durably published by V16. Without this gate the V18 compaction exemption
++        # lets a delayed stale pre-compaction retry become executable as a fresh
++        # post_compaction segment. Compare only a SHA-256 of the opaque compaction
++        # item; no additional user text or tool arguments are persisted.
++        if bool(getattr(segment, "awaiting_compacted_history", False)) and not is_compaction:
++            expected_compaction = durable_compaction_fingerprint(persisted_response)
++            if expected_compaction is None:
++                return replay_error(
++                    "post-compaction transition has no exact durable compaction marker"
++                )
++            if not request_contains_compaction_fingerprint(body, expected_compaction):
++                return replay_error(
++                    "post-compaction request does not contain the latest durable compaction marker"
++                )
+ 
+     current_fingerprints = response_input_fingerprints(body)
+*** End Patch

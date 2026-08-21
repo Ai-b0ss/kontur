@@ -1,0 +1,33 @@
+diff --git a/src/account-store.js b/src/account-store.js
+--- a/src/account-store.js
++++ b/src/account-store.js
+@@
+ function candidates(preferredAccount = null) {
+   if (providerCircuit.current()) return [];
+   const ordered = [...accounts.values()].filter(isAvailable).sort((a, b) => ((a.lastUsedAt || 0) - (b.lastUsedAt || 0)) || a.id.localeCompare(b.id));
+   if (!ordered.length) return [];
+-  const preferred = typeof preferredAccount === 'string' ? get(preferredAccount) : preferredAccount;
+-  if (preferred && isAvailable(preferred) && accounts.has(preferred.id)) return [preferred, ...ordered.filter((account) => account.id !== preferred.id)];
++  // Never trust a detached/stale account object supplied by a caller. Resolve
++  // the preferred id back to the canonical in-memory account before checking
++  // availability, otherwise an old object can bypass a newer cooldown.
++  const preferredId = typeof preferredAccount === 'string' ? preferredAccount : preferredAccount && preferredAccount.id;
++  const preferred = preferredId ? get(preferredId) : null;
++  if (preferred && isAvailable(preferred)) return [preferred, ...ordered.filter((account) => account.id !== preferred.id)];
+   return ordered;
+ }
+diff --git a/src/qwen-client.js b/src/qwen-client.js
+--- a/src/qwen-client.js
++++ b/src/qwen-client.js
+@@
+ function operationCandidates(preferredAccount = null) {
+-  let candidates = accountStore.candidates();
+-  if (preferredAccount && preferredAccount.token && accountStore.isAvailable(preferredAccount)) {
+-    candidates = [preferredAccount, ...candidates.filter((a) => a.id !== preferredAccount.id)];
+-  }
++  // candidates() canonicalizes preferredAccount by id. Do not re-insert the
++  // caller's possibly stale object here, because that can resurrect an account
++  // whose canonical state has since entered cooldown.
++  const candidates = accountStore.candidates(preferredAccount);
+   return candidates.slice(0, MAX_ACCOUNTS_PER_OPERATION);
+ }

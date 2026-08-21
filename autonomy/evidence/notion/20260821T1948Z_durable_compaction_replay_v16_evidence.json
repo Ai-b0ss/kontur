@@ -1,0 +1,55 @@
+{
+  "schema": "notion_core_durable_compaction_replay_v16_evidence_v1",
+  "created_at_utc": "2026-08-21T19:48:00Z",
+  "core_ref": "Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "integration_ref": "Ai-b0ss/notion-agent-bridge@7742691ca681b13b92d6ca59fb190d89883346d8",
+  "exact_source_blobs": {
+    "payload/server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "payload/conversation_segments.py": "553bd3496c21a7949c3a5dfa03f33b9e09293213"
+  },
+  "existing_candidate_chain": [
+    "20260821T1640Z_durable_replay_v12_exact_candidate.patch",
+    "20260821T1705Z_durable_replay_v12_candidate_fixup.patch",
+    "V14 oversized-response durable tombstone requirement",
+    "20260821T1848Z_durable_replay_v15_overlay.patch"
+  ],
+  "reproduced_gap": {
+    "name": "compaction result is not part of the durable replay transaction",
+    "exact_current_behavior": [
+      "handle_openai_compaction computes provider completion text",
+      "V15 would strictly persist awaiting_compacted_history before ephemeral TurnAffinity",
+      "compact_payload(completion.text, turn_key) is still constructed/returned after that durable lifecycle publication",
+      "the exact compact payload is not persisted in ConversationSegmentStore",
+      "after a crash between durable publication and client receipt, a retry after restart has no durable compact result and re-enters provider compaction"
+    ],
+    "why_blocking": "A retry can produce a different compacted checkpoint from the one logically committed before the crash. This breaks Codex lifecycle idempotency and can advance the Notion thread twice for one compaction request.",
+    "local_model": {
+      "v15_retry_provider_calls": 2,
+      "v15_first_provider_result": "summary-1",
+      "v15_retry_provider_result": "summary-2",
+      "verdict": "DURABLE_COMPACTION_REPLAY_V16_GAP_REPRODUCED"
+    }
+  },
+  "v16_required_boundary": {
+    "ordering": "provider result -> canonical compact_payload -> strict atomic ConversationSegment publication including the exact compact payload/fingerprint -> ephemeral TurnAffinity -> client",
+    "reuse_existing_replay_record": true,
+    "request_fingerprint": "durable_replay_fingerprint(body, turn_key, 'compaction')",
+    "retry_rules": [
+      "exact fingerprint + durable payload => return exact stored compact payload, provider call_count remains 1",
+      "fingerprint present in stale replay fingerprints => fail closed, never recompact",
+      "durable write failure => no TurnAffinity and no client compact result",
+      "crash after durable write but before client response => restart retry returns exact stored payload without provider call",
+      "distinct turn_id with the same input => new request, provider may run"
+    ]
+  },
+  "local_v16_model": {
+    "same_retry_provider_calls": 1,
+    "same_retry_exact_payload": true,
+    "restart_retry_exact_payload": true,
+    "distinct_turn_calls_provider": true,
+    "verdict": "DURABLE_COMPACTION_REPLAY_V16_MODEL_PASS"
+  },
+  "hosted_ci_started": false,
+  "provider_traffic_started": false,
+  "native_windows_claimed": false
+}

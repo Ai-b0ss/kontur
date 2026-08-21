@@ -1,0 +1,70 @@
+{
+  "baseline": {
+    "v12": "DURABLE_REPLAY_V12_END_TO_END_ORDERING_MODEL_PASS",
+    "v13": "DURABLE_REPLAY_V13_LIMITS_LEGACY_HEARTBEAT_PASS"
+  },
+  "candidate": {
+    "apply_file": "V14_APPLY.py",
+    "apply_sha256": "f4590a0105832cfe99fee790f33cac2277c7e4f37ecc7aa2e6b819d4b7179909",
+    "changes": [
+      "canonical Responses payload formed before durable publication",
+      "strict ConversationSegmentStore write observable to caller with deep-copy rollback",
+      "durable exact replay before provider call, stale/legacy/expired fail-closed",
+      "stream uses neutral precommit SSE comments and deterministic projection of canonical persisted response",
+      "memory TurnAffinity and foreground reservation happen only after durable publication",
+      "saved tool reservation is rehydrated only when saved account still exists",
+      "oversized response stores a content-free exact-request tombstone before returning 413, preventing a second provider call",
+      "a request after an unreplayable provider result rolls over to a fresh Notion segment",
+      "external conversation state version remains 2"
+    ],
+    "harness_file": "V14_REPLAY_HARNESS.py",
+    "harness_sha256": "50bca3e217509ce96c3b8b056bb94c68f0a84a2accedc025b63b745260964943",
+    "status": "APPLY_READY_TRANSFORMER_WITH_EXACT_BLOB_PRECONDITIONS_NOT_PRODUCT_APPLIED",
+    "version": "V14"
+  },
+  "core_ref": "Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "created_at_utc": "2026-08-21T17:01:59Z",
+  "exact_source_blobs": {
+    "payload/account_pool.py": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f",
+    "payload/conversation_segments.py": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "payload/server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "payload/turn_affinity.py": "f4bc004ec08cbaf3f1118dec0926015ab41b8bd3"
+  },
+  "hosted_ci_started": false,
+  "integration_ref": "Ai-b0ss/notion-agent-bridge@cd442df4e4574822627761d7d3ea81df37844a41",
+  "local_verdicts": [
+    "DURABLE_REPLAY_V14_OVERSIZE_TOMBSTONE_PASS",
+    "V14_APPLY_STATIC_ORDERING_REVIEW_PASS"
+  ],
+  "new_reproduced_defect": {
+    "name": "oversize replay can call provider repeatedly",
+    "risk": "An oversized rendered Responses result is rejected after provider work; an exact retry can ask the model to plan the same action again because no durable fingerprint remains.",
+    "v13_observation": {
+      "durable_tombstone": false,
+      "provider_calls": 2,
+      "same_exact_request_attempts": 2
+    }
+  },
+  "product_branch_mutated": false,
+  "provider_traffic": false,
+  "remaining_gates": [
+    "run transformer against a complete exact cd442df4 checkout and compile transformed conversation_segments.py/server.py",
+    "run exact product unit/integration tests offline; current environment has not materialized the complete checkout",
+    "verify neutral SSE comments with the actual target Codex CLI before live Notion traffic",
+    "integrate the already-prepared Codex shell environment secret filter",
+    "native Windows auth rollback and PowerShell restore semantics remain pending; Linux is not Windows proof"
+  ],
+  "schema": "notion_core_durable_replay_v14_evidence_v1",
+  "v14_harness_cases": 16,
+  "windows_digest": {
+    "rerun": false,
+    "states": [
+      "pending",
+      "pending",
+      "pending",
+      "pending",
+      "pending"
+    ],
+    "workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3"
+  }
+}

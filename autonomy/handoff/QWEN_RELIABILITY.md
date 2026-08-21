@@ -4,7 +4,7 @@
 
 Основная продуктовая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6.
 
-Свежий фактически прочитанный head PR #6 на этом запуске: `acfb87af4831b6a3846b2edf1e599d20a769529b`.
+Свежий product head после этого запуска: `bfc8805395d4dfef13d63b089a007a1a64637848`.
 
 ## Уже доказано и не переделывать
 
@@ -25,71 +25,92 @@
 - ended empty/metadata-only initial SSE получает account-local classification и bounded sibling failover, чужой upstream `chatId` соседнему аккаунту не переиспользуется;
 - terminal-only initial SSE (`[DONE]`, `true`, `{data:true}`) больше не считается пригодным model output.
 
-## Этот запуск: unconfirmed initial-gate release -> unusable end -> retry
+## Главный незакрытый дефект: unconfirmed initial-gate release -> unusable end -> retry
 
-Предыдущая гипотеза подтверждена на свежем head `acfb87af...`.
+Дефект повторно подтверждён уже на свежем head до этого запуска (`9dc80f6c...`), и наши два новых коммита его не затрагивают.
 
-Фактическая цепочка в текущем коде:
+Текущий `server.js` всё ещё делает так:
 
-1. `gateInitialStream()` может сделать `release(false)` по `INITIAL_STREAM_GATE_MS` или `MAX_INITIAL_STREAM_BUFFER`, не увидев настоящий `choices` frame. Это правильно само по себе: нельзя наказывать реально медленный/большой первый ответ только за задержку.
-2. В таком случае `sendChatRequest()` возвращает `status:true`, но не делает ни `markSuccess`, ни `markFailure`.
-3. Если затем весь уже отпущенный поток заканчивается без пригодного model output, `chatAdapter.collectNonStream()` в `server.js` выбрасывает `Qwen upstream closed without a usable response`.
-4. Текущий retry в `server.js` снова готовит запрос с исходным `preferredAccount` и снова вызывает `sendChatRequest(..., preferredAccount)` до трёх раз.
-5. Поскольку фактически провалившийся аккаунт до retry не получил account-local failure/cooldown, `operationCandidates(preferredAccount)` снова ставит его первым.
+1. `gateInitialStream()` может отпустить поток по timeout/buffer cap без подтверждённого `choices` — это само по себе допустимо;
+2. если потом весь поток заканчивается без пригодного model output, `collectNonStream()` кидает `Qwen upstream closed without a usable response`;
+3. retry до трёх раз снова вызывает `preparePublicPayloadGoverned(... account: preferredAccount)` и `sendChatRequest(..., preferredAccount)`;
+4. фактически провалившийся аккаунт до retry не получает локальную классификацию, поэтому старый `preferredAccount=A` снова идёт первым.
 
-Hosted-репродукция без provider/live дала последовательность текущей политики `A -> A -> A`; после account-local классификации фактического производителя A следующий eligible candidate — B.
+Hosted-репродукция предыдущего запуска дала `A -> A -> A`; после локальной классификации A следующий eligible — B.
 
-Вердикт: **DEFECT CONFIRMED**. Это не provider-wide ошибка и не повод менять сам `release(false)`.
-
-## Минимальное безопасное исправление
-
-Точный patch-кандидат сохранён в каноническом репозитории:
+Точный patch-кандидат остаётся здесь:
 
 `autonomy/v3/candidates/QWEN_RELIABILITY_UNCONFIRMED_RETRY_FAILOVER_20260821.patch`
 
-Семантика исправления:
+Нужен byte-safe git/patch-исполнитель или exact-tree. Не заменять большой общий `server.js` целиком из частичного connector-вывода.
 
-- только после того, как `collectNonStream()` доказал, что весь unconfirmed stream действительно закончился без usable output, один раз сделать `markFailure` фактическому `response.account`;
-- затем выбрать свежий eligible account из `accountStore.candidates()` и использовать его и в `preparePublicPayloadGoverned(... account: retryPreferred)`, и в `sendChatRequest(..., retryPreferred)`;
-- если retry stream тоже позднее доказанно пустой, классифицировать именно `retry.account` один раз перед следующим bounded attempt;
-- не делать двойной `markFailure` первоначальному аккаунту в общем `catch`;
-- оставить `currentOnly:false`, чтобы sibling получил свежий upstream chat id и не использовал чужой тред;
-- не менять provider-wide circuit;
-- не делать account-local failure просто из-за timeout/buffer release, пока поток ещё может позже дать нормальный `choices`.
+Обязательная регрессия после применения:
 
-Продуктовый `server.js` на этом запуске НЕ перезаписывался: доступный GitHub Contents API требует полной замены большого общего файла, а connector выдаёт его содержимое частями. Риск затереть свежие соседние изменения выше пользы. Нужен byte-safe patch/git-исполнитель либо exact-tree на hosted машине.
-
-## Обязательная регрессия после применения
-
-Два eligible аккаунта A/B:
-
-- A: initial gate делает unconfirmed release по timeout или buffer cap;
-- поток A потом заканчивается без usable output;
+- A: unconfirmed release по timeout/buffer cap;
+- поток A потом доказанно заканчивается без usable output;
 - A получает account-local failure ровно один раз;
-- следующий retry идёт через B, а не A;
+- следующий retry идёт через B;
 - B получает свежий upstream thread, без reuse A `chatId`;
-- если B тоже заканчивается пустым, B классифицируется один раз до следующего bounded attempt;
+- если B тоже заканчивается пустым, B классифицируется один раз до следующей bounded попытки;
 - медленный/большой поток, который позже даёт настоящий `choices`, не получает failure только за unconfirmed release;
 - provider-wide WAF/trust/pressure по-прежнему прекращает sibling probing.
+
+## Этот запуск: provider-circuit cleanup tombstone
+
+Найден и исправлен отдельный дефект долговечности состояния provider circuit.
+
+Старое поведение `removeState()`:
+
+- canonical state уже переименован в tombstone;
+- directory `fsync` успешно подтверждает долговечное удаление основного `provider-circuit.json`;
+- затем `fs.rmSync(tombstone)` мог упасть;
+- `clear()` возвращал ошибку, хотя после restart основной state уже отсутствовал.
+
+Это рассинхронизировывало наблюдаемое состояние текущего процесса и состояние после перезапуска.
+
+Исправление:
+
+- commit `79bc28b7982f6d3bd0cc6ca4ab4b7e72dd4fe79f` — после подтверждённого durable deletion tombstone cleanup стал best-effort;
+- commit `bfc8805395d4dfef13d63b089a007a1a64637848` — добавлена регрессия с искусственным `EIO` именно на cleanup tombstone;
+- hosted synthetic proof: `PROVIDER_CIRCUIT_TOMBSTONE_CLEANUP_PASS`.
+
+Смысловая граница не менялась: ошибка directory fsync ДО подтверждения canonical deletion по-прежнему обязана откатывать удаление и пробрасываться наружу.
+
+## Проверки и ограничения запуска
+
+- CircleCI не запускался;
+- GitHub Actions не запускались;
+- Cloudflare не использовался;
+- provider/live запросов к Qwen: 0;
+- реальные аккаунты, секреты и production не тронуты;
+- полного `npm test` exact-tree не заявлять: hosted машина не смогла клонировать GitHub по DNS; локально выполнена целевая synthetic-проверка изменённой семантики.
 
 ## Capsule runtime
 
 Нормативный протокол: `autonomy/v3/CAPSULE_RUNTIME_PROTOCOL_V2.json` + `autonomy/v3/tools/capsule_runtime_v4.py`.
 
-Стартовый LATEST этого запуска:
+Старт этого запуска:
 
-- capsule `20260820T235859Z-e3c1e9ab99`;
-- Git blob SHA `2bdb4223dc6796dc7f710680222837ee3f7a2729` — это CAS-parent, который нельзя подменять;
-- archive SHA-256 `26bdb22db742625c9d890136dd6a6641db045b1eae81aea4e7b1a6ccaae7f549`;
-- 1 part, manifest и part перечитаны из GitHub, длина/SHA части и archive size/SHA совпали.
+- LATEST: `20260821T005909Z-ddaf24a921`;
+- стартовый Git blob SHA LATEST: `1e9ce4fee846bfe9ab553969b85ef729d97f2774`;
+- archive SHA из указателя: `66697451860e17c6577efa23aa4ff487615e626be119f36807cac9b80148499b`.
 
-Перед завершением запуска необходимо сделать новый checkpoint, нормативный v4 `pack`, immutable upload, повторное чтение всех parts/manifest и только затем CAS-публикацию LATEST. Если blob SHA LATEST уже не равен стартовому `2bdb4223...`, не force-write: оставить новую capsule immutable и принять более свежего писателя.
+При локальной материализации bytes части через connector текст не совпал с manifest hash; неизвестные байты не угадывались. Полезная работа продолжена от exact GitHub product source как recovery floor.
 
-## Граница доказательства
+Финиш этого запуска проведён нормативно для новой capsule:
 
-- свежий прочитанный product head: `acfb87af4831b6a3846b2edf1e599d20a769529b`;
-- unconfirmed-release retry defect подтверждён чтением свежего `qwen-client.js` + `server.js` и hosted-репродукцией;
-- продуктовый patch пока не применён из-за отсутствия byte-safe способа изменить большой общий `server.js` в этой среде;
-- CircleCI, GitHub Actions, Cloudflare и provider/live не запускались;
-- production, реальные аккаунты и секреты не тронуты;
-- следующий приоритет: применить сохранённый маленький patch byte-safe способом, затем hosted regression из раздела выше; после этого искать следующий безопасный дефект пула.
+- capsule: `20260821T015929Z-4b823c0fc1`;
+- source ref: `Ai-b0ss/qwen-free-api@bfc8805395d4dfef13d63b089a007a1a64637848`;
+- archive SHA-256: `efb09765aa9f261e94a238821ea02f93840223c8dee233dc378d39566ba6d787`;
+- 1 part;
+- remote part Git blob SHA `08ad6603181e7a299c692404dfe103380665c5d6` совпал с локально вычисленным Git blob SHA;
+- remote manifest Git blob SHA `d2baa37c8c4be6e414274dbb5bb5592d91e2d511` совпал с локально вычисленным Git blob SHA;
+- LATEST перед CAS повторно имел исходный blob SHA `1e9ce4fee...`, конфликта писателя не было;
+- старый LATEST сохранён в PREVIOUS;
+- новый LATEST опубликован CAS-обновлением и перечитан; его blob SHA `fafc1a99ed040da06be6cf1ef35fce82e2437be9`.
+
+## Следующий приоритет
+
+1. Применить `QWEN_RELIABILITY_UNCONFIRMED_RETRY_FAILOVER_20260821.patch` byte-safe способом к свежему `server.js`.
+2. На hosted машине прогнать целевую регрессию `A unconfirmed -> unusable -> classify A once -> B fresh thread`.
+3. После этого взять следующий независимый дефект только в зоне пула/cooldown/circuit/failover/thread-affinity/side-effect replay.

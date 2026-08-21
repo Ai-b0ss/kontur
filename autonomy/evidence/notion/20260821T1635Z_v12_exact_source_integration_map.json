@@ -1,0 +1,37 @@
+{
+  "schema": "notion_core_v12_exact_source_integration_map_v1",
+  "observed_at_utc": "2026-08-21T16:35:00Z",
+  "core_pr7_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_boundary_pr8_head": "cd442df4e4574822627761d7d3ea81df37844a41",
+  "exact_blobs": {
+    "payload/conversation_segments.py": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "payload/server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d"
+  },
+  "verified_product_order": [
+    "provider completion",
+    "foreground reservation mutation",
+    "memory TurnAffinityStore put",
+    "ConversationSegmentStore put whose disk failure is swallowed",
+    "responses_payload creates response/item/call IDs",
+    "client projection"
+  ],
+  "verified_replay_defects": [
+    "cache hit stores completion text only and regenerates response/item/call IDs",
+    "stream_openai_responses emits response.created and request-local reasoning IDs before durable publication",
+    "ConversationSegmentStore._save_locked marks persistence_blocked but does not report failure to caller"
+  ],
+  "apply_ready_constraints": [
+    "keep outer conversation state version=2",
+    "canonical Responses payload must be constructed once before strict durable publication",
+    "strict durable publication must atomically include progress and exact replay payload",
+    "TurnAffinity and foreground reservation mutation must happen only after durable success",
+    "replay lookup and persistence_blocked fail-closed gate must happen before provider call",
+    "stream and non-stream must project the same persisted canonical payload",
+    "post-commit reservation rehydration must validate persisted account_id against current pool"
+  ],
+  "new_exact_source_note": "The server computes next_segment_index and segment.turns from the object returned by ConversationSegmentStore.get before put. The current store returns its internal object directly. The V12 patch must not introduce in-place mutation of that object before the strict write snapshot; construct a replacement segment/payload and publish it transactionally, otherwise rollback-on-write-failure can be defeated by pre-write alias mutation.",
+  "hosted_ci_started": false,
+  "provider_traffic_started": false,
+  "product_branch_mutated": false,
+  "verdict": "V12_EXACT_SOURCE_INTEGRATION_MAP_READY"
+}

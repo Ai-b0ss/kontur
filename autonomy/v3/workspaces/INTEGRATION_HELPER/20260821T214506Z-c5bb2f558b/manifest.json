@@ -1,0 +1,148 @@
+{
+  "archive": {
+    "parts": 8,
+    "sha256": "d2e6ac3e4b4c0c84183aa07ae82292b902fab79d90e4050463f8e263cddf4c78",
+    "size": 11405
+  },
+  "capsule_id": "20260821T214506Z-c5bb2f558b",
+  "created_at_utc": "2026-08-21T21:45:06Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "8a17945d9958386bbff97e38fbc8f8fc62749b3f46ca7c39e8c6c7eaf21cfa50"
+    },
+    {
+      "chars": 2048,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "7ff2397cde24e5dc7073f5d6da83acbb9e7330ffa397dafd9c27b4a4c6abb587"
+    },
+    {
+      "chars": 2048,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "6990c86bf14b1afcf92afaf39684419c035ad10aa7ef88fed9e64c24f877ac98"
+    },
+    {
+      "chars": 2048,
+      "index": 3,
+      "name": "part-0003.b64",
+      "sha256_text": "4ca38d6779f9a6005b845b78bca3db573533e16c1495441e00bb1d25deb11619"
+    },
+    {
+      "chars": 2048,
+      "index": 4,
+      "name": "part-0004.b64",
+      "sha256_text": "1d84a028111bd8b260d2f69e7ddf0de0773221782748d5c44f504f39c3dede5c"
+    },
+    {
+      "chars": 2048,
+      "index": 5,
+      "name": "part-0005.b64",
+      "sha256_text": "200e9429e3ac863f3347b4f1db733b8f499c7694cfd2b3a3443d2196da5a2263"
+    },
+    {
+      "chars": 2048,
+      "index": 6,
+      "name": "part-0006.b64",
+      "sha256_text": "e49974b4aba46e8358369bcb3c80a1b08001a2579aef1a845031a3b326217aff"
+    },
+    {
+      "chars": 872,
+      "index": 7,
+      "name": "part-0007.b64",
+      "sha256_text": "d2036425566d5d5c481299b5f6451fc5d106f85aaf04c219d9a1a557f9acf48d"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@a0ec9110da9fefb32700e8996d63df53ee818df8 + Ai-b0ss/notion-agent-bridge@b5cd79374bd097041a14f36c549aea632f62e7ed",
+  "worker": "INTEGRATION_HELPER",
+  "workspace": {
+    "CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "641e0c3f9fa5ef2db8b5f0aaa12c63a1fd6167aa2a6b9bfc3632479ea15eccec",
+      "size": 2979,
+      "type": "file"
+    },
+    "EVIDENCE.json": {
+      "mode": "0o644",
+      "sha256": "b9dad2447a18771901f9196c4b1b8e66cb3792406484bef67e4cb45fb0e1fe25",
+      "size": 1994,
+      "type": "file"
+    },
+    "EVIDENCE_FINAL_TURN_BUDGET.json": {
+      "mode": "0o644",
+      "sha256": "b9dad2447a18771901f9196c4b1b8e66cb3792406484bef67e4cb45fb0e1fe25",
+      "size": 1994,
+      "type": "file"
+    },
+    "NOTION_FINAL_TURN_TOOL_BUDGET_GUARD.patch": {
+      "mode": "0o644",
+      "sha256": "854afcf40f8c3e547141ee68267e8fbfd8e8537a3be73184eae6207585b29fcb",
+      "size": 4189,
+      "type": "file"
+    },
+    "QWEN_PENDING_TOOL_DURABLE_OBLIGATION_GUARD.patch": {
+      "mode": "0o644",
+      "sha256": "1e56e97fa0de06db46dcce9e7e6e238643800ea1418823e3146d2dddf85074b6",
+      "size": 709,
+      "type": "file"
+    },
+    "STATE.json": {
+      "mode": "0o644",
+      "sha256": "dabf8156710d42de023c0323dd92688c526e9053d8004031ff038de739c551a9",
+      "size": 362,
+      "type": "file"
+    },
+    "final-turn-budget-probe-output.json": {
+      "mode": "0o644",
+      "sha256": "a94d1df1c84dde0765ff338d2ed0e4768e0898375e6daee07e54abcea59b6477",
+      "size": 831,
+      "type": "file"
+    },
+    "implicit-session-probe-output.json": {
+      "mode": "0o644",
+      "sha256": "dd60a3b2edf417c94bd62aeab259e9b30e980832434d42aab7866534e0b479b1",
+      "size": 492,
+      "type": "file"
+    },
+    "integration_notion_final_turn_tool_budget_probe.py": {
+      "mode": "0o644",
+      "sha256": "2177b3a7ff782eb2bc9dec14fa7961f089e1e751d3f6420e913633305852f4e3",
+      "size": 4687,
+      "type": "file"
+    },
+    "integration_qwen_implicit_session_collision_probe.js": {
+      "mode": "0o644",
+      "sha256": "c46a1187048e45668ef517440ebadb542fe9879fa9a6de4cd70bf9f14575670a",
+      "size": 4150,
+      "type": "file"
+    },
+    "integration_qwen_partial_tool_result_truncated_transcript_probe.js": {
+      "mode": "0o644",
+      "sha256": "9aefb1855cd18a3cb47ab3e87d01380cada4cd341e4f53d5d1548ea00ccce719",
+      "size": 5282,
+      "type": "file"
+    },
+    "integration_qwen_pending_tool_durable_obligation_probe.js": {
+      "mode": "0o644",
+      "sha256": "d636cc44cef87d64683a99005d8280ffbd825e7d65de9545b338fdb7d56ddf4c",
+      "size": 7695,
+      "type": "file"
+    },
+    "integration_qwen_truncated_tool_result_failover_rebase_probe.js": {
+      "mode": "0o644",
+      "sha256": "0bcbf95f7923700cdb37576583941545815f4f0f6231ea4b6fe32c4007a17f54",
+      "size": 3603,
+      "type": "file"
+    },
+    "probe-output.json": {
+      "mode": "0o644",
+      "sha256": "439d1424680f5e3c96746585c9adf8c81496fa31f941a052c821a96754b28379",
+      "size": 1090,
+      "type": "file"
+    }
+  }
+}

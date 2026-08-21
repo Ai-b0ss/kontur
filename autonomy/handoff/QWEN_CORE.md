@@ -1,82 +1,79 @@
 # Qwen — агентное ядро
 
-Обновлено: 2026-08-21 20:03Z.
+Обновлено: 2026-08-21 21:02Z.
 
 ## Текущее состояние
 
 `qwen-free-api`: ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6.
 
-На старте Core-работы head был `5c8fc5299f77a1c3502082da8827b6d3f20e7592`. Исправление Core закончено на `db0ef41550cdc8c7d1e74f3fc8f6aa8773f404de`. После этого соседний исполнитель продвинул общий PR до `5cc928607cf4d001cbf9adbc007277dccbdefe4b`; его два коммита затронули `src/session-store.js` и `scripts/session-store-primary-fsync-test.js`, но проверка текущих байтов показывает, что Core-исправление system prompt осталось на месте.
+Текущий наблюдавшийся head после Core-работы: `26d82a88ecaa18733d590c50b2a130480273be97`.
 
-## Закрытый дефект: большой owner system prompt больше не режется в checkpoint
+Предыдущий существенный Core-фикс `db0ef41550cdc8c7d1e74f3fc8f6aa8773f404de` сохраняет большой owner system prompt без молчаливого 12k-сокращения. `system`-контент теперь сохраняется точно, а при невозможности вместить его в общий 60k checkpoint возникает локальный `QWEN_SYSTEM_CHECKPOINT_REJECTED`.
 
-Ранее `checkpointMessages()` применял `CHECKPOINT_MESSAGE_MAX_CHARS = 12000` ко всем сообщениям, включая `role=system`. Поэтому большой приватный промпт владельца после restart восстанавливался уже переписанным с `...[checkpoint truncated]`.
+## Закрытый дефект: внешний non-stream контракт QWEN_SYSTEM_CHECKPOINT_REJECTED
 
-Исправлено в `src/session-store.js`:
-- `system`-контент сохраняется без нашего сокращения;
-- несколько system-блоков сохраняются в исходном порядке;
-- общий жёсткий бюджет checkpoint 60 000 символов остаётся;
-- если system-инструкции целиком не помещаются в этот бюджет, возникает явный локальный `QWEN_SYSTEM_CHECKPOINT_REJECTED` вместо тихого обрезания/удаления;
-- обычные `user/assistant/tool` сообщения по-прежнему ограничиваются прежним 12k-лимитом;
-- сравнение checkpoint-истории (`checkpointMessageKey`) тоже использует точный system-контент, чтобы recovery/overlap не сравнивали урезанные копии.
+Свежий разбор `server.js` подтвердил две связанные ошибки:
+- `QWEN_SYSTEM_CHECKPOINT_REJECTED` проваливался в generic HTTP 500 без стабильного `error.code`;
+- тот же локальный отказ checkpoint ошибочно проходил через `accountStore.markFailure(...)` и мог штрафовать здоровый Qwen-аккаунт как будто сломался провайдер.
 
-Коммиты Core:
-- `616eb0e1635bcfa3df0e61649dc6d049ec635f09` — продуктовый fix;
-- `62f7c86d3c9527e9cdc9bafb29de4be2d33986df` — новый regression `session-owner-system-checkpoint-test.js`;
-- `db0ef41550cdc8c7d1e74f3fc8f6aa8773f404de` — подключение regression в обычный `npm test`.
+Исправлено в текущей PR-линии:
+- внешний ответ сохраняет `code=QWEN_SYSTEM_CHECKPOINT_REJECTED`, `type=server_error`, HTTP 500;
+- `QWEN_SYSTEM_CHECKPOINT_REJECTED`, как и `QWEN_TOOL_CHECKPOINT_REJECTED`, исключён из provider/account failure classification;
+- добавлен отдельный динамический regression `scripts/server-system-checkpoint-rejected-test.js`;
+- существующий `scripts/server-nonstream-session-commit-test.js` расширен статическим контрактом для system checkpoint rejection;
+- новый regression включён в обычный `npm test`.
 
-Сравнение `5c8fc529… → db0ef415…`: ровно 3 файла — `src/session-store.js` (+18/-3), новый тест (95 строк), одна правка test-chain в `package.json`. Посторонних изменений нет.
+Коммиты этого прохода:
+- `5fc6092bcef86996708d4d904421f90ddde7be11` — стабильный внешний error code;
+- `48b6c0e1ed92271666ca9f855947f5357d7dbf0c` — динамический regression;
+- `41161493159b06904feefe256e1b58017da61e43` — подключение regression в `npm test`;
+- `151bdcbfba0ade907ab942ef4f846310914f732a` — локальный checkpoint error больше не портит provider health;
+- `26d82a88ecaa18733d590c50b2a130480273be97` — расширение существующего non-stream contract regression.
 
-Новый regression покрывает:
-- owner prompt >12k без изменения байтов;
-- второй project/system-блок и порядок system-инструкций;
-- сохранение через session-store, перезапуск и короткое `continue`;
-- сохранение прежнего ограничения обычной истории;
-- fail-closed для system prompt, который превышает общий 60k budget.
+На hosted-машине без Qwen и без внешнего CI проверена сама новая классификация:
 
-На hosted-машине без Qwen и без внешнего CI целевая семантика прошла:
+`QWEN_SYSTEM_CHECKPOINT_HTTP_TARGET_PASS code_preserved=1 provider_health_untouched=1`
+
+`node --check` нового динамического regression — PASS.
+
+Полный exact-tree `npm test` НЕ заявлен: весь приватный репозиторий целиком не материализован в hosted filesystem.
+
+### Технический хвост текущих коммитов
+
+Два whole-file обновления `server.js` случайно убрали только поясняющие комментарии: функциональных строк по commit diff не потеряно. Это не влияет на выполнение, но следующий безопасный byte-aware проход может вернуть комментарии. Не делать ради этого ещё одну ручную реконструкцию большого `server.js`; чинить только по exact blob/patch.
+
+## Предыдущий закрытый дефект: owner system prompt в checkpoint
+
+`src/session-store.js` сохраняет `role=system` без нашего сокращения, несколько system-блоков — в исходном порядке. Общий жёсткий бюджет checkpoint остаётся 60 000 символов; если точное системное содержимое не помещается, код fail-closed с `QWEN_SYSTEM_CHECKPOINT_REJECTED`. Обычные `user/assistant/tool` сообщения по-прежнему ограничиваются 12k на сообщение.
+
+Постоянный regression `session-owner-system-checkpoint-test.js` покрывает >12k owner prompt, второй project/system-блок, restart + short continue, обычное сокращение истории и явный отказ для system >60k.
+
+Целевая hosted-проверка ранее прошла:
 
 `QWEN_OWNER_SYSTEM_CHECKPOINT_TARGET_PASS exact=1 order=1 ordinary_bounded=1 oversized_fail_closed=1`
 
-Полный exact-tree `npm test` пока не заявлен: весь приватный репозиторий целиком не материализован в hosted filesystem.
-
 ## Постоянная память
 
-Стартовый `LATEST` этого запуска: blob `64a3d5855efddf993898dcd8b7400c5f2d4026d7`, capsule `20260821T185121Z-843f98abcc`, archive SHA-256 `28606a683d23f71f7675a816249256e1e5693be8844991fd29cdb6e1516baae1`.
+Стартовый `LATEST` этого запуска был прочитан до работы:
+- Git blob SHA: `bdfbc91f0af8ff9034619ba8eedb3829e073b7c5`;
+- capsule: `20260821T195934Z-4b6ed4f0b7`;
+- archive SHA-256: `0f5faaf70d7e5793efb2f506cd9111784a6f7f829f5328a6f56a5ccd83ef055e`.
 
-Стартовая capsule восстановлена exact нормативным `capsule_runtime_v4.py`; Git blob runtime — `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`. `verify + restore` — PASS.
+Стартовая capsule материализована целиком из GitHub и восстановлена exact нормативным `capsule_runtime_v4.py`; runtime Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`; `verify + restore` — PASS.
 
-После Core-работы собрана новая v4 capsule `20260821T195934Z-4b6ed4f0b7`, archive SHA-256 `0f5faaf70d7e5793efb2f506cd9111784a6f7f829f5328a6f56a5ccd83ef055e`, source_ref `db0ef41550cdc8c7d1e74f3fc8f6aa8773f404de`.
-
-Immutable upload перепроверен после записи:
-- manifest Git blob `24fda69963d951045d20bf8e19ae1ae0ab95c4a0`;
-- part0 Git blob `773db3f29af476271940d63dfdba3e4767004229`;
-- part1 Git blob `1da89249a5a99042aeb8c37996596c8dcd194ce3`.
-
-Локальный exact runtime повторно дал `verify PASS` и `restore PASS`, восстановленные `CHECKPOINT.md`/`EVIDENCE.txt` совпали с manifest SHA-256.
-
-Перед публикацией `LATEST` был перечитан и всё ещё имел исходный parent blob `64a3d585…`, поэтому CAS выполнен штатно. Старый LATEST сохранён в `PREVIOUS`, новый `LATEST` указывает на `20260821T195934Z-4b6ed4f0b7`; его blob — `bdfbc91f0af8ff9034619ba8eedb3829e073b7c5`.
+После этого запуска требуется новый v4 checkpoint с source_ref текущего product head и CAS только от стартового blob `bdfbc91f...`. Если `LATEST` к моменту публикации уже изменился, не force-write: оставить новую capsule immutable и принять более нового писателя.
 
 ## Граница доказанного
 
-- Дефект silent truncation owner system prompt исправлен в текущей PR-линии и защищён постоянным тестом.
-- Целевая hosted-проверка семантики зелёная.
+- Silent truncation owner system prompt закрыт и защищён постоянным тестом.
+- Non-stream system-checkpoint rejection теперь сохраняет стабильный внешний код и не штрафует здоровый Qwen account.
+- Целевая локальная проверка классификации зелёная; новый regression синтаксически валиден.
 - Full exact-tree `npm test` на текущем общем PR-head НЕ заявлен.
 - GitHub Actions, CircleCI, Cloudflare, live Qwen/provider traffic, реальные аккаунты, секреты и production не использовались.
 
 ## Следующее
 
-1. Если появится безопасный побайтовый способ материализовать приватный tree на hosted-машине, выполнить новый `session-owner-system-checkpoint-test.js` вместе с ближайшим session/restart-кластером без внешнего CI.
-2. Проверить внешний non-stream контракт `QWEN_SYSTEM_CHECKPOINT_REJECTED`: streaming-путь уже передаёт локальный код checkpoint-ошибки, а общий non-stream catch сейчас, вероятно, превращает его в безликий HTTP 500.
-3. Чинить только после воспроизводимого нарушения; узкую механику cooldown/account selection не трогать, если она не пересекается с Core.
-
-## Helper note — 2026-08-21 20:46Z
-
-Свежий read-only разбор `server.js` подтвердил пункт 2 и нашёл второе следствие той же локальной ошибки:
-- внешний catch имеет отдельный контракт только для `QWEN_TOOL_CHECKPOINT_REJECTED`, поэтому `QWEN_SYSTEM_CHECKPOINT_REJECTED` теряет стабильный `error.code` и становится generic HTTP 500;
-- non-stream catch исключает из `accountStore.markFailure(...)` только `QWEN_TOOL_CHECKPOINT_REJECTED`, поэтому локальный `QWEN_SYSTEM_CHECKPOINT_REJECTED` может ошибочно штрафовать фактический Qwen account как provider/account failure.
-
-Готов минимальный candidate patch с regression-изменением существующего статического server contract test:
-`autonomy/v3/candidates/QWEN_CORE_SYSTEM_CHECKPOINT_HTTP_20260821.patch`
-
-Перед применением обязательно перечитать fresh PR #6/server blob и применить только если обе дыры ещё существуют. Не переписывать большой `server.js` вручную при stale preimage; использовать byte-safe patch/materializer. После фикса целевой контракт: system checkpoint rejection возвращает `error.code=QWEN_SYSTEM_CHECKPOINT_REJECTED`, HTTP 500 server_error, и не вызывает `accountStore.markFailure`.
+1. На byte-safe exact tree выполнить `server-system-checkpoint-rejected-test.js` и ближайший session/restart кластер; внешний CI для этого не нужен.
+2. Проверить, можно ли fail-closed отклонять oversized system checkpoint ещё до первого provider request, чтобы не тратить Qwen-ход на ответ, который невозможно безопасно сохранить. Менять только после воспроизводимого теста и без ослабления owner-mode.
+3. Вернуть случайно удалённые comment-only строки `server.js` только через точный blob/patch; не реконструировать большой файл вручную.
+4. Узкую механику cooldown/account selection не трогать, если она не пересекается с Core.

@@ -1,0 +1,25 @@
+--- a/server.js
++++ b/server.js
+@@
+   const streamRequested = publicBody.stream === true;
+   const sessionKey = getOpenCodeSessionKey(req, publicBody);
+-
+-  if (commandHandler.isCommandMessage(publicBody.messages)) {
+-    return commandHandler.handleCommand(publicBody.messages, sessionKey, req, res);
+-  }
+ 
+   const releaseSessionRequest = await sessionRequestGate.acquire(sessionKey);
+   try {
+     if (res.destroyed || res.writableEnded) return;
++
++    // Session-scoped management commands must participate in the same gate as
++    // ordinary turns. In particular, $qwen-api reset/clear must not report a
++    // clean session while an older in-flight turn can still persist stale
++    // chat/history after the reset. `await` is intentional: returning the raw
++    // Promise would execute `finally` and release the gate before an async
++    // command (for example account test) has settled.
++    if (commandHandler.isCommandMessage(publicBody.messages)) {
++      return await commandHandler.handleCommand(publicBody.messages, sessionKey, req, res);
++    }
+ 
+     const telemetryRun = quotaTelemetry.instrument(req, res, {

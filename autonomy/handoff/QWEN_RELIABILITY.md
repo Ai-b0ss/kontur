@@ -4,7 +4,7 @@
 
 Основная продуктовая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6.
 
-Свежий product head после этого запуска: `73083123db9f3e18ea70fe06397b3bb4c84f83e2`.
+Свежий product head на момент этого запуска: `a95e3fa365d62b4bce959f0508a82d99ec531679`.
 
 ## Уже доказано и не переделывать
 
@@ -21,53 +21,44 @@
 - поздний transport error учитывается ровно один раз;
 - empty/metadata-only/terminal-only initial SSE не считается успешным model output;
 - unconfirmed initial release, позднее доказанный пустым, охлаждает фактический аккаунт один раз и выбирает свежего sibling;
-- `reset(account)` не снимает provider-wide circuit.
+- `reset(account)` не снимает provider-wide circuit;
+- stale preferred object не обходит canonical cooldown/state;
+- удалённый managed account не воскресает через detached snapshot.
 
-## Этот запуск — canonical account boundaries усилены
+## Свежая проверка этого запуска
 
-Закрыты два связанных fail-open без provider/live.
+PR #6 продвинулся с `73083123...` до `a95e3fa...` на три коммита. `compare_commits` показал изменения только в `src/stream-session-guard.js` и `scripts/stream-session-lifecycle-race-test.js`; `src/qwen-client.js` и `src/account-store.js` параллельно не менялись.
 
-### 1. Detached/stale preferred object обходил свежий cooldown
+Незавершённый кусок из прошлого handoff остаётся актуальным: `qwen-client.operationCandidates()` вручную вставляет caller-owned `preferredAccount`, хотя `accountStore.candidates(preferredAccount)` уже полностью канонизирует preferred id и применяет LRU/cooldown/remove правила.
 
-Если вызывающая часть держала старый object A, а канонический A уже получил cooldown, старый объект мог снова стать preferred.
+Точный byte-safe patch сохранён в каноническом control repo:
+`autonomy/v3/candidates/QWEN_RELIABILITY_OPERATION_CANDIDATES_20260821.patch` (commit `9ec6ceee9600d19db7591a74ed255af4f8c1dac0`).
 
-Исправления:
+Патч сводит функцию к:
+`return accountStore.candidates(preferredAccount).slice(0, MAX_ACCOUNTS_PER_OPERATION);`
 
-- `f36a05f133afc8ab3f01360bb31712a99e2bafd4` — `candidates(preferredAccount)` разрешает preferred только через канонический id; `isAvailable()` смотрит на каноническое состояние;
-- `db12853e8dc882aeb6eaaf8b1fced30b279afff9` — regression в штатном `scripts/account-selection-policy-test.js`;
-- `8a1b251ce4d2e5dd52298861ad7f1f82f43dfc9e` — чувствительные границы account-store (`reset`, `markSuccess`, `markFailure`, CAPTCHA/restriction, cookie header) используют канонический объект, поэтому stale credentials/state не перезаписывают новое состояние;
-- `59c3cf7f56951cee3693c43453c2ae2d6e2ef903` — regression на canonical cookie/state mutation.
+Почему пока не применён в product branch: hosted container не имеет DNS до GitHub, а доступный GitHub Contents API заменяет большой общий `src/qwen-client.js` целиком. Ради удаления пяти строк риск полной ручной реконструкции файла выше пользы. Нужен byte-safe git/patch исполнитель или безопасный partial-edit инструмент.
 
-Hosted Node: `CANONICAL_PREFERRED_ACCOUNT_FAILOVER_PASS`, `CANONICAL_PREFERRED_AND_STATE_BOUNDARY_PASS`.
+## Проверка thread affinity
 
-### 2. Удалённый аккаунт мог воскреснуть через detached snapshot
+На свежем коде прочитаны `operationCandidates`, `canReuseOriginalChatId`, `chatCreationCandidates` и `sendChatRequest`.
 
-После первого усиления `canonicalAccount()` всё ещё делал `get(id) || account`. Поэтому object удалённого A с оставшимся token теоретически мог снова пройти `isAvailable()` и старую ручную вставку preferred в qwen-client.
+После упрощения ожидаемый инвариант сохраняется:
+- healthy canonical preferred A остаётся первым через `accountStore.candidates(preferredAccount)`;
+- cooled/removed A не возвращается;
+- independent request без preferred остаётся LRU;
+- original chat id переиспользуется только когда выбранный account.id совпадает с preferredAccount.id и canonical preferred доступен;
+- sibling B получает новый chat id через `generateChatID(..., B)`, а `chatCreationCandidates(B)` запрещает скрытый переход на C.
 
-Исправления:
+Следующий запуск должен сначала применить сохранённый маленький patch byte-safe способом, затем добавить/прогнать regression на эти четыре инварианта. После этого искать следующий независимый дефект в bounded retry / account-thread affinity.
 
-- `dd1287cdc096e5be0ebda881b59bdff60f2fbe08` — managed object с id теперь является только ссылкой в канонический pool; если id отсутствует после `remove()`, границы account-store fail closed вместо использования detached bytes;
-- `73083123db9f3e18ea70fe06397b3bb4c84f83e2` — regression: `remove(A) -> staleA` не проходит `isAvailable`, не отдаёт cookie и не возвращается в candidates.
+## Постоянная память и ограничения
 
-Hosted Node: `REMOVED_STALE_ACCOUNT_FAIL_CLOSED_PASS`.
-
-## Следующий приоритет
-
-`qwen-client.operationCandidates()` всё ещё содержит старую ручную вставку caller-owned `preferredAccount`. Усиленный account-store уже не позволяет ей обойти cooldown, использовать устаревшие credentials на границах или воскресить удалённый id, но код остаётся дублированным и хрупким.
-
-Следующий безопасный кусок:
-
-1. на свежем head проверить, не менялся ли `src/qwen-client.js` параллельно;
-2. byte-safe заменить `operationCandidates()` на `accountStore.candidates(preferredAccount).slice(0, MAX_ACCOUNTS_PER_OPERATION)`;
-3. regression должен доказать одновременно: healthy canonical preferred A остаётся первым для существующего треда; cooled/removed A не возвращается; новый независимый запрос остаётся LRU;
-4. отдельно проверить `canReuseOriginalChatId` / `chatCreationCandidates`, чтобы thread affinity сохранялась только для канонически доступного владельца и новый sibling всегда получает новый thread id.
-
-## Проверки и ограничения
-
-- v4 LATEST на старте запуска: `20260821T045302Z-bfdec3c64a`, Git blob SHA `1f41272666f813674c994b730cc3f119912cf9be`;
-- стартовая capsule прошла `capsule_runtime_v4.py verify` и `restore`, archive SHA `33e861113f659c9800281e366cfa0a2a58570854b6be030af989376caffefdcc`;
-- промежуточный проверенный checkpoint этого запуска был опубликован как `20260821T055900Z-c9f08999a7` через CAS;
+- LATEST на старте: `20260821T060242Z-70f4eb934f`;
+- стартовый Git blob SHA LATEST: `d7d197fb4bfe0551530323739fb7097edab03d60`;
+- manifest schema v4, archive SHA `aeab1d8abf8300f6f7375ece04f2e344de7e18a36c41929f207c14004adeb53a`;
+- part length/SHA и archive length/SHA проверены на hosted машине; workspace восстановлен, CHECKPOINT/RESULTS прочитаны;
 - CircleCI/GitHub Actions/Cloudflare не запускались;
 - provider/live запросов к Qwen: 0;
 - реальные аккаунты, секреты и production не тронуты;
-- полный `npm test` exact-tree не заявлять: hosted container не имеет DNS до GitHub; выполнены целевые hosted Node проверки и read-back продуктовых файлов.
+- полный `npm test` exact-tree не заявлять: hosted container не имеет DNS до GitHub.

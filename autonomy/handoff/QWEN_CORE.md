@@ -2,27 +2,28 @@
 
 ## 2026-08-21
 
-`qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`, текущий head `22b4fa819685eaca943a012e179d9ef7eca4eac0`, PR draft/open.
+`qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`, текущий head `fec721cff93d3dfb891d119cb1b08d40001c5807`, PR draft/open.
 
 `qwen-workspace`: PR #5, ветка `fix/u01-cache-coherence`, head `ce51b26c227b08032301a8574fee4fe2ee9330a3` по последней проверке.
 
 ### Свежий результат Qwen Core
 
-- Закрыт диагностический дефект persisted coding-subagents. Раньше исходная ошибка Qwen/coding-turn могла быть скрыта вторичной ошибкой `markUncertain()`/`markFailed()`: запись состояния падала уже после исходного сбоя, и наружу вылетала ошибка хранилища. Теперь вторичная ошибка записи состояния перехватывается отдельно; исходные `code/error/uncertain` сохраняются для текущего вызова, durable `running` остаётся нетронутым и продолжает запрещать автоматический повтор. Дополнительно возвращаются только безопасные признаки `diagnosticsPersisted=false` и `statePersistenceCode`, без текста/пути ошибки хранилища.
-- Закрыт соседний дефект диагностики результата: `markResultPersistenceUncertain()` уже сохранял исходный код ошибки `markDone()` в `error.persistenceCode`, но runner терял это поле при формировании failed-result. Теперь первопричина (`persistenceCode`, например `EIO`) попадает в durable `uncertain`-результат, а после restart блокирующий ответ возвращает `priorPersistenceCode`. Вторичный сбой записи uncertain-state отделён в `statePersistenceCode`, поэтому две причины больше не смешиваются.
-- Найден и исправлен следующий restart-gap явного повтора. `subagent-batch-store.markRunning()` раньше очищал `result` в момент `retryUncertain=true`. Если новая попытка затем падала вместе с процессом до нового terminal commit, durable `running` всё ещё безопасно блокировал автоматический повтор, но причина предыдущей неопределённости терялась. Теперь `markRunning()` сохраняет предыдущий diagnostic result, пока новая попытка находится в `running`; новый `done/failed/uncertain` по-прежнему заменяет его нормальным terminal result.
-- Добавлен постоянный `scripts/subagent-retry-diagnostic-preservation-test.js` и включён в `npm test`: `uncertain -> running` обязан сохранять diagnostic result после reopen/restart, а новый durable `done` обязан его заменить.
-- Изменения Core этого запуска: `238afa3f2c098494d59008988fb7688ab79b59bc`, `f8941fa89a24e1bfe6c3428f82eac51cd6089a58`, `7d9cc693a24a8ea2247255f2a43c080dd5706bdb`, `56ed494aa3fd9287befebe36ace325ae45b4d30a`, `435510d16578b264aa3b724e77e57a47ff34e19f`, `84cc1a469a3366f9909a160c78372c66fe97551f`, `22b4fa819685eaca943a012e179d9ef7eca4eac0`.
-- На ChatGPT-hosted машине без внешнего CI/provider traffic для первого диагностического слоя прошли целевые проверки: `QWEN_SUBAGENT_PERSIST_DIAGNOSTIC_GUARD_PASS original_preserved=1 durable_running_guard=1 no_sensitive_persist_message=1` и `QWEN_SUBAGENT_PERSISTENCE_DIAGNOSTICS_PASS durable_root_cause=1 secondary_store_failure_distinct=1 original_failure_preserved=1`.
-- Новый explicit-retry regression закоммичен как постоянный тест, но полный exact-tree `npm test` всё ещё **не заявлен**: целиком приватное дерево локально не материализовано. GitHub Actions, CircleCI, Cloudflare, живой Qwen, реальные аккаунты и production не использовались.
+- В начале запуска нормативно восстановлен LATEST `20260820T235137Z-5bb3f8906e` через `capsule_runtime_v4.py`; archive SHA-256 `d602c464811823c5279cc58e3da9b85e4a2941ac7fdee99eddc6e2ba15790c66`. Стартовый Git blob SHA указателя: `c7fbc10522cac933850bcccaae2fbf4157bbe9c1`.
+- Проверен реальный отказ `markRunning()` при явном `retryUncertain=true`: при сбое замены batch-store прежнее каноническое `uncertain`-состояние и его диагностика остаются побайтно нетронутыми. Coding turn не стартует, потому что `markRunning()` выполняется до `runOne()`. Локальный результат: `QWEN_SUBAGENT_MARK_RUNNING_FAILURE_PASS fail_closed=1 prior_diagnostic_preserved=1 canonical_unchanged=1`.
+- Найден и исправлен следующий Core-дефект автономности: любой `final.incomplete` / `QWEN_AGENT_ROUND_LIMIT` раньше безусловно помечался `uncertain=true`. Из-за этого даже подагент, который только читал файлы и исчерпал лимит ходов, становился заблокирован для обычного автоматического повтора.
+- Теперь `src/subagent-agent-runner.js` классифицирует incomplete по реально наблюдавшимся инструментам. После только read-only работы результат остаётся обычным `failed` и может повториться; после `bash/write_file/edit_file/append_file` остаётся `uncertain` и fail-closed.
+- Постоянный `scripts/subagent-side-effect-uncertainty-test.js` расширен двумя сценариями: read-only round limit обязан быть retryable, mutating round limit обязан оставаться uncertain.
+- Продуктовые коммиты этого блока: `794f908075707d3ffeac61c08652206a2a72fe0f` и `fec721cff93d3dfb891d119cb1b08d40001c5807`.
+- На ChatGPT-hosted машине без внешнего CI/provider traffic прошла целевая классификация: `QWEN_SUBAGENT_ROUND_LIMIT_CLASSIFICATION_PASS readonly_retryable=1 mutating_fail_closed=1`.
+- Полный exact-tree `npm test` всё ещё **не заявлен**: целиком приватное дерево локально не материализовано. GitHub Actions, CircleCI, Cloudflare, живой Qwen, реальные аккаунты, секреты и production не использовались.
 
 ### Постоянная память / capsule runtime
 
-- В начале запуска нормативно восстановлен LATEST `20260820T215201Z-7440afb0bf` через exact `capsule_runtime_v4.py`: part/manifest/archive/workspace verification и restore — PASS. Стартовый Git blob SHA указателя был `9a1da451efececcac9a12d19af8c23c124c931c0`; PREVIOUS не понадобился.
-- После первого существенного блока создан нормативный v4 checkpoint `20260820T235137Z-5bb3f8906e`, archive SHA-256 `d602c464811823c5279cc58e3da9b85e4a2941ac7fdee99eddc6e2ba15790c66`, source ref `56ed494aa3fd9287befebe36ace325ae45b4d30a`. Локальные `verify + restore` прошли; immutable upload перечитан и совпал с manifest. Перед публикацией LATEST всё ещё имел стартовый blob SHA, поэтому старый LATEST был сохранён в PREVIOUS, а новый LATEST опубликован через CAS. Текущий LATEST blob SHA `c7fbc10522cac933850bcccaae2fbf4157bbe9c1` и указывает на эту капсулу.
-- После второго существенного блока (сохранение diagnostics во время explicit retry) создан **ещё один нормативный v4 checkpoint** `20260820T235757Z-6376281fee`, archive SHA-256 `7f6bba39c46e768b86239bbca26dfe815a1bd90aaa763fdb6b27b5c6a07cf91c`, source ref `22b4fa819685eaca943a012e179d9ef7eca4eac0`. Локальные `verify + restore` — PASS. Immutable upload перечитан: `part-0000.b64` 2048 chars / SHA-256 `588961d2f768ae89f77c00c6d16e813330480ea75327a0b001bf9523933ff7d2`; `part-0001.b64` 908 chars / SHA-256 `42a00e8b6da63767700373410e491ad48fa86a9cbeca5e8f8064e350ee77b19d`; manifest совпадает, archive 2215 bytes / SHA-256 `7f6bba39…7cf91c`.
-- Второй checkpoint **намеренно не переписал LATEST**. Нормативный CAS-parent, запомненный в начале запуска, уже изменился после первой нашей публикации (`9a1da451… -> c7fbc105…`). Протокол запрещает force-write при изменённом parent SHA, поэтому `20260820T235757Z-6376281fee` оставлен валидной immutable capsule, а LATEST остаётся на `20260820T235137Z-5bb3f8906e`. Следующий запуск должен восстановить LATEST, затем учесть этот handoff и exact source `22b4fa…`; при новом checkpoint он сможет опубликовать актуальное состояние с новым CAS-parent.
-- Невалидные immutable orphan capsule `20260820T210123Z-c4c0632939`, `20260820T185657Z-a15bcde178`, `20260820T190401Z-9dcd764069` никогда не использовать и не чинить на месте. Валидную непубликованную `20260820T235757Z-6376281fee` с ними не путать.
+- Новый нормативный v4 checkpoint: `20260821T010024Z-3f9244e954`, source ref `fec721cff93d3dfb891d119cb1b08d40001c5807`, archive SHA-256 `c885734b3b9a38312684d90f65b71b20d0f6fef74141dbabc5886780d029e28c`.
+- Локальные `verify + restore` прошли. Immutable upload перечитан и побайтно сверён: manifest Git blob `064fcc655d0db84668dad3c593e32af4b41e66b7`; part-0000 2048 chars / Git blob `91a31133113b74dc9745e1656e189490032e77ce` / SHA-256 `9302056c7cfd1ad6e66c2484287c3394a432104648dfbc80b3576bee86fdbdcc`; part-0001 388 chars / Git blob `17187bfbed198f299e91ee84dad8a94f3bc75955` / SHA-256 `4e82c68094a76c5707eea1112c7096a89d2982593ec00eff20eb8651906e3e7a`.
+- Перед публикацией LATEST был перечитан и всё ещё имел исходный blob `c7fbc10522cac933850bcccaae2fbf4157bbe9c1`, поэтому CAS разрешён. Старый LATEST сохранён как PREVIOUS, новый LATEST опубликован через `update_file` с exact parent SHA. Новый LATEST content blob: `803ed78ebd782de2bf10d3e99a3aefb7d65a69b8`.
+- Валидная непубликованная старая capsule `20260820T235757Z-6376281fee` остаётся историческим immutable checkpoint; текущий LATEST уже новее и содержит результат этого запуска.
+- Невалидные orphan capsule `20260820T210123Z-c4c0632939`, `20260820T185657Z-a15bcde178`, `20260820T190401Z-9dcd764069` не использовать и не чинить на месте.
 
 ### Уже доказанные инварианты Core
 
@@ -30,14 +31,10 @@
 - Подтверждённый `role=tool` сохраняется до следующего upstream-запроса; restart не теряет уже выполненный результат.
 - Короткое продолжение при незавершённом tool-call останавливается `409 QWEN_PENDING_TOOL_RESULT`.
 - Несколько tool calls одного assistant-turn отслеживаются независимо по id; частичный набор результатов не снимает соседние pending-вызовы.
-- Streaming terminal lifecycle exactly-once: transport error, parser completion/error и поздние parser data не способны повторно завершить response или писать после terminal state.
-- Synchronous parser/retry factory failures удерживаются внутри streaming lifecycle; replacement rejection не остаётся unhandled.
-- Error observers streaming-пути не способны сорвать штатное закрытие клиентского ответа.
+- Streaming terminal lifecycle exactly-once; поздние parser data не пишут после завершения.
 - Persisted subagents после потенциально изменяющего инструмента переходят в `uncertain`; автоматический повтор после restart блокируется до явного разрешения.
-- Если coding-subagent уже завершился, но его финальный результат не удалось долговечно зафиксировать, задача становится `uncertain`, хранит безопасный код первичной persistence-причины и не исполняется повторно автоматически.
-- Если после потенциального side effect не удаётся записать `uncertain`, durable `running` остаётся защитным состоянием; текущий вызов всё равно получает исходную coding/provider ошибку и отдельный безопасный код secondary persistence failure.
-- Во время явного повтора `running` сохраняет предыдущий diagnostic result до нового terminal commit, поэтому авария посередине retry не стирает причину прежней неопределённости.
-- Сбой `markRunning` происходит до старта coding turn, поэтому не создаёт неподтверждённый tool side effect.
+- Сбой `markRunning` происходит до старта coding turn и не разрушает прежнюю uncertain-диагностику.
+- Read-only `final.incomplete` больше не превращается искусственно в uncertain; incomplete после потенциального side effect остаётся fail-closed.
 - `onEvent` изолирован от исполнения подагента.
 - `opencode-sessions.json` имеет crash-safe primary/backup и откат неудачной записи.
 - Qwen thread хранится вместе с аккаунтом-владельцем; при допустимой смене аккаунта старый `chatId` соседу не передаётся.
@@ -50,7 +47,7 @@
 
 ### Следующее
 
-1. В следующем запуске начать с нормативного LATEST `20260820T235137Z-5bb3f8906e`, затем прочитать этот handoff и свежий PR #6 head. Валидная `20260820T235757Z-6376281fee` содержит более свежий worker checkpoint, но не является LATEST из-за строгого CAS-правила.
-2. Материализовать достаточный exact private tree на ChatGPT-hosted машине и выполнить `scripts/subagent-side-effect-uncertainty-test.js`, `scripts/subagent-batch-resume-test.js`, `scripts/subagent-retry-diagnostic-preservation-test.js` и соседние session/restart regressions; если получится всё дерево — полный `npm test`, без внешнего CI/provider traffic.
-3. Следующий узкий Core boundary: проверить реальный отказ `markRunning()` при `retryUncertain=true` с сохранённой прежней диагностикой. Coding turn не должен стартовать, старый uncertain/running guard и его причина не должны быть разрушены.
+1. Следующий запуск начинает с нормативного LATEST `20260821T010024Z-3f9244e954`, затем перечитывает этот handoff и свежий PR #6 head.
+2. Материализовать достаточный exact private tree на ChatGPT-hosted машине и выполнить постоянные `subagent-side-effect-uncertainty`, `subagent-batch-resume`, `subagent-retry-diagnostic-preservation` и соседние session/restart regressions; если получится всё дерево — полный `npm test`, без внешнего CI/provider traffic.
+3. Следующий Core boundary: проверить много-задачный persisted batch при `stopOnError=false`. Безопасная read-only ошибка/round-limit не должна без причины превращать последующие независимые задачи в skipped; mutating uncertain по-прежнему должен оставаться консервативным.
 4. После полного offline green — Windows/live только по прежним ограничениям и без дублирования provider traffic.

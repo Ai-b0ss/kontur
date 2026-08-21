@@ -1,0 +1,68 @@
+{
+  "worker": "NOTION_CORE",
+  "timestamp_utc": "2026-08-21T04:02:21Z",
+  "source": {
+    "core_pr7_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_integration_head": "1d80d4f2939b4c76a43313b722e4e80c1041564c",
+    "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d"
+  },
+  "windows_digest": {
+    "workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "status": "all_five_pending",
+    "rerun": false
+  },
+  "findings": [
+    {
+      "id": "STREAM_REPLAY_ID_SPLIT",
+      "severity": "blocking_for_durable_tool_replay",
+      "fact": "stream_openai_responses allocates and emits a fresh response_id in response.created before handle_openai_responses can discover any durable replay. If handle later returns a stored response, the stream can expose one id in response.created and another in response.completed/tool output.",
+      "required_fix": "Make the durable replay decision while holding the same conversation/turn serialization boundary and before the first SSE byte. On replay, emit the stored payload directly; on fresh work, allocate response_id only after replay miss is known. Preserve existing lock order to avoid deadlock."
+    },
+    {
+      "id": "PERSISTENCE_SUCCESS_NOT_OBSERVABLE",
+      "severity": "blocking_for_crash_safe_tool_side_effects",
+      "fact": "ConversationSegmentStore._save_locked catches FilesystemOwnershipError/OSError, sets _persistence_blocked, and returns no success/failure signal. put therefore cannot tell server.py whether progress+replay actually reached disk before a tool call is exposed to Codex.",
+      "required_fix": "Return an explicit durable publication result (or raise a dedicated error) and fail closed before exposing a tool-call response when the atomic segment+replay record was not durably published. Roll back the just-installed in-memory replacement on failed publication so an undurable replay cannot masquerade as durable."
+    },
+    {
+      "id": "EMPTY_INPUT_EXACT_REPLAY_AMBIGUITY",
+      "severity": "reliability",
+      "fact": "response_input_fingerprints mixes request context into each input item, but an empty input produces an empty tuple. Tuple equality alone is therefore insufficient as the exact replay key for zero-item requests.",
+      "required_fix": "Persist response_input_fingerprint(body) as a separate replay_request_fingerprint and use it for exact replay identity; keep input_fingerprints only for prefix/continuation semantics."
+    }
+  ],
+  "candidate_record": {
+    "atomic_fields": [
+      "existing segment progress/account/thread metadata",
+      "replay_request_fingerprint",
+      "rendered_response including final response_id/item_id/call_id"
+    ],
+    "state_version_policy": "Do not blindly invalidate v2. Legacy records must remain detectable so exact progress-without-replay can fail closed rather than silently re-infer.",
+    "legacy_exact_replay": "409/fail-closed; no provider replanning",
+    "changed_request_or_appended_tool_result": "normal continuation/provider path"
+  },
+  "offline_harness": {
+    "verdict": "DURABLE_RENDERED_REPLAY_V2_LOCAL_PASS",
+    "provider_call_count": 1,
+    "cases": [
+      "crash before atomic publication permits provider retry",
+      "crash after publication before HTTP/SSE return replays stored response",
+      "same-process exact retry preserves response/item/call ids",
+      "process restart exact retry preserves response/item/call ids",
+      "stream/non-stream derive from one stored canonical response",
+      "legacy exact progress without replay fails closed",
+      "changed request misses replay",
+      "failed durable publication is not exposed as success"
+    ],
+    "stream_preflight_hazard_reproduced": true
+  },
+  "constraints_observed": {
+    "hosted_ci_started": false,
+    "notion_traffic": false,
+    "secrets_touched": false,
+    "product_pr7_mutated": false,
+    "product_pr8_mutated": false,
+    "native_windows_claimed_from_linux": false
+  }
+}

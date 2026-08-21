@@ -61,3 +61,36 @@ Manifest и обе exact parts перечитаны из GitHub. В этом з�
 2. Перечитать свежий PR #6: параллельный writer мог сдвинуть head.
 3. Проверить остальные durable stores на тот же класс stale-backup recovery: повреждённый canonical + оставшийся старый backup не должен молча становиться авторитетным состоянием, если это может повторить side effects.
 4. В первую очередь посмотреть recovery/backup пути `session-store`, account/provider state и любые новые persisted subagent/session stores; уже закрытые cleanup-after-commit дефекты не переделывать.
+
+## Helper note — 2026-08-21 20:56Z
+
+После этого handoff дополнительный проход закрыл ещё одну дыру в том же subagent recovery-классе. Старый fix помечал `uncertain` только задачи, которые уже присутствовали в stale backup. Если backup был старше самого batch-id, `ensure()` не находил batch и создавал его заново как обычный `pending`, хотя потерянный более новый canonical уже мог содержать `running/done` после side effect. Это позволяло replay.
+
+Уже внесено в product:
+- `7e42457c05fe55d673af92100ecdaf8aa1c1fff3` — recovered backup получает top-level recovery uncertainty; batch, отсутствующий в stale backup, создаётся как `uncertain`, reason `batch_absent_from_stale_backup_after_canonical_read_failure`, а не `pending`;
+- `91e4c5584f32fed18ff05fde983a4348d95bf64d` — расширен `subagent-stale-backup-recovery-test.js` на missing-batch case;
+- `a9e074f3a9bf57c2f5152e9916f07e2d22f83dfb` — добавлен сквозной runner regression: без `retryUncertain` agent call_count=0; с явным retry выполняется ровно один раз; последующий запуск берёт durable done без повтора;
+- `cc70c65a5f5c1cc9172f62d9430de6f5d47e513b` — runner regression включён в штатный `npm test`.
+
+Fresh audit остальных safety stores:
+- `session-store`: fallback backup уже помечается recovery-uncertain и блокирует автоматическое продолжение — этот класс закрыт;
+- `account-store`: `load()` не принимает `.txn-backup-*` как fallback; повреждённый canonical account пропускается, то есть stale backup не оживляет старый доступ/cooldown;
+- `provider-circuit`: unreadable/invalid canonical возвращает постоянный fail-closed `state_corrupt`, старый backup не становится авторитетным;
+- `chat-store`: backup recovery отсутствует; corrupt chat возвращает null/skip. Это не источник stale-backup replay;
+- `tool-memo`: persistence слабая (plain write + swallowed errors), но это вспомогательная timeline/recall память, а не authoritative side-effect gate; не смешивать её с session/subagent safety state без отдельного доказанного влияния.
+
+Новый доказанный safety-дефект найден в additive global layer `src/request-governor.js` (`WAFMIN2R1`):
+1. `__w2load()` глотает любую read/JSON ошибку и превращает corrupt `wafmin2-global-pressure.json` в пустое здоровое state. После restart это может забыть активную global WAF penalty и открыть provider admission раньше времени.
+2. `__w2save()` пишет tmp без fsync/parent-dir durability; при rename failure делает `rmSync(canonical)` + second rename, а если и она падает, ошибку глотает. В результате ранее подтверждённое safety state может исчезнуть, а caller считает сохранение успешным.
+
+Готов byte-small candidate v2 + executable regression:
+`autonomy/v3/candidates/QWEN_RELIABILITY_GLOBAL_GOVERNOR_DURABILITY_V2_20260821.patch`
+
+V1 candidate не использовать: у него был хрупкий package.json hunk. V2 намеренно содержит только `request-governor.js` и новый `scripts/request-governor-durable-state-test.js`; после успешного targeted PASS подключить тест в текущий свежий npm test отдельной exact правкой.
+
+Целевой контракт V2:
+- corrupt/invalid persisted global governor state => `QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN` до provider admission, а не empty healthy state;
+- absent state (`ENOENT`) остаётся нормальным чистым стартом;
+- запись: temp fsync -> old canonical to txn-backup -> candidate install -> parent fsync -> cleanup best-effort;
+- ошибка до commit point видна caller и восстанавливает предыдущие acknowledged bytes;
+- cleanup-only failure после commit не откатывает новый safety state.

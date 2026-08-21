@@ -1,0 +1,46 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "QWEN_COMMAND_CONTENT_SHAPE_INTERCEPTION_GAP",
+  "verdict": "REPRODUCED_NON_STRING_COMMAND_BYPASS_AND_CANDIDATE_PASS",
+  "source_head": "75c0d793dbbc50b34f3409a90d4737095f58e7c7",
+  "source_blobs": {
+    "server.js": "b6131886a6ff739eb35765982d778632e25ab689",
+    "src/command-handler.js": "85f8586a37b4308e52cf138043d174030e52b090"
+  },
+  "observed_gap": [
+    "isCommandMessage only inspects last user content when it is a string",
+    "handleCommand independently applies the same string-only extraction",
+    "OpenAI-compatible chat content may be an array/object of text parts",
+    "therefore a local management command encoded as text parts is not intercepted and proceeds into the ordinary provider route"
+  ],
+  "security_relevance": "Commands may contain local credentials, especially `$qwen-api account add <JWT_TOKEN> [COOKIE]`. A non-string content shape can therefore forward command text intended for the local proxy to Qwen upstream.",
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_qwen_command_content_shape_probe.js",
+    "current": {
+      "string_detected": true,
+      "array_text_detected": false,
+      "array_mixed_detected": false,
+      "object_text_detected": false
+    },
+    "candidate": {
+      "string_detected": true,
+      "array_text_detected": true,
+      "array_mixed_detected": true,
+      "object_text_detected": true,
+      "ordinary_array_false_positive": false
+    },
+    "result": "QWEN_COMMAND_CONTENT_SHAPE_INTERCEPTION_GAP_REPRO_AND_CANDIDATE_PASS"
+  },
+  "candidate_fix": {
+    "artifact": "autonomy/v3/candidates/QWEN_COMMAND_CONTENT_SHAPE_20260821.patch",
+    "rule": "use one local content extractor for both command detection and command parsing; detect prefix only at start with a whitespace/end boundary",
+    "fail_closed_note": "If unusual multipart splitting changes command arguments, local command failure is safer than forwarding credential-bearing command text upstream."
+  },
+  "required_regression": "string, array-of-text-parts and object-text forms of `$qwen-api account add SENTINEL` must all be intercepted locally; ordinary text mentioning `$qwen-api` mid-sentence must not execute",
+  "limits": [
+    "Sentinel token only; no real credential used",
+    "No product file changed by INTEGRATION_HELPER",
+    "No provider/Notion traffic, hosted CI, Cloudflare, Windows, production or account mutation"
+  ]
+}

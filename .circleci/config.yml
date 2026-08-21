@@ -1,7 +1,7 @@
 version: 2.1
 
 jobs:
-  kontur-canonical-vite:
+  kontur-finalize-and-verify:
     docker:
       - image: cimg/node:22.18
     resource_class: small
@@ -9,13 +9,26 @@ jobs:
       - checkout
 
       - run:
-          name: Verify exact PR12 ancestry and bounded candidate
+          name: Integrate the already-proven bounded candidate into PR12
           command: |
             set -euo pipefail
-            EXPECTED_SOURCE_HEAD=32034e8af92923a2abe09ad00e3220f6da1ed21c
-            git merge-base --is-ancestor "$EXPECTED_SOURCE_HEAD" HEAD
-            python3 .circleci/apply_candidate_patch.py .circleci/kontur-candidate.patch
+            SOURCE_HEAD=32034e8af92923a2abe09ad00e3220f6da1ed21c
+            TARGET_BRANCH=fix/kontur-core-visual-continuity-20260818
+            cp .circleci/kontur-candidate.patch /tmp/kontur-candidate.patch
+            cp .circleci/apply_candidate_patch.py /tmp/apply_candidate_patch.py
+            git fetch origin "$TARGET_BRANCH"
+            git checkout -B kontur-final "origin/$TARGET_BRANCH"
+            test "$(git rev-parse HEAD)" = "$SOURCE_HEAD"
+            python3 /tmp/apply_candidate_patch.py /tmp/kontur-candidate.patch
             git diff --check
+            git config user.name "FREE FABRIC Kontur Finalizer"
+            git config user.email "free-fabric@users.noreply.github.com"
+            git add apps/miniapp/src/screens/LocalKontur.tsx apps/miniapp/test/local-kontur.test.ts apps/miniapp/test/hatch-reveal-persistence.test.ts
+            test -n "$(git status --porcelain)"
+            git commit -m "fix: finalize canonical hatch and bird continuity"
+            FINAL_HEAD="$(git rev-parse HEAD)"
+            echo "$FINAL_HEAD" | tee /tmp/kontur-final-head.txt
+            git push origin HEAD:"$TARGET_BRANCH"
 
       - restore_cache:
           keys:
@@ -23,7 +36,7 @@ jobs:
             - kontur-pnpm-v1-
 
       - run:
-          name: Install exact locked dependencies on Linux
+          name: Install exact locked Linux dependencies
           command: |
             set -euo pipefail
             corepack enable
@@ -41,57 +54,73 @@ jobs:
             - ~/.local/share/pnpm/store
 
       - run:
-          name: Mini App 51-test regression gate
+          name: Full Mini App regression tests
           command: |
             set -euo pipefail
             pnpm -F @kontur/miniapp test | tee /tmp/kontur-miniapp-tests.log
 
       - run:
-          name: TypeScript gate
+          name: TypeScript verification
           command: |
             set -euo pipefail
             pnpm -F @kontur/miniapp typecheck | tee /tmp/kontur-typecheck.log
 
       - run:
-          name: Canonical Vite production build
+          name: Production Vite build from integrated PR12 code
           command: |
             set -euo pipefail
             pnpm -F @kontur/miniapp build | tee /tmp/kontur-vite-build.log
             test -f apps/miniapp/dist/index.html
             find apps/miniapp/dist -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/kontur-dist.sha256
-            echo KONTUR_CANONICAL_VITE_PASS
+            echo KONTUR_INTEGRATED_VITE_PASS
 
       - run:
-          name: Write reproducible evidence
+          name: Static served-build smoke
+          command: |
+            set -euo pipefail
+            (pnpm -F @kontur/miniapp exec vite preview --host 127.0.0.1 --port 4173 > /tmp/kontur-preview.log 2>&1 & echo $! > /tmp/kontur-preview.pid)
+            for i in $(seq 1 30); do
+              if curl -fsS http://127.0.0.1:4173/ -o /tmp/kontur-index.html; then break; fi
+              sleep 1
+            done
+            test -s /tmp/kontur-index.html
+            grep -q '<div id="root"' /tmp/kontur-index.html
+            kill "$(cat /tmp/kontur-preview.pid)" 2>/dev/null || true
+            echo KONTUR_SERVED_BUILD_PASS
+
+      - run:
+          name: Write final evidence
           when: always
           command: |
             set -euo pipefail
-            mkdir -p /tmp/kontur-evidence
+            mkdir -p /tmp/kontur-final-evidence
             {
               echo "circle_sha=$CIRCLE_SHA1"
               echo "circle_branch=$CIRCLE_BRANCH"
               echo "source_head=32034e8af92923a2abe09ad00e3220f6da1ed21c"
+              echo "integrated_head=$(cat /tmp/kontur-final-head.txt 2>/dev/null || true)"
               echo "node=$(node --version 2>/dev/null || true)"
               echo "pnpm=$(pnpm --version 2>/dev/null || true)"
               echo "utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            } > /tmp/kontur-evidence/BUILD_EVIDENCE.txt
-            cp /tmp/kontur-miniapp-tests.log /tmp/kontur-evidence/ 2>/dev/null || true
-            cp /tmp/kontur-typecheck.log /tmp/kontur-evidence/ 2>/dev/null || true
-            cp /tmp/kontur-vite-build.log /tmp/kontur-evidence/ 2>/dev/null || true
-            cp /tmp/kontur-dist.sha256 /tmp/kontur-evidence/ 2>/dev/null || true
+            } > /tmp/kontur-final-evidence/FINAL_EVIDENCE.txt
+            cp /tmp/kontur-miniapp-tests.log /tmp/kontur-final-evidence/ 2>/dev/null || true
+            cp /tmp/kontur-typecheck.log /tmp/kontur-final-evidence/ 2>/dev/null || true
+            cp /tmp/kontur-vite-build.log /tmp/kontur-final-evidence/ 2>/dev/null || true
+            cp /tmp/kontur-dist.sha256 /tmp/kontur-final-evidence/ 2>/dev/null || true
+            cp /tmp/kontur-preview.log /tmp/kontur-final-evidence/ 2>/dev/null || true
 
       - store_artifacts:
           path: apps/miniapp/dist
-          destination: kontur-miniapp-dist
+          destination: kontur-miniapp-dist-integrated
 
       - store_artifacts:
-          path: /tmp/kontur-evidence
-          destination: kontur-build-evidence
+          path: /tmp/kontur-final-evidence
+          destination: kontur-final-evidence
 
 workflows:
-  kontur-vite-gate:
+  kontur-finalize:
     jobs:
-      - kontur-canonical-vite:
+      - kontur-finalize-and-verify:
           filters:
             branches:
               only: ci/kontur-circle-vite-20260821

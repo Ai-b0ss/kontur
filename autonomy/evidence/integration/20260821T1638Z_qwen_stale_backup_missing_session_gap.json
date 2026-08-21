@@ -1,0 +1,68 @@
+{
+  "candidate_patch": {
+    "contract": [
+      "When primary load fails and a backup is used, store-level fallback recovery remains active.",
+      "An explicit session key absent from the backup is treated as ambiguous backup-missing-key, not fresh.",
+      "set() fails closed for such a key before provider/tool progress can be committed.",
+      "Explicit clear/reset is the deliberate operation that authorizes treating that missing key as fresh in the current process.",
+      "Normal clean-primary startup keeps new sessions working normally."
+    ],
+    "path": "autonomy/v3/candidates/QWEN_STALE_BACKUP_MISSING_SESSION_FAIL_CLOSED_20260821.patch",
+    "sha256": "d53ed7d99a969bcfa9b26845781e730003e06b04452266950f9cd71e838c1109"
+  },
+  "coordination": {
+    "not_duplicate_of_current_workers": [
+      "Qwen Core currently targets system-instruction preservation during stale-backup reconciliation of an existing recovered record.",
+      "Qwen Reliability currently targets provider/account persistence and qwen-client failure boundaries.",
+      "Notion Agent currently targets dynamic reservation/materialization and transport provenance.",
+      "Notion Core currently targets durable Responses replay ordering and native Windows gate."
+    ],
+    "notion_core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "notion_pr8_head": "cd442df4e4574822627761d7d3ea81df37844a41",
+    "qwen_pr6_head": "a656d42522c463ca36937c9a2a552df0836fd020"
+  },
+  "deterministic_reproduction": {
+    "candidate_clean_primary_allows_new_key": true,
+    "candidate_explicit_reset_unblocks_key": true,
+    "candidate_missing_key_recovery_uncertain": true,
+    "current_duplicate_side_effect_possible": true,
+    "current_missing_key_can_reach_provider": true,
+    "output_sha256": "6f0ac842561a6d4bd18a37dd7f32a4a8fe1d6d07157ca8c903885df15810c808",
+    "script": "autonomy/v3/tools/integration_qwen_stale_backup_missing_session_probe.js",
+    "script_sha256": "8a43695c14e03fcc1c6ccb49e7bac8d26b2068ffd6c2c1eb89f008b2936132fe"
+  },
+  "exact_source": {
+    "server.js": {
+      "git_blob_sha": "44d04725f7b1445f61c0f2da17007d1da8f0895f"
+    },
+    "src/session-request-gate.js": {
+      "git_blob_sha": "8bab117664096ed863b28b9de6815322a9f922c7"
+    },
+    "src/session-store.js": {
+      "git_blob_sha": "d13f79a1c999ca5221cac190ad7b155f4854ae9b"
+    }
+  },
+  "finding": "QWEN_STALE_BACKUP_MISSING_SESSION_FAIL_OPEN",
+  "limits": [
+    "No product file changed.",
+    "No live Qwen/Notion/Codex/provider traffic.",
+    "No CircleCI/GitHub Actions/Cloudflare.",
+    "No production, real accounts, secrets, user data, or native Windows."
+  ],
+  "observed_gap": [
+    "load() falls back to BACKUP_FILE and marks only keys present in that backup as recoveredFromBackupKeys.",
+    "A session created only in a newer primary can be completely absent from a stale backup.",
+    "getRecord(missing_key) then returns null even though the whole store is known to be in fallback-recovery mode.",
+    "server.js treats record=null as fresh state, so an explicit session id missing from the backup can reach provider work again.",
+    "If the missing newer session had already released a mutating tool call before the primary later corrupted, the same logical task can be replayed without QWEN_SESSION_RECOVERY_UNCERTAIN."
+  ],
+  "required_product_regression": [
+    "backup without session-X; newer primary has accepted pending mutating tool call for session-X; backup refresh unavailable; primary later corrupts; restart from backup; request with explicit session-X must fail before provider with QWEN_SESSION_RECOVERY_UNCERTAIN.",
+    "same state + explicit reset(session-X) must allow a genuinely new session-X afterward.",
+    "clean first startup with readable empty primary must not classify arbitrary new session ids as recovery-uncertain."
+  ],
+  "schema": "integration_helper_evidence_v1",
+  "timestamp_utc": "2026-08-21T16:37:58Z",
+  "verdict": "REPRODUCED_CURRENT_GAP_AND_FAIL_CLOSED_CANDIDATE_PASS",
+  "worker": "INTEGRATION_HELPER"
+}

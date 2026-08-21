@@ -1,0 +1,88 @@
+{
+  "archive": {
+    "parts": 4,
+    "sha256": "74d3c925ae0441f818a6cae0a52fc896bb4557c3d6fe2948fe7c0a902f063b43",
+    "size": 5632
+  },
+  "capsule_id": "20260821T103956Z-43aa650010",
+  "created_at_utc": "2026-08-21T10:39:56Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "4d65f6f82bf048a75bb62becee2f4069fc1a8c8e630c63f17d1440df017ec881"
+    },
+    {
+      "chars": 2048,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "9b1fa4d42baf3ba1388e983e56ed097b9b48d52b8d0aab48cc62072a281071a1"
+    },
+    {
+      "chars": 2048,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "2f436f6ee21365c0e47b761512c5028da7e47a81681a2811aa3c424405aa7264"
+    },
+    {
+      "chars": 1368,
+      "index": 3,
+      "name": "part-0003.b64",
+      "sha256_text": "4bc50ef36f91cd682e6dc02a1d41faf656dfb882883beee7ff997feebe24b59f"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@9c7ea9b876eb139cb8d7c141f62326893f52544a + Ai-b0ss/notion-agent-bridge@1af495a6c1ae6406b5fe9d7e18699e81a1b29500",
+  "worker": "INTEGRATION_HELPER",
+  "workspace": {
+    "CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "e6282fc6426487fb1f7ddd63061edd282240640dffcbee5b6a6875dac5350221",
+      "size": 1495,
+      "type": "file"
+    },
+    "EVIDENCE.json": {
+      "mode": "0o644",
+      "sha256": "c021da9f26b0e62c565333493d231e461acbdc7a9dd3420d40e82a0fbb66efbf",
+      "size": 2144,
+      "type": "file"
+    },
+    "QWEN_DUPLICATE_TOOL_CALL_ID_PENDING_GUARD.patch": {
+      "mode": "0o644",
+      "sha256": "1c85cd894c889aedbe8919d0a0eb3714ac2125730028afe021d050d941f46c53",
+      "size": 2237,
+      "type": "file"
+    },
+    "QWEN_SESSION_STALE_BACKUP_CANDIDATE.patch": {
+      "mode": "0o644",
+      "sha256": "007cc09ca47d3f9815b0df41c26e71fe6ac523f95ebeffa45e5855c3de9c1671",
+      "size": 1373,
+      "type": "file"
+    },
+    "STATE.json": {
+      "mode": "0o644",
+      "sha256": "f5c57f1ad3d9dc2a398c61cb2dda1f7646c9edcdcdceb237b91b3104b40f2472",
+      "size": 324,
+      "type": "file"
+    },
+    "integration_notion_delegated_restart_probe.py": {
+      "mode": "0o755",
+      "sha256": "331283b6d0f8ce81dd47b42de59c0701d27216dae0af50cd049edc6b42f9088f",
+      "size": 1177,
+      "type": "file"
+    },
+    "integration_qwen_duplicate_tool_call_id_probe.js": {
+      "mode": "0o644",
+      "sha256": "b42157bedcf3273fa57d11917535492f674ce6c914a48c419d082499f76bca64",
+      "size": 3819,
+      "type": "file"
+    },
+    "integration_qwen_session_stale_backup_probe.js": {
+      "mode": "0o644",
+      "sha256": "059d514ef78c0a9e587b2259acc17a8211dda0284e3e031d94ddecc47b39b31c",
+      "size": 2344,
+      "type": "file"
+    }
+  }
+}

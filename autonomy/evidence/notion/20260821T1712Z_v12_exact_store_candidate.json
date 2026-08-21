@@ -1,0 +1,48 @@
+{
+  "verdict": "NOTION_CORE_V12_EXACT_STORE_CANDIDATE_PASS",
+  "windows_digest": {
+    "workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "statuses": ["pending", "pending", "pending", "pending", "pending"],
+    "rerun": false
+  },
+  "capsule_restore": {
+    "capsule_id": "20260821T161515Z-9368915ded",
+    "archive_sha256": "b932fbdd01f63f4a71598aee0fb8dde1ada6a56934084ff84b50c515e5cd8fb1",
+    "method": "exact capsule_runtime_v4.py",
+    "verdict": "PASS"
+  },
+  "exact_source": {
+    "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "integration_head": "ce610b78f38a6f33dbdc5d0b6a46a25bbae907d9",
+    "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "turn_affinity_blob": "f4bc004ec08cbaf3f1118dec0926015ab41b8bd3",
+    "account_pool_blob": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f"
+  },
+  "new_local_proof": {
+    "verdict": "DURABLE_REPLAY_V12_STORE_CANDIDATE_PASS",
+    "state_version_preserved": 2,
+    "restart_same_ids": true,
+    "detached_get": true,
+    "legacy_v2_load": true,
+    "stream_nonstream_same_request_identity": true,
+    "strict_write_rollback": true,
+    "strict_write_blocks_future_provider_path": true,
+    "per_response_limit_bytes": 524288,
+    "aggregate_limit_bytes": 8388608,
+    "replay_ttl_seconds": 21600,
+    "stale_fingerprint_limit": 32
+  },
+  "new_guard": "ConversationSegmentStore.get must return a detached copy; otherwise server-side replay preparation can mutate the live in-memory durable record before NCM28 commit and defeat strict rollback.",
+  "candidate_sha256": {
+    "V12_STORE_CANDIDATE.py": "9c75990b7569abf8e0f48dcf169daea98f4d47a11bc497cc094bcfa3edd98c33",
+    "V12_STORE_HARNESS.py": "67421276ade9e2f87acb72d7a87d2bbfe698f7eb8863441d3eea52e3047afe59",
+    "V12_EXACT_PATCH_SPEC.json": "6ac937e9e209d64105ee93d1d03cb8be69005209742f70f311bb327ec98faa1e"
+  },
+  "remaining_before_product_patch": [
+    "Materialize full exact server.py and apply the V12 spec to real source, not only the faithful store candidate.",
+    "Run local server tests for retry/restart/tool/final/write-failure/blocked-store/account-removed/stream-nonstream/size+TTL.",
+    "Integrate the existing Codex shell-environment secret filter candidate.",
+    "Do not push product branch under ZERO-MINUTE."
+  ]
+}

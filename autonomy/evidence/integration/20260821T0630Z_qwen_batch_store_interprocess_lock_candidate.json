@@ -1,0 +1,38 @@
+{
+  "artifact": "autonomy/v3/tools/integration_qwen_batch_store_interprocess_lock_candidate.js",
+  "candidate_contract": [
+    "one store-wide inter-process serialization domain for ensure/claim/markRunning/Done/Failed/Uncertain",
+    "atomic acquisition before readState",
+    "bounded wait with explicit timeout code",
+    "dead-owner recovery uses atomic rename of lock directory; never blind rm of a possibly replaced lock",
+    "release verifies pid+random ownership token before deleting lock",
+    "no age-based deletion of a live owner; timeout fail-closed instead"
+  ],
+  "checks": {
+    "dead_owner_lock_recovered_by_atomic_rename": true,
+    "different_batch_updates_both_preserved": true,
+    "hosted_ci_used": false,
+    "lock_scope": "before readState through durable whole-file replace",
+    "provider_traffic": false,
+    "stale_releaser_cannot_delete_replacement_lock": true,
+    "two_real_node_processes_overlapped": true
+  },
+  "finding": "QWEN_BATCH_STORE_INTERPROCESS_SERIALIZATION_CANDIDATE",
+  "limits": [
+    "Product src/subagent-batch-store.js not modified",
+    "No full exact-tree npm test",
+    "Linux hosted process semantics only; Windows lock-directory semantics still need native proof if adopted"
+  ],
+  "prior_finding": "QWEN_BATCH_STORE_GLOBAL_LOST_UPDATE",
+  "result": "CANDIDATE_HARNESS_PASS",
+  "schema": "integration_helper_evidence_v1",
+  "source": {
+    "blob": "f384b57e52d54e298d466b858831eedb2a0dc4f1",
+    "head": "73083123db9f3e18ea70fe06397b3bb4c84f83e2",
+    "path": "src/subagent-batch-store.js",
+    "repo": "Ai-b0ss/qwen-free-api"
+  },
+  "status": "SUPPORT_CANDIDATE_NOT_PRODUCT_APPLY_READY",
+  "timestamp_utc": "2026-08-21T06:20:00Z",
+  "worker": "INTEGRATION_HELPER"
+}

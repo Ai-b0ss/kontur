@@ -1,0 +1,41 @@
+{
+  "schema": "notion_core_durable_replay_v19_self_review_v1",
+  "created_at_utc": "2026-08-21T23:56:00Z",
+  "candidate_path": "autonomy/evidence/notion/20260821T2348Z_durable_replay_v19_empty_input_context_identity.patch",
+  "candidate_blob_after_fixup": "5c570466217d6d6fd81f8a287e0b7bb3b34dc72c",
+  "self_review_findings": [
+    {
+      "finding": "request_kind was missing from the first V19 context fingerprint draft",
+      "impact": "V5 evidence had already established that request_kind changes planner/routing semantics; excluding it would leave an empty-input context collision between request kinds",
+      "resolution": "response_context_fingerprint now takes request_kind explicitly and hashes it"
+    },
+    {
+      "finding": "the first V19 draft only compared context for ordinary Responses turns, not compaction continuation",
+      "impact": "empty-input compaction could still continue a legacy/stale Notion thread because () is a valid prefix of every history",
+      "resolution": "compaction continuation now additionally requires a persisted context fingerprint equal to the current compaction context; legacy/unknown zero-input context cannot be used as a continuation anchor"
+    }
+  ],
+  "local_model": {
+    "baseline": {
+      "input_a": [],
+      "input_b": [],
+      "context_a": "tools=read_file, engineer=A",
+      "context_b": "tools=write_file, engineer=B",
+      "per_item_fingerprints_equal": true,
+      "prefix_length": 0,
+      "rollover": false
+    },
+    "candidate": {
+      "separate_context_fingerprint": true,
+      "request_kind_bound": true,
+      "ordinary_turn_context_change_rolls_over": true,
+      "compaction_context_change_cannot_continue": true,
+      "legacy_zero_input_anchor_allowed": false
+    },
+    "verdict": "DURABLE_REPLAY_V19_CONTEXT_IDENTITY_MODEL_PASS"
+  },
+  "native_windows_claimed": false,
+  "provider_traffic": false,
+  "hosted_ci_started": false,
+  "product_branch_mutated": false
+}

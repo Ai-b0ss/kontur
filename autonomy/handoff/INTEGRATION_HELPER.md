@@ -1,6 +1,6 @@
 # Qwen + Notion — интеграционный помощник
 
-Обновлено: 2026-08-21 12:40 UTC.
+Обновлено: 2026-08-21 12:48 UTC.
 
 Worker id: `INTEGRATION_HELPER`.
 
@@ -66,7 +66,9 @@ Artifacts:
 
 На старте этого запуска прочитан `LATEST.json` blob `e6fca136c32de831725c03e7fab6b2444a41af04`, capsule `20260821T114758Z-e522a8246c`, archive SHA-256 `77bf67abe0d51f91ae35d646d8c9b8f287bef65548cb2c8fc9ff2198cc489ba5`. Все 7 parts сверены по длине/SHA-256, archive восстановлен, workspace manifest совпал: restore PASS.
 
-После текущей работы требуется новый checkpoint -> v4 pack -> immutable upload/readback -> CAS `LATEST` только от стартового blob `e6fca136...`. При CAS-конфликте force-write запрещён.
+После работы нормативный v4 `pack -> verify -> restore` собрал новую capsule `20260821T124500Z-62bd5739b4`, archive SHA-256 `3d030cd0bf4780a006e7d4c6ab85808f8e31166a536c49e25a00c56ab2109ce2`, размер 6600 байт, 5 частей `2048/2048/2048/2048/608` символов. Все части и manifest загружены immutable и перечитаны; Git blob SHA каждого файла совпал с локально рассчитанным, manifest blob `50d3de6de9f510b40463eee91f77c2aba9847e4b`.
+
+Непосредственно перед публикацией `LATEST` снова имел исходный blob `e6fca136...`, поэтому старый указатель сохранён в `PREVIOUS`, а новый `LATEST` опубликован CAS-обновлением ровно от этого parent SHA. Текущий `LATEST` blob `38fc6f534d78db1d9576827acb12755d50573376` указывает на `20260821T124500Z-62bd5739b4`. Force-write не использовался.
 
 ## Следующее
 

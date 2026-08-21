@@ -1,0 +1,85 @@
+# Apply this after 20260821T1640Z_durable_replay_v12_exact_candidate.patch.
+# It closes V12-SR-1..3 from 20260821T1655Z_durable_replay_v12_candidate_self_review.json.
+
+diff --git a/payload/conversation_segments.py b/payload/conversation_segments.py
+--- a/payload/conversation_segments.py
++++ b/payload/conversation_segments.py
+@@ -108,9 +108,7 @@ class ConversationSegmentStore:
+         async with self._guard:
+             self._load_locked()
+-            changed = self._cleanup_locked()
+-            if changed:
+-                self._save_locked()
++            self._cleanup_locked()
+             return self._items.get(conversation_storage_key(key))
+@@ -185,6 +183,7 @@ class ConversationSegmentStore:
+             if require_persistence:
+                 self._save_items_locked(staged, strict=True)
+                 self._items = staged
++                self._prune_locks_locked()
+                 return
+             if self.path is None:
+                 self._items = staged
++                self._prune_locks_locked()
+                 return
+@@ -195,6 +194,7 @@ class ConversationSegmentStore:
+                 return
+             if self._save_items_locked(staged, strict=False):
+                 self._items = staged
++                self._prune_locks_locked()
+@@ -222,9 +222,7 @@ class ConversationSegmentStore:
+         async with self._guard:
+             self._load_locked()
+-            changed = self._cleanup_locked()
+-            if changed:
+-                self._save_locked()
++            self._cleanup_locked()
+             return {
+@@ -303,6 +301,7 @@ class ConversationSegmentStore:
+         if self.path is None:
+             self._items = staged
++            self._prune_locks_locked()
+             return True
+@@ -311,6 +310,7 @@ class ConversationSegmentStore:
+         if self._save_items_locked(staged, strict=False):
+             self._items = staged
++            self._prune_locks_locked()
+             return True
+         return False
++
++    def _prune_locks_locked(self) -> None:
++        stale_locks = [
++            key for key, lock in self._locks.items()
++            if key not in self._items and not lock.locked()
++        ]
++        for key in stale_locks:
++            self._locks.pop(key, None)
+@@ -354,12 +361,6 @@ class ConversationSegmentStore:
+-        stale_locks = [
+-            key for key, lock in self._locks.items()
+-            if key not in items and not lock.locked()
+-        ]
+-        for key in stale_locks:
+-            self._locks.pop(key, None)
+         return changed or len(items) != before
+
+diff --git a/payload/server.py b/payload/server.py
+--- a/payload/server.py
++++ b/payload/server.py
+@@ -2160,6 +2160,17 @@ async def handle_openai_responses(
+     segment_prefix = (
+         input_prefix_length(segment.input_fingerprints, current_fingerprints)
+         if segment is not None else None
+     )
++    # A pre-replay-schema record proves that this exact history was already
++    # committed, but it does not contain the exact Responses payload/IDs that
++    # Codex may already have observed. After restart, re-planning that same
++    # history could repeat a tool side effect under a fresh call_id. Fail closed;
++    # genuinely new/appended history still proceeds and upgrades the record.
++    if (
++        segment is not None
++        and int(getattr(segment, "replay_schema_version", 0) or 0) == 0
++        and tuple(segment.input_fingerprints) == tuple(current_fingerprints)
++    ):
++        return replay_error("legacy committed request has no exact durable Responses replay")
+     rollover_reason: str | None = None

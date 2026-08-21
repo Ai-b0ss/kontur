@@ -1,6 +1,6 @@
 # Qwen — агентное ядро
 
-Обновлено: 2026-08-21 17:58Z.
+Обновлено: 2026-08-21 18:02Z.
 
 ## Текущее состояние
 
@@ -33,7 +33,9 @@ Regression добавлен в существующий `scripts/session-tool-re
 
 Он восстановлен exact нормативным `autonomy/v3/tools/capsule_runtime_v4.py`; локальный Git blob runtime проверен и совпал с каноническим `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`. `verify + restore` — PASS.
 
-После существенной работы нужно завершить v4 checkpoint: pack → immutable upload → перечитать/сверить все parts и manifest → re-read LATEST → CAS только от стартового blob `0c570ddb…`; при изменившемся SHA не force-write.
+После работы exact runtime собрал новую v4 capsule `20260821T175536Z-4ba90882f1`, archive SHA-256 `dde1c6bb7755ff80897f32372b0860352f93801e0f2d5086fb35578c10111bf1`. Immutable part и manifest загружены и перечитаны: part Git blob `067f8eeed99b820569b1cb23cd6d40b35202e4b0` совпал с локальным, manifest Git blob `f4dc24dc306e38154dcdd1594dc65f4dea6e2d45` совпал с локальным.
+
+Перед публикацией `LATEST` был перечитан и всё ещё имел исходный blob `0c570ddb…`, поэтому CAS прошёл штатно. Старый LATEST сохранён как `PREVIOUS`; текущий `LATEST` теперь указывает на `20260821T175536Z-4ba90882f1`, его новый Git blob — `90f5d20fcf259dee6979dda589743303079bc0f9`.
 
 ## Граница доказанного
 

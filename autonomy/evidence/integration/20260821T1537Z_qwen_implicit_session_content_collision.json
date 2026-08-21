@@ -1,0 +1,43 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "updated_at_utc": "2026-08-21T15:37:00Z",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "QWEN_IMPLICIT_CONTENT_DERIVED_SESSION_COLLISION",
+  "verdict": "REPRODUCED_AND_STATELESS_CANDIDATE_PASS",
+  "source": {
+    "qwen_pr": 6,
+    "qwen_head": "205faf3e4b9f89c53e40930cb6447cba6ed37677",
+    "server_blob": "44d04725f7b1445f61c0f2da17007d1da8f0895f",
+    "chat_adapter_blob": "63405b5d71057340ab2ae681c3e088271091e2e9"
+  },
+  "current_contract": {
+    "implicit_session_key": "sha256(model,user,firstUser) truncated to 32 hex chars",
+    "durable_record_read": true,
+    "upstream_chat_reuse": true,
+    "current_only_on_reused_chat": true
+  },
+  "reproduction": {
+    "two_independent_full_transcripts_share_model_user_first_user": true,
+    "derived_key_equal": true,
+    "second_transcript_non_initial": true,
+    "second_request_reuses_first_conversation_chat_id": true,
+    "second_request_current_only": true,
+    "second_full_system_history_reaches_provider": false
+  },
+  "risk": [
+    "independent OpenAI-compatible conversations can share one local session namespace",
+    "conversation B can append its current turn to conversation A's upstream Qwen thread",
+    "tool memo/account/thread affinity can cross independent conversations",
+    "content cannot prove conversation identity, so no collision-free content-derived durable key exists"
+  ],
+  "candidate_contract": [
+    "only explicit session/conversation ids authorize durable sessionStore/toolMemo/upstream-thread affinity",
+    "requests without explicit identity run statelessly with chatId=null/currentOnly=false and full caller transcript",
+    "short continuation that requires durable prior state but lacks explicit identity fails closed with stable 4xx"
+  ],
+  "offline_probe": "autonomy/v3/tools/integration_qwen_implicit_session_collision_probe.js",
+  "product_files_changed": false,
+  "hosted_ci": false,
+  "provider_traffic": false,
+  "secrets_or_accounts_touched": false
+}

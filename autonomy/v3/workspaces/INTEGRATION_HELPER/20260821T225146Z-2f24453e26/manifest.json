@@ -1,0 +1,142 @@
+{
+  "archive": {
+    "parts": 3,
+    "sha256": "4faaa6d7e2a0a37d3b3bcf9f91fc2524132ce23fb58a693e081ff67b2d7139ed",
+    "size": 14522
+  },
+  "capsule_id": "20260821T225146Z-2f24453e26",
+  "created_at_utc": "2026-08-21T22:51:46Z",
+  "parts": [
+    {
+      "chars": 8192,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "b37fdf3da3a0302d66555697d751a3d4cd5d0505f7ed2ff6c53e9ec7d07feba7"
+    },
+    {
+      "chars": 8192,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "af91291ffe66824296d96664d03452f8ddd1dfa25fa2a724857d3fc83f74e73d"
+    },
+    {
+      "chars": 2980,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "95d16483098cc511d23119fa79d3e80b803518d865774818732c6fe20d14cdca"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@c5e681ddff439e9f39bf3a13009a1eb226a4189a + Ai-b0ss/notion-agent-bridge@a78c9e1c881265a9f6df9919efc12038f79e795b",
+  "worker": "INTEGRATION_HELPER",
+  "workspace": {
+    "CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "4d38c727b06f8c036dbf04cbf5ec77b489afaf4e40cff1cd668aa2982e445981",
+      "size": 3264,
+      "type": "file"
+    },
+    "EVIDENCE.json": {
+      "mode": "0o644",
+      "sha256": "b9dad2447a18771901f9196c4b1b8e66cb3792406484bef67e4cb45fb0e1fe25",
+      "size": 1994,
+      "type": "file"
+    },
+    "EVIDENCE_FINAL_TURN_BUDGET.json": {
+      "mode": "0o644",
+      "sha256": "b9dad2447a18771901f9196c4b1b8e66cb3792406484bef67e4cb45fb0e1fe25",
+      "size": 1994,
+      "type": "file"
+    },
+    "EVIDENCE_QWEN_POST_GOVERNOR_PROMPT_ACCOUNTING.json": {
+      "mode": "0o644",
+      "sha256": "cfbc67c8d91005aa39d4acca08f9c5c8cb5381463e2df839d0960fa8bae3c95e",
+      "size": 2934,
+      "type": "file"
+    },
+    "NOTION_FINAL_TURN_TOOL_BUDGET_GUARD.patch": {
+      "mode": "0o644",
+      "sha256": "854afcf40f8c3e547141ee68267e8fbfd8e8537a3be73184eae6207585b29fcb",
+      "size": 4189,
+      "type": "file"
+    },
+    "QWEN_PENDING_TOOL_DURABLE_OBLIGATION_GUARD.patch": {
+      "mode": "0o644",
+      "sha256": "1e56e97fa0de06db46dcce9e7e6e238643800ea1418823e3146d2dddf85074b6",
+      "size": 709,
+      "type": "file"
+    },
+    "QWEN_POST_GOVERNOR_PROMPT_ACCOUNTING.patch": {
+      "mode": "0o644",
+      "sha256": "66acbdc5a79a9598169ef646ec50c9242e889ae8db24e9444f1b702a31d4b0b3",
+      "size": 1061,
+      "type": "file"
+    },
+    "STATE.json": {
+      "mode": "0o644",
+      "sha256": "f1ded11746f924dfcfbc9f6314e12e612907229b349ffb3eab910336381120e1",
+      "size": 355,
+      "type": "file"
+    },
+    "final-turn-budget-probe-output.json": {
+      "mode": "0o644",
+      "sha256": "a94d1df1c84dde0765ff338d2ed0e4768e0898375e6daee07e54abcea59b6477",
+      "size": 831,
+      "type": "file"
+    },
+    "implicit-session-probe-output.json": {
+      "mode": "0o644",
+      "sha256": "dd60a3b2edf417c94bd62aeab259e9b30e980832434d42aab7866534e0b479b1",
+      "size": 492,
+      "type": "file"
+    },
+    "integration_notion_final_turn_tool_budget_probe.py": {
+      "mode": "0o644",
+      "sha256": "2177b3a7ff782eb2bc9dec14fa7961f089e1e751d3f6420e913633305852f4e3",
+      "size": 4687,
+      "type": "file"
+    },
+    "integration_qwen_implicit_session_collision_probe.js": {
+      "mode": "0o644",
+      "sha256": "c46a1187048e45668ef517440ebadb542fe9879fa9a6de4cd70bf9f14575670a",
+      "size": 4150,
+      "type": "file"
+    },
+    "integration_qwen_partial_tool_result_truncated_transcript_probe.js": {
+      "mode": "0o644",
+      "sha256": "9aefb1855cd18a3cb47ab3e87d01380cada4cd341e4f53d5d1548ea00ccce719",
+      "size": 5282,
+      "type": "file"
+    },
+    "integration_qwen_pending_tool_durable_obligation_probe.js": {
+      "mode": "0o644",
+      "sha256": "d636cc44cef87d64683a99005d8280ffbd825e7d65de9545b338fdb7d56ddf4c",
+      "size": 7695,
+      "type": "file"
+    },
+    "integration_qwen_post_governor_prompt_accounting_probe.js": {
+      "mode": "0o644",
+      "sha256": "dc52e633b67d801c8743406e8b38c89362817085f7c0019797a2a5d5d93c04dc",
+      "size": 3242,
+      "type": "file"
+    },
+    "integration_qwen_truncated_tool_result_failover_rebase_probe.js": {
+      "mode": "0o644",
+      "sha256": "0bcbf95f7923700cdb37576583941545815f4f0f6231ea4b6fe32c4007a17f54",
+      "size": 3603,
+      "type": "file"
+    },
+    "post-governor-prompt-accounting-probe-output.json": {
+      "mode": "0o644",
+      "sha256": "391fbf9fee6375f2fd51926fb384b6f5c54d55e5d08ab158cb8b7426d08ed60f",
+      "size": 533,
+      "type": "file"
+    },
+    "probe-output.json": {
+      "mode": "0o644",
+      "sha256": "439d1424680f5e3c96746585c9adf8c81496fa31f941a052c821a96754b28379",
+      "size": 1090,
+      "type": "file"
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "schema": "notion_core_durable_replay_v9_stream_projection_v1",
+  "date_utc": "2026-08-21",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "integration_head": "c97c4c1d7432d7ce3e003599ad9a46850045261e",
+  "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+  "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+  "verdict": "DURABLE_REPLAY_V9_STREAM_PROJECTION_LOCAL_PASS",
+  "reproduced_defect": {
+    "description": "Current stream_openai_responses creates a fresh rs_* reasoning item for every streaming request and injects it into response.completed.output after the canonical result returns. Two retries of the same canonical durable response therefore end with different final Responses payloads even when resp_ / tool call ids are otherwise stable.",
+    "impact": "stream and non-stream cannot share exact replay identity; a streaming retry/restart is not byte/semantic-idempotent at the final response object boundary"
+  },
+  "required_server_invariant": [
+    "No identity-bearing Responses event before strict durable publication succeeds.",
+    "Build one canonical Responses result exactly once, including all ids that can appear in response.completed.",
+    "Persist progress plus that canonical result atomically before memory affinity, foreground reservation, or client-visible ids.",
+    "Streaming and non-streaming must be projections of the same durable canonical result.",
+    "If pre-commit keepalive is needed, use only identity-free SSE comments; otherwise emit nothing before commit.",
+    "Do not synthesize a request-local reasoning item into response.completed after commit unless that item and id are themselves part of the durable canonical result."
+  ],
+  "local_checks": {
+    "current_random_reasoning_projection_differs_on_retry": "PASS",
+    "canonical_post_commit_projection_same_on_retry": "PASS",
+    "precommit_comment_shape_contains_no_resp_call_fc_ctc_msg_rs_ids": "PASS"
+  },
+  "not_proven": [
+    "native Windows semantics",
+    "current Codex acceptance of identity-free SSE comments before response.created",
+    "full exact server integration"
+  ],
+  "hosted_ci_started": false,
+  "provider_traffic": false,
+  "product_branch_changed": false
+}

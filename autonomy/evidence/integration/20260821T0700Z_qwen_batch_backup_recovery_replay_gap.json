@@ -1,0 +1,39 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "timestamp_utc": "2026-08-21T07:00:00Z",
+  "finding": "QWEN_SUBAGENT_BACKUP_RECOVERY_CAN_RESURRECT_PRE_RUNNING_STATE",
+  "verdict": "REPRODUCED_OFFLINE",
+  "source": {
+    "repo": "Ai-b0ss/qwen-free-api",
+    "pr": 6,
+    "head": "d41bc71ac7875c8bb4a625e128f20d01c2d885c6",
+    "subagent_batch_store_blob": "f384b57e52d54e298d466b858831eedb2a0dc4f1"
+  },
+  "observed_product_semantics": [
+    "writeAtomic() deliberately may leave a predecessor .bak-* after a committed canonical replacement when backup cleanup fails.",
+    "readState() falls back to readNewestBackup() whenever canonical parsing/read fails and returns that predecessor snapshot as ordinary authoritative state.",
+    "A predecessor backup from before markRunning can therefore contain pending while the newer canonical state had already durably recorded running and local tool side effects may subsequently have occurred.",
+    "If the canonical file later becomes unreadable, fallback returns pending and the runner may automatically execute the task again."
+  ],
+  "deterministic_probe": {
+    "path": "autonomy/v3/tools/integration_qwen_batch_backup_recovery_failclosed_probe.js",
+    "result": "PASS",
+    "reproduction": "valid pending predecessor backup + unreadable canonical => current readState recovers pending",
+    "candidate": "backup recovery marks every non-done predecessor task uncertain/recoveredFromBackup and blocks automatic replay"
+  },
+  "required_fix_contract": [
+    "Backup fallback must carry explicit provenance; it may not be indistinguishable from a clean canonical read.",
+    "Because the backup is a predecessor snapshot and the newer canonical transaction outcome is unknown once canonical bytes are unreadable, non-terminal recovered tasks must fail closed for automatic replay.",
+    "An already-done predecessor may remain resumable if its result is internally coherent; pending/running/failed/uncertain predecessor states require explicit recovery authorization or a stronger generation/commit proof.",
+    "Do not silently turn recovered pending/failed into runnable work.",
+    "Regression must model: predecessor pending -> canonical running committed -> possible side effect -> canonical corruption -> backup fallback; automatic executor count must stay zero after restart.",
+    "This rule should be composed with the store-wide interprocess serialization and status-transition guard findings; they solve different failure modes."
+  ],
+  "product_files_modified": false,
+  "hosted_ci_used": false,
+  "provider_traffic": false,
+  "windows_claimed": false,
+  "production_touched": false,
+  "secrets_touched": false
+}

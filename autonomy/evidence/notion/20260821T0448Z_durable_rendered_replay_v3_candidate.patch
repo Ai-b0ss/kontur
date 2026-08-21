@@ -1,0 +1,276 @@
+diff --git a/payload/conversation_segments.py b/payload/conversation_segments.py
+--- a/payload/conversation_segments.py
++++ b/payload/conversation_segments.py
+@@
+ CONVERSATION_TTL = 30 * 24 * 60 * 60
+ MAX_CONVERSATIONS = 500
+-# Version 2 invalidates bindings created while Notion recorded the thread as Auto.
+-STATE_VERSION = 2
++REPLAY_TTL = 6 * 60 * 60
++STATE_VERSION = 3
++
++
++class ConversationPersistenceError(RuntimeError):
++    pass
+@@
+ class ConversationSegment:
+@@
+     updated_at: float
+     model: str | None = None
++    replay_request_fingerprint: str | None = None
++    replay_response: dict[str, Any] | None = None
++    replay_expires_at: float | None = None
++    legacy_without_replay: bool = False
+@@
+     async def put(
+@@
+         output_tokens: int,
+         model: str,
+-    ) -> None:
++        replay_request_fingerprint: str | None = None,
++        replay_response: dict[str, Any] | None = None,
++        replay_expires_at: float | None = None,
++    ) -> bool:
+         if key is None:
+-            return
++            return True
+         async with self._guard:
+             self._load_locked()
+-            self._items[conversation_storage_key(key)] = ConversationSegment(
++            previous_items = dict(self._items)
++            self._items[conversation_storage_key(key)] = ConversationSegment(
+@@
+                 updated_at=time.time(),
+                 model=model,
++                replay_request_fingerprint=replay_request_fingerprint,
++                replay_response=replay_response,
++                replay_expires_at=replay_expires_at,
+             )
+             self._cleanup_locked()
+-            self._save_locked()
++            if not self._save_locked():
++                self._items = previous_items
++                raise ConversationPersistenceError("CONVERSATION_STATE_DURABLE_PUBLICATION_FAILED")
++            return True
+@@
+-            if payload.get("version") != STATE_VERSION:
++            version = payload.get("version")
++            if version not in {2, STATE_VERSION}:
+                 self._persistence_blocked = True
+                 self._items = {}
+                 return
+@@
+                 self._items[key] = ConversationSegment(
+@@
+                     updated_at=float(raw.get("updated_at", 0)),
+                     model=(str(raw["model"]) if raw.get("model") else None),
++                    replay_request_fingerprint=(
++                        str(raw["replay_request_fingerprint"])
++                        if version == STATE_VERSION and raw.get("replay_request_fingerprint") else None
++                    ),
++                    replay_response=(
++                        raw.get("replay_response")
++                        if version == STATE_VERSION and isinstance(raw.get("replay_response"), dict) else None
++                    ),
++                    replay_expires_at=(
++                        float(raw["replay_expires_at"])
++                        if version == STATE_VERSION and raw.get("replay_expires_at") is not None else None
++                    ),
++                    legacy_without_replay=(version == 2),
+                 )
+@@
+     def _cleanup_locked(self) -> bool:
+         cutoff = time.time() - self.ttl
++        now = time.time()
++        replay_changed = False
++        for item in self._items.values():
++            if (
++                item.replay_response is not None
++                and item.replay_expires_at is not None
++                and item.replay_expires_at <= now
++            ):
++                # Keep the fingerprint after expiry. An exact retry must fail
++                # closed rather than silently re-plan a possibly executed tool.
++                item.replay_response = None
++                replay_changed = True
+@@
+-        return len(self._items) != before
++        return len(self._items) != before or replay_changed
+@@
+-    def _save_locked(self) -> None:
+-        if self.path is None or self._persistence_blocked:
+-            return
++    def _save_locked(self) -> bool:
++        if self.path is None:
++            return True
++        if self._persistence_blocked:
++            return False
+@@
+                 self._disk_snapshot = ncm28_atomic_write_from_snapshot(
+                     self.path, raw, self._disk_snapshot, parent_guard=parent_guard
+                 )
++            return True
+         except (FilesystemOwnershipError, OSError):
+             # Preserve a concurrent/foreign file and continue with in-memory state.
+             self._persistence_blocked = True
++            return False
+
+diff --git a/payload/server.py b/payload/server.py
+--- a/payload/server.py
++++ b/payload/server.py
+@@
+ from conversation_segments import (
++    REPLAY_TTL,
++    ConversationPersistenceError,
+     ConversationSegmentStore,
+@@
+ async def handle_openai_responses(
+@@
+     current_fingerprints = response_input_fingerprints(body)
++    replay_request_fingerprint = response_input_fingerprint(body)
++    if segment is not None and segment.replay_request_fingerprint == replay_request_fingerprint:
++        if (
++            segment.replay_response is None
++            or (
++                segment.replay_expires_at is not None
++                and segment.replay_expires_at <= time.time()
++            )
++        ):
++            return JSONResponse(
++                {"error": {"message": "exact request was already committed but its replay payload is unavailable", "type": "restart_replay_unavailable"}},
++                status_code=409,
++            )
++        return dict(segment.replay_response)
++    if (
++        segment is not None
++        and segment.legacy_without_replay
++        and segment.model == model
++        and tuple(segment.input_fingerprints) == tuple(current_fingerprints)
++    ):
++        return JSONResponse(
++            {"error": {"message": "legacy committed progress has no replayable protocol result", "type": "restart_replay_unavailable"}},
++            status_code=409,
++        )
+@@
+-            await conversation_segments.put(
++            response, item = responses_payload(
++                completion.text,
++                requested_model,
++                completion.usage.input_tokens,
++                completion.usage.output_tokens,
++                tools,
++                response_id=response_id,
++            )
++            await conversation_segments.put(
+                 conversation_key,
+@@
+                 output_tokens=completion.usage.output_tokens,
+                 model=model,
++                replay_request_fingerprint=replay_request_fingerprint,
++                replay_response=response,
++                replay_expires_at=time.time() + REPLAY_TTL,
+             )
+@@
+-    except Exception as exc:
++    except ConversationPersistenceError as exc:
++        log_event(log, "conversation_segment_durable_publication_failed", level=logging.ERROR)
++        return JSONResponse(
++            {"error": {"message": str(exc), "type": "temporarily_unavailable"}},
++            status_code=503,
++        )
++    except Exception as exc:
+@@
+-    response, item = responses_payload(
+-        completion.text,
+-        requested_model,
+-        completion.usage.input_tokens,
+-        completion.usage.output_tokens,
+-        tools,
+-        response_id=response_id,
+-    )
+     if not body.get("stream", False):
+         return response
+@@
+ async def stream_openai_responses(
+@@
+-    response_id = f"resp_{uuid.uuid4().hex}"
+-    reasoning_id = f"rs_{uuid.uuid4().hex}"
+-    model = str(body.get("model") or MODEL_ID).lower()
+-    created = {
+-        "id": response_id,
+-        "object": "response",
+-        "created_at": int(time.time()),
+-        "status": "in_progress",
+-        "error": None,
+-        "incomplete_details": None,
+-        "model": model,
+-        "output": [],
+-    }
+-    queue: asyncio.Queue[str | None] = asyncio.Queue()
+-
+-    async def on_thinking_delta(delta: str) -> None:
+-        if delta:
+-            await queue.put(delta)
+-
+-    async def run_request():
+-        try:
+-            requested_model = str(body.get("model") or MODEL_ID).lower()
+-            async with responses_inference_slot(
+-                request_kind, requested_model, turn_key=turn_key
+-            ):
+-                async with conversation_segments.lock(conversation_key):
+-                    async with turn_affinities.lock(turn_key):
+-                        return await handle_openai_responses(
+-                            {**body, "stream": False},
+-                            turn_key,
+-                            conversation_key=conversation_key,
+-                            request_kind=request_kind,
+-                            on_thinking_delta_async=on_thinking_delta,
+-                            response_id=response_id,
+-                        )
+-        finally:
+-            queue.put_nowait(None)
+-
+-    task = asyncio.create_task(run_request())
+-    sequence_number = 0
+-    reasoning_started = True
+-    started_at = time.monotonic()
+-    thinking = f"Notion {model} is working…"
+-    try:
+-        yield encode_responses_event(
+-            {"type": "response.created", "response": created},
+-            sequence_number,
+-        )
+-        sequence_number += 1
+-        ... existing speculative reasoning events ...
++    # Do not emit response.created before exact-replay/durable-publication has
++    # been decided. Provider work may take long, so keep the SSE connection alive
++    # with comment frames that carry no Responses protocol identity.
++    requested_model = str(body.get("model") or MODEL_ID).lower()
++    async def run_request():
++        async with responses_inference_slot(request_kind, requested_model, turn_key=turn_key):
++            async with conversation_segments.lock(conversation_key):
++                async with turn_affinities.lock(turn_key):
++                    return await handle_openai_responses(
++                        {**body, "stream": False},
++                        turn_key,
++                        conversation_key=conversation_key,
++                        request_kind=request_kind,
++                    )
++    task = asyncio.create_task(run_request())
++    while not task.done():
++        try:
++            await asyncio.wait_for(asyncio.shield(task), timeout=REASONING_HEARTBEAT_SECONDS)
++        except asyncio.TimeoutError:
++            yield b": keep-alive\n\n"
++    result = await task
++    if isinstance(result, JSONResponse):
++        body_bytes = result.body
++        error = json.loads(body_bytes.decode("utf-8"))
++        yield encode_responses_event({"type": "response.failed", "response": error}, 0)
++        yield b"data: [DONE]\n\n"
++        return
++    response = result
++    item = response["output"][0]
++    for event in responses_sse(response, item):
++        yield event

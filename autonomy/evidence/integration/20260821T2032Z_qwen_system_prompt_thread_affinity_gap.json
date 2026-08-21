@@ -1,0 +1,45 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "QWEN_SYSTEM_PROMPT_THREAD_AFFINITY_GAP",
+  "verdict": "REPRODUCED_CURRENT_MIXED_AUTHORITY_AND_CANDIDATE_GUARD_PASS",
+  "source": {
+    "qwen_head": "5cc928607cf4d001cbf9adbc007277dccbdefe4b",
+    "server_blob": "44d04725f7b1445f61c0f2da17007d1da8f0895f",
+    "session_store_blob": "8dc3c2b144cd40fd5d9bd7f29d49b3c827bd24d3",
+    "qwen_v3_capabilities_blob": "d91782d8199f4fcd7a0f0eeb995831f4dd328321"
+  },
+  "observed_contract": [
+    "server.js reuses record.chatId for an ordinary request whenever the saved account is available and rollover is false",
+    "session-store records chatId/accountId/toolPromptHash/history but no application/system-prompt fingerprint",
+    "qwen-v3-capabilities can switch engineer/owner mode and prepend an exact owner prompt to the next Qwen message",
+    "therefore the same explicit local session can reuse an upstream Qwen thread created under prompt A while appending a later turn under prompt B"
+  ],
+  "risk": "The remote Qwen thread retains the old application prompt while the new turn carries the new prompt. An owner-mode policy change can therefore leave two competing application authorities in one upstream thread. Local restart/checkpoint fidelity does not remove the old remote context.",
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_qwen_prompt_thread_affinity_probe.js",
+    "result": "PASS",
+    "current": "old chat id reused; remote thread contains both OWNER_POLICY_A and OWNER_POLICY_B",
+    "candidate": "prompt mismatch forces fresh upstream thread; exact match keeps affinity; legacy record without fingerprint rebases once"
+  },
+  "candidate_contract": [
+    "derive a content-free SHA-256 fingerprint from the effective application/system policy that actually reaches Qwen (at minimum mode + exact owner prompt or engineer-base identity + preserved project/system context)",
+    "persist only the fingerprint in session state, never the plaintext private owner prompt",
+    "reuse an upstream chatId only when account ownership is valid AND the stored prompt fingerprint exactly matches the current effective fingerprint",
+    "on mismatch, create a fresh Qwen thread and send the full current local history with the current system policy; never copy the old upstream thread id across the policy boundary",
+    "legacy session records lacking a fingerprint must rebase fail-closed once instead of guessing",
+    "every non-stream/stream/retry checkpoint write must persist the fingerprint belonging to the actually released response"
+  ],
+  "required_regressions": [
+    "owner prompt A -> same explicit session -> owner prompt B ordinary request: new upstream chat id, no old prompt in new thread",
+    "engineer -> owner and owner -> engineer: always fresh upstream thread",
+    "same exact prompt and same account: existing chat id may remain sticky",
+    "legacy record with chatId but no prompt fingerprint: one fresh rebase then normal affinity",
+    "provider/account failover plus prompt change: replacement gets full local history under only the new prompt and no old account/thread affinity",
+    "private owner prompt text never appears in persisted session metadata/log evidence; only hash is durable"
+  ],
+  "limits": [
+    "No product file changed.",
+    "No hosted CI, Cloudflare, Windows, live Qwen/Notion/Codex, production, real accounts or secrets used."
+  ]
+}

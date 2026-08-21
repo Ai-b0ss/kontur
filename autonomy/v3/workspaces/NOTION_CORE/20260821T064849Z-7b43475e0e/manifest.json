@@ -1,0 +1,58 @@
+{
+  "archive": {
+    "parts": 2,
+    "sha256": "dfb7f2bd1bbbc8e0247a1f513f9e806bd8bb20c1b4715501ca91cabaadf82d83",
+    "size": 7685
+  },
+  "capsule_id": "20260821T064849Z-7b43475e0e",
+  "created_at_utc": "2026-08-21T06:48:49Z",
+  "parts": [
+    {
+      "chars": 8000,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "e7ffa83c6884f4e02c427a35ffd81839ea6ae0abf9602c3fd5c28461cde3d4a2"
+    },
+    {
+      "chars": 2248,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "9863e458da2213a9aaf903e5f0d366fc14a34b868e4b5577520693321efb222c"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "worker": "NOTION_CORE",
+  "workspace": {
+    "CHECKPOINT.json": {
+      "mode": "0o644",
+      "sha256": "6be116ed5d000e558cac453f294d1b4712541d2a59163f0e7f3544f6acb4bb23",
+      "size": 1285,
+      "type": "file"
+    },
+    "durable_replay_v6_candidate_conversation_segments.py": {
+      "mode": "0o644",
+      "sha256": "30d521ca7abbd3c44496aeaf1e51bb896bfe0462d55adc35400fb6dca7b0820e",
+      "size": 11270,
+      "type": "file"
+    },
+    "durable_replay_v6_evidence.json": {
+      "mode": "0o644",
+      "sha256": "87436e743bfd10731f0b9f4978dd3b08dd617a6499f81ca1fc7644375ccad0a1",
+      "size": 2640,
+      "type": "file"
+    },
+    "durable_replay_v6_harness.py": {
+      "mode": "0o644",
+      "sha256": "f4c10cc0bed86f2c7258e5a0605f121970588c932c7ba81d1c3d2858a7e96ce7",
+      "size": 6711,
+      "type": "file"
+    },
+    "durable_replay_v6_sse_harness.py": {
+      "mode": "0o644",
+      "sha256": "57683c8e3109e08860c2c5267db108386026a1ad573f36062fc84f05f0d3cdbd",
+      "size": 2330,
+      "type": "file"
+    }
+  }
+}

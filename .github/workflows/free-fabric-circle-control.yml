@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   circle-control:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, free-fabric-kontur]
     timeout-minutes: 35
     steps:
       - name: Checkout control branch
@@ -110,5 +110,3 @@ jobs:
           if (d.get('result') or {}).get('status')!='success':
               raise SystemExit(2)
           PY
-
-# trigger: 2026-08-21T13:26+03:00

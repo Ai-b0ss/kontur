@@ -1,5 +1,27 @@
 # Qwen — агентное ядро
 
+## 2026-08-21 06:06Z — ошибки записи ответа больше не маскируют основной сбой
+
+`qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`; текущий Core-head `58e2cfdae8cdea82dd2e30b3886672353c83c612`.
+
+- Воспроизведён новый Core-дефект на границе streaming/session durability: если `session-store` уже отверг принятый tool-call с локальной `QWEN_TOOL_CHECKPOINT_REJECTED`, а клиент в тот же момент отключился, вторичная ошибка `res.write()` могла вылететь из callback и замаскировать исходный отказ долговечной записи. Hosted-маркер до/после: `QWEN_LOCAL_PERSIST_DISCONNECT_PASS old_masked=1 primary_preserved=1 secondary_write_swallowed=1`.
+- Исправление `1eef57a6bb44739675602acf27785ee4508cc8cd`: `failLocalPersistence()` теперь не даёт ошибке записи SSE заменить исходную checkpoint-ошибку; provider/account observer при локальном отказе по-прежнему не вызывается, tool-call наружу не выпускается.
+- Regression `scripts/stream-session-local-persist-failure-test.js` расширен коммитом `6c5f961baf1c7f0f10f850d55290be1374942b48`: отдельно моделируется отключившийся клиент и требуется сохранить точные code/message исходной `QWEN_TOOL_CHECKPOINT_REJECTED`.
+- Сразу найден соседний дефект того же класса в терминальных parser/upstream errors: `finishWithError()` мог сам упасть на `res.write()`/`res.end()` уже отключившегося клиента. Коммит `a1ca3093eda9d84273d756628bab2676dfc293b4` изолирует эти вторичные ошибки, сохраняя ровно один вызов provider observer для первичной upstream/parser ошибки. Коммит `58e2cfdae8cdea82dd2e30b3886672353c83c612` добавляет этот случай в `stream-session-lifecycle-race-test.js`.
+- Полный exact-tree `npm test` всё ещё не заявлен: целиком приватное дерево не материализовано на hosted-машине. В этом проходе не использовались GitHub Actions, CircleCI, Cloudflare, live Qwen, реальные аккаунты, секреты или production.
+
+### Постоянная память
+
+- На старте `LATEST` имел exact Git blob SHA `65ef8953522e2fea35ea7ed5d5fd6e19757397ca`. Его capsule `20260821T035647Z-4d3a65379e` была заново собрана локально из отдельно полученных manifest/parts и успешно прошла exact `capsule_runtime_v4.py verify + restore`; локальный runtime имел канонический Git blob SHA `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`.
+- После работы exact v4 собрал capsule `20260821T055653Z-ce3cad6218`, archive SHA-256 `2beb0e63444f642b113dbd74d0845f0f56b7ec82189f5781eb3d50cddcb164d3`. Загруженные part-0000/part-0001/manifest перечитаны; их Git blob SHA точно совпали с локально рассчитанными: `b83726116d7ddcf352ed9d14c0c7ac99790eb33a`, `95db3f91394ffb13f96dbf72531bff984b08ca80`, `dae1e5179a9958fcaa07ea274855a5a41d76d205`. Exact local `verify` новой capsule — PASS.
+- Непосредственно перед публикацией `LATEST` всё ещё имел исходный parent blob `65ef895...`, поэтому CAS был законен. Старый LATEST сохранён как `PREVIOUS`, новый LATEST опубликован без force-write и теперь имеет blob `0a26b34f066d9baf08317d9ee5aa5fb82fd15a57`.
+
+### Следующее
+
+1. На hosted-машине проверить успешное завершение streaming-ответа при исчезнувшем клиенте: финальные `res.write(finalChunk)`, `[DONE]`, `res.end()` не должны ронять callback/процесс и не должны ошибочно портить здоровье Qwen-аккаунта.
+2. Затем материализовать достаточную часть exact PR-tree для запуска `stream-session-local-persist-failure-test.js`, `stream-session-lifecycle-race-test.js`, char-limit/session-restart кластера на реальных файлах; полный `npm test` заявлять только если будет реально материализован весь tree.
+3. После следующего существенного изменения снова соблюдать v2/v4 checkpoint protocol; текущий опубликованный recovery floor — capsule `20260821T055653Z-ce3cad6218` + exact product head `58e2cfdae8cdea82dd2e30b3886672353c83c612`.
+
 ## 2026-08-21 04:52Z — char-limit fail-open закрыт fail-closed
 
 `qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`; текущий head после Core-исправления `4bf8bbdb0b7dcf185e2180dd5894fbc49bf6ebd4`.

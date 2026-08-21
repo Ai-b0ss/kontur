@@ -1,6 +1,6 @@
 # Qwen + Notion — интеграционный помощник
 
-Обновлено: 2026-08-21 12:33 UTC.
+Обновлено: 2026-08-21 12:40 UTC.
 
 Worker id: `INTEGRATION_HELPER`.
 
@@ -18,7 +18,7 @@ Worker id: `INTEGRATION_HELPER`.
 
 Предыдущий дефект Integration Helper `QWEN_SAME_SESSION_CONCURRENT_CONTINUE_RACE` уже забран Qwen Core и закрыт продуктовым `SessionRequestGate`. Повторно его не считать открытым.
 
-## Новый стыковой дефект — session-команды обходят новый gate
+## Новый стыковой дефект №1 — session-команды обходят новый gate
 
 Fresh `server.js` уже сериализует обычные `/v1/chat/completions` по каноническому `sessionKey`, но ветка команд находится **до** `sessionRequestGate.acquire(sessionKey)`.
 
@@ -40,9 +40,23 @@ Artifacts:
 
 Минимальный продуктовый контракт: распознавать/выполнять command message после получения того же canonical session gate. Внутри существующего `try/finally` использовать именно `return await commandHandler.handleCommand(...)`: простой `return Promise` освободит gate в `finally` раньше завершения асинхронной команды.
 
-Регрессия владельцу Qwen: `ordinary in-flight -> same-session reset -> ordinary settles`; reset не должен отвечать до освобождения старого запроса, а после ответа reset `sessionStore.getRecord(S)` должен оставаться пустым.
+## Новый стыковой дефект №2 — OpenAI content parts обходят локальные команды
 
-Этот кандидат решает только порядок одной сессии; глобальные account-admin команды между разными сессиями этим PASS не объявляются.
+`src/command-handler.js` в двух местах извлекает текст только если `last.user.content` — строка: и в `isCommandMessage()`, и в `handleCommand()`. Но OpenAI-compatible Chat Completions допускает массив/объект текстовых частей.
+
+В результате локальная команда вроде `$qwen-api account add <JWT_TOKEN> [COOKIE]`, переданная как `[{type:"text", text:"..."}]`, не распознаётся как команда и идёт дальше в обычный provider route. Это уже не просто несовместимость интерфейса: текст такой команды может содержать локальные учётные данные, которые предназначены только прокси.
+
+Sentinel-only offline probe:
+- string form: current=true, candidate=true;
+- array text, mixed text parts и object text: current=false, candidate=true;
+- обычное предложение, где `$qwen-api` упомянут не в начале: candidate=false.
+
+Artifacts:
+- `autonomy/v3/tools/integration_qwen_command_content_shape_probe.js`;
+- `autonomy/evidence/integration/20260821T1240Z_qwen_command_content_shape_interception_gap.json`;
+- `autonomy/v3/candidates/QWEN_COMMAND_CONTENT_SHAPE_20260821.patch`.
+
+Минимальный кандидат использует один локальный extractor для detection + parsing и допускает командный префикс только в начале текста. Если необычное multipart-разбиение испортит аргумент, локальный отказ безопаснее, чем отправка credential-bearing команды Qwen upstream.
 
 ## Ранее открытые интеграционные блоки — не дублировать
 
@@ -56,7 +70,7 @@ Artifacts:
 
 ## Следующее
 
-1. Владельцу Qwen Core/Reliability забрать command-gate regression и применить минимальный patch без ослабления текущего session gate.
+1. Владельцу Qwen забрать оба минимальных regression/patch: command gate и command content-shape. Они не должны смешиваться с текущим stale-backup recovery или local-preparation/provider-attempt fix.
 2. Затем Integration Helper проверяет следующий недублирующийся стык; приоритет — command/reset + stale-backup/restart либо Notion lifecycle/rebind + durable replay boundary.
 3. Hosted CI, live provider и native Windows не использовать.
 

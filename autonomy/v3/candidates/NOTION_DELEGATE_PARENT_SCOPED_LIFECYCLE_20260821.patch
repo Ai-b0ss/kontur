@@ -1,0 +1,43 @@
+diff --git a/payload/delegation_policy.py b/payload/delegation_policy.py
+--- a/payload/delegation_policy.py
++++ b/payload/delegation_policy.py
+@@
+ def delegated_conversation_key(request: DelegationRequest) -> str:
+@@
+-    return f"delegate:{request.target}:{request.task_id}"
++    return (
++        f"delegate:{request.target}:"
++        f"{request.parent_turn_id}:{request.task_id}"
++    )
++
++
++def delegated_identity_key(request: DelegationRequest) -> tuple[str, str, str]:
++    """Canonical local identity for one delegated child.
++
++    task_id is only unique inside its parent delegation namespace.  Provider
++    affinity remains deliberately absent.
++    """
++    request = validate_delegation_request(request)
++    return (request.target, request.parent_turn_id, request.task_id)
+diff --git a/payload/subagent_lifecycle.py b/payload/subagent_lifecycle.py
+--- a/payload/subagent_lifecycle.py
++++ b/payload/subagent_lifecycle.py
+@@
+-from payload.delegation_policy import DelegationRequest, validate_delegation_request
++from payload.delegation_policy import (
++    DelegationRequest,
++    delegated_identity_key,
++    validate_delegation_request,
++)
+@@
+-        self._active_task_ids: set[str] = set()
++        self._active_task_ids: set[tuple[str, str, str]] = set()
+@@
+-        task_id = canonical_request.task_id
++        task_id = delegated_identity_key(canonical_request)
+@@
+-        task_ids = [item.task_id for item in canonical_items]
++        task_ids = [delegated_identity_key(item) for item in canonical_items]
+@@
+-            raise SubagentLifecycleError("duplicate delegated task_id in batch")
++            raise SubagentLifecycleError("duplicate delegated identity in batch")

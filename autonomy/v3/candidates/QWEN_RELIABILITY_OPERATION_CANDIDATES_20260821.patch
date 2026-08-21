@@ -1,0 +1,12 @@
+diff --git a/src/qwen-client.js b/src/qwen-client.js
+--- a/src/qwen-client.js
++++ b/src/qwen-client.js
+@@
+ function operationCandidates(preferredAccount = null) {
+-  let candidates = accountStore.candidates();
+-  if (preferredAccount && preferredAccount.token && accountStore.isAvailable(preferredAccount)) {
+-    candidates = [preferredAccount, ...candidates.filter((a) => a.id !== preferredAccount.id)];
+-  }
+-  return candidates.slice(0, MAX_ACCOUNTS_PER_OPERATION);
++  return accountStore.candidates(preferredAccount).slice(0, MAX_ACCOUNTS_PER_OPERATION);
+ }

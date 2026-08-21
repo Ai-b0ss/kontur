@@ -1,0 +1,30 @@
+*** Begin Patch
+*** Update File: server.js
+@@
+       const effectiveBody = restoredMessages === publicBody.messages
+         ? publicBody
+         : { ...publicBody, messages: restoredMessages };
++
++      // Owner/system instructions must be durably representable before a Qwen
++      // request can produce a response that we would be unable to checkpoint.
++      sessionStore.checkpointMessages(effectiveBody.messages);
+ 
+       let prepared = await preparePublicPayloadGoverned(effectiveBody, {
+*** Update File: scripts/server-system-checkpoint-rejected-test.js
+@@
+-    checkpointAcceptedToolProgress() {
++    checkpointMessages() {
+       const error = new Error('System instructions exceed durable checkpoint capacity.');
+       error.code = 'QWEN_SYSTEM_CHECKPOINT_REJECTED';
+       throw error;
+     },
+-    set() { throw new Error('set must not run after checkpoint rejection'); },
++    checkpointAcceptedToolProgress() { throw new Error('accepted-response checkpoint must not be reached'); },
++    set() { throw new Error('set must not run after checkpoint rejection'); },
+@@
+-    assert.strictEqual(sendChatCalls, 1, 'request may reach Qwen before accepted response is checkpointed');
++    assert.strictEqual(sendChatCalls, 0, 'oversized system instructions must fail before provider traffic');
+@@
+-    console.log('QWEN_SYSTEM_CHECKPOINT_HTTP_CONTRACT_PASS status=500 provider_health_untouched=1');
++    console.log('QWEN_SYSTEM_CHECKPOINT_HTTP_CONTRACT_PASS status=500 provider_calls=0 provider_health_untouched=1');
+*** End Patch

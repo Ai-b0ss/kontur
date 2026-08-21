@@ -1,0 +1,53 @@
+{
+  "schema": "notion_core_durable_replay_store_exact_candidate_v1",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "integration_head": "2668e84c0b1ba63750c7db708e5124d0d6cede14",
+  "exact_source_blobs": {
+    "payload/conversation_segments.py": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "payload/server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "payload/turn_affinity.py": "f4bc004ec08cbaf3f1118dec0926015ab41b8bd3"
+  },
+  "windows_digest": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3 all-five-pending not-rerun",
+  "verdicts": [
+    "DURABLE_REPLAY_STORE_EXACT_CLASS_PASS",
+    "DURABLE_REPLAY_SERVER_ORDERING_MODEL_PASS"
+  ],
+  "store_candidate": {
+    "outer_state_version": 2,
+    "replay_schema_version": 1,
+    "replay_ttl_seconds": 21600,
+    "max_replay_response_bytes": 524288,
+    "max_total_replay_bytes": 8388608,
+    "max_stale_fingerprints": 32,
+    "strict_write_failure": "raises and restores deep-copied in-memory preimage; persistence becomes blocked",
+    "restart": "same rendered response and call_id restored from NCM28-backed state",
+    "stale_retry": "fingerprint tombstone blocks old replay without provider call"
+  },
+  "server_ordering_model": [
+    "provider response -> canonical rendered response -> strict durable put -> memory cache -> reservation -> client",
+    "same retry and restart keep provider call_count=1",
+    "write failure leaves zero cache/reservation/client identity",
+    "post-commit reservation failure recovers from durable record without provider retry",
+    "removed persisted account fails closed with no ghost reservation or silent replacement",
+    "stream flag excluded from durable request identity"
+  ],
+  "limitations": [
+    "server.py exact-context product patch is not yet apply-checked against the full exact file in this run",
+    "native Windows semantics remain unproven; no hosted CI was started",
+    "live Codex/Notion was not started"
+  ],
+  "files": {
+    "20260821T1605Z_durable_replay_store_exact_candidate.patch": {
+      "sha256": "fe0f4cf8115985f49362709db1e0fe5cdea18eccde83d3459564f65710d9dd64",
+      "bytes": 10819
+    },
+    "test_durable_replay_store.py": {
+      "sha256": "afc42d7d30f0f50d8db69a669438946020d9ba2413783d0a977559314e90852b",
+      "bytes": 5182
+    },
+    "test_server_ordering_model.py": {
+      "sha256": "59ede0f5c56bf8b1c55cb96e1b68af624cad533c519be1b70d8b08b42568f90f",
+      "bytes": 5465
+    }
+  }
+}

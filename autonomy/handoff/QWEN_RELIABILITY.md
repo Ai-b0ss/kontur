@@ -4,7 +4,7 @@
 
 Основная продуктовая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6.
 
-Свежий product head при этой проверке: `906be51721bccdd15e12ed24bfb2d07e2ad094e9`.
+Свежий product head после этой работы: `d91978943faab2ce23e1d552cb61f77d3d9ccae0`.
 
 ## Уже доказано и не переделывать
 
@@ -24,49 +24,53 @@
 - `reset(account)` не снимает provider-wide circuit;
 - stale preferred object не обходит canonical cooldown/state;
 - удалённый managed account не воскресает через detached snapshot;
-- durable provider-circuit replacement не откатывается из-за cleanup-only ошибки удаления старого transaction backup;
-- `qwen-client.operationCandidates()` уже делегирует порядок каноническому `accountStore.candidates(preferredAccount)`.
+- durable provider-circuit replacement не откатывается из-за cleanup-only ошибки;
+- `qwen-client.operationCandidates()` делегирует порядок каноническому `accountStore.candidates(preferredAccount)`.
 
-## Текущий незакрытый дефект: request-wide bounded retry
+## Закрыто в этом запуске: request-wide bounded retry
 
-`MAX_ACCOUNTS_PER_OPERATION` ограничивает только один вызов `qwenClient.sendChatRequest()`. `server.js` поверх него имеет собственные поздние повторы пустого ответа в non-stream и stream путях, поэтому новый `sendChatRequest()` снова получает полный внутренний бюджет.
+Старый дефект: `MAX_ACCOUNTS_PER_OPERATION` ограничивал только один `sendChatRequest()`, а поздние non-stream/stream retry в `server.js` запускали новый внутренний бюджет. При пуле 11 и лимите 4 один HTTP-запрос мог последовательно затронуть все 11 аккаунтов.
 
-Hosted-модель старой композиции ранее доказала, что при пуле из 11 аккаунтов и лимите 4 один пользовательский запрос способен затронуть все 11 различных аккаунтов. Это нарушает смысл bounded failover.
+Исправлено в продукте:
 
-На свежем head дефект остаётся: `src/qwen-client.js` по-прежнему создаёт кандидатов отдельно на каждый `sendChatRequest()`, а `server.js` повторно вызывает `sendChatRequest()` в non-stream и stream retry без общего контекста попыток.
+1. `src/qwen-client.js` принимает общий `attemptContext` с `attemptedAccountIds` и `limit`.
+2. `server.js` создаёт один `requestAttemptContext` на весь `/v1/chat/completions` и передаёт его в первоначальный запрос, non-stream retry и stream retry.
+3. Intentional same-owner rebase использует тот же Set, но `allowPreferredReuse: true`: владелец существующего треда может быть повторно использован без нового distinct-account slot; остальные sibling probes всё равно делят исходный бюджет.
+4. Уже испробованный аккаунт не возвращается на внешнем retry; cooled preferred не обходит канонический `accountStore.candidates()`.
+5. Бюджет теперь расходуется на фактической границе provider path. Для нового треда слот фиксируется в `generateChatID()` после последней синхронной проверки provider-wide circuit и до `/chats/new`; для уже существующего account-owned треда — непосредственно перед completion provider call. Если общий circuit обнаружен до provider call, slot не расходуется.
 
-## Что сделано в этом запуске
+Продуктовые коммиты этой линии:
+- `ce93b3a68a72f998fbfe1f27ad39881bf8eda115` — поддержка общего бюджета в qwen-client;
+- `76ff706ff1c6df0e984d67572214e61061bbfbdb` — один request-wide context во всех server retry;
+- `1bf13e7fd36024fcef01c6b9a14375d9a33dcf98` — продуктовая регрессия;
+- `34229f8a22555a853daa0199c46e0120673111b9` — регрессия включена в `npm test`;
+- `da13c02ed55fc69f48411f575d60f8c0d39b4ae9` — accounting перенесён к фактической provider boundary;
+- `d91978943faab2ce23e1d552cb61f77d3d9ccae0` — регрессия усилена на circuit-before-provider.
 
-1. Нормативная capsule `20260821T085551Z-b1d2dc2cad` восстановлена через `capsule_runtime_v4.py`; проверены part length/SHA, archive size/SHA и workspace manifest. Стартовый Git blob SHA `LATEST.json`: `3a662b584201249ae45c4ae4f1919372f506e182`.
-2. Проверен свежий PR #6: head `906be51721bccdd15e12ed24bfb2d07e2ad094e9`, он на 4 коммита впереди прошлого product head `17a71b9...`. Из этих четырёх коммитов изменены `server.js` и stream-session guard; `src/qwen-client.js` не менялся. Request-wide defect не закрыт.
-3. Усилен кандидат `autonomy/v3/candidates/QWEN_RELIABILITY_REQUEST_WIDE_BUDGET_20260821.patch`:
-   - один `attemptedAccountIds` на весь HTTP-запрос;
-   - лимит не может превышать `MAX_ACCOUNTS_PER_OPERATION`;
-   - уже использованный sibling не возвращается на внешнем retry;
-   - intentional same-owner rebase может повторно использовать владельца треда без расходования нового distinct-account slot;
-   - account id добавляется в бюджет только после повторной проверки provider circuit, то есть circuit-stop без provider path не расходует слот.
-4. Добавлен исполняемый кандидат-регресс `autonomy/v3/candidates/QWEN_RELIABILITY_REQUEST_WIDE_BUDGET_TEST_20260821.js`.
-5. На ChatGPT hosted Node модель прошла: `REQUEST_WIDE_BOUNDED_RETRY_REGRESSION_PASS`. Проверено: `A→B→C→D` при лимите 4 несмотря на 4 внешних раунда; same-owner rebase сохраняет B первым; охлаждённый B не возвращается даже как preferred.
+Сравнение `9c7ea9b... -> d9197894...` показывает ожидаемые изменения `server.js`, `src/qwen-client.js`, `package.json`, новый `scripts/request-wide-failover-budget-test.js`; параллельный писатель одновременно добавил `src/assistant-turn-meta.js` и менял `src/stream-session-guard.js`, наши файлы его изменения не затёрли.
 
-Контрольные коммиты:
-- `f329268e95fb2c2e7b5fd11ffb48e3385e5ff5d2` — усиленный patch-кандидат;
-- `39b33cdea14672905bb24187941b17e50f4bfb51` — hosted regression-кандидат.
+## Проверка
 
-## Почему product-write пока не сделан
+На ChatGPT hosted Node повторно прошла модель политики: `REQUEST_WIDE_BOUNDED_RETRY_REGRESSION_PASS` (`A→B→C→D` при лимите 4 несмотря на внешние раунды; same-owner rebase; cooled preferred не возвращается).
 
-Для полного исправления нужно менять одновременно `src/qwen-client.js` и большой общий `server.js`. Доступный GitHub Contents API умеет только полную замену файла; `server.js` только что изменён параллельным писателем (+20 строк после `17a71b9...`). Пересобирать большой общий файл вручную из кусочных ответов коннектора ради небольшого патча создаёт риск затереть свежие изменения. Поэтому product-write не форсировался.
+Новая продуктовая регрессия `scripts/request-wide-failover-budget-test.js` дополнительно проверяет настоящий `qwen-client.operationCandidates`, wiring всех четырёх server paths и два provider-boundary случая: provider circuit до provider call не расходует slot; reuse существующего треда расходует ровно один slot до axios.
+
+Полный `npm test` exact-tree в этом запуске не заявлять: hosted-контейнер не имеет DNS до GitHub, а внешние CI по указанию владельца для обычной разработки не запускались.
 
 ## Следующий безопасный кусок
 
-1. Ещё раз получить свежий head PR #6 и убедиться, что `src/qwen-client.js`/точки retry в `server.js` не изменились.
-2. Применить `QWEN_RELIABILITY_REQUEST_WIDE_BUDGET_20260821.patch` byte-safe patch/git-исполнителем, а не полной ручной заменой `server.js`.
-3. Перенести regression в product scripts и включить в `npm test`.
-4. На hosted машине доказать одновременно: distinct account ids `<= MAX_ACCOUNTS_PER_OPERATION`; охлаждённый аккаунт не возвращается; same-owner rebase разрешён без нового slot; rebase на unavailable owner не обходит cooldown.
-5. После закрытия этого дефекта искать следующий bounded retry/account-affinity крайний случай.
+Сначала проверить свежий PR head и дождаться/учесть параллельные изменения без отката. Затем искать следующий bounded retry/account-affinity крайний случай. Приоритетный кандидат для аудита: поведение при локальной ошибке подготовки provider request (например build-cookie/header/state failure) между выбором кандидата и фактическим сетевым вызовом — такая чисто локальная ошибка не должна ошибочно расходовать request-wide slot или охлаждать здоровый аккаунт как upstream failure. Сначала воспроизвести офлайн, затем минимальный фикс.
+
+## Постоянная память
+
+Стартовый `LATEST.json`: capsule `20260821T100145Z-3695e7d6f1`, Git blob SHA `2a033862b5519b522cb29492cfec82de370438f8`, archive SHA-256 `90ec2c0b429f8f1a5b410c2cf64167502fc26db218cc9c45b9c3fd27e9391497`.
+
+Стартовая capsule восстановлена настоящим `capsule_runtime_v4.py`: `verify=PASS`, `restore=PASS`; workspace manifest совпал.
+
+После завершения этой работы должна быть упакована новая v4 capsule, immutable загружена, перечитана и опубликована только CAS по исходному `LATEST` blob SHA, если он к тому моменту не изменился.
 
 ## Ограничения
 
-- CircleCI/GitHub Actions/Cloudflare не запускались;
+- CircleCI/GitHub Actions/Cloudflare: 0 запусков;
 - provider/live запросов к Qwen: 0;
-- реальные аккаунты, секреты и production не тронуты;
-- полный `npm test` exact-tree не заявлять; выполнена целевая hosted-модель политики.
+- реальные аккаунты, секреты и production не тронуты.

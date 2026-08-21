@@ -1,84 +1,91 @@
 # Qwen + Notion — интеграционный помощник
 
-Обновлено: 2026-08-21 22:58 UTC.
+Обновлено: 2026-08-22 02:35 UTC.
 
 Worker id: `INTEGRATION_HELPER`.
 
 ## Свежая координация
 
-- Qwen PR #6: `c5e681ddff439e9f39bf3a13009a1eb226a4189a`.
-- Notion PR #8: `a78c9e1c881265a9f6df9919efc12038f79e795b`.
+Перед работой перечитаны `OWNER_INTENT_RU.md`, четыре основных handoff, `CAPSULE_RUNTIME_PROTOCOL_V2.json` и `capsule_runtime_v4.py`.
+
+Свежие product heads:
+- Qwen PR #6: `36dcf2424923de926e3e04848ae2e5dfa6402645`;
+- Notion PR #8: `b579a51c1f5fd93910f0059d9769f23cfd4c7d06`;
 - Notion Core PR #7: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
-Четыре основных handoff перечитаны. Не перехватывать их текущую узкую работу:
-- Qwen Core — exact owner authority durability across restart;
-- Qwen Reliability — durable global WAF/request-governor recovery state;
-- Notion Agent — ordinary Responses dynamic reservation/materialization + transport provenance;
+Не перехватывать текущую узкую работу основных работников:
+- Qwen Core — explicit owner authority durability + offline restart gate;
+- Qwen Reliability — только V9 monotonic recovery quarantine поверх уже закрытых V4–V8;
+- Notion Agent — ordinary Responses dynamic reservation/materialization + transport provenance + текущий delegated tool-loop;
 - Notion Core — durable Responses replay/compaction ordering + native Windows rollback gate.
 
-## Новый блок — Qwen governor считает размер до поздней вставки owner prompt и skills
+## Новый блок — failover ломает account-local governor accounting
 
-Fresh exact Qwen source:
-- `server.js` blob `4b2b4a9474093d48299868cbe805cc6ab1304384`;
-- `src/qwen-v3-capabilities.js` blob `d91782d8199f4fcd7a0f0eeb995831f4dd328321`;
-- `src/request-governor.js` blob `aca56575c799ca03b01b174a2b375807b32e8b4e`;
-- `src/skills.js` blob `378259c8eba2c7fdf0274b0243fb9700ec04a6d9`;
-- `src/chat-adapter.js` blob `63405b5d71057340ab2ae681c3e088271091e2e9`.
+Fresh exact Qwen blobs на head `36dcf242...`:
+- `server.js` `09a734ebe7e8abf5b7f63c4cfbd0c9998c79ea78`;
+- `src/qwen-client.js` `2ee2c8dac717ffef23b5e21e43d939567e3b7cf0`;
+- `src/request-governor.js` `aca56575c799ca03b01b174a2b375807b32e8b4e`;
+- `src/quota-telemetry.js` `53aeb46a5c111e3d5e164f6afb83e5582a4bac96`.
 
-Текущий порядок в `preparePublicPayloadGoverned()`:
-1. `prepareInput()` отделяет точный owner-system-prompt от тела и загружает выбранные skills в отдельный `mode.selectedSkillContext`;
-2. сервер считает `Buffer.byteLength(JSON.stringify(body))` и передаёт это в `requestGovernor.before(..., {chars})`;
-3. только после admission `chatAdapter.preparePublicPayload()` строит Qwen payload;
-4. затем `applyPrepared()` добавляет выбранные skill-инструкции и owner/engineer application prompt в фактическое первое сообщение Qwen.
+Стык Core ↔ Reliability сейчас несогласован:
+1. `preparePublicPayloadGoverned()` делает `requestGovernor.before(A, ...)` только для исходного preferred account A.
+2. `qwenClient.sendChatRequest()` внутри того же request-wide failover может после CAPTCHA/rate-limit/auth/transport перейти A → B (и далее), причём B перед своим `/chats/new`/completion не получает `requestGovernor.before(B, ...)`.
+3. После успеха B сервер перепривязывает `quotaTelemetry` к B.
+4. `quotaTelemetry.finish()` отправляет единственный `requestGovernor.success(B, usage)`.
 
-Это стык Qwen Core ↔ Reliability: новый durable owner prompt может быть до 60000 символов, а selected skills — до 32000 символов, но эти байты отсутствуют в текущем `meta.chars` governor. Per-account governor использует именно `chars` для оценки in-flight token reservation и размера запроса.
+Следствие на простом A→B success:
+- provider attempts: `[A, B]`;
+- governor admissions: `[A]`;
+- final governor outcome: `success(B)`;
+- reservation A остаётся pending до TTL;
+- B реально получил provider I/O без своей account-local admission/pressure wait/token reservation;
+- pressure/error, который выбил A и вызвал failover, не попадает в governor как terminal outcome A.
 
-Детерминированный offline probe:
-- маленькое пользовательское сообщение + owner prompt 60000 chars + selected skills 32000 chars;
-- current measured bytes: `97`;
-- приблизительный фактический provider payload после поздней вставки: `92132` bytes;
-- пропущено при admission: `92035` bytes;
-- current inflight estimate: `2000` tokens;
-- тот же запрос по фактическому size bucket: `8200` tokens.
+Offline probe PASS:
+`QWEN_FAILOVER_GOVERNOR_ACCOUNTING_GAP_REPRODUCED_AND_CONTRACT_PASS`.
 
-Verdict: `POST_GOVERNOR_PROMPT_ACCOUNTING_GAP_REPRODUCED_AND_CANDIDATE_PASS`.
+Current semantic reproduction:
+- `pendingA=1` после завершения;
+- `pendingB=0`;
+- `ungovernedProviderAttemptB=true`.
 
-Минимальный кандидат не двигает governor после `preparePublicPayload()`, потому что этот путь может создать remote Qwen chat id. Вместо этого до admission считается точный UTF-8 размер текста, который позже добавят `skills.appendSkillContext()` и `applySystemPromptMode()`. Для точности кандидат переиспользует эти же функции на синтетическом пустом message. Текст private owner prompt не логируется и не сохраняется — в governor уходит только число байтов.
+Candidate contract:
+- каждый аккаунт, который реально может дойти до provider I/O в request-wide failover, получает собственный governor admission до первого provider call;
+- каждый неуспешный account attempt закрывает именно свою admission до перехода к sibling;
+- admission финального успешного аккаунта остаётся открытой до появления usage и затем закрывается `success(finalAccount, usage)`;
+- outcome одного аккаунта никогда не освобождает reservation другого;
+- bounded failover budget, account/thread affinity и существующая provider classification не меняются.
 
 Artifacts:
-- `autonomy/v3/tools/integration_qwen_post_governor_prompt_accounting_probe.js`;
-- `autonomy/evidence/integration/20260822T0135Z_qwen_post_governor_prompt_accounting_gap.json`;
-- `autonomy/v3/candidates/QWEN_POST_GOVERNOR_PROMPT_ACCOUNTING_20260822.patch`.
+- `autonomy/v3/tools/integration_qwen_failover_governor_accounting_probe.js`;
+- `autonomy/evidence/integration/20260822T0235Z_qwen_failover_governor_account_mismatch.json`;
+- `autonomy/v3/candidates/QWEN_FAILOVER_GOVERNOR_ACCOUNTING_20260822.patch`.
 
-Точный regression для владельца Qwen: owner mode с 60000-char prompt + 32000 chars selected skills + tiny user turn обязан попасть в `>=50000` size bucket governor **до любого** `qwenClient/generateChatID` provider work. Маленький engineer/no-skill запрос должен сохранить нынешнее поведение.
+Минимальный regression владельцу Qwen:
+`A admitted -> A CAPTCHA -> B admitted -> B success -> response finish`.
+Обязательные assertions: admissions `[A,B]`; terminal outcomes `failure(A,captcha)` и `success(B,usage)`; pending A/B = 0; ни одного B provider call до `before(B)`; failover budget и account affinity без изменений.
 
-## Предыдущие helper-блоки — не повторять
+## Предыдущий helper-блок — не повторять
 
-Уже зафиксированы: final-turn orphan tool side effect в Notion; truncated partial tool result стирает unresolved sibling obligation; truncated transcript ломает full-history failover rebase; durable pending obligation bypass; duplicate unresolved `tool_call.id`; stale session backup; межпроцессный claim Qwen-задачи; subagent-batch store-wide lost update; stale-writer terminal downgrade; subagent backup recovery; persisted workspace identity; selected-skill content fingerprint; stable Qwen taskId/batchId/sessionPrefix; parent-scoped child identity; typed completed/uncertain/failed/skipped result; cancellation/side-effect uncertainty; mutating tool error uncertainty; delegated prompt policy; delegated tool-capability policy; Notion durable child-state after restart; Notion partial-batch success replay; rebind same-account/global-parallel overlap; Notion 24 vs Qwen 12 turns; successful empty Qwen text; pending-tool continuation content-shape; same-process concurrent continue; command/reset gate; command content-shape; implicit-session collision; store-wide recovery fail-closed; historical command replay; cross-process main session-store lost update; cross-process session admission gap; Qwen prompt-policy fingerprint vs upstream thread affinity.
+Неполный governor-size accounting для поздно добавляемых exact owner prompt + selected skills уже отдельно найден и сохранён ранее. Его не смешивать с текущим account-failover accounting: первый дефект про размер одной admission, этот — про принадлежность admission/outcome при смене аккаунта.
+
+Также уже зафиксированы и повторно не исследуются без изменения продукта: final-turn orphan tool side effect в Notion; truncated partial tool result; failover full-history rebase; durable pending obligation bypass; duplicate unresolved tool ids; stale/total session recovery; cross-process session/store races; command/reset races; historical command replay; prompt-policy vs upstream thread affinity; subagent claim/store races; uncertain side effects; partial-batch retry; rebind overlap/global parallelism; delegated prompt/tool policy; 24-vs-12 turn budget; empty successful Qwen result.
 
 ## Постоянная память
 
-Стартовый проверенный `LATEST`:
-- Git blob `1750e467a53b40267740a846114fd829bb80d6a9`;
-- capsule `20260821T214506Z-c5bb2f558b`;
-- archive SHA-256 `d2e6ac3e4b4c0c84183aa07ae82292b902fab79d90e4050463f8e263cddf4c78`.
-
-После работы собрана новая v4 capsule:
-- `20260821T225146Z-2f24453e26`;
+Стартовый `INTEGRATION_HELPER/LATEST` прочитан первым:
+- pointer Git blob `8f68e70cfe2143f936409fd4e9165e8dde6a6cb4`;
+- capsule `20260821T225146Z-2f24453e26`;
 - archive SHA-256 `4faaa6d7e2a0a37d3b3bcf9f91fc2524132ce23fb58a693e081ff67b2d7139ed`;
-- 3 parts: `8192 / 8192 / 2980` chars;
-- part Git blobs после readback: `ebd4fc9a3b32c83ee477d6f77ad4026f2903cf9c`, `054577816b4163363a7d5d6fc07b7bc8417612e0`, `f74854152ff0c9614e4f8c3703955a38ebad7608`;
-- manifest Git blob `a1a12555b44c20e82554cf551db0c0d12a5cb948`.
+- manifest `a1a12555b44c20e82554cf551db0c0d12a5cb948`;
+- 3 parts `8192/8192/2980` chars.
 
-Все три parts и manifest перечитаны после immutable upload; Git blob SHA совпали с локально рассчитанными. Непосредственно перед CAS `LATEST` всё ещё имел стартовый blob `1750e467...`; старый указатель сохранён в `PREVIOUS`, затем `LATEST` переключён на новую капсулу. Новый `LATEST` content blob: `8f68e70cfe2143f936409fd4e9165e8dde6a6cb4`.
-
-Есть один намеренно заброшенный immutable orphan `20260821T224856Z-686d278409`: при ручной загрузке одной части была поймана неправильная граница chunk. Manifest/LATEST для него не публиковались, байты не «исправлялись» на месте; использовать его нельзя.
+Manifest и три immutable part blobs прочитаны из GitHub. Connector отдаёт exact blob content, но этот запуск пока не объявляет новый v4 checkpoint опубликованным до полного локального `restore -> pack -> immutable upload/readback -> CAS`. Если цепочка не будет завершена, `LATEST` оставлять нетронутым; новые probe/evidence/candidate уже долговечно сохранены отдельно.
 
 ## Следующее
 
-1. Qwen owner забирает минимальный deferred-prompt byte accounting и regression, не смешивая его с durability rewrite или global governor recovery.
-2. После интеграции отдельно проверить engineer prompt + selected skills, owner prompt без skills и owner + max skills; admission всё ещё должен предшествовать `generateChatID`.
-3. Не менять саму pressure policy/thresholds в этом блоке — дефект только в неполном размере входа.
-4. Следующий Integration Helper запуск ищет новый недублирующийся стык; этот finding повторно не исследовать без изменения продукта.
+1. Qwen owner интегрирует account-attempt governor lifecycle, не смешивая это с V9 monotonic quarantine или owner-authority rewrite.
+2. Targeted regression обязательно должен включать A→B и A→B→C, а также final all-failed path, чтобы не осталось двойных settlement или leaked reservations.
+3. После этого Integration Helper ищет следующий новый стык; данный finding повторно не исследовать без изменения продукта.
 
-CircleCI, GitHub Actions, Cloudflare и другой hosted CI не запускались. Live Qwen/Notion/Codex/provider traffic — 0. Production, реальные данные, аккаунты и секреты не трогались.
+ZERO-MINUTE соблюдён: hosted CI/Cloudflare/live provider/Notion/Codex/production/реальные аккаунты/секреты не использовались.

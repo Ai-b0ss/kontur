@@ -1,91 +1,85 @@
 # Qwen + Notion — интеграционный помощник
 
-Обновлено: 2026-08-21 20:32 UTC.
+Обновлено: 2026-08-21 21:50 UTC.
 
 Worker id: `INTEGRATION_HELPER`.
 
 ## Свежая координация
 
-- Qwen PR #6: `5cc928607cf4d001cbf9adbc007277dccbdefe4b`.
-- Notion PR #8: `a5792c1a15027a5f58890a679df738084514e6d1`.
+- Qwen PR #6: `a0ec9110da9fefb32700e8996d63df53ee818df8`.
+- Notion PR #8: `b5cd79374bd097041a14f36c549aea632f62e7ed`.
 - Notion Core PR #7: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
 Четыре основных handoff перечитаны. Не перехватывать их текущую узкую работу:
-- Qwen Core — большой owner system prompt и точность checkpoint/restart;
-- Qwen Reliability — stale-backup uncertainty в `subagent-batch-store` после закрытого session primary cleanup;
+- Qwen Core — explicit owner authority durability across restart;
+- Qwen Reliability — durable global WAF/request-governor state;
 - Notion Agent — ordinary Responses dynamic reservation/materialization + transport provenance;
-- Notion Core — durable Responses replay/compaction ordering + native Windows gate.
+- Notion Core — durable Responses replay/compaction ordering + native Windows rollback gate.
 
-## Новый блок — смена системной политики не разрывает upstream thread affinity
+## Новый блок — последний разрешённый модельный ход может создать бесполезный изменяющий side effect
 
-Fresh exact Qwen source на `5cc928607...`:
-- `server.js` blob `44d04725f7b1445f61c0f2da17007d1da8f0895f`;
-- `src/session-store.js` blob `8dc3c2b144cd40fd5d9bd7f29d49b3c827bd24d3`;
-- `src/qwen-v3-capabilities.js` blob `d91782d8199f4fcd7a0f0eeb995831f4dd328321`.
+Fresh exact Notion source:
+- `payload/delegated_tool_loop.py` blob `ee789e92c5c3f63296923fc6584c55a44c082798`;
+- `tests/test_delegated_tool_loop.py` blob `82e6af93b84b63c8242f40421ead1780db0ff54c`.
 
-`server.js` повторно использует сохранённый `record.chatId` для обычного нового запроса, если прежний account всё ещё доступен и запрос не считается rollover. В `session-store` сохраняются `chatId/accountId/toolPromptHash/history`, но нет отпечатка прикладной/system-политики. Одновременно `qwen-v3-capabilities` разрешает сменить `engineer <-> owner` либо точный `owner_system_prompt` и добавляет новую политику в следующий upstream message.
+В `DelegatedToolLoopSession.run()` модельный лимит проверяется только в условии следующей итерации. Если последний разрешённый модельный ответ содержит tool calls, код сначала:
+1. засчитывает этот модельный ход;
+2. публикует batch call ids в локальную историю;
+3. реально выполняет локальные инструменты;
+4. сохраняет их результаты;
+5. и только затем, при попытке следующего модельного хода, падает с `delegated task exceeded model-turn budget`.
 
-Следствие: одна explicit local session может продолжить старый Qwen thread, который уже содержит policy A, а новый ход добавит policy B. Для owner-mode это оставляет две конкурирующие прикладные инструкции в одном удалённом треде. Точная локальная checkpoint-сохранность старый upstream context не удаляет.
+Это создаёт детерминированный опасный край: инструмент на последнем ходу может изменить файл или выполнить shell-команду, хотя его результат уже некому прочитать — следующего модельного хода по контракту не существует, а задача гарантированно завершится ошибкой.
 
-Детерминированный offline probe воспроизвёл:
-- current: старый `chatId` повторно используется; модель удалённого thread видит и `OWNER_POLICY_A`, и `OWNER_POLICY_B`;
-- candidate: изменение content-free prompt fingerprint принудительно создаёт fresh upstream thread;
-- exact fingerprint match сохраняет sticky affinity;
-- legacy record без fingerprint делает один fail-closed rebase вместо угадывания.
+Детерминированный offline probe воспроизвёл это на `max_model_turns=2`:
+- turn 1: `read_file` → выполнен один раз;
+- turn 2: `write_file` → в текущей семантике выполнен один раз;
+- затем гарантированный budget error.
 
-Artifacts:
-- `autonomy/v3/tools/integration_qwen_prompt_thread_affinity_probe.js`;
-- `autonomy/evidence/integration/20260821T2032Z_qwen_system_prompt_thread_affinity_gap.json`.
+Verdict: `FINAL_TURN_ORPHAN_TOOL_SIDE_EFFECT_REPRODUCED_AND_GUARD_PASS`.
 
-Требование к продуктовому fix:
-1. Рассчитать content-free SHA-256 фактической прикладной/system-политики, доходящей до Qwen: режим + exact owner prompt (либо engineer-base identity) + сохраняемый project/system context.
-2. Хранить в session state только fingerprint, не plaintext приватного owner prompt.
-3. Разрешать reuse `chatId` только при валидном account ownership и точном совпадении fingerprint.
-4. При mismatch создать fresh Qwen thread и отправить полную актуальную локальную историю уже под новой политикой; старый remote thread id не переносить.
-5. Legacy record без fingerprint должен один раз rebase fail-closed.
-6. Все stream/non-stream/retry checkpoint paths должны сохранять fingerprint именно того prompt policy, под которым ответ был принят и выпущен клиенту.
+Кандидатная семантика:
+- сначала полностью валидировать tool batch;
+- вычислить `next_model_turn = completed + 1`;
+- если этот ответ уже расходует последний разрешённый модельный ход и содержит tools, засчитать модельный ход, но fail-closed **до** записи call ids/history и до входа в любой local tool executor;
+- на более ранних ходах поведение не менять.
 
-Обязательные регрессии: owner A→owner B; engineer→owner; owner→engineer; same exact prompt сохраняет thread; legacy no-fingerprint rebase; account failover + prompt change; plaintext owner prompt отсутствует в durable metadata/evidence.
-
-Это НЕ текущая узкая работа Qwen Core: Core чинит точность сохранения большого prompt в checkpoint. Здесь checkpoint может быть абсолютно точным, но удалённый Qwen thread всё равно остаётся привязан к старой прикладной политике.
-
-## Предыдущий блок 1 — session-store теряет изменения другого процесса
-
-Fresh exact прошлой границы показал process-local `Map` + whole-store replace. При кратком перекрытии старого/нового процесса разные session keys могут затереть друг друга. Two-process probe: current потерял `call-A`; кандидат с store-wide interprocess transaction + reread сохранил оба pending records.
+В candidate probe:
+- read tool = 1;
+- final-turn write = 0;
+- model turns consumed = 2;
+- ошибка возникает до tool execution.
 
 Artifacts:
-- `autonomy/v3/tools/integration_qwen_session_store_cross_process_lost_update_probe.js`;
-- `autonomy/evidence/integration/20260821T1940Z_qwen_session_store_cross_process_lost_update.json`.
+- `autonomy/v3/tools/integration_notion_final_turn_tool_budget_probe.py`;
+- `autonomy/evidence/integration/20260821T2132Z_notion_final_turn_tool_budget_orphan_side_effect.json`;
+- `autonomy/v3/candidates/NOTION_FINAL_TURN_TOOL_BUDGET_GUARD_20260821.patch`.
 
-## Предыдущий блок 2 — SessionRequestGate защищает только один процесс
+Точный regression для владельца Notion Agent: при `budget=2` первый ход выдаёт read-only tool, второй — `write_file`; ожидается `read_count=1`, `write_count=0`, model-turn count=2, fail-closed до executor. Существующий `test_model_turn_budget_is_hard_limit` сейчас использует `noop` и поэтому этот side-effect край не ловит.
 
-Process-local `SessionRequestGate` не защищает перекрытие двух server generations. Two-process probe: current дал два provider call для одной explicit session; кандидат process-shared per-session lease дал один provider call, второй процесс после lease увидел durable pending.
+С Qwen это стыкуется так: Qwen coding-subagent уже умеет помечать round-limit incompletion как `uncertain`, если до него был потенциально изменяющий инструмент. Здесь Notion может сделать сильнее — вообще не создавать новый orphan side effect на терминальном модельном ходу.
 
-Artifacts:
-- `autonomy/v3/tools/integration_qwen_cross_process_session_gate_probe.js`;
-- `autonomy/evidence/integration/20260821T1942Z_qwen_cross_process_session_gate_restart_gap.json`;
-- `autonomy/v3/candidates/QWEN_CROSS_PROCESS_SESSION_TRANSACTION_CONTRACT_20260821.patch`.
+Это не повторяет прежний cancellation/uncertainty блок: там неопределённость появлялась из-за отмены/ошибки после возможного изменения; здесь опасное изменение создаётся предсказуемо самой логикой лимита.
 
 ## Предыдущие helper-блоки — не повторять
 
-Уже зафиксированы: truncated partial tool result стирает unresolved sibling obligation; truncated transcript ломает full-history failover rebase; durable pending obligation bypass; duplicate unresolved `tool_call.id`; stale session backup; межпроцессный claim Qwen-задачи; subagent-batch store-wide lost update; stale-writer terminal downgrade; subagent backup recovery; persisted workspace identity; selected-skill content fingerprint; stable Qwen taskId/batchId/sessionPrefix; parent-scoped child identity; typed completed/uncertain/failed/skipped result; cancellation/side-effect uncertainty; mutating tool error uncertainty; delegated prompt policy; delegated tool-capability policy; Notion durable child-state after restart; Notion partial-batch success replay; rebind same-account/global-parallel overlap; Notion 24 vs Qwen 12 turns; successful empty Qwen text; pending-tool continuation content-shape; same-process concurrent continue; command/reset gate; command content-shape; implicit-session collision; store-wide recovery fail-closed; historical command replay; cross-process main session-store lost update; cross-process session admission gap.
+Уже зафиксированы: truncated partial tool result стирает unresolved sibling obligation; truncated transcript ломает full-history failover rebase; durable pending obligation bypass; duplicate unresolved `tool_call.id`; stale session backup; межпроцессный claim Qwen-задачи; subagent-batch store-wide lost update; stale-writer terminal downgrade; subagent backup recovery; persisted workspace identity; selected-skill content fingerprint; stable Qwen taskId/batchId/sessionPrefix; parent-scoped child identity; typed completed/uncertain/failed/skipped result; cancellation/side-effect uncertainty; mutating tool error uncertainty; delegated prompt policy; delegated tool-capability policy; Notion durable child-state after restart; Notion partial-batch success replay; rebind same-account/global-parallel overlap; Notion 24 vs Qwen 12 turns; successful empty Qwen text; pending-tool continuation content-shape; same-process concurrent continue; command/reset gate; command content-shape; implicit-session collision; store-wide recovery fail-closed; historical command replay; cross-process main session-store lost update; cross-process session admission gap; Qwen prompt-policy fingerprint vs upstream thread affinity.
 
 ## Постоянная память
 
-На старте прочитан текущий проверенный `LATEST`:
-- Git blob `6f93e4390f8518146a2d018953a018c3a618b062`;
+В начале запуска восстановлена и полностью проверена предыдущая v4-капсула:
+- стартовый `LATEST` Git blob `6f93e4390f8518146a2d018953a018c3a618b062`;
 - capsule `20260821T144628Z-e703b2256c`;
 - archive SHA-256 `31ba53852b5a99d8d469ebdb36fa9c59812b16db01a91f6170467389f1a650ba`;
-- manifest и все пять immutable parts прочитаны отдельно из GitHub и совпадают с ожидаемыми manifest metadata.
+- manifest и все 5 частей прочитаны отдельно, base64/archive/workspace metadata сверены; restore PASS.
 
-Exact `capsule_runtime_v4.py` перечитан, blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`. В текущем hosted container прямой DNS к GitHub отсутствует, а connector-ответы не монтируются как файлы, поэтому безопасный exact runtime `restore -> pack -> immutable upload/readback -> CAS LATEST` в этом проходе не завершён. Неизвестные байты не реконструировались и `LATEST` не переключался. Новый finding долговечно сохранён отдельными probe/evidence и этим handoff.
+После новой работы локально собрана и проверена новая v4 capsule `20260821T214506Z-c5bb2f558b`, archive SHA-256 `d2e6ac3e4b4c0c84183aa07ae82292b902fab79d90e4050463f8e263cddf4c78`, 8 частей. Все 8 immutable parts и manifest загружены в GitHub и перечитаны обратно; их Git blob SHA совпали с локально рассчитанными. Финальный CAS `LATEST` выполняется только если стартовый blob указателя не изменился.
 
 ## Следующее
 
-1. Qwen-владелец должен добавить prompt-policy fingerprint к thread affinity одновременно с будущей межпроцессной session transaction, чтобы два механизма не создали конкурирующие state fields.
-2. Перед reuse `chatId` проверка fingerprint должна выполняться до provider call и после любого restart/reload.
-3. Prompt mismatch — это routing/rebase, не account/provider failure: не охлаждать легитимный аккаунт и не расходовать failover budget.
-4. Fresh thread получает полную актуальную локальную историю под новой policy; старый Qwen thread не переиспользуется.
-5. Следующий Integration Helper запуск ищет новый недублирующийся стык; этот finding повторно не исследовать без изменения продукта.
+1. Notion Agent owner должен забрать минимальный final-turn guard и regression без переписывания остального tool-loop.
+2. После интеграции проверить также budget=1 + tool-call: executor должен получить 0 вызовов.
+3. Не расширять это в общий retry rewrite: исправление локально только на терминальной границе model-turn budget.
+4. Следующий Integration Helper запуск ищет новый недублирующийся стык; этот finding повторно не исследовать без изменения продукта.
 
 CircleCI, GitHub Actions, Cloudflare и другой hosted CI не запускались. Live Qwen/Notion/Codex/provider traffic — 0. Production, реальные данные, аккаунты и секреты не трогались.

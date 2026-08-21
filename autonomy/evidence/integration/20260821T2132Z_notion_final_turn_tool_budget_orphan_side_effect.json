@@ -1,0 +1,37 @@
+{
+  "candidate_behavior": {
+    "error": "delegated task exhausted model-turn budget before tool execution",
+    "final_turn_write_count": 0,
+    "provider/model_turns_consumed": 2,
+    "read_tool_count": 1
+  },
+  "current_behavior": {
+    "budget": 2,
+    "orphan_mutation_count": 1,
+    "then": "DelegatedToolLoopError: delegated task exceeded model-turn budget",
+    "turn1": "read_file executes and result is appended",
+    "turn2": "write_file executes even though no model turn remains to consume its result"
+  },
+  "finding": "NOTION_FINAL_MODEL_TURN_ORPHAN_TOOL_SIDE_EFFECT",
+  "fresh_heads": {
+    "notion_core": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "notion_pr8": "b5cd79374bd097041a14f36c549aea632f62e7ed",
+    "qwen_pr6": "a0ec9110da9fefb32700e8996d63df53ee818df8"
+  },
+  "limits": [
+    "No product branch rewrite",
+    "No hosted CI",
+    "No live Notion/Qwen/Codex",
+    "No production/accounts/secrets"
+  ],
+  "minimal_contract": "After validating a tool batch, if this reply consumed the final permitted model turn, count that model turn but fail before committing call ids/history or entering any local tool executor.",
+  "offline_probe": "FINAL_TURN_ORPHAN_TOOL_SIDE_EFFECT_REPRODUCED_AND_GUARD_PASS",
+  "qwen_comparison": "Qwen coding-subagent already marks model-round exhaustion uncertain when observed execution crossed a potential side-effect boundary; Notion should at minimum avoid creating a new side effect on the terminal budget turn.",
+  "risk": "A mutating tool can run on the last allowed model turn even though its result can never be consumed and the child is guaranteed to fail immediately afterward. This creates a pointless orphan side effect and makes retry safety worse.",
+  "schema": "integration_helper_evidence_v1",
+  "source_blobs": {
+    "payload/delegated_tool_loop.py": "ee789e92c5c3f63296923fc6584c55a44c082798",
+    "tests/test_delegated_tool_loop.py": "82e6af93b84b63c8242f40421ead1780db0ff54c"
+  },
+  "worker": "INTEGRATION_HELPER"
+}

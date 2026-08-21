@@ -1,0 +1,20 @@
+{
+  "schema": "notion_core_durable_compaction_replay_v16_self_review_v1",
+  "created_at_utc": "2026-08-21T19:55:00Z",
+  "candidate": "20260821T1948Z_durable_compaction_replay_v16_overlay.patch",
+  "finding": {
+    "id": "V16-SR-1",
+    "severity": "blocking",
+    "name": "legacy completed compaction can still be re-planned",
+    "reproduction": "A pre-replay-schema ConversationSegment may have awaiting_compacted_history=true and input_fingerprints exactly equal to the retried compaction input. Because it contains no durable compact payload/fingerprint, the first V16 overlay would miss the replay branch and call Notion again.",
+    "local_verdict": "DURABLE_COMPACTION_REPLAY_V16_SR1_LEGACY_AMBIGUITY_REPRODUCED",
+    "required_fix": "After current_fingerprints are known and before provider planning, if replay_schema_version==0, awaiting_compacted_history is true, and segment.input_fingerprints exactly equal current_fingerprints, return restart_replay_unavailable. New/appended compaction history may proceed and upgrade the record."
+  },
+  "post_fix_expected": [
+    "legacy exact completed compaction retry => fail closed before provider",
+    "legacy appended/new history => may proceed",
+    "new-schema exact retry with durable compaction payload => exact replay, provider count remains 1"
+  ],
+  "hosted_ci_started": false,
+  "provider_traffic_started": false
+}

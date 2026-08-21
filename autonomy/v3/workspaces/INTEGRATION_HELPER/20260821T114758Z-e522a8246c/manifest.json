@@ -1,0 +1,70 @@
+{
+  "archive": {
+    "parts": 7,
+    "sha256": "77bf67abe0d51f91ae35d646d8c9b8f287bef65548cb2c8fc9ff2198cc489ba5",
+    "size": 1273
+  },
+  "capsule_id": "20260821T114758Z-e522a8246c",
+  "created_at_utc": "2026-08-21T11:47:58Z",
+  "parts": [
+    {
+      "chars": 256,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "a086d7269256404c183355912eaecf31750b2d4cda2a1bb17480edf2a1e736c1"
+    },
+    {
+      "chars": 256,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "28e7ba5b327364034258af43a7bfdd50a5775371a522759814c6d03bbf65ab94"
+    },
+    {
+      "chars": 256,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "53680a8450e9aa21d462acb1a3edc1badd276144a5d0d675458c3984f5969b5f"
+    },
+    {
+      "chars": 256,
+      "index": 3,
+      "name": "part-0003.b64",
+      "sha256_text": "c25122630afe79befa342ea209f777c0ef44d0107c47e5b6e2a0d86caa69cb9c"
+    },
+    {
+      "chars": 256,
+      "index": 4,
+      "name": "part-0004.b64",
+      "sha256_text": "ae3c7321a541dfa4474de5755859539551f00846f96dfa172cdcf22c3c72a5af"
+    },
+    {
+      "chars": 256,
+      "index": 5,
+      "name": "part-0005.b64",
+      "sha256_text": "e5fcf0bb7329d4c1ece84efbd210e7c99fd66a4e25c47bf6ca6a2f69271b5c43"
+    },
+    {
+      "chars": 164,
+      "index": 6,
+      "name": "part-0006.b64",
+      "sha256_text": "43f661ed0ee040ada35eeefcadf7e39932846f7a007625cf61838d6db1cea05e"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@fe22f6f3b76c92cb28dd5145356e193010a1ccfb + Ai-b0ss/notion-agent-bridge@c97c4c1d7432d7ce3e003599ad9a46850045261e",
+  "worker": "INTEGRATION_HELPER",
+  "workspace": {
+    "CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "72e98a0ba2074e5ec042f3e2838f2ab8152773d11e70fe7e699cbaffbc948c09",
+      "size": 1630,
+      "type": "file"
+    },
+    "STATE.json": {
+      "mode": "0o644",
+      "sha256": "b8297f4afbb7a7002deb848343c65d93cc137c26daf41c786157eff4b93b3df8",
+      "size": 228,
+      "type": "file"
+    }
+  }
+}

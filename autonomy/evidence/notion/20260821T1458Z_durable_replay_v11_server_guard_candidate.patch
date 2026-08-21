@@ -1,0 +1,39 @@
+diff --git a/payload/server.py b/payload/server.py
+index f02cef6..0000000 100644
+--- a/payload/server.py
++++ b/payload/server.py
+@@ -189,6 +189,34 @@ foreground_account_reservations = ForegroundAccountReservations()
++
++async def configured_account_ids() -> set[str]:
++    """Return the stable account ids currently present in the constructed pool."""
++    if account_pool is None:
++        return set()
++    status = await account_pool.status()
++    accounts = status.get("accounts", [])
++    return {
++        str(item.get("id"))
++        for item in accounts
++        if isinstance(item, dict)
++        and isinstance(item.get("id"), str)
++        and item.get("id")
++    }
++
++
++async def rehydrate_persisted_tool_reservation(
++    turn_key: str | None,
++    persisted_account_id: str,
++) -> bool:
++    """Restore a replay reservation only for an account that still exists.
++
++    False means the caller must fail the durable tool-call replay closed. Core
++    must not silently move an already-issued call to a replacement account or
++    Notion thread; that requires the separately proven Agent rebase path.
++    """
++    if persisted_account_id not in await configured_account_ids():
++        await foreground_account_reservations.clear(turn_key)
++        return False
++    await foreground_account_reservations.reserve(turn_key, persisted_account_id)
++    return True
++
+ 
+ class PriorityInferenceGate:

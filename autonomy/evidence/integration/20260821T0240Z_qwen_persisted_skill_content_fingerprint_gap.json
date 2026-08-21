@@ -1,0 +1,36 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "QWEN_PERSISTED_SUBAGENT_SIGNATURE_OMITS_SELECTED_SKILL_CONTENT",
+  "verdict": "REPRODUCED_AND_CONTENT_HASH_CONTRACT_PASS",
+  "source": {
+    "repo": "Ai-b0ss/qwen-free-api",
+    "pr": 6,
+    "head": "3b8206eefbf319957c12a0ef46ed31fdf74801f8",
+    "subagent_agent_runner_blob": "6177f89dfa5f49f0b939f48eb31cffa4772247f0",
+    "subagent_batch_store_blob": "f384b57e52d54e298d466b858831eedb2a0dc4f1",
+    "skills_blob": "378259c8eba2c7fdf0274b0243fb9700ec04a6d9"
+  },
+  "observed_contract": [
+    "The persisted task signature includes selected skill names but not the bytes of the rendered selected-skill instructions.",
+    "executionSignatureContext fingerprints mode/model/sessionPrefix/settings/owner prompt, but not selected skill content.",
+    "buildTechnicalSkillBlock reloads the current skill file content when a task actually runs."
+  ],
+  "reproduction": {
+    "same_task_id_prompt_and_skill_name": true,
+    "selected_skill_runtime_instruction_bytes_changed": true,
+    "current_persisted_signature_changed": false,
+    "candidate_signature_with_content_hash_changed": true
+  },
+  "risk": "After a restart or code/skill update, a persisted done result can be resumed as if it belonged to the current execution policy even though the selected skill instructions changed. An explicit retry of an uncertain task can also execute under different technical instructions without a batch signature mismatch.",
+  "candidate_contract": {
+    "rule": "For tasks that select skills, include a content-free SHA-256 of the exact rendered selected-skill technical block per task in the persisted execution signature.",
+    "privacy": "Persist only hashes, never selected skill bodies.",
+    "compatibility": "Do not add an empty skill-hash field for batches with no selected skills, so no-skill persisted batches keep their existing signature shape. Existing skill-using batches should fail closed after upgrade rather than silently cross policy drift."
+  },
+  "probe": "autonomy/v3/tools/integration_qwen_persisted_skill_content_fingerprint_probe.js",
+  "limits": [
+    "No Qwen product file changed.",
+    "No hosted CI/provider/live/accounts/production/secrets."
+  ]
+}

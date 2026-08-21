@@ -1,68 +1,60 @@
 # Qwen — агентное ядро
 
-Обновлено: 2026-08-21 12:12Z.
+Обновлено: 2026-08-21 13:12Z.
 
 ## Текущее состояние
 
-`qwen-free-api`: ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Текущий наблюдавшийся head `7c85b0719de4f3869d17d6ea150b8d653497d3df`.
+`qwen-free-api`: ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Текущий наблюдавшийся head `861a8f176a6037acaec5721b2f6bbad3041d7dd9`.
 
-Предыдущий смешанный streaming-turn `текст → tool_calls` остаётся закрыт: preamble и вызовы инструмента фиксируются как один долговечный assistant-turn до выдачи клиенту. Полный exact-tree `npm test` по-прежнему не заявлен.
+Основные прежние Core-инварианты сохраняются: tool result переживает restart, pending tool-call блокирует короткое продолжение, streaming tool-call сначала фиксируется и только потом выдаётся клиенту, системные инструкции сохраняются, одинаковый `tool_call.id` не схлопывает несколько незавершённых вызовов, запросы одной OpenCode-сессии сериализуются.
 
-## Новые существенные результаты
+## Новый существенный результат: stale backup recovery закрыт fail-closed
 
-### 1. Гонка двух запросов одной OpenCode-сессии закрыта
-
-Integration Helper воспроизвёл реальный дефект на head `fe22f6f3…`: два одновременных `continue` одного `sessionKey` могли оба прочитать одно и то же состояние без pending tool-call, оба сходить к Qwen, оба выдать изменяющие вызовы инструментов, после чего более поздний `sessionStore.set()` затирал долговечную историю первого вызова.
+Ранее `session-store` уже помечал записи, поднятые из `.bak`, как `recoveryState().uncertain`, но сервер всё ещё мог получить из такого backup старый `chatId`, а короткое продолжение могло восстановить устаревшую историю. Опасный порядок воспроизводим: primary уже содержит более новый принятый изменяющий tool-call → обновление backup падает → primary позже повреждается → restart видит только старый backup и может забыть уже принятый вызов.
 
 Исправление в PR #6:
 
-- `152bcd08ea409f223a0cc6fb9ea8a4e748ca5e69` — новый `src/session-request-gate.js`;
-- `451bfc2e6041b211db608d1e7af3e73dcce45d13` — `/v1/chat/completions` сериализуется по каноническому `sessionKey`;
-- состояние сессии и pending tool-calls читаются уже после получения gate;
-- разные sessionKey остаются параллельными;
-- клиент, отключившийся в очереди, после получения gate не запускает provider work;
-- release гарантирован `finally` после всей критической секции запроса.
+- `843b1317959f4257b523fa43e6ffffa3b191b9f1` — backup-recovered запись больше не отдаёт старый upstream `chatId`; короткое продолжение получает `QWEN_SESSION_RECOVERY_UNCERTAIN`; полная история допускается только после безопасной сверки;
+- `2b9e9d51e8aea8ec49002104c951846c11d62d27` — общий `sessionStore.set()` тоже запрещён, пока backup-состояние остаётся неопределённым, чтобы его нельзя было случайно «отмыть» в новый доверенный primary;
+- `172d25f0f4f00dda796d4db66913b5916caac6f3` — добавлена отдельная целевая проверка `session-stale-backup-recovery-test.js`;
+- `861a8f176a6037acaec5721b2f6bbad3041d7dd9` — существующий `session-store-restart-test.js`, который уже входит в `npm test`, обновлён под новую fail-closed семантику и теперь моделирует именно `primary newer → backup stale → primary corrupt`.
 
-Добавлен `scripts/session-request-gate-test.js` и включён в `npm test` (`00912f3e…`, `aa4c8754…`). На ChatGPT hosted-машине без Qwen/CI целевая проверка прошла:
+Правило восстановления теперь такое:
 
-`QWEN_SESSION_REQUEST_GATE_TARGET_PASS same_serial=1 different_parallel=1 pending_reread=1 provider_calls=1`
+- `getRecord()` для backup-recovered session маскирует старый `chatId` и помечает запись `recoveryUncertain`;
+- обычный `set()` для такого ключа запрещён;
+- короткое/инкрементальное продолжение запрещено;
+- просто дописанный пользователем `continue` к старой истории не считается доказательством актуальности;
+- полная история с незавершённым tool-call не принимается;
+- неопределённость снимается только если полная входная история содержит восстановленный backup как последовательность и имеет более новый assistant/tool progress без pending tool-call;
+- после такой сверки история сначала долговечно переписывается, `chatId` принудительно становится `null`, и следующий провайдерный ход обязан создать свежий Qwen-тред.
 
-### 2. Коллапс повторно использованного tool_call.id закрыт
+На ChatGPT hosted-машине без сети к Qwen целевая проверка прошла:
 
-Раньше `findPendingToolCalls()` хранил один pending-вызов на id. Два ещё не завершённых вызова с одинаковым id плюс один `tool result` могли обнулить pending-состояние и разрешить продолжение, хотя один изменяющий вызов оставался неопределённым.
+`QWEN_SESSION_STALE_BACKUP_RECOVERY_PASS backup_chat_not_reused=1 uncertain_write_blocked=1 short_continue_blocked=1 user_only_blocked=1 pending_full_blocked=1 explicit_full_reconciled=1 fresh_thread_required=1`
 
-Исправление:
+Локальный кандидат `src/session-store.js` после записи совпал с GitHub по Git blob SHA `d13f79a1c999ca5221cac190ad7b155f4854ae9b`.
 
-- `5cb4fdd24ca4f93e832cdd60b3d6103ef6762225` — новый принятый assistant-turn с дублирующими id отвергается через `QWEN_TOOL_CHECKPOINT_REJECTED`; для восстановленной/старой истории pending учитывает число незавершённых вхождений, один result снимает только одно;
-- `10432dd4ba4c621ca620ecd7a34fe6aef45bbc76` — постоянный regression `session-duplicate-tool-call-id-test.js`;
-- `b0ffda6d85cc757d985fb045431d2d88b65c7b50` — regression включён в `npm test`.
+## Граница доказанного
 
-Офлайн-проба Integration Helper снова прошла: текущее старое поведение даёт pending=0, исправленное — pending=1; duplicate ids в одном новом assistant-turn отвергаются; повторное использование id после уже подтверждённого результата остаётся допустимым.
-
-### 3. Начат следующий Core-дефект: устаревший backup session-store
-
-Подтверждён сценарий: primary уже содержит новый accepted mutating tool-call, обновление `.bak` падает и игнорируется, позже primary повреждается, `load()` молча поднимает старый backup без pending-call. Это снова создаёт риск повторного действия после restart.
-
-Коммит `7c85b0719de4f3869d17d6ea150b8d653497d3df` добавил только безопасную основу: `session-store` теперь запоминает ключи, восстановленные именно из backup, через `recoveryState()`. **Этот дефект ещё не считать закрытым:** server-side fail-closed reconciliation и запрет повторного использования старого upstream chat id пока не подключены.
-
-Следующий проход должен завершить именно это: backup-recovered session не должна принимать короткое/инкрементальное продолжение и не должна переиспользовать старый Qwen chat id; разрешение — только после явной полной истории и безопасной перезаписи. Нужен постоянный regression `primary newer → backup stale → primary corrupt → restart → no provider on short continue`.
-
-## Ограничения доказательства
-
-- Полный exact-tree `npm test` этого приватного репозитория в текущем проходе не заявлен.
-- GitHub Actions, CircleCI, Cloudflare, live Qwen/provider traffic, реальные аккаунты, секреты и production не использовались.
-- Узкая политика cooldown/account selection не менялась.
+Полный exact-tree `npm test` этого приватного репозитория в данном проходе не заявлен. Новый `session-store-restart-test.js` сохранён в каноническом наборе и будет выполнен обычным `npm test`, но внешний CI для этого не запускался. Узкая политика cooldown/account selection не менялась. GitHub Actions, CircleCI, Cloudflare, live Qwen/provider traffic, реальные аккаунты, секреты и production не использовались.
 
 ## Постоянная память
 
-На старте был прочитан `LATEST` blob `8365a3d68023fd0e5638de913cdfb0ad2d951d3e`, capsule `20260821T110504Z-07ee4e43f2`, archive SHA-256 `18252b0e31ed6524cef949f96ec2c6e374d61b8f53d77cfd7390510c37eac317`. Exact `capsule_runtime_v4.py` имел нормативный Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`; стартовая capsule прошла exact v4 `verify + restore`.
+В начале запуска `LATEST` был прочитан с Git blob SHA `3e6464e39f8477e06ced07f7940b63db48374205` и указывал на capsule `20260821T120310Z-39932ef3bb`, archive SHA-256 `727869e436a9b2777c434b2ace7dcd4c83c6bc02065f12317d182919b507c5cb`.
 
-После двух закрытых Core-дефектов exact v4 собрал и опубликовал capsule `20260821T120310Z-39932ef3bb`, archive SHA-256 `727869e436a9b2777c434b2ace7dcd4c83c6bc02065f12317d182919b507c5cb`, source ref `b0ffda6d…`. Manifest blob `da4484a0…`, part blob `4ba64357…` совпали с локально рассчитанными. LATEST перед публикацией всё ещё имел стартовый blob `8365a3d…`, поэтому старый указатель был сохранён как PREVIOUS, а новый LATEST опубликован штатным CAS; новый blob LATEST `3e6464e39f8477e06ced07f7940b63db48374205`.
+Нормативный `autonomy/v3/tools/capsule_runtime_v4.py` был материализован побайтно: Git blob SHA `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`. Стартовая capsule прошла exact v4 `verify + restore`.
 
-После дополнительного provenance-коммита `7c85b071…` собрана более свежая валидная immutable capsule `20260821T121009Z-89e37bf1f5`, archive SHA-256 `148297a2e98d4870620383b3ea768fabe617cc100591d7b86465a7af6d6b394a`. Manifest (`ded9ee3d…`) и part (`7f4cd103…`) перечитаны и совпали с локальными байтами; exact v4 verify PASS. Второй раз LATEST не перезаписывался: его blob уже отличался от исходного родителя запуска, поэтому по протоколу свежая capsule оставлена immutable и более новый указатель принят без force-write.
+После исправления exact v4 собрал новую capsule `20260821T131014Z-385b7edd00`, source ref `861a8f176…`, archive SHA-256 `116baa72309ba18e558f33f58d8f2bc1ea5c959f6bfa84c8f4bb98226f726818`. После immutable upload оба part и manifest перечитаны; их Git blob SHA совпали с локально рассчитанными:
+
+- `part-0000.b64` → `608ebe6a56a2e3df2b17a74b9f5138eb1485036f`;
+- `part-0001.b64` → `6ceef67d29f0e5d902e0875c24dc4dcb9b406d71`;
+- `manifest.json` → `616ec74aa140f853f9fe21aeb2311c4aa7256b06`.
+
+Перед публикацией `LATEST` всё ещё имел исходный blob `3e6464e3…`, поэтому CAS прошёл штатно. Старый LATEST сохранён как PREVIOUS, новый LATEST указывает на `20260821T131014Z-385b7edd00` и имеет blob `2c1e39a14ec96eef6e3e956da3eee03e9b36109d`.
 
 ## Следующее
 
-1. Закончить `QWEN_SESSION_RECOVERY_UNCERTAIN`: stale-backup fallback должен fail-closed блокировать короткое/инкрементальное продолжение до полной сверки истории и не переиспользовать старый upstream chat id.
-2. Выполнить новый stale-backup regression на hosted-машине и ближайший session/restart кластер; внешний CI не нужен.
-3. Только после нового существенного результата снова exact v4 checkpoint; LATEST менять исключительно CAS от SHA, прочитанного в начале соответствующего запуска.
+1. На hosted-машине материализовать достаточный exact-tree и выполнить `session-store-restart-test.js` вместе с ближайшим session/restart-кластером; полный `npm test` заявлять только если действительно материализован весь exact tree.
+2. Проверить внешний контракт ошибки `QWEN_SESSION_RECOVERY_UNCERTAIN`: сейчас она безопасно останавливает запрос до провайдера, но отдельный OpenAI-compatible HTTP-код/тело для неё ещё не доказаны.
+3. После нового воспроизводимого Core-дефекта продолжать тем же правилом: локальный тест → минимальное исправление → постоянный regression → exact v4 checkpoint.

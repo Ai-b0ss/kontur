@@ -2,7 +2,9 @@
 
 Обновлено: 2026-08-21.
 
-Основная линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Свежий продуктовый head после этого запуска: `f5194f8030632037e4dcda5a54037f216be9f4db`.
+Основная продуктовая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6.
+
+Свежий фактически прочитанный head PR #6 на этом запуске: `acfb87af4831b6a3846b2edf1e599d20a769529b`.
 
 ## Уже доказано и не переделывать
 
@@ -20,60 +22,74 @@
 - account-scoped reset больше не снимает provider-wide circuit с `accountId=null`;
 - transport error после принятого SSE проходит в account/provider classification ровно один раз;
 - удаление аккаунта после durable rename больше не расходится между диском и памятью при сбое cleanup tombstone;
-- ended empty/metadata-only initial SSE получает account-local classification и bounded sibling failover, чужой upstream `chatId` соседнему аккаунту не переиспользуется.
+- ended empty/metadata-only initial SSE получает account-local classification и bounded sibling failover, чужой upstream `chatId` соседнему аккаунту не переиспользуется;
+- terminal-only initial SSE (`[DONE]`, `true`, `{data:true}`) больше не считается пригодным model output.
 
-## Закрыто в этом запуске: terminal-only initial SSE
+## Этот запуск: unconfirmed initial-gate release -> unusable end -> retry
 
-На свежем head PR #6 подтверждён старый дефект: `inspectInitialSSE()` считал одиночные `data: [DONE]`, `data: true` и `data: {"data":true}` доказательством пригодного ответа. Поэтому terminal-only поток мог пройти initial gate как подтверждённый и далее превратиться в успешный пустой completion.
+Предыдущая гипотеза подтверждена на свежем head `acfb87af...`.
 
-Исправление:
+Фактическая цепочка в текущем коде:
 
-- commit `83b43364ba48fcea4d8d0f8394549c6cf64d7000`: `[DONE]`, `true` и `{data:true}` теперь только terminal/metadata markers и сами по себе не делают поток usable;
-- настоящий `choices` frame по-прежнему подтверждает ответ немедленно, поэтому нормальный `choices -> [DONE]` не задерживается и не ломается;
-- если поток заканчивается только terminal/metadata markers, `gateInitialStream()` возвращает `failureClass='empty_response'`, а существующий `sendChatRequest()` уже охлаждает конкретный аккаунт и продолжает bounded sibling failover;
-- commit `f5194f8030632037e4dcda5a54037f216be9f4db`: существующая штатная регрессия расширена случаями `[DONE]`-only, `true`-only, `{data:true}`-only и `choices -> [DONE]`, плюс запрет отката к старой трактовке terminal markers.
+1. `gateInitialStream()` может сделать `release(false)` по `INITIAL_STREAM_GATE_MS` или `MAX_INITIAL_STREAM_BUFFER`, не увидев настоящий `choices` frame. Это правильно само по себе: нельзя наказывать реально медленный/большой первый ответ только за задержку.
+2. В таком случае `sendChatRequest()` возвращает `status:true`, но не делает ни `markSuccess`, ни `markFailure`.
+3. Если затем весь уже отпущенный поток заканчивается без пригодного model output, `chatAdapter.collectNonStream()` в `server.js` выбрасывает `Qwen upstream closed without a usable response`.
+4. Текущий retry в `server.js` снова готовит запрос с исходным `preferredAccount` и снова вызывает `sendChatRequest(..., preferredAccount)` до трёх раз.
+5. Поскольку фактически провалившийся аккаунт до retry не получил account-local failure/cooldown, `operationCandidates(preferredAccount)` снова ставит его первым.
 
-Hosted-проверка изменённого решения дала `HOSTED_TERMINAL_ONLY_SSE_PASS`. CircleCI, GitHub Actions, Cloudflare и provider/live не запускались. Exact-tree `npm test` не заявляется: в hosted-среде нет готового дерева со всеми зависимостями, а внешний CI по правилам не использовался.
+Hosted-репродукция без provider/live дала последовательность текущей политики `A -> A -> A`; после account-local классификации фактического производителя A следующий eligible candidate — B.
 
-## Следующий участок — сначала воспроизвести, потом чинить
+Вердикт: **DEFECT CONFIRMED**. Это не provider-wide ошибка и не повод менять сам `release(false)`.
 
-`gateInitialStream()` всё ещё имеет два пути `release(false)` до появления настоящего model frame: по `INITIAL_STREAM_GATE_MS` и по `MAX_INITIAL_STREAM_BUFFER`. Это намеренно позволяет не держать initial gate бесконечно, поэтому нельзя просто заменить эти выходы на ошибку: реальный первый model frame может быть медленным или большим.
+## Минимальное безопасное исправление
 
-Но для non-stream есть потенциальный failover-дефект: если такой unconfirmed stream после release(false) затем заканчивается без пригодного model output, `collectNonStream()` выбрасывает `Qwen upstream closed without a usable response`, а текущий retry в `server.js` снова передаёт исходный `preferredAccount`. Поскольку qwen-client до release(false) не классифицировал аккаунт как локально сбойный, тот же аккаунт может снова стать первым кандидатом.
+Точный patch-кандидат сохранён в каноническом репозитории:
 
-Следующий запуск должен сначала сделать офлайн-регрессию для цепочки `unconfirmed release -> unusable end -> retry`, доказать или опровергнуть повтор того же аккаунта. Если дефект подтверждается, минимальный безопасный вариант — account-local classification перед retry, не ломая legitimate slow/large first frame, provider-wide circuit и account/thread affinity.
+`autonomy/v3/candidates/QWEN_RELIABILITY_UNCONFIRMED_RETRY_FAILOVER_20260821.patch`
+
+Семантика исправления:
+
+- только после того, как `collectNonStream()` доказал, что весь unconfirmed stream действительно закончился без usable output, один раз сделать `markFailure` фактическому `response.account`;
+- затем выбрать свежий eligible account из `accountStore.candidates()` и использовать его и в `preparePublicPayloadGoverned(... account: retryPreferred)`, и в `sendChatRequest(..., retryPreferred)`;
+- если retry stream тоже позднее доказанно пустой, классифицировать именно `retry.account` один раз перед следующим bounded attempt;
+- не делать двойной `markFailure` первоначальному аккаунту в общем `catch`;
+- оставить `currentOnly:false`, чтобы sibling получил свежий upstream chat id и не использовал чужой тред;
+- не менять provider-wide circuit;
+- не делать account-local failure просто из-за timeout/buffer release, пока поток ещё может позже дать нормальный `choices`.
+
+Продуктовый `server.js` на этом запуске НЕ перезаписывался: доступный GitHub Contents API требует полной замены большого общего файла, а connector выдаёт его содержимое частями. Риск затереть свежие соседние изменения выше пользы. Нужен byte-safe patch/git-исполнитель либо exact-tree на hosted машине.
+
+## Обязательная регрессия после применения
+
+Два eligible аккаунта A/B:
+
+- A: initial gate делает unconfirmed release по timeout или buffer cap;
+- поток A потом заканчивается без usable output;
+- A получает account-local failure ровно один раз;
+- следующий retry идёт через B, а не A;
+- B получает свежий upstream thread, без reuse A `chatId`;
+- если B тоже заканчивается пустым, B классифицируется один раз до следующего bounded attempt;
+- медленный/большой поток, который позже даёт настоящий `choices`, не получает failure только за unconfirmed release;
+- provider-wide WAF/trust/pressure по-прежнему прекращает sibling probing.
 
 ## Capsule runtime
 
 Нормативный протокол: `autonomy/v3/CAPSULE_RUNTIME_PROTOCOL_V2.json` + `autonomy/v3/tools/capsule_runtime_v4.py`.
 
-На старте `LATEST.json` имел Git blob SHA `b52c19488cc0e0a3149d04efd2700c376314d699` и указывал на проверенную v4 capsule `20260820T225643Z-867784cee7`.
-
-В начале запуска её manifest и все три immutable part-файла были прочитаны, материализованы и прошли нормативные `verify` + `restore` через v4 runtime.
-
-После продуктовой работы первая большая новая capsule `20260820T235549Z-cfb1ce85b2` была отклонена до публикации: обязательное повторное чтение обнаружило несовпадение Git blob для одного part-файла. Она оставлена immutable orphan и на неё нельзя указывать LATEST.
-
-Затем собрана минимальная чистая v4 capsule:
+Стартовый LATEST этого запуска:
 
 - capsule `20260820T235859Z-e3c1e9ab99`;
+- Git blob SHA `2bdb4223dc6796dc7f710680222837ee3f7a2729` — это CAS-parent, который нельзя подменять;
 - archive SHA-256 `26bdb22db742625c9d890136dd6a6641db045b1eae81aea4e7b1a6ccaae7f549`;
-- 1 immutable part;
-- source ref `Ai-b0ss/qwen-free-api@f5194f8030632037e4dcda5a54037f216be9f4db`.
+- 1 part, manifest и part перечитаны из GitHub, длина/SHA части и archive size/SHA совпали.
 
-Локальные `verify` и `restore` дали PASS. После загрузки part и manifest перечитаны из GitHub; их Git blob SHA совпали с локально рассчитанными exact blob SHA (`371dd54b...` и `6267355e...`), manifest и archive SHA совпали. Перед CAS `LATEST.json` был перечитан и всё ещё имел стартовый blob SHA `b52c1948...`, то есть конфликтующего писателя не было. Старый LATEST сохранён как PREVIOUS, новый LATEST опубликован только через `update_file` с exact родительским SHA и перечитан после записи.
-
-Текущий LATEST:
-
-- capsule `20260820T235859Z-e3c1e9ab99`;
-- Git blob SHA `2bdb4223dc6796dc7f710680222837ee3f7a2729`;
-- archive SHA-256 `26bdb22db742625c9d890136dd6a6641db045b1eae81aea4e7b1a6ccaae7f549`.
+Перед завершением запуска необходимо сделать новый checkpoint, нормативный v4 `pack`, immutable upload, повторное чтение всех parts/manifest и только затем CAS-публикацию LATEST. Если blob SHA LATEST уже не равен стартовому `2bdb4223...`, не force-write: оставить новую capsule immutable и принять более свежего писателя.
 
 ## Граница доказательства
 
-- product head: `f5194f8030632037e4dcda5a54037f216be9f4db`;
-- terminal-only SSE defect закрыт;
-- hosted targeted proof PASS;
-- exact-tree `npm test` не заявляется;
-- CircleCI/GitHub Actions/Cloudflare/provider-live не запускались;
+- свежий прочитанный product head: `acfb87af4831b6a3846b2edf1e599d20a769529b`;
+- unconfirmed-release retry defect подтверждён чтением свежего `qwen-client.js` + `server.js` и hosted-репродукцией;
+- продуктовый patch пока не применён из-за отсутствия byte-safe способа изменить большой общий `server.js` в этой среде;
+- CircleCI, GitHub Actions, Cloudflare и provider/live не запускались;
 - production, реальные аккаунты и секреты не тронуты;
-- следующий приоритет: воспроизвести unconfirmed initial-gate release + non-stream retry и проверить, не выбирается ли снова тот же preferred account.
+- следующий приоритет: применить сохранённый маленький patch byte-safe способом, затем hosted regression из раздела выше; после этого искать следующий безопасный дефект пула.

@@ -1,0 +1,25 @@
+{
+  "schema":"notion_core_durable_replay_v8_exact_store_evidence_v1",
+  "date_utc":"2026-08-21",
+  "core_head":"b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "integration_head":"1af495a6c1ae6406b5fe9d7e18699e81a1b29500",
+  "source_blob":"553bd3496c21a7949c3a5dfa03f33b9e09293213",
+  "results":{
+    "exact_class_store":"PASS",
+    "restart_same_ids":"PASS",
+    "stream_field_excluded_from_fingerprint":"PASS",
+    "turn_id_included":"PASS",
+    "request_kind_included":"PASS",
+    "distinct_turn_tombstones_previous":"PASS",
+    "forced_ncm28_write_failure_raises":"PASS",
+    "failed_strict_write_rolls_back_memory":"PASS",
+    "oversize_512k_fail_closed":"PASS",
+    "legacy_outer_state_version_2_loads":"PASS",
+    "eviction_plus_write_failure_restores_all_entries":"PASS"
+  },
+  "new_root_cause":"Shallow pre-write snapshots are unsafe because replay TTL/size cleanup mutates existing ConversationSegment objects. A failed NCM28 write can therefore leak cleanup mutations into memory unless the candidate state is isolated (the tested patch uses deepcopy).",
+  "limits":{"replay_ttl_seconds":21600,"per_response_bytes":524288,"total_replay_bytes":8388608,"stale_fingerprint_count":32},
+  "not_proven":["native Windows semantics","full server integration","current Codex SSE compatibility"],
+  "hosted_ci_started":false,
+  "provider_traffic":false
+}

@@ -1,0 +1,53 @@
+*** Begin Patch
+*** Update File: server.js
+@@
+-          if (
+-            (!initialEmptyResponseClassified || !/^Qwen upstream closed without a usable response/i.test(err.message)) &&
+-            (!err || err.code !== 'QWEN_TOOL_CHECKPOINT_REJECTED')
+-          ) {
++          if (
++            (!initialEmptyResponseClassified || !/^Qwen upstream closed without a usable response/i.test(err.message)) &&
++            (!err || !['QWEN_TOOL_CHECKPOINT_REJECTED', 'QWEN_SYSTEM_CHECKPOINT_REJECTED'].includes(err.code))
++          ) {
+             accountStore.markFailure(response.account, err.message);
+           }
+@@
+         if (err && err.code === 'QWEN_TOOL_CHECKPOINT_REJECTED') {
+           return res.status(500).json({
+             error: {
+               message: err.message,
+               type: 'server_error',
+               code: 'QWEN_TOOL_CHECKPOINT_REJECTED',
+             },
+           });
+         }
++        if (err && err.code === 'QWEN_SYSTEM_CHECKPOINT_REJECTED') {
++          return res.status(500).json({
++            error: {
++              message: err.message,
++              type: 'server_error',
++              code: 'QWEN_SYSTEM_CHECKPOINT_REJECTED',
++            },
++          });
++        }
+*** Update File: scripts/server-nonstream-session-commit-test.js
+@@
+ assert.ok(
+-  nonStream.includes("if (!err || err.code !== 'QWEN_TOOL_CHECKPOINT_REJECTED')"),
+-  'local checkpoint rejection must not penalize the Qwen account',
++  nonStream.includes("['QWEN_TOOL_CHECKPOINT_REJECTED', 'QWEN_SYSTEM_CHECKPOINT_REJECTED'].includes(err.code)"),
++  'local tool/system checkpoint rejection must not penalize the Qwen account',
+ );
+ assert.ok(
+   route.includes("err.code === 'QWEN_TOOL_CHECKPOINT_REJECTED'"),
+   'route must expose a stable checkpoint rejection error code',
+ );
++assert.ok(
++  route.includes("err.code === 'QWEN_SYSTEM_CHECKPOINT_REJECTED'") &&
++    route.includes("code: 'QWEN_SYSTEM_CHECKPOINT_REJECTED'"),
++  'route must preserve the system-checkpoint rejection code instead of returning a generic 500',
++);
+@@
+-console.log('SERVER_NONSTREAM_SESSION_COMMIT_PASS primary_checked=1 retry_checked=1 local_reject_no_account_penalty=1');
++console.log('SERVER_NONSTREAM_SESSION_COMMIT_PASS primary_checked=1 retry_checked=1 local_reject_no_account_penalty=1 system_reject_code=1');
+*** End Patch

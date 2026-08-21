@@ -1,0 +1,42 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "QWEN_PERSISTED_BATCH_CONCURRENT_CLAIM_RACE",
+  "verdict": "REPRODUCED",
+  "source": {
+    "repo": "Ai-b0ss/qwen-free-api",
+    "pr": 6,
+    "head": "5c7df532f747cdb103d02fdd0de26feb957b4ae8",
+    "subagent_agent_runner_blob": "53e8682563c39d9d10ccf8d748263ce63fb43e28",
+    "subagent_batch_store_blob": "f384b57e52d54e298d466b858831eedb2a0dc4f1"
+  },
+  "observed_contract": [
+    "runAgentSubagents reads persisted task state with store.get() before claiming it",
+    "if the task is not done/running/uncertain it later calls markRunning()",
+    "markRunning() is a blind patch and does not assert the previously observed status",
+    "batch-store transaction is read-modify-write without an inter-process lock or compare-and-set token"
+  ],
+  "race": "Two independent processes or duplicate deliveries using the same stable batchId/taskId can both observe pending/failed before either markRunning call, both mark the task running, and both start provider/tool work. Persisted uncertain/restart protection therefore does not itself provide a single-executor claim.",
+  "offline_reproduction": {
+    "probe": "autonomy/v3/tools/integration_qwen_batch_claim_race_probe.js",
+    "result": "QWEN_BATCH_CONCURRENT_CLAIM_RACE_REPRO_PASS",
+    "current_side_effects": 2,
+    "candidate_side_effects": 1
+  },
+  "required_fix_contract": [
+    "claim a persisted task atomically across processes before any provider or local tool work",
+    "claim must check an expected prior status instead of blindly overwriting it with running",
+    "a losing contender must not execute the task and must surface the durable running/uncertain/done state",
+    "serialization must be inter-process; a JavaScript in-memory mutex alone is insufficient",
+    "crash recovery of the claim mechanism must remain fail-closed and must not turn an uncertain prior execution into an automatic replay"
+  ],
+  "scope": "Independent integration/restart safety finding. No Qwen product file was changed.",
+  "zero_minute": {
+    "github_actions": false,
+    "circleci": false,
+    "cloudflare": false,
+    "provider_calls": 0,
+    "production": false,
+    "secrets": false
+  }
+}

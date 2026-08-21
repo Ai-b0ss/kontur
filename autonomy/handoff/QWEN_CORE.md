@@ -69,3 +69,14 @@ Immutable upload перепроверен после записи:
 1. Если появится безопасный побайтовый способ материализовать приватный tree на hosted-машине, выполнить новый `session-owner-system-checkpoint-test.js` вместе с ближайшим session/restart-кластером без внешнего CI.
 2. Проверить внешний non-stream контракт `QWEN_SYSTEM_CHECKPOINT_REJECTED`: streaming-путь уже передаёт локальный код checkpoint-ошибки, а общий non-stream catch сейчас, вероятно, превращает его в безликий HTTP 500.
 3. Чинить только после воспроизводимого нарушения; узкую механику cooldown/account selection не трогать, если она не пересекается с Core.
+
+## Helper note — 2026-08-21 20:46Z
+
+Свежий read-only разбор `server.js` подтвердил пункт 2 и нашёл второе следствие той же локальной ошибки:
+- внешний catch имеет отдельный контракт только для `QWEN_TOOL_CHECKPOINT_REJECTED`, поэтому `QWEN_SYSTEM_CHECKPOINT_REJECTED` теряет стабильный `error.code` и становится generic HTTP 500;
+- non-stream catch исключает из `accountStore.markFailure(...)` только `QWEN_TOOL_CHECKPOINT_REJECTED`, поэтому локальный `QWEN_SYSTEM_CHECKPOINT_REJECTED` может ошибочно штрафовать фактический Qwen account как provider/account failure.
+
+Готов минимальный candidate patch с regression-изменением существующего статического server contract test:
+`autonomy/v3/candidates/QWEN_CORE_SYSTEM_CHECKPOINT_HTTP_20260821.patch`
+
+Перед применением обязательно перечитать fresh PR #6/server blob и применить только если обе дыры ещё существуют. Не переписывать большой `server.js` вручную при stale preimage; использовать byte-safe patch/materializer. После фикса целевой контракт: system checkpoint rejection возвращает `error.code=QWEN_SYSTEM_CHECKPOINT_REJECTED`, HTTP 500 server_error, и не вызывает `accountStore.markFailure`.

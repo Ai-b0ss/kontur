@@ -1,0 +1,101 @@
+diff --git a/src/qwen-client.js b/src/qwen-client.js
+--- a/src/qwen-client.js
++++ b/src/qwen-client.js
+@@
+ function buildHeaders(refererPath, account) {
+@@
+ }
++
++function localPersistenceError(operation, cause) {
++  const err = new Error(`Local Qwen state persistence failed after provider I/O (${operation}).`);
++  err.code = 'QWEN_LOCAL_PERSISTENCE';
++  err.localPersistence = true;
++  err.operation = operation;
++  err.cause = cause;
++  return err;
++}
++
++function markSuccessDurably(account, operation) {
++  try {
++    accountStore.markSuccess(account);
++  } catch (cause) {
++    throw localPersistenceError(operation, cause);
++  }
++}
+@@
+       const id = (res.data && res.data.data && res.data.data.id) || null;
+       if (id) {
+-        accountStore.markSuccess(account);
++        markSuccessDurably(account, 'chat_create_success');
+         return id;
+       }
+@@
+     } catch (err) {
++      // Qwen already answered successfully. A local durable-state failure must
++      // never be reclassified as a provider transport failure or trigger
++      // sibling-account failover, which could duplicate provider-side work.
++      if (err && err.localPersistence) throw err;
+       if (err && err.providerStop) throw err;
+@@
+-        if (gated.confirmedResponse) accountStore.markSuccess(account);
++        if (gated.confirmedResponse) markSuccessDurably(account, 'chat_completion_confirmed');
+         return { status: true, response: gated.stream, account, chatId: accountChatId };
+@@
+     } catch (err) {
++      if (err && err.localPersistence) {
++        logger.error(`local Qwen state persistence failed after provider I/O: ${err.cause?.message || err.message}`, 'QWEN');
++        return {
++          status: false,
++          message: 'Local Qwen state persistence failed after provider I/O.',
++          errorClass: 'local_persistence',
++          account,
++        };
++      }
+       if (err && err.providerStop) {
+@@
+ module.exports = {
+@@
+   classifyUpstreamFailure,
++  markSuccessDurably,
+*** End Patch
+
+diff --git a/scripts/post-success-persistence-boundary-test.js b/scripts/post-success-persistence-boundary-test.js
+new file mode 100644
+--- /dev/null
++++ b/scripts/post-success-persistence-boundary-test.js
+@@
++'use strict';
++
++// Regression contract for the boundary after successful provider I/O:
++// a durable account-state write failure is local infrastructure failure, not
++// Qwen transport failure, and must not trigger markFailure()/sibling failover.
++
++const fs = require('fs');
++const path = require('path');
++
++const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'qwen-client.js'), 'utf8');
++
++function assert(condition, message) {
++  if (!condition) throw new Error(message);
++}
++
++assert(source.includes("err.code = 'QWEN_LOCAL_PERSISTENCE'"), 'missing local persistence error class');
++assert(source.includes("errorClass: 'local_persistence'"), 'missing fail-closed local persistence response');
++assert(source.includes("markSuccessDurably(account, 'chat_create_success')"), 'chat creation success must use durable boundary');
++assert(source.includes("markSuccessDurably(account, 'chat_completion_confirmed')"), 'confirmed completion must use durable boundary');
++
++const createStart = source.indexOf('async function generateChatID');
++const sendStart = source.indexOf('async function sendChatRequest');
++const createBody = source.slice(createStart, sendStart);
++const createLocalPersistence = createBody.indexOf('if (err && err.localPersistence) throw err;');
++const createClassification = createBody.indexOf('const status = err.response', createLocalPersistence);
++assert(createLocalPersistence >= 0 && createClassification > createLocalPersistence, 'chat creation local persistence must exit before upstream classification');
++
++const sendBody = source.slice(sendStart);
++const sendLocalPersistence = sendBody.indexOf('if (err && err.localPersistence)');
++const sendClassification = sendBody.indexOf('const status = err.response', sendLocalPersistence);
++assert(sendLocalPersistence >= 0 && sendClassification > sendLocalPersistence, 'completion local persistence must exit before upstream classification');
++
++console.log('QWEN_POST_SUCCESS_PERSISTENCE_BOUNDARY_PASS');
++
+*** End Patch

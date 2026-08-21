@@ -1,41 +1,41 @@
 # Qwen — агентное ядро
 
-Обновлено: 2026-08-21 07:41Z.
+Обновлено: 2026-08-21 08:52Z.
 
 ## Текущее состояние
 
-`qwen-free-api`: ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6, текущий head `d41bc71ac7875c8bb4a625e128f20d01c2d885c6`.
+`qwen-free-api`: ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6, текущий head после Core-изменений `0b95364f01662c4496877126dd28c1e6099ea3aa`.
 
-В этом проходе закрыта проверка предыдущего streaming-fix на hosted-машине без Qwen и без внешнего CI:
+В этом проходе закрыт воспроизводимый дефект восстановления обычного текстового ответа OpenCode:
 
-- exact `scripts/stream-session-lifecycle-race-test.js` материализован с Git blob SHA `52e6d8a1fc40e47b0064732198791a5c5bb8fbcc` и реально выполнен;
-- результат: `QWEN_STREAM_LIFECYCLE_RACE_PASS terminal_once=1 no_write_after_end=1 late_data_ignored=1 disconnected_client_isolated=1 successful_disconnect_isolated=1 midstream_disconnect_isolated=1 primary_upstream_classified_once=1`;
-- `src/stream-session-guard.js` удалось материализовать функционально для запуска, но локальный Git blob SHA не совпал с каноническим `9c2d74c425a99e544fe1ea14fd28adf69769be14` из-за неполного переноса комментариев, поэтому это не считается exact-tree доказательством всего файла. Продуктовый код по этому поводу не менялся.
+- до исправления `checkpointAcceptedToolProgress()` сохранял новое assistant-сообщение только при наличии `tool_calls`; обычный принятый `assistant.content` выпадал из durable history;
+- после падения процесса короткое `continue` могло восстановить пользовательский запрос, но не последний текстовый ответ Qwen;
+- `src/session-store.js` теперь пропускает принятый assistant-текст через тот же ограниченный checkpoint, не ослабляя fail-closed проверки для tool-call;
+- длинный текст по-прежнему проходит через существующий лимит содержимого; точная проверка id/содержимого принятого tool-call и `QWEN_TOOL_CHECKPOINT_REJECTED` сохранены;
+- добавлен постоянный `scripts/session-assistant-text-checkpoint-test.js`: `user → assistant text → restart → short continue`, ограничение длинного ответа и сохранение прежней tool-call семантики;
+- новый тест включён в обычный `npm test`.
 
-При read-only разборе `server.js` + `session-store.js` найден новый воспроизводимый Core-дефект восстановления контекста:
+Коммиты:
+- `87f8106ff72fd93face6bbe23dbb36a1966810db` — исправление session-store;
+- `f7bd6554eb85fa06e0aa34d76d698a5c1b27b7a9` — постоянный regression;
+- `0b95364f01662c4496877126dd28c1e6099ea3aa` — включение regression в `npm test`.
 
-- non-stream путь после успешного обычного текстового ответа вызывает `sessionStore.checkpointAcceptedToolProgress(restoredMessages, assistantMessage)`;
-- текущая реализация `checkpointAcceptedToolProgress()` добавляет assistant-сообщение только если в нём есть `tool_calls`; обычный `assistant.content` отбрасывается и в durable checkpoint остаются только предыдущие сообщения;
-- локальный воспроизводимый harness на текущей логике дал `QWEN_NONSTREAM_ASSISTANT_CHECKPOINT_BUG_REPRODUCED assistant_lost=1`;
-- следствие: после падения процесса и короткого `continue` сервер может восстановить пользовательский запрос, но не последний принятый текстовый ответ модели. Это ломает точное продолжение длинной OpenCode-сессии даже без инструментов;
-- streaming-путь имеет аналогичный общий пробел для чистого текстового ответа: `streamAcceptedHistory` обновляется только через `onToolCallsAccepted`, поэтому финальный успешный текст модели тоже не добавляется в checkpoint.
-
-Исправление в продукт в этом проходе не отправлено: `session-store.js` был получен из GitHub частями, но собранный локальный файл не совпал побайтно с каноническим blob `571fc4f3f536f06066dcf623dfcb0db49c11a528`. Перезаписывать целый приватный файл из реконструкции запрещено. Следующий writer должен менять только exact bytes из GitHub, не собирать неизвестные участки из памяти.
-
-Полный exact-tree `npm test` не объявлять зелёным. GitHub Actions, CircleCI, Cloudflare, live Qwen, реальные аккаунты и production не использовались.
+Полный exact-tree `npm test` пока не объявлять зелёным: весь приватный репозиторий не материализован на hosted-машине, внешние CI намеренно не запускались. Живой Qwen, реальные аккаунты, Cloudflare и production не использовались.
 
 ## Постоянная память
 
 Нормативный протокол: `autonomy/v3/CAPSULE_RUNTIME_PROTOCOL_V2.json`, реализация `autonomy/v3/tools/capsule_runtime_v4.py`.
 
-На старте прочитан `autonomy/v3/workspaces/QWEN_CORE/LATEST.json`; exact Git blob SHA `0a26b34f066d9baf08317d9ee5aa5fb82fd15a57`. Он указывает на capsule `20260821T055653Z-ce3cad6218`, archive SHA-256 `2beb0e63444f642b113dbd74d0845f0f56b7ec82189f5781eb3d50cddcb164d3`.
+На старте прочитан `LATEST` с Git blob SHA `0a26b34f066d9baf08317d9ee5aa5fb82fd15a57`, capsule `20260821T055653Z-ce3cad6218`, archive SHA-256 `2beb0e63444f642b113dbd74d0845f0f56b7ec82189f5781eb3d50cddcb164d3`.
 
-Manifest и обе части capsule прочитаны отдельно. Канонический `capsule_runtime_v4.py` прочитан из Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`, однако доступный перенос connector → hosted filesystem снова не дал локальный файл с тем же Git blob SHA. Ручная сокращённая реализация для restore/pack не использовалась. Поэтому новая capsule и LATEST/PREVIOUS в этом проходе не публиковались; exact GitHub source остаётся recovery floor по failure-policy протокола.
+Канонический `capsule_runtime_v4.py` материализован побайтно: локальный Git blob SHA совпал с нормативным `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`. Стартовая capsule прошла exact `verify + restore`.
+
+После работы создана новая v4 capsule `20260821T085022Z-02f231a98c`, archive SHA-256 `82e29b812210b4f817fd72b9791540f9f6096901b7aa16fa3afdd416bb02413d`. Обе части и manifest загружены неизменяемо и перечитаны из GitHub. Перед публикацией `LATEST` был перечитан и всё ещё имел исходный parent blob SHA, поэтому CAS прошёл штатно. Старый LATEST сохранён как `PREVIOUS`. Текущий `LATEST` указывает на новую capsule и имеет Git blob SHA `ef4e7d5d57e8be1fe3b0c172250f051ea3d77d36`.
 
 ## Следующее
 
-1. Получить exact `session-store.js` без реконструкции и добавить durable сохранение обычного принятого `assistant.content` для non-stream пути. Tool-call fail-closed семантику не ослаблять.
-2. Добавить постоянный regression: `user → обычный assistant text → crash → short continue` обязан восстановить и пользовательский ход, и текст assistant; длинный assistant должен соблюдать checkpoint limits.
-3. Затем провести то же для streaming: собирать принятый текст ответа и фиксировать его только после успешного завершения upstream, не смешивая downstream disconnect с provider health.
-4. После этого вернуться к multi-tool disconnect/restart: уже подтверждённые tool-call ids должны оставаться pending после исчезновения клиента и сниматься только соответствующими tool results.
-5. При следующем существенном checkpoint выполнять только exact v4 `restore → pack → immutable upload → reread/verify → CAS LATEST`; force-write запрещён.
+1. На hosted-машине материализовать достаточный exact-tree и реально выполнить новый `session-assistant-text-checkpoint-test.js`; не использовать CircleCI/GitHub Actions ради обычной проверки.
+2. Закрыть аналогичный streaming-пробел: собирать принятый assistant-текст и фиксировать его только после успешного завершения upstream. Downstream disconnect не должен влиять на здоровье Qwen-аккаунта.
+3. Добавить restart regression для чистого streaming text: `user → streamed assistant text → crash → short continue`.
+4. Затем вернуться к multi-tool disconnect/restart: подтверждённые tool-call ids остаются pending после исчезновения клиента и снимаются только соответствующими tool results.
+5. После следующей существенной работы повторить только нормативный v4 `restore → pack → immutable upload → reread/verify → CAS LATEST`; force-write запрещён.

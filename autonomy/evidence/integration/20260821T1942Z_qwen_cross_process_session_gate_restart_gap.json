@@ -1,0 +1,40 @@
+{
+  "candidate_contract": [
+    "session admission for stateful explicit sessions must be process-shared across overlapping server generations",
+    "acquire the cross-process session lease before reading sessionStore record/pending state",
+    "hold it through durable acceptance/checkpoint and client-visible release of the accepted turn, matching the existing in-process critical section",
+    "the queued process must reread durable pending state after acquiring the lease and fail closed before provider work",
+    "different session keys must remain parallel"
+  ],
+  "finding": "QWEN_SESSION_REQUEST_GATE_PROCESS_LOCAL_RESTART_GAP",
+  "limits": [
+    "offline only",
+    "no provider traffic",
+    "no hosted CI",
+    "no production/secrets/accounts"
+  ],
+  "non_overlap": "Distinct from the already-recorded same-process concurrent-continue defect: the current in-memory SessionRequestGate fixes one process only; this is the restart/overlapping-process boundary.",
+  "observed": [
+    "server creates SessionRequestGate in process memory",
+    "same-process requests serialize, but a replacement server process owns a different gate",
+    "during rolling restart/overlap two processes can both read no pending tool call and both reach the provider for the same explicit session",
+    "both responses may contain mutating tool calls before either process sees the other process durable checkpoint"
+  ],
+  "probe": {
+    "path": "autonomy/v3/tools/integration_qwen_cross_process_session_gate_probe.js",
+    "result": {
+      "candidate_provider_calls": 1,
+      "current_provider_calls": 2
+    }
+  },
+  "schema": "integration_helper_evidence_v1",
+  "source": {
+    "qwen_head": "5c8fc5299f77a1c3502082da8827b6d3f20e7592",
+    "server_blob": "44d04725f7b1445f61c0f2da17007d1da8f0895f",
+    "session_request_gate_blob": "8bab117664096ed863b28b9de6815322a9f922c7",
+    "session_store_blob": "4390c00ab7b2c5ac5267b930cf895c6acc3c82ad"
+  },
+  "timestamp_utc": "2026-08-21T19:42:00Z",
+  "verdict": "REPRODUCED_CANDIDATE_CONTRACT_PASS",
+  "worker": "INTEGRATION_HELPER"
+}

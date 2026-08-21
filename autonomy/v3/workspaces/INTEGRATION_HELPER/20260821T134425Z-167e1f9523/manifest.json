@@ -1,0 +1,70 @@
+{
+  "archive": {
+    "parts": 3,
+    "sha256": "d0617b7ad8718c89073ef5022d8d8af7b24e0c00fd0175fc7ad63e33dccac429",
+    "size": 4460
+  },
+  "capsule_id": "20260821T134425Z-167e1f9523",
+  "created_at_utc": "2026-08-21T13:44:25Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "f9d8e82e164f7c9f839eb9f17b3ea82ea66b758e78280004d9a6a84853672497"
+    },
+    {
+      "chars": 2048,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "675f597f6d337adf0291571bfd79095cbbeda78e8309273975e27b7bafdabb54"
+    },
+    {
+      "chars": 1852,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "deeaaf9355ca3542e34ed729f8bac016b9ccdd874b59d959c9cb194a02ccbc83"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@861a8f176a6037acaec5721b2f6bbad3041d7dd9 + Ai-b0ss/notion-agent-bridge@1b4f9eb195f1fc2aadf6344a5e0b55ef7588201e",
+  "worker": "INTEGRATION_HELPER",
+  "workspace": {
+    "CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "82ea80e64330ab799e288e6d0dd46ca88e44ce4b33dd43df3f4f723cabe827c6",
+      "size": 2179,
+      "type": "file"
+    },
+    "EVIDENCE.json": {
+      "mode": "0o644",
+      "sha256": "40a237a613d2472383d7606406fd9d469dfb0198f439f452037894c3a5959eb5",
+      "size": 530,
+      "type": "file"
+    },
+    "QWEN_PENDING_TOOL_DURABLE_OBLIGATION_GUARD.patch": {
+      "mode": "0o644",
+      "sha256": "1e56e97fa0de06db46dcce9e7e6e238643800ea1418823e3146d2dddf85074b6",
+      "size": 709,
+      "type": "file"
+    },
+    "STATE.json": {
+      "mode": "0o644",
+      "sha256": "c9239f312373dae98c9fb9113781dcd74fd5e33c806eb01617a1c5c84d7d8691",
+      "size": 277,
+      "type": "file"
+    },
+    "integration_qwen_pending_tool_durable_obligation_probe.js": {
+      "mode": "0o644",
+      "sha256": "d636cc44cef87d64683a99005d8280ffbd825e7d65de9545b338fdb7d56ddf4c",
+      "size": 7695,
+      "type": "file"
+    },
+    "probe-output.json": {
+      "mode": "0o644",
+      "sha256": "9278e022bbc21f1b227d636dad029e272f8e0b656f31b0908c50087ae0e495fc",
+      "size": 1082,
+      "type": "file"
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "schema": "notion_core_durable_replay_v17_detached_get_v1",
+  "created_at_utc": "2026-08-21T20:42:00Z",
+  "core_ref": "Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "integration_ref": "Ai-b0ss/notion-agent-bridge@a5792c1a15027a5f58890a679df738084514e6d1",
+  "exact_source_blob": {
+    "payload/conversation_segments.py": "553bd3496c21a7949c3a5dfa03f33b9e09293213"
+  },
+  "candidate_review": {
+    "v12_patch_blob": "9f16a2e16f7693b0e64160881213cb9b026a3bf5",
+    "v12_spec_blob": "9779589cf4920542bc48801adf8da7c78d1f8378",
+    "finding": "V12 spec explicitly requires get() to return a detached deep copy, but the V12 exact candidate plus its recorded fixup still returns self._items[...] directly."
+  },
+  "reproduction": {
+    "method": "offline Python harness against the exact get()/ConversationSegment behavior from blob 553bd349... with external modules stubbed; no provider traffic",
+    "baseline": {
+      "returned_segment_mutated": "notion_thread_id=MUTATED-BEFORE-COMMIT",
+      "internal_store_after_mutation": "MUTATED-BEFORE-COMMIT",
+      "verdict": "LIVE_OBJECT_ALIAS_REPRODUCED"
+    },
+    "fix": {
+      "change": "item = self._items.get(...); return copy.deepcopy(item) if item is not None else None",
+      "internal_store_after_returned_object_mutation": "thread",
+      "verdict": "DETACHED_GET_FIXUP_PASS"
+    }
+  },
+  "risk": "If server-side preparation mutates a segment returned by get() before strict publication, the in-memory preimage is already altered. A later NCM28 write failure can therefore leave memory inconsistent with the last durable state and weaken V12 rollback guarantees.",
+  "required_combined_order": [
+    "20260821T1640Z_durable_replay_v12_exact_candidate.patch",
+    "20260821T1705Z_durable_replay_v12_candidate_fixup.patch",
+    "20260821T2042Z_durable_replay_v17_detached_get_fixup.patch",
+    "V14 oversized-response durable tombstone requirement",
+    "20260821T1848Z_durable_replay_v15_overlay.patch",
+    "20260821T1948Z_durable_compaction_replay_v16_overlay.patch",
+    "20260821T1955Z_durable_compaction_replay_v16_fixup.patch"
+  ],
+  "hosted_ci_started": false,
+  "provider_traffic": false,
+  "product_branch_mutated": false,
+  "windows_digest_rerun": false
+}

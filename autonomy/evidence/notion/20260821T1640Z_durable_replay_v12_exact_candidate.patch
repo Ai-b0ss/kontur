@@ -1,0 +1,516 @@
+diff --git a/payload/conversation_segments.py b/payload/conversation_segments.py
+index 553bd34..0000000 100644
+--- a/payload/conversation_segments.py
++++ b/payload/conversation_segments.py
+@@ -1,6 +1,7 @@
+ from __future__ import annotations
+ 
+ import asyncio
++import copy
+ import hashlib
+ import json
+ import os
+@@ -18,8 +19,19 @@ from prompt_modes import prompt_policy_fingerprint, requested_prompt_mode
+ 
+ CONVERSATION_TTL = 30 * 24 * 60 * 60
+ MAX_CONVERSATIONS = 500
++REPLAY_SCHEMA_VERSION = 1
++REPLAY_TTL = 6 * 60 * 60
++MAX_REPLAY_BYTES = 512 * 1024
++MAX_TOTAL_REPLAY_BYTES = 8 * 1024 * 1024
++MAX_STALE_REPLAY_FINGERPRINTS = 32
+ # Version 2 invalidates bindings created while Notion recorded the thread as Auto.
+ STATE_VERSION = 2
+ 
++
++class ConversationPersistenceError(RuntimeError):
++    """Durable conversation state could not be safely published."""
++
++
++class ConversationReplayTooLarge(ConversationPersistenceError):
++    pass
++
+@@ -75,6 +87,11 @@ class ConversationSegment:
+     output_tokens: int
+     updated_at: float
+     model: str | None = None
++    replay_schema_version: int = 0
++    replay_request_fingerprint: str | None = None
++    replay_response: dict[str, Any] | None = None
++    replay_updated_at: float = 0.0
++    stale_replay_fingerprints: tuple[str, ...] = ()
+ 
+ 
+ class ConversationSegmentStore:
+@@ -114,6 +131,11 @@ class ConversationSegmentStore:
+             if changed:
+                 self._save_locked()
+             return self._items.get(conversation_storage_key(key))
++
++    async def require_persistence_ready(self) -> None:
++        async with self._guard:
++            self._load_locked()
++            if self.path is None or self._persistence_blocked:
++                raise ConversationPersistenceError("durable conversation state is unavailable")
+ 
+     async def put(
+         self,
+@@ -129,12 +151,45 @@ class ConversationSegmentStore:
+         output_tokens: int,
+         model: str,
++        replay_request_fingerprint: str | None = None,
++        replay_response: dict[str, Any] | None = None,
++        require_persistence: bool = False,
+     ) -> None:
+         if key is None:
++            if require_persistence:
++                raise ConversationPersistenceError("durable conversation key is required")
+             return
+         async with self._guard:
+             self._load_locked()
+-            self._items[conversation_storage_key(key)] = ConversationSegment(
++            if require_persistence and (self.path is None or self._persistence_blocked):
++                raise ConversationPersistenceError("durable conversation state is unavailable")
++            if replay_response is not None:
++                if not replay_request_fingerprint:
++                    raise ValueError("replay_request_fingerprint is required with replay_response")
++                replay_size = len(json.dumps(
++                    replay_response,
++                    ensure_ascii=False,
++                    sort_keys=True,
++                    separators=(",", ":"),
++                ).encode("utf8"))
++                if replay_size > MAX_REPLAY_BYTES:
++                    raise ConversationReplayTooLarge("rendered replay exceeds durable size limit")
++
++            storage_key = conversation_storage_key(key)
++            previous = self._items.get(storage_key)
++            stale = list(previous.stale_replay_fingerprints if previous else ())
++            previous_fingerprint = previous.replay_request_fingerprint if previous else None
++            previous_response = previous.replay_response if previous else None
++            previous_replay_updated_at = previous.replay_updated_at if previous else 0.0
++            previous_schema = previous.replay_schema_version if previous else 0
++            if replay_request_fingerprint and previous_fingerprint and previous_fingerprint != replay_request_fingerprint:
++                stale.append(previous_fingerprint)
++            stale = list(dict.fromkeys(stale))[-MAX_STALE_REPLAY_FINGERPRINTS:]
++
++            staged = copy.deepcopy(self._items)
++            staged[storage_key] = ConversationSegment(
+                 account_id=account_id,
+                 notion_thread_id=notion_thread_id,
+                 input_fingerprints=input_fingerprints,
+@@ -145,10 +200,34 @@ class ConversationSegmentStore:
+                 output_tokens=output_tokens,
+                 updated_at=time.time(),
+                 model=model,
++                replay_schema_version=(
++                    REPLAY_SCHEMA_VERSION if replay_request_fingerprint else previous_schema
++                ),
++                replay_request_fingerprint=(replay_request_fingerprint or previous_fingerprint),
++                replay_response=(replay_response if replay_request_fingerprint else previous_response),
++                replay_updated_at=(time.time() if replay_request_fingerprint else previous_replay_updated_at),
++                stale_replay_fingerprints=tuple(stale),
+             )
+-            self._cleanup_locked()
+-            self._save_locked()
++            self._cleanup_items_locked(staged)
++            if require_persistence:
++                self._save_items_locked(staged, strict=True)
++                self._items = staged
++                return
++            if self.path is None:
++                self._items = staged
++                return
++            if self._persistence_blocked:
++                # Preserve legacy non-strict behaviour for auxiliary state, but
++                # never pretend this is durable replay publication.
++                self._items = staged
++                return
++            if self._save_items_locked(staged, strict=False):
++                self._items = staged
++
++    async def blocked(self) -> bool:
++        async with self._guard:
++            self._load_locked()
++            return self._persistence_blocked
+@@ -197,6 +276,11 @@ class ConversationSegmentStore:
+                     updated_at=float(raw.get("updated_at", 0)),
+                     model=(str(raw["model"]) if raw.get("model") else None),
++                    replay_schema_version=int(raw.get("replay_schema_version", 0) or 0),
++                    replay_request_fingerprint=(str(raw["replay_request_fingerprint"]) if raw.get("replay_request_fingerprint") else None),
++                    replay_response=(dict(raw["replay_response"]) if isinstance(raw.get("replay_response"), dict) else None),
++                    replay_updated_at=float(raw.get("replay_updated_at", 0) or 0),
++                    stale_replay_fingerprints=tuple(str(v) for v in raw.get("stale_replay_fingerprints", []) if isinstance(v, str)),
+                 )
+         except (OSError, UnicodeDecodeError, ValueError, TypeError, KeyError, json.JSONDecodeError):
+@@ -207,6 +291,52 @@ class ConversationSegmentStore:
+             self._items = {}
+ 
+     def _cleanup_locked(self) -> bool:
++        staged = copy.deepcopy(self._items)
++        changed = self._cleanup_items_locked(staged)
++        if not changed:
++            return False
++        if self.path is None:
++            self._items = staged
++            return True
++        if self._persistence_blocked:
++            return False
++        if self._save_items_locked(staged, strict=False):
++            self._items = staged
++            return True
++        return False
++
++    def _cleanup_items_locked(self, items: dict[str, ConversationSegment]) -> bool:
++        now = time.time()
++        changed = False
++        replay_cutoff = now - REPLAY_TTL
++        for item in items.values():
++            if item.replay_response is not None and item.replay_updated_at < replay_cutoff:
++                if item.replay_request_fingerprint:
++                    stale = list(item.stale_replay_fingerprints)
++                    stale.append(item.replay_request_fingerprint)
++                    item.stale_replay_fingerprints = tuple(dict.fromkeys(stale))[-MAX_STALE_REPLAY_FINGERPRINTS:]
++                item.replay_response = None
++                changed = True
++
++        def replay_size(item: ConversationSegment) -> int:
++            if item.replay_response is None:
++                return 0
++            return len(json.dumps(item.replay_response, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf8"))
++
++        total = sum(replay_size(item) for item in items.values())
++        if total > MAX_TOTAL_REPLAY_BYTES:
++            replay_items = sorted(
++                (item for item in items.values() if item.replay_response is not None),
++                key=lambda item: item.replay_updated_at,
++            )
++            for item in replay_items:
++                if total <= MAX_TOTAL_REPLAY_BYTES:
++                    break
++                size = replay_size(item)
++                if item.replay_request_fingerprint:
++                    stale = list(item.stale_replay_fingerprints)
++                    stale.append(item.replay_request_fingerprint)
++                    item.stale_replay_fingerprints = tuple(dict.fromkeys(stale))[-MAX_STALE_REPLAY_FINGERPRINTS:]
++                item.replay_response = None
++                total -= size
++                changed = True
++
+         cutoff = time.time() - self.ttl
+-        before = len(self._items)
+-        self._items = {
+-            key: item for key, item in self._items.items() if item.updated_at >= cutoff
++        before = len(items)
++        kept = {
++            key: item for key, item in items.items() if item.updated_at >= cutoff
+         }
+-        if len(self._items) > self.maximum:
++        if len(kept) > self.maximum:
+             newest = sorted(
+-                self._items.items(), key=lambda pair: pair[1].updated_at, reverse=True
++                kept.items(), key=lambda pair: pair[1].updated_at, reverse=True
+             )[:self.maximum]
+-            self._items = dict(newest)
++            kept = dict(newest)
++        if kept.keys() != items.keys():
++            items.clear()
++            items.update(kept)
++            changed = True
+         stale_locks = [
+             key for key, lock in self._locks.items()
+-            if key not in self._items and not lock.locked()
++            if key not in items and not lock.locked()
+         ]
+         for key in stale_locks:
+             self._locks.pop(key, None)
+-        return len(self._items) != before
++        return changed or len(items) != before
+ 
+     def _save_locked(self) -> None:
++        self._save_items_locked(self._items, strict=False)
++
++    def _save_items_locked(self, items: dict[str, ConversationSegment], *, strict: bool) -> bool:
+         if self.path is None or self._persistence_blocked:
+-            return
++            if strict:
++                raise ConversationPersistenceError("durable conversation state is unavailable")
++            return False
+         payload = {
+             "version": STATE_VERSION,
+             "conversations": {
+                 key: {**asdict(item), "input_fingerprints": list(item.input_fingerprints)}
+-                for key, item in self._items.items()
++                for key, item in items.items()
+             },
+         }
+@@ -247,6 +377,10 @@ class ConversationSegmentStore:
+                 self._disk_snapshot = ncm28_atomic_write_from_snapshot(
+                     self.path, raw, self._disk_snapshot, parent_guard=parent_guard
+                 )
+-        except (FilesystemOwnershipError, OSError):
++            return True
++        except (FilesystemOwnershipError, OSError) as exc:
+             # Preserve a concurrent/foreign file and continue with in-memory state.
+             self._persistence_blocked = True
++            if strict:
++                raise ConversationPersistenceError("durable conversation publication failed") from exc
++            return False
+diff --git a/payload/server.py b/payload/server.py
+index f02cef6..0000000 100644
+--- a/payload/server.py
++++ b/payload/server.py
+@@ -3,6 +3,7 @@ from __future__ import annotations
+ import asyncio
++import hashlib
+ import itertools
+ import json
+@@ -36,6 +37,8 @@ from conversation_segments import (
+     ConversationSegmentStore,
++    ConversationPersistenceError,
++    ConversationReplayTooLarge,
+     input_prefix_length,
+     response_input_fingerprints,
+ )
+@@ -189,6 +192,79 @@ foreground_account_reservations = ForegroundAccountReservations()
++
++def durable_replay_fingerprint(
++    body: dict[str, Any], turn_key: str | None, request_kind: str
++) -> str:
++    value = {
++        "turn_id": turn_key,
++        "request_kind": request_kind,
++        "input": response_input_fingerprint(body),
++    }
++    return hashlib.sha256(
++        json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
++    ).hexdigest()
++
++
++async def configured_account_ids() -> set[str]:
++    if account_pool is None:
++        return set()
++    status = await account_pool.status()
++    return {
++        str(item.get("id"))
++        for item in status.get("accounts", [])
++        if isinstance(item, dict) and isinstance(item.get("id"), str) and item.get("id")
++    }
++
++
++def response_has_tool_call(response: dict[str, Any]) -> bool:
++    return any(
++        isinstance(item, dict) and item.get("type") in {"function_call", "custom_tool_call"}
++        for item in response.get("output", [])
++    )
++
++
++async def rehydrate_durable_response(
++    *,
++    response: dict[str, Any],
++    turn_key: str | None,
++    account_id: str,
++    request_kind: str,
++    resolved_model: str,
++) -> JSONResponse | None:
++    if request_kind == "turn" and resolved_model == "gpt-5.6-sol":
++        if response_has_tool_call(response):
++            if account_id not in await configured_account_ids():
++                await foreground_account_reservations.clear(turn_key)
++                return JSONResponse(
++                    {"error": {"message": "persisted tool owner is no longer configured", "type": "restart_replay_unavailable"}},
++                    status_code=409,
++                )
++            await foreground_account_reservations.reserve(turn_key, account_id)
++        else:
++            await foreground_account_reservations.clear(turn_key)
++    return None
++
++
++def project_canonical_response(body: dict[str, Any], response: dict[str, Any]):
++    if not body.get("stream", False):
++        return response
++    output = response.get("output", [])
++    if len(output) != 1 or not isinstance(output[0], dict):
++        return JSONResponse(
++            {"error": {"message": "invalid persisted response", "type": "api_error"}},
++            status_code=500,
++        )
++    async def stream():
++        for event in responses_sse(response, output[0]):
++            yield event
++    return StreamingResponse(stream(), media_type="text/event-stream")
++
++
++def replay_error(message: str, status_code: int = 409) -> JSONResponse:
++    return JSONResponse(
++        {"error": {"message": message, "type": "restart_replay_unavailable"}},
++        status_code=status_code,
++    )
++
+@@ -1987,12 +2063,6 @@ async def openai_responses(request: Request):
+-    if body.get("stream", False):
+-        return StreamingResponse(
+-            stream_openai_responses(body, turn_key, conversation_key, request_kind),
+-            media_type="text/event-stream",
+-        )
+     requested_model = str(body.get("model") or MODEL_ID).lower()
+     async with responses_inference_slot(
+         request_kind, requested_model, turn_key=turn_key
+@@ -2040,6 +2110,20 @@ async def handle_openai_responses(
+     if account_pool is None or account_pool.size == 0:
+         return JSONResponse({"error": {"message": "No valid Notion accounts are configured", "type": "api_error"}}, status_code=503)
++
++    # Once persistence is blocked, fail before another provider plan can be made.
++    if conversation_key is not None and isinstance(conversation_segments, ConversationSegmentStore):
++        try:
++            await conversation_segments.require_persistence_ready()
++        except ConversationPersistenceError as exc:
++            return replay_error(str(exc), status_code=503)
++
+     raw_tools = responses_request_tools(body)
+     tools = [] if is_compaction else responses_tool_catalog(raw_tools)
+@@ -2049,6 +2133,8 @@ async def handle_openai_responses(
+     affinity = await turn_affinities.get(turn_key)
+     segment = await conversation_segments.get(conversation_key)
++    replay_fingerprint = durable_replay_fingerprint(body, turn_key, request_kind)
++
+     affinity_matches_model = affinity is not None and affinity.model == model
+@@ -2086,6 +2172,39 @@ async def handle_openai_responses(
+         notion_thread_id=(
+             correlation_id(segment.notion_thread_id)
+             if segment is not None and rollover_reason is None else None
+         ),
+     )
++
++    if segment is not None:
++        persisted_fingerprint = getattr(segment, "replay_request_fingerprint", None)
++        persisted_response = getattr(segment, "replay_response", None)
++        stale_fingerprints = set(getattr(segment, "stale_replay_fingerprints", ()))
++        if replay_fingerprint == persisted_fingerprint:
++            if not isinstance(persisted_response, dict):
++                return replay_error("exact prior request no longer has a replayable response")
++            failure = await rehydrate_durable_response(
++                response=persisted_response,
++                turn_key=turn_key,
++                account_id=segment.account_id,
++                request_kind=request_kind,
++                resolved_model=model,
++            )
++            if failure is not None:
++                return failure
++            return project_canonical_response(body, persisted_response)
++        if replay_fingerprint in stale_fingerprints:
++            return replay_error("stale prior request cannot be executed again")
++
+     input_fingerprint = response_input_fingerprint(body)
+     if (
++        conversation_key is None
++        and
+         affinity_matches_model
+         and affinity is not None
+@@ -2335,25 +2454,6 @@ async def handle_openai_responses(
+-            if request_kind == "turn" and model == "gpt-5.6-sol":
+-                if tools and extract_responses_tool_call(completion.text, tools) is not None:
+-                    await foreground_account_reservations.reserve(turn_key, lease.account_id)
+-                    log_event(
+-                        log,
+-                        "foreground_account_reserved_for_tool_round",
+-                        account_id=lease.account_id,
+-                        reservation_ttl_seconds=FOREGROUND_TOOL_ACCOUNT_RESERVATION_TTL_SECONDS,
+-                    )
+-                else:
+-                    await foreground_account_reservations.clear(turn_key)
+-            await turn_affinities.put(
+-                turn_key,
+-                account_id=lease.account_id,
+-                notion_thread_id=completion.thread_id,
+-                input_count=response_input_count(body),
+-                input_fingerprint=input_fingerprint,
+-                completion_text=completion.text,
+-                input_tokens=completion.usage.input_tokens,
+-                output_tokens=completion.usage.output_tokens,
+-                model=model,
+-            )
+             next_segment_index = (
+                 0 if segment is None else
+                 segment.segment_index + 1 if rollover_reason else
+                 segment.segment_index
+             )
+-            await conversation_segments.put(
++
++            response, item = responses_payload(
++                completion.text,
++                requested_model,
++                completion.usage.input_tokens,
++                completion.usage.output_tokens,
++                tools,
++                response_id=response_id,
++            )
++            if response_has_tool_call(response) and conversation_key is None:
++                return replay_error("tool-call requires a durable conversation identity")
++            await conversation_segments.put(
+                 conversation_key,
+                 account_id=lease.account_id,
+                 notion_thread_id=completion.thread_id,
+@@ -2365,6 +2465,39 @@ async def handle_openai_responses(
+                 output_tokens=completion.usage.output_tokens,
+                 model=model,
++                replay_request_fingerprint=replay_fingerprint,
++                replay_response=response,
++                require_persistence=(conversation_key is not None),
+             )
++
++            # Only ephemeral state follows successful durable publication.
++            await turn_affinities.put(
++                turn_key,
++                account_id=lease.account_id,
++                notion_thread_id=completion.thread_id,
++                input_count=response_input_count(body),
++                input_fingerprint=input_fingerprint,
++                completion_text=completion.text,
++                input_tokens=completion.usage.input_tokens,
++                output_tokens=completion.usage.output_tokens,
++                model=model,
++            )
++            failure = await rehydrate_durable_response(
++                response=response,
++                turn_key=turn_key,
++                account_id=lease.account_id,
++                request_kind=request_kind,
++                resolved_model=model,
++            )
++            if failure is not None:
++                return failure
+             log_event(
+                 log,
+                 "turn_affinity_saved",
+@@ -2401,6 +2534,16 @@ async def handle_openai_responses(
+             )
++    except ConversationReplayTooLarge as exc:
++        return JSONResponse(
++            {"error": {"message": str(exc), "type": "response_too_large"}},
++            status_code=413,
++        )
++    except ConversationPersistenceError as exc:
++        # Strict write failed before TurnAffinity/reservation/client publication.
++        return replay_error(str(exc), status_code=503)
+     except AccountPoolCoolingDown as exc:
+@@ -2471,20 +2614,7 @@ async def handle_openai_responses(
+-    response, item = responses_payload(
+-        completion.text,
+-        requested_model,
+-        completion.usage.input_tokens,
+-        completion.usage.output_tokens,
+-        tools,
+-        response_id=response_id,
+-    )
+-    if not body.get("stream", False):
+-        return response
+-
+-    async def stream():
+-        for event in responses_sse(response, item):
+-            yield event
+-
+-    return StreamingResponse(stream(), media_type="text/event-stream")
++    return project_canonical_response(body, response)

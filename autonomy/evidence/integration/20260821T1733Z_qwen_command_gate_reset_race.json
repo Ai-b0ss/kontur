@@ -1,0 +1,38 @@
+{
+  "schema": "integration_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "observed_at_utc": "2026-08-21T17:33:00Z",
+  "product": "Ai-b0ss/qwen-free-api",
+  "product_ref": "autopilot/qwen-runtime-preflight-20260818@925682bc36338a249a26dae2c684380c21ba8db7",
+  "finding": "session-mutating local commands bypass SessionRequestGate",
+  "fresh_source": {
+    "server_js_blob": "44d04725f7b1445f61c0f2da17007d1da8f0895f",
+    "command_handler_blob": "85f8586a37b4308e52cf138043d174030e52b090"
+  },
+  "mechanism": [
+    "server.js calls commandHandler.isCommandMessage()/handleCommand() before sessionRequestGate.acquire(sessionKey)",
+    "normal /v1/chat/completions requests acquire the per-session gate and may persist session/tool state near completion",
+    "a reset/clear command can therefore clear state and acknowledge success while an older same-session request is still running",
+    "the older request may subsequently persist its accepted state again, resurrecting a session after reset acknowledgement"
+  ],
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_qwen_command_gate_reset_race_probe.py",
+    "verdict": "QWEN_COMMAND_GATE_RESET_RACE_REPRODUCED",
+    "current": {
+      "events": ["reset_ack", "normal_persist"],
+      "final_session": "resurrected"
+    },
+    "candidate": {
+      "events": ["normal_persist", "reset_ack"],
+      "final_session": null
+    }
+  },
+  "minimal_fix_contract": [
+    "derive sessionKey first",
+    "serialize session-mutating commands under the same SessionRequestGate used by ordinary requests",
+    "do not acknowledge reset/clear until all older same-session requests have left the gate and the clear has durably completed",
+    "keep unrelated session keys concurrent",
+    "add a regression where an old request pauses before persistence, reset starts, old request completes, reset then clears; final durable session must be absent"
+  ],
+  "scope": "No product source changed. No hosted CI, provider traffic, real accounts, secrets, Cloudflare, Windows, production, Kontur product, or AI Mirrors touched."
+}

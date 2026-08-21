@@ -1,0 +1,34 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "QWEN_MUTATING_TOOL_ERROR_ESCAPES_UNCERTAIN_GUARD",
+  "source": {
+    "repo": "Ai-b0ss/qwen-free-api",
+    "pr": 6,
+    "head": "22b4fa819685eaca943a012e179d9ef7eca4eac0",
+    "agent_blob": "0dc6486d7bbb7a7c8d4137971a0deae6bd99e87d",
+    "tool_executor_blob": "85cd74b92a4f4496d787e66e0ccaa96ec6f9f086",
+    "side_effect_state_blob": "3143c9b699070e6e1ee20cef9c5f80d84488b6fd",
+    "subagent_runner_blob": "1ed42cbadb874cb8d70f1482a9257170c7abf1a2"
+  },
+  "observed_contract": [
+    "subagent-side-effect-state marks bash/write_file/edit_file/append_file as potentially mutating when the tool event is emitted",
+    "runOne only calls markUncertainAfterPotentialSideEffect when agent.runTurn throws",
+    "agent.runTurn catches executor throws and also treats executor strings beginning with Error: as ordinary tool_result feedback, then continues the model loop",
+    "tool-executor converts handler exceptions to Error: strings; bash nonzero/timeout also returns Error: strings after the command may already have mutated state",
+    "therefore a post-mutation failure can remain inside runTurn, never reach the persisted subagent uncertain guard, and be automatically retried by the model"
+  ],
+  "risk": "Duplicate shell/file side effects inside one coding turn despite the outer persisted-subagent retry guard.",
+  "offline_regression": {
+    "path": "autonomy/v3/tools/integration_qwen_mutating_tool_error_boundary_probe.js",
+    "expected_current": "two side effects after an Error: result is fed back and the model retries",
+    "candidate": "mutating tool Error: terminates the coding turn as uncertain before another model round; read-only errors remain recoverable feedback"
+  },
+  "minimal_owner_fix": [
+    "Preserve the distinction between pre-execution validation errors and failures after a mutating tool was admitted/started.",
+    "For bash/write_file/edit_file/append_file, a failure after execution begins must escape runTurn as an error marked uncertain instead of becoming ordinary recoverable tool feedback.",
+    "Malformed arguments, disabled tools, workspace/cwd rejection before process start, and read-only tool errors may remain model feedback where proven side-effect-free.",
+    "Add a product regression proving post-mutation failure cannot cause a second automatic tool execution, while existing malformed/disabled/read-only recovery remains green."
+  ],
+  "scope": "No product file changed. No hosted CI, provider traffic, Cloudflare, Windows, production, real accounts/data, or secrets."
+}

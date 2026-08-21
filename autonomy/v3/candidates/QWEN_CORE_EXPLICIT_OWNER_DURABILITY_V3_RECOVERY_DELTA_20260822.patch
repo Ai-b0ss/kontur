@@ -1,0 +1,246 @@
+*** Begin Patch
+*** Update File: src/session-store.js
+@@
+   commitMutation((nextSessions) => {
+     const current = nextSessions.get(key);
+     const base = current && typeof current === 'object'
+       ? current
+       : {};
++    // Fallback backup history can be reconciled from explicit full transcript,
++    // but out-of-band prompt authority is not present in that transcript and
++    // therefore cannot be proven current. Drop it during reconciliation; the
++    // server will persist freshly supplied authority after the next accepted
++    // response instead of resurrecting stale owner metadata from backup.
++    const {
++      systemPromptMode: _staleSystemPromptMode,
++      ownerSystemPrompt: _staleOwnerSystemPrompt,
++      ...safeBase
++    } = base;
+     nextSessions.set(key, {
+-      ...base,
++      ...safeBase,
+       chatId: null,
+       awaitingCompactedHistory: false,
+       history,
+       updatedAt: Date.now(),
+@@
+*** Update File: server.js
+@@
+-function restoreDurablePromptAuthority(originalBody, effectiveBody, record, isContinuationTurn, headers = {}) {
+-  if (!isContinuationTurn || !record) return effectiveBody;
+-  // A new owner field or a new system message is current authority and always wins.
+-  if (explicitOwnerSystemPrompt(originalBody) !== null) return effectiveBody;
+-  if (hasIncomingSystemAuthority(originalBody)) return effectiveBody;
+-
+-  const currentMode = explicitPromptMode(originalBody, headers);
+-  // Explicit engineer is a deliberate authority transition; never resurrect old owner state.
+-  if (currentMode === 'engineer') return effectiveBody;
+-  // Explicit owner mode without new owner text still needs the last durable exact
+-  // explicit prompt. The mode flag by itself is not replacement authority.
+-  if (currentMode === 'owner') {
+-    if (typeof record.ownerSystemPrompt !== 'string') return effectiveBody;
+-    return { ...effectiveBody, owner_system_prompt: record.ownerSystemPrompt };
+-  }
+-  // No current mode or authority: inherit the durable mode on a short continuation.
+-  if (record.systemPromptMode !== 'owner' && record.systemPromptMode !== 'engineer') return effectiveBody;
+-  const restored = { ...effectiveBody, system_prompt_mode: record.systemPromptMode };
+-  if (record.systemPromptMode === 'owner' && typeof record.ownerSystemPrompt === 'string') {
+-    restored.owner_system_prompt = record.ownerSystemPrompt;
+-  }
+-  return restored;
++function recoveryPromptAuthorityError() {
++  const error = new Error(
++    'Recovered session prompt authority is uncertain and requires an explicit current system-prompt mode before continuation.',
++  );
++  error.code = 'QWEN_SESSION_RECOVERY_UNCERTAIN';
++  return error;
++}
++
++function assertRecoveredPromptAuthority(record, body = {}, headers = {}) {
++  if (!record || !record.recoveryUncertain) return;
++  if (record.systemPromptMode === undefined && record.ownerSystemPrompt === undefined) return;
++
++  const mode = explicitPromptMode(body, headers);
++  const owner = explicitOwnerSystemPrompt(body);
++  const hasSystem = hasIncomingSystemAuthority(body);
++
++  // Explicit engineer is sufficient current authority. An explicit owner field
++  // itself is also sufficient and may imply owner when the mode flag was omitted.
++  if (mode === 'engineer') return;
++  if (owner !== null && (mode === null || mode === 'owner')) return;
++  // Owner mode without an explicit detached prompt is acceptable only when the
++  // current request contains system material from which owner mode can derive
++  // current authority. A bare `mode=owner` must not resurrect stale backup text.
++  if (mode === 'owner' && hasSystem) return;
++  throw recoveryPromptAuthorityError();
++}
++
++function restoreDurablePromptAuthority(originalBody, effectiveBody, record, headers = {}) {
++  if (!record) return effectiveBody;
++
++  const currentMode = explicitPromptMode(originalBody, headers);
++  const incomingOwner = explicitOwnerSystemPrompt(originalBody);
++
++  // Never inherit out-of-band authority from a fallback backup. The recovery
++  // preflight above requires current explicit authority; if the caller supplied
++  // an owner field without a redundant mode flag, make that current intent
++  // explicit for the downstream capability layer.
++  if (record.recoveryUncertain) {
++    if (currentMode === null && incomingOwner !== null) {
++      return { ...effectiveBody, system_prompt_mode: 'owner' };
++    }
++    return effectiveBody;
++  }
++
++  // Explicit engineer is a deliberate authority transition; never resurrect old owner state.
++  if (currentMode === 'engineer') return effectiveBody;
++
++  // Explicit owner mode with a new owner field uses the new field. With no new
++  // detached owner text, the durable exact owner remains authoritative even if
++  // the request also carries fresh project/system context.
++  if (currentMode === 'owner') {
++    if (incomingOwner !== null) return effectiveBody;
++    if (typeof record.ownerSystemPrompt !== 'string') return effectiveBody;
++    return { ...effectiveBody, owner_system_prompt: record.ownerSystemPrompt };
++  }
++
++  // Prompt authority is a session property, not a property of the literal word
++  // `continue`. On any later turn without an explicit mode transition, inherit
++  // the durable mode. Incoming system messages stay in the body as fresh project
++  // context; in owner mode the capability layer separates those from the exact
++  // detached owner prompt.
++  if (record.systemPromptMode !== 'owner' && record.systemPromptMode !== 'engineer') return effectiveBody;
++  const restored = { ...effectiveBody, system_prompt_mode: record.systemPromptMode };
++  if (record.systemPromptMode === 'owner') {
++    if (incomingOwner !== null) restored.owner_system_prompt = incomingOwner;
++    else if (typeof record.ownerSystemPrompt === 'string') restored.owner_system_prompt = record.ownerSystemPrompt;
++  }
++  return restored;
+ }
+@@
+       accountStore.load();
+       const record = sessionStore.getRecord(sessionKey);
++      // History recovered from a fallback backup has an explicit reconciliation
++      // protocol. V2 prompt metadata is out-of-band from that history, so require
++      // current prompt authority before restoreCheckpoint is allowed to clear the
++      // recovery marker.
++      assertRecoveredPromptAuthority(record, publicBody, req.headers);
+       const savedAccount = (record && record.accountId) ? accountStore.get(record.accountId) : null;
+@@
+       const effectiveBody = restoreDurablePromptAuthority(
+         publicBody,
+         restoredBody,
+         record,
+-        isContinuationTurn,
+         req.headers,
+       );
+*** Update File: scripts/server-explicit-owner-rehydrate-test.js
+@@
+     await invoke({ model: 'qwen-test', stream: false, messages: [{ role: 'user', content: 'continue' }] });
+@@
+     assert.strictEqual(persistedMetadata[0].ownerSystemPrompt, 'DURABLE_PRIVATE_OWNER');
++
++    // Sticky authority is session-wide, not restricted to a magic continuation
++    // word. Fresh project/system context must not silently demote an explicit
++    // durable owner prompt back to engineer mode.
++    providerBodies = []; persistedMetadata = [];
++    await invoke({
++      model: 'qwen-test',
++      stream: false,
++      messages: [
++        { role: 'system', content: 'Instructions from: PROJECT.md\nFRESH_PROJECT_RULE' },
++        { role: 'user', content: 'do the next task' },
++      ],
++    });
++    assert.strictEqual(providerBodies[0].body.system_prompt_mode, 'owner');
++    assert.strictEqual(providerBodies[0].body.owner_system_prompt, 'DURABLE_PRIVATE_OWNER');
++    assert.ok(JSON.stringify(providerBodies[0].body.messages).includes('FRESH_PROJECT_RULE'));
+@@
+     assert.strictEqual(persistedMetadata[0].ownerSystemPrompt, null);
++
++    // Fallback-backup owner metadata is not authoritative. A request that does
++    // not explicitly confirm current prompt authority must stop before provider
++    // traffic instead of inheriting stale backup owner text.
++    providerBodies = []; persistedMetadata = [];
++    record.recoveryUncertain = true;
++    const recoveryBlocked = await invoke({
++      model: 'qwen-test', stream: false,
++      messages: [{ role: 'user', content: 'continue' }],
++    });
++    assert.strictEqual(providerBodies.length, 0);
++    assert.strictEqual(recoveryBlocked.body.error.code, 'QWEN_SESSION_RECOVERY_UNCERTAIN');
++    record.recoveryUncertain = false;
+@@
+-    console.log('SERVER_EXPLICIT_OWNER_REHYDRATE_PASS restart_continue=1 owner_flag_inherits=1 current_authority_wins=1 oversized_provider_calls=0');
++    console.log('SERVER_EXPLICIT_OWNER_REHYDRATE_PASS restart_continue=1 ordinary_turn_sticky=1 project_context_preserved=1 owner_flag_inherits=1 current_authority_wins=1 recovery_stale_owner_blocked=1 oversized_provider_calls=0');
+*** Add File: scripts/session-explicit-owner-recovery-test.js
++'use strict';
++
++const assert = require('assert');
++const fs = require('fs');
++const os = require('os');
++const path = require('path');
++
++const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'qwen-owner-recovery-'));
++const configPath = require.resolve('../src/config');
++const sessionPath = require.resolve('../src/session-store');
++const originalConfig = require(configPath);
++
++function loadStore() {
++  delete require.cache[sessionPath];
++  require.cache[configPath] = {
++    id: configPath,
++    filename: configPath,
++    loaded: true,
++    exports: { ...originalConfig, CONFIG_DIR: tmp },
++  };
++  return require('../src/session-store');
++}
++
++try {
++  let store = loadStore();
++  const recoveredHistory = [
++    { role: 'user', content: 'first request' },
++    { role: 'assistant', content: 'first answer' },
++  ];
++  store.set('owner-recovery', 'chat-owner', {
++    accountId: 'account-a',
++    history: recoveredHistory,
++    systemPromptMode: 'owner',
++    ownerSystemPrompt: 'STALE_OWNER_FROM_BACKUP',
++  });
++
++  // persist() has written a same-generation .bak; corrupt only primary so load
++  // must take the fallback and mark the record uncertain.
++  fs.writeFileSync(path.join(tmp, 'opencode-sessions.json'), '{corrupt primary', 'utf8');
++  store = loadStore();
++  const recovered = store.getRecord('owner-recovery');
++  assert.strictEqual(recovered.recoveryUncertain, true);
++  assert.strictEqual(recovered.ownerSystemPrompt, 'STALE_OWNER_FROM_BACKUP');
++
++  // Explicit full-history reconciliation proves transcript progress but cannot
++  // prove an out-of-band detached owner prompt. Reconciliation must therefore
++  // remove stale prompt metadata from the new canonical record.
++  const authoritative = [
++    ...recoveredHistory,
++    { role: 'user', content: 'second request' },
++    { role: 'assistant', content: 'second answer' },
++  ];
++  store.restoreCheckpoint(authoritative, recovered, true);
++  const reconciled = store.getRecord('owner-recovery');
++  assert.strictEqual(reconciled.recoveryUncertain, undefined);
++  assert.strictEqual(reconciled.systemPromptMode, undefined);
++  assert.strictEqual(reconciled.ownerSystemPrompt, undefined);
++
++  console.log('SESSION_EXPLICIT_OWNER_RECOVERY_PASS stale_out_of_band_authority_cleared=1');
++} finally {
++  delete require.cache[sessionPath];
++  require.cache[configPath] = {
++    id: configPath,
++    filename: configPath,
++    loaded: true,
++    exports: originalConfig,
++  };
++  fs.rmSync(tmp, { recursive: true, force: true });
++}
+*** End Patch

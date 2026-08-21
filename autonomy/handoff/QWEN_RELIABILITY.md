@@ -4,7 +4,7 @@
 
 Основная продуктовая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6.
 
-Свежий product head после этого запуска: `59c3cf7f56951cee3693c43453c2ae2d6e2ef903`.
+Свежий product head после этого запуска: `73083123db9f3e18ea70fe06397b3bb4c84f83e2`.
 
 ## Уже доказано и не переделывать
 
@@ -23,45 +23,50 @@
 - unconfirmed initial release, позднее доказанный пустым, охлаждает фактический аккаунт один раз и выбирает свежего sibling;
 - `reset(account)` не снимает provider-wide circuit.
 
-## Этот запуск — stale preferred/account object закрыт на границе account-store
+## Этот запуск — canonical account boundaries усилены
 
-Исходный fail-open из прошлого handoff воспроизведён и исправлен без provider/live.
+Закрыты два связанных fail-open без provider/live.
 
-Проблема: вызывающая часть могла держать detached/stale object A, пока канонический A в пуле уже получил свежий cooldown. `candidates(preferredAccount)` и `qwen-client.operationCandidates()` могли снова предпочесть старый объект.
+### 1. Detached/stale preferred object обходил свежий cooldown
 
-Исправления в продуктовой ветке:
+Если вызывающая часть держала старый object A, а канонический A уже получил cooldown, старый объект мог снова стать preferred.
 
-- `f36a05f133afc8ab3f01360bb31712a99e2bafd4` — `candidates(preferredAccount)` теперь разрешает preferred только по id через канонический объект; `isAvailable()` для известного id смотрит на каноническое состояние, поэтому stale object не обходит cooldown даже при старой ручной вставке в `qwen-client`;
-- `db12853e8dc882aeb6eaaf8b1fced30b279afff9` — regression в уже штатном `scripts/account-selection-policy-test.js`: stale object и строковый preferred id не могут вернуть охлаждённый A;
-- `8a1b251ce4d2e5dd52298861ad7f1f82f43dfc9e` — все чувствительные границы account-store (`reset`, `markSuccess`, `markFailure`, CAPTCHA/restriction и cookie header) заново разрешают известный object по каноническому id. Это не даёт detached snapshot протащить старые credentials или перезаписать новое состояние пула;
-- `59c3cf7f56951cee3693c43453c2ae2d6e2ef903` — regression дополнен проверкой canonical cookie/state mutation.
+Исправления:
 
-Hosted Node без сети/provider прошёл:
+- `f36a05f133afc8ab3f01360bb31712a99e2bafd4` — `candidates(preferredAccount)` разрешает preferred только через канонический id; `isAvailable()` смотрит на каноническое состояние;
+- `db12853e8dc882aeb6eaaf8b1fced30b279afff9` — regression в штатном `scripts/account-selection-policy-test.js`;
+- `8a1b251ce4d2e5dd52298861ad7f1f82f43dfc9e` — чувствительные границы account-store (`reset`, `markSuccess`, `markFailure`, CAPTCHA/restriction, cookie header) используют канонический объект, поэтому stale credentials/state не перезаписывают новое состояние;
+- `59c3cf7f56951cee3693c43453c2ae2d6e2ef903` — regression на canonical cookie/state mutation.
 
-- `CANONICAL_PREFERRED_ACCOUNT_FAILOVER_PASS`;
-- `CANONICAL_PREFERRED_AND_STATE_BOUNDARY_PASS`.
+Hosted Node: `CANONICAL_PREFERRED_ACCOUNT_FAILOVER_PASS`, `CANONICAL_PREFERRED_AND_STATE_BOUNDARY_PASS`.
 
-Важно: `qwen-client.operationCandidates()` пока всё ещё содержит старую ручную вставку `preferredAccount`. Текущий account-store уже не даёт ей обойти cooldown и использует канонические credentials/state на своих границах, но сам `qwen-client` желательно позже упростить до `accountStore.candidates(preferredAccount)` нормальным byte-safe patch способом.
+### 2. Удалённый аккаунт мог воскреснуть через detached snapshot
 
-## Следующий найденный крайний случай
+После первого усиления `canonicalAccount()` всё ещё делал `get(id) || account`. Поэтому object удалённого A с оставшимся token теоретически мог снова пройти `isAvailable()` и старую ручную вставку preferred в qwen-client.
 
-После усиления канонизации обнаружен следующий риск, который надо проверить первым в следующем проходе: `canonicalAccount()` пока делает `get(id) || account`. Значит detached object аккаунта, который уже удалён из канонического пула, теоретически остаётся пригодным как fallback-объект. Если такой stale object ещё держит `token`, старый `qwen-client` может попытаться воскресить удалённый аккаунт.
+Исправления:
 
-Следующая проверка должна быть полностью офлайн:
+- `dd1287cdc096e5be0ebda881b59bdff60f2fbe08` — managed object с id теперь является только ссылкой в канонический pool; если id отсутствует после `remove()`, границы account-store fail closed вместо использования detached bytes;
+- `73083123db9f3e18ea70fe06397b3bb4c84f83e2` — regression: `remove(A) -> staleA` не проходит `isAvailable`, не отдаёт cookie и не возвращается в candidates.
 
-1. создать A и B;
-2. сохранить detached snapshot A;
-3. удалить канонический A через `remove()`;
-4. проверить `isAvailable(staleA)`, `candidates(staleA)` и эмуляцию старого `operationCandidates`;
-5. если A оживает — fail closed для managed-id, отсутствующего в `accounts`, не ломая обычный `save/load/current` и thread affinity канонических аккаунтов.
+Hosted Node: `REMOVED_STALE_ACCOUNT_FAIL_CLOSED_PASS`.
+
+## Следующий приоритет
+
+`qwen-client.operationCandidates()` всё ещё содержит старую ручную вставку caller-owned `preferredAccount`. Усиленный account-store уже не позволяет ей обойти cooldown, использовать устаревшие credentials на границах или воскресить удалённый id, но код остаётся дублированным и хрупким.
+
+Следующий безопасный кусок:
+
+1. на свежем head проверить, не менялся ли `src/qwen-client.js` параллельно;
+2. byte-safe заменить `operationCandidates()` на `accountStore.candidates(preferredAccount).slice(0, MAX_ACCOUNTS_PER_OPERATION)`;
+3. regression должен доказать одновременно: healthy canonical preferred A остаётся первым для существующего треда; cooled/removed A не возвращается; новый независимый запрос остаётся LRU;
+4. отдельно проверить `canReuseOriginalChatId` / `chatCreationCandidates`, чтобы thread affinity сохранялась только для канонически доступного владельца и новый sibling всегда получает новый thread id.
 
 ## Проверки и ограничения
 
-- v4 LATEST на старте: `20260821T045302Z-bfdec3c64a`;
-- стартовый Git blob SHA LATEST: `1f41272666f813674c994b730cc3f119912cf9be`;
-- `capsule_runtime_v4.py verify` = PASS;
-- `capsule_runtime_v4.py restore` = PASS;
-- archive SHA старта: `33e861113f659c9800281e366cfa0a2a58570854b6be030af989376caffefdcc`;
+- v4 LATEST на старте запуска: `20260821T045302Z-bfdec3c64a`, Git blob SHA `1f41272666f813674c994b730cc3f119912cf9be`;
+- стартовая capsule прошла `capsule_runtime_v4.py verify` и `restore`, archive SHA `33e861113f659c9800281e366cfa0a2a58570854b6be030af989376caffefdcc`;
+- промежуточный проверенный checkpoint этого запуска был опубликован как `20260821T055900Z-c9f08999a7` через CAS;
 - CircleCI/GitHub Actions/Cloudflare не запускались;
 - provider/live запросов к Qwen: 0;
 - реальные аккаунты, секреты и production не тронуты;

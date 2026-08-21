@@ -1,0 +1,51 @@
+{
+  "schema": "notion_core_durable_replay_v19_empty_input_context_identity_v1",
+  "created_at_utc": "2026-08-21T23:48:00Z",
+  "core_ref": "Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "integration_ref": "Ai-b0ss/notion-agent-bridge@433c8cf28449d20c0d477be108b65ae086c9ca51",
+  "exact_source_blobs": {
+    "payload/conversation_segments.py": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "payload/server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "payload/turn_affinity.py": "f4bc004ec08cbaf3f1118dec0926015ab41b8bd3"
+  },
+  "reproduced_defect": {
+    "name": "empty Responses input erases persistent segment context identity",
+    "mechanism": [
+      "response_input_fingerprints() mixes tools/prompt/text context into each input-item fingerprint but emits an empty tuple when input=[]",
+      "therefore two empty-input requests with different tools/instructions/prompt context both produce ()",
+      "input_prefix_length((), ()) returns 0, so current server segment logic does not classify the context change as history_rewritten",
+      "V12 durable_replay_fingerprint detects exact-request identity changes, but it does not by itself force a new Notion segment when the replay fingerprint differs; the segment can still be continued under stale tool/prompt context"
+    ],
+    "local_repro": {
+      "request_a": "input=[]; tools=[read_file]; engineer context A",
+      "request_b": "input=[]; tools=[write_file]; engineer context B",
+      "fingerprints_a": [],
+      "fingerprints_b": [],
+      "fingerprints_equal": true,
+      "input_prefix_length": 0,
+      "history_rewritten_rollover": false,
+      "verdict": "EMPTY_INPUT_CONTEXT_DRIFT_REPRODUCED"
+    },
+    "risk": "After restart or on a later request with empty prior history, Core can continue a Notion thread whose planner/tool contract was created under different tools or application context. For a legacy empty segment, an appended first item can also anchor to context of unknown identity because empty history is a prefix of every history."
+  },
+  "required_fix": {
+    "version": "V19",
+    "rules": [
+      "persist a separate content-free request-context fingerprint per ConversationSegment; do not derive segment context identity only from per-input-item hashes",
+      "context fingerprint must cover bridge prompt-policy fingerprint, engineer instructions when applicable, tools, tool_choice and text response contract; model remains covered separately",
+      "if a persisted context fingerprint exists and differs, roll over to a fresh Notion segment before provider continuation",
+      "if a legacy segment lacks context fingerprint and has zero input fingerprints, do not continue it as an anchor: exact empty legacy retry remains fail-closed under V12 legacy logic; a genuinely appended request rolls over with context_identity_unknown",
+      "store the context fingerprint in the same strict durable publication as replay/progress so restart cannot lose it"
+    ],
+    "external_state_version": 2,
+    "plaintext_secret_added": false
+  },
+  "windows_digest": {
+    "workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "states": ["pending", "pending", "pending", "pending", "pending"],
+    "rerun": false
+  },
+  "hosted_ci_started": false,
+  "provider_traffic": false,
+  "product_branch_mutated": false
+}

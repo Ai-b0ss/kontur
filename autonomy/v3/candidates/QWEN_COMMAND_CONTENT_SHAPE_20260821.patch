@@ -1,0 +1,41 @@
+--- a/src/command-handler.js
++++ b/src/command-handler.js
+@@
+ const disabledSessions = new Set();
+ const startTime = Date.now();
+ let requestCount = 0;
+ 
++function extractCommandText(content) {
++  if (typeof content === 'string') return content;
++  if (Array.isArray(content)) {
++    return content.map((part) => {
++      if (typeof part === 'string') return part;
++      if (part && typeof part === 'object') {
++        if (typeof part.text === 'string') return part.text;
++        if (typeof part.content === 'string') return part.content;
++        if (part.content && typeof part.content === 'object') return extractCommandText(part.content);
++      }
++      return '';
++    }).join(' ');
++  }
++  if (content && typeof content === 'object') {
++    if (typeof content.text === 'string') return content.text;
++    if (content.content !== undefined) return extractCommandText(content.content);
++  }
++  return '';
++}
++
+ function isCommandMessage(messages) {
+   if (!Array.isArray(messages) || messages.length === 0) return false;
+   const last = [...messages].reverse().find((m) => m?.role === 'user');
+-  const text = (typeof last?.content === 'string' ? last.content : '').trim();
+-  return text.startsWith('$qwen-api') || text.startsWith('/qwen-api');
++  const text = extractCommandText(last?.content).trim();
++  return /^[$/]qwen-api(?:\s|$)/i.test(text);
+ }
+@@
+ async function handleCommand(messages, sessionKey, req, res) {
+   incrementRequestCount();
+   const last = [...messages].reverse().find((m) => m?.role === 'user');
+-  const rawText = (typeof last?.content === 'string' ? last.content : '').trim();
++  const rawText = extractCommandText(last?.content).trim();

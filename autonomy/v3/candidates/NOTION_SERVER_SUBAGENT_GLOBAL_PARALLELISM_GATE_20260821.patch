@@ -1,0 +1,35 @@
+diff --git a/payload/server_subagent_lifecycle.py b/payload/server_subagent_lifecycle.py
+--- a/payload/server_subagent_lifecycle.py
++++ b/payload/server_subagent_lifecycle.py
+@@
+         self._maximum_parallel = maximum_parallel
++        # Bound provider work across *all* runtime generations.  Every rebound
++        # entrypoint owns its own SubagentLifecycle semaphore, so without this
++        # server-wide gate old+new generations can each consume maximum_parallel
++        # concurrently while rebind_pool_and_drain() is waiting for the retired
++        # generation to finish.
++        self._global_launch_semaphore = asyncio.Semaphore(maximum_parallel)
+         self._entrypoint: SubagentEntryPoint | None = None
+@@
+     async def launch(self, launch: SubagentLaunch) -> DelegationResult:
+@@
+         try:
+-            return await entrypoint.launch(launch)
++            # Keep the entrypoint reservation above the global permit.  A launch
++            # that captured a retired generation must continue to count against
++            # that generation's drain even while it is queued for provider
++            # capacity; otherwise its pool could be closed underneath it.
++            async with self._global_launch_semaphore:
++                return await entrypoint.launch(launch)
+         finally:
+             async with self._condition:
+@@
+
+# Regression contract to add to tests/test_server_subagent_lifecycle_drain.py:
+# - lifecycle maximum_parallel=2;
+# - start two blocking children on generation A;
+# - publish generation B through rebind_pool_and_drain();
+# - start two children on B while A is still blocked;
+# - assert B provider entrypoint has received 0 launches until at least one A child exits;
+# - release A, then allow both B children to complete;
+# - instrument provider-entry counter and assert peak <= 2 across both generations.

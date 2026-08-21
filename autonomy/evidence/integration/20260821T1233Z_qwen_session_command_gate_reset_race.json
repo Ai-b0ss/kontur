@@ -1,0 +1,50 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "QWEN_SESSION_COMMAND_BYPASSES_SESSION_GATE",
+  "verdict": "REPRODUCED_RESET_RESURRECTION_AND_CANDIDATE_CONTRACT_PASS",
+  "source_heads": {
+    "qwen_pr6": "75c0d793dbbc50b34f3409a90d4737095f58e7c7",
+    "notion_pr8": "bdb6c24d9693d1347fb01f616ffb5826a916f297",
+    "notion_core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144"
+  },
+  "source_blobs": {
+    "qwen_server.js": "b6131886a6ff739eb35765982d778632e25ab689",
+    "qwen_src/session-request-gate.js": "8bab117664096ed863b28b9de6815322a9f922c7",
+    "qwen_src/command-handler.js": "85f8586a37b4308e52cf138043d174030e52b090"
+  },
+  "observed_contract": [
+    "server.js recognizes and handles command messages before acquiring SessionRequestGate",
+    "$qwen-api reset/clear deletes sessionStore + toolMemo state and immediately reports Session Reset Complete",
+    "an older ordinary request for the same session may still own the gate, finish later, and call sessionStore.set()",
+    "therefore the reset can be followed by resurrection of the old logical session, including an accepted mutating tool call"
+  ],
+  "deterministic_offline_probe": {
+    "path": "autonomy/v3/tools/integration_qwen_session_reset_gate_probe.js",
+    "current": {
+      "order": ["request-read", "reset-response", "request-persist"],
+      "final_session_exists": true,
+      "accepted_tool_call_resurrected": true
+    },
+    "candidate": {
+      "order": ["request-read", "request-persist", "reset-response"],
+      "final_session_clean": true
+    },
+    "result": "QWEN_SESSION_RESET_GATE_RACE_REPRO_AND_CANDIDATE_PASS"
+  },
+  "candidate_fix": {
+    "artifact": "autonomy/v3/candidates/QWEN_SESSION_COMMAND_GATE_20260821.patch",
+    "rule": "detect/execute command messages only after acquiring the canonical session gate",
+    "important": "use return await handleCommand(...) inside try/finally so asynchronous commands retain the gate until completion",
+    "scope": "per-session ordering only; this does not claim to solve global account-admin races between different sessions"
+  },
+  "required_regression": "same session: ordinary request in flight -> $qwen-api reset -> older request settles; reset response must occur after older request has released/persisted, and final session state after reset must stay empty",
+  "coordination": {
+    "not_qwen_core_current_narrow_work": "QWEN_SESSION_RECOVERY_UNCERTAIN stale-backup fallback",
+    "not_qwen_reliability_current_narrow_work": "local request preparation must not consume provider-attempt budget or cool healthy account"
+  },
+  "limits": [
+    "No product file was changed by INTEGRATION_HELPER",
+    "No hosted CI, Qwen provider traffic, Notion traffic, Cloudflare, native Windows, production, account mutation or secret access"
+  ]
+}

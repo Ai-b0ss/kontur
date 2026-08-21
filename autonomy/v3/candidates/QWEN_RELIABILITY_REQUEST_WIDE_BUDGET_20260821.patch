@@ -1,0 +1,82 @@
+diff --git a/src/qwen-client.js b/src/qwen-client.js
+--- a/src/qwen-client.js
++++ b/src/qwen-client.js
+@@
+-function operationCandidates(preferredAccount = null) {
+-  return accountStore.candidates(preferredAccount).slice(0, MAX_ACCOUNTS_PER_OPERATION);
++function operationCandidates(preferredAccount = null, attemptContext = null) {
++  const attempted = attemptContext && attemptContext.attemptedAccountIds instanceof Set
++    ? attemptContext.attemptedAccountIds
++    : null;
++  const limit = Math.min(
++    MAX_ACCOUNTS_PER_OPERATION,
++    Math.max(1, Number(attemptContext && attemptContext.limit) || MAX_ACCOUNTS_PER_OPERATION),
++  );
++  const allowPreferredReuse = Boolean(attemptContext && attemptContext.allowPreferredReuse);
++  const preferredId = preferredAccount && preferredAccount.id ? preferredAccount.id : null;
++  return accountStore.candidates(preferredAccount)
++    .filter((account) => !attempted || !attempted.has(account.id) || (allowPreferredReuse && account.id === preferredId))
++    .slice(0, Math.max(0, limit - (attempted ? attempted.size : 0) + (allowPreferredReuse && preferredId && attempted && attempted.has(preferredId) ? 1 : 0)));
+ }
+@@
+-async function sendChatRequest(payload, preferredAccount = null) {
++async function sendChatRequest(payload, preferredAccount = null, attemptContext = null) {
+@@
+-  const candidates = operationCandidates(preferredAccount);
++  const candidates = operationCandidates(preferredAccount, attemptContext);
+@@
+   for (const account of candidates) {
++    if (attemptContext && attemptContext.attemptedAccountIds instanceof Set) {
++      attemptContext.attemptedAccountIds.add(account.id);
++    }
+     const midCircuit = circuitError();
+@@
+ module.exports = {
+@@
+   MAX_ACCOUNTS_PER_OPERATION,
+ };
+
+diff --git a/server.js b/server.js
+--- a/server.js
++++ b/server.js
+@@
+ app.post('/v1/chat/completions', async (req, res) => {
+@@
+   try {
++    // One user request owns one failover budget across qwen-client plus the
++    // outer late-empty retries below. Nested retries must not reset the budget.
++    const requestAttemptContext = {
++      attemptedAccountIds: new Set(),
++      limit: qwenClient.MAX_ACCOUNTS_PER_OPERATION,
++      allowPreferredReuse: false,
++    };
+@@
+-    let response = await qwenClient.sendChatRequest(prepared.qwenPayload, preferredAccount);
++    let response = await qwenClient.sendChatRequest(prepared.qwenPayload, preferredAccount, requestAttemptContext);
+@@
+-      response = await qwenClient.sendChatRequest(prepared.qwenPayload, failoverAccount);
++      // Rebase is not a new sibling probe: it intentionally reuses the account
++      // that just accepted the failover response so the full local history is
++      // replayed into a thread owned by that same account.
++      response = await qwenClient.sendChatRequest(prepared.qwenPayload, failoverAccount, {
++        ...requestAttemptContext,
++        allowPreferredReuse: true,
++      });
+@@
+-            const retry = await qwenClient.sendChatRequest(
+-              retryPrepared.qwenPayload,
+-              retryPreferred
+-            );
++            const retry = await qwenClient.sendChatRequest(
++              retryPrepared.qwenPayload,
++              retryPreferred,
++              requestAttemptContext,
++            );
+@@
+-          const retry = await qwenClient.sendChatRequest(retryPrepared.qwenPayload, nextAccount);
++          const retry = await qwenClient.sendChatRequest(
++            retryPrepared.qwenPayload,
++            nextAccount,
++            requestAttemptContext,
++          );
+*** End Patch

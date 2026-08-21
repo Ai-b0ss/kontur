@@ -1,0 +1,41 @@
+diff --git a/server.js b/server.js
+--- a/server.js
++++ b/server.js
+@@
+-      // A short continuation after restart must not skip a previously accepted
+-      // assistant tool call whose result was never durably observed. Replaying a
+-      // mutating call could duplicate a side effect, so fail closed and require
+-      // the client to reconcile that pending tool result explicitly.
+-      const pendingToolCalls = isContinuationTurn
+-        ? sessionStore.findPendingToolCalls(restoredMessages)
+-        : [];
++      // A previously accepted assistant tool call is a durable obligation of the
++      // session, independent of how the next user turn is worded. restoreCheckpoint()
++      // may persist a newly returned tool result, so re-read the record before the
++      // provider boundary. This also prevents a caller-supplied full transcript from
++      // hiding an accepted pending call by simply omitting it.
++      const postRestoreRecord = sessionStore.getRecord(sessionKey);
++      const durablePendingToolCalls = sessionStore.findPendingToolCalls(
++        postRestoreRecord && Array.isArray(postRestoreRecord.history)
++          ? postRestoreRecord.history
++          : [],
++      );
++      const requestPendingToolCalls = sessionStore.findPendingToolCalls(restoredMessages);
++      const pendingToolCalls = durablePendingToolCalls.length > 0
++        ? durablePendingToolCalls
++        : requestPendingToolCalls;
+       if (pendingToolCalls.length > 0) {
+         return res.status(409).json({
+           error: {
+             message: 'A previous assistant tool call is still awaiting a tool result.',
+             type: 'conflict',
+             code: 'QWEN_PENDING_TOOL_RESULT',
+           },
+@@
+       }
+
+# Regression requirement
+# - stored accepted write_file without tool result + user says ordinary long sentence => 409, zero provider calls
+# - same stored state + explicit multi-message transcript omitting pending assistant call => 409, zero provider calls
+# - matching tool result is durably persisted by restoreCheckpoint => subsequent request proceeds
+# - request-provided unresolved assistant tool call also remains fail-closed

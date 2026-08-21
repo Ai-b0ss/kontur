@@ -1,0 +1,22 @@
+{
+  "verdict": "CODEX_RESTART_EXACT_REPLAY_NEW_THREAD_FALLBACK_REPRODUCED",
+  "scope": "NOTION_CORE lifecycle / Core+Agent boundary",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_head": "a016664796720c085fd5356af30f6f959e4971bc",
+  "facts": [
+    "ConversationSegmentStore persists request input fingerprints and provider thread/account identity, but not a replayable Responses result.",
+    "On an exact retry after process restart, input_prefix_length equals the full current input length.",
+    "responses_incremental_body slices an empty delta and returns None.",
+    "The Responses path requires both an anchor and a non-None incremental prompt to continue the existing Notion thread; otherwise it invokes initial_completion on a fresh full prompt.",
+    "Therefore an already-processed tool-result request retried after restart is not replayed and does not continue the recorded provider thread; it is re-planned from the full transcript on a new provider completion."
+  ],
+  "risk": "The full transcript tells the model not to repeat completed actions, but this is prompt-level guidance rather than an idempotency guarantee. NOTION_CORE_DONE restart/recovery cannot be claimed until exact-request replay is fail-closed or durably replayable without re-planning an already-processed tool result.",
+  "non_goals": [
+    "No NOTION_AGENT rotation/prompt/delegation/account-affinity code was modified.",
+    "No hosted CI or live Notion traffic was started.",
+    "No native Windows claim is made."
+  ],
+  "candidate_direction": "Add a durable request-replay boundary keyed by conversation/turn plus exact request fingerprint. Preferred acceptance behavior is to replay the prior Responses result (including call id/output shape) without provider inference. If durable replay data cannot be safely stored, exact replay must fail closed rather than silently starting a new provider plan.",
+  "local_harness_sha256": "491007bea407af0f3e35a9e5fd48f584af0b09c32ed66137d10ea420fa73f424",
+  "local_evidence_sha256": "dd6bc87c4d05e872037e834dd32e26c197b4ce59d029cef6c03c38b9f4b7482c"
+}

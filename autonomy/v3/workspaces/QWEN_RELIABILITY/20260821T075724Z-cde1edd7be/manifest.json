@@ -1,0 +1,38 @@
+{
+  "archive": {
+    "parts": 1,
+    "sha256": "138762e5df9c86c8d444f30fc917466105173a5e99664d3482b3e807b4869c77",
+    "size": 1418
+  },
+  "capsule_id": "20260821T075724Z-cde1edd7be",
+  "created_at_utc": "2026-08-21T07:57:24Z",
+  "parts": [
+    {
+      "chars": 1892,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "845112a7eb221b880dbbe78b081eb6961e98c5a99290f7241478fffb790bb59c"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@51a54afdb39fac3198a33d8809a57a474b20eca9",
+  "worker": "QWEN_RELIABILITY",
+  "workspace": {
+    "evidence": {
+      "mode": "0o755",
+      "type": "dir"
+    },
+    "evidence/CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "ca0151dc339031e6815219fec6c57f94abb71db10b128980ce8b80fda12d6e77",
+      "size": 1454,
+      "type": "file"
+    },
+    "evidence/RESULTS.json": {
+      "mode": "0o644",
+      "sha256": "3ca4edabab1334b184bc55c82f56a2c804bdce1f4720c19b0ae89bb57e10876c",
+      "size": 603,
+      "type": "file"
+    }
+  }
+}

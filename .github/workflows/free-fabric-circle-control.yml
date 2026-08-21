@@ -21,39 +21,57 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Probe both accounts, adopt-or-trigger Circle pipeline, and wait
-        id: control
+      - name: Start or adopt Circle pipeline
+        id: start
         continue-on-error: true
         env:
           CIRCLE_TOKEN_A: ${{ secrets.CIRCLE_TOKEN_A }}
           CIRCLE_TOKEN_B: ${{ secrets.CIRCLE_TOKEN_B }}
-        run: |
-          set +e
-          python3 .free-fabric/circle_control_v2.py
-          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
-          exit 0
+        run: python3 .free-fabric/circle_control_v3.py start
 
-      - name: Persist sanitized result back to the control branch
+      - name: Persist immediate sanitized heartbeat
         if: always()
         run: |
           set -euo pipefail
-          test -f .free-fabric/runtime/circle-control-result.json
+          test -f .free-fabric/runtime/circle-control-state.json
           git config user.name "FREE FABRIC bot"
           git config user.email "free-fabric@users.noreply.github.com"
-          git add -- .free-fabric/runtime/circle-control-result.json
-          if git diff --cached --quiet; then
-            echo "No result delta to persist"
-          else
-            git commit -m "FREE FABRIC: persist sanitized Circle control result [skip ci]"
+          git add -- .free-fabric/runtime/circle-control-state.json
+          if ! git diff --cached --quiet; then
+            git commit -m "FREE FABRIC: persist Circle start heartbeat [skip ci]"
+            git pull --rebase origin ci/kontur-circle-vite-20260821
             git push origin HEAD:ci/kontur-circle-vite-20260821
           fi
 
-      - name: Upload sanitized result artifact
+      - name: Poll selected Circle pipeline to terminal state
+        if: always()
+        id: poll
+        continue-on-error: true
+        env:
+          CIRCLE_TOKEN_A: ${{ secrets.CIRCLE_TOKEN_A }}
+          CIRCLE_TOKEN_B: ${{ secrets.CIRCLE_TOKEN_B }}
+        run: python3 .free-fabric/circle_control_v3.py poll
+
+      - name: Persist final sanitized Circle result
+        if: always()
+        run: |
+          set -euo pipefail
+          test -f .free-fabric/runtime/circle-control-state.json
+          git config user.name "FREE FABRIC bot"
+          git config user.email "free-fabric@users.noreply.github.com"
+          git add -- .free-fabric/runtime/circle-control-state.json
+          if ! git diff --cached --quiet; then
+            git commit -m "FREE FABRIC: persist Circle final result [skip ci]"
+            git pull --rebase origin ci/kontur-circle-vite-20260821
+            git push origin HEAD:ci/kontur-circle-vite-20260821
+          fi
+
+      - name: Upload sanitized control evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: free-fabric-circle-control-evidence
-          path: .free-fabric/runtime/circle-control-result.json
+          path: .free-fabric/runtime/circle-control-state.json
           if-no-files-found: error
 
       - name: Final gate
@@ -61,9 +79,8 @@ jobs:
         run: |
           python3 - <<'PY'
           import json
-          d=json.load(open('.free-fabric/runtime/circle-control-result.json'))
-          r=d.get('result') or {}
-          print(json.dumps(d, ensure_ascii=False, indent=2))
-          if r.get('status') != 'success':
+          d=json.load(open('.free-fabric/runtime/circle-control-state.json'))
+          print(json.dumps(d,ensure_ascii=False,indent=2))
+          if (d.get('result') or {}).get('status')!='success':
               raise SystemExit(2)
           PY

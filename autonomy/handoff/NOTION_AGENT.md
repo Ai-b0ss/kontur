@@ -104,3 +104,32 @@ Materializer усилен:
 5. Только после локального PASS записать материализованные `account_pool.py` и `server.py` в продуктовую ветку и повторно сверить Git blob/diff.
 6. Затем один bounded live Codex project run; потом two-slot run; потом реальный A→B/C failover. Никаких повторных side effects.
 7. После крепкого Notion ядра — Qwen adapter под тот же `DelegationDispatcher`, без смешивания Notion account/thread state.
+
+## 2026-08-21 01:xx UTC — закрыта late-reservation утечка старого thread на correction round
+
+Fresh PR #8 после работы: head `a016664796720c085fd5356af30f6f959e4971bc`.
+
+При разборе готового ordinary Responses wiring обнаружен отдельный сценарий, который предыдущие transport-fail тесты не покрывали. Первый модельный раунд мог успешно завершиться на аккаунте A; затем сервер начинал planner correction, сохраняя `thread_id` этого ответа. Если прямо перед provider-вызовом A становился foreground-reserved другой незавершённой цепочкой, `DynamicReservationLeaseSession` корректно переезжал на B/C, но оставался в primary-фазе. В результате thread-bound correction, замкнутый на старый `thread_id` A, мог быть повторён на replacement-аккаунте.
+
+Исправлено в `payload/reservation_aware_lease.py`: после reservation-driven reselection при наличии явного `retry_operation` session переводится в recovery/fresh phase. Поэтому на новом аккаунте выполняется только свежая операция без старого Notion thread, а уже завершённый первый модельный раунд не переигрывается.
+
+Коммиты:
+- `3beae38635d1559fe87a71380e82553a70071978` — session сохраняет fresh/recovery mode после late reservation reselect;
+- `d3b48b9d5e4db9266ebe1e0153bf6b8d514d096c` — outer-reselection regression;
+- `a016664796720c085fd5356af30f6f959e4971bc` — in-lease regression: A reserved перед correction, B получает recovery, старый correction не вызывается, outer lease не пересоздаётся.
+
+Локальный семантический прогон внутри ChatGPT прошёл: первый раунд A выполняется один раз; A становится reserved до correction provider call; correction callback на B не вызывается; recovery выполняется ровно один раз на B.
+
+Это важное уточнение к будущему server materialization: correction `lease.run(..., retry_operation=initial_completion)` безопасен только вместе с текущей версией `DynamicReservationLeaseSession` не старше commit `3beae386...`.
+
+### Постоянная память этого запуска
+
+Стартовый `LATEST.json` имел Git blob `cef688dd0d6c2108a2d2b5a660c04b20a382c955` и указывал на v4 capsule `20260821T000423Z-158195d0c1`; capsule восстановилась с полной проверкой parts/archive/workspace. После работы создана и нормативно проверена новая v4 capsule `20260821T010458Z-f544e7022d`, archive SHA-256 `3e3ce8fe502a04393a3522c38314dbf946e6e84b983961a21e15ace7c03dfc67`. Загруженные part и manifest перечитаны обратно, их Git blob SHA совпали с локальными байтами. Перед публикацией `LATEST` всё ещё имел исходный blob, поэтому CAS прошёл; новый `LATEST` blob `0c7fd263a592a61ecb32b105ad4887f18bc26bea`, старый указатель сохранён в `PREVIOUS`.
+
+### Что остаётся следующим продуктовым шагом
+
+- Не считать обычный `/v1/responses` полностью защищённым: реальные `payload/server.py` (`f02cef...`) и `payload/account_pool.py` (`11cea...`) пока всё ещё старые exact bytes.
+- Lossless материализовать оба файла, применить текущие fail-closed materializers и локально прогнать prompt/routing/reservations/delegation/tool-loop/failover/lifecycle вместе с новым correction-round тестом.
+- Обязательно проверить два abort/recovery пути transport evidence и отсутствие provider-вызова через поздно reserved replacement.
+- Только после полного локального PASS записывать большие файлы и идти в один bounded live Codex project probe.
+- Hosted CI, live Notion/provider traffic и production в этом запуске не использовались.

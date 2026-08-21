@@ -1,0 +1,53 @@
+*** Candidate only — apply/rebase by Qwen owner on the fresh PR head. ***
+
+Target: src/stream-session-guard.js
+
+@@ inside pipe(currentStream), after local terminal/downstream state @@
+     let acceptedToolCalls = false;
+     let terminalClaimed = false;
+     let downstreamClosed = false;
++
++    const onDownstreamClose = () => {
++      downstreamClosed = true;
++      if (!claimTerminal()) return;
++      // No provider/model work should keep the per-session request gate occupied
++      // after the client is gone. Tool-call safety is preserved:
++      // - before onToolCallsAccepted: tool-call output is still withheld;
++      // - after onToolCallsAccepted: the accepted call is already durably checkpointed.
++      try {
++        if (currentStream && typeof currentStream.destroy === 'function') currentStream.destroy();
++      } catch (_) {}
++      cleanupDownstreamClose();
++      resolve();
++    };
++
++    const cleanupDownstreamClose = () => {
++      try { res.removeListener('close', onDownstreamClose); } catch (_) {}
++    };
++
++    if (res && typeof res.once === 'function') res.once('close', onDownstreamClose);
+@@
+     const onStreamError = (error) => {
+       if (!claimTerminal()) return;
++      cleanupDownstreamClose();
+       finishWithError(error || new Error('Qwen upstream stream transport failed'), resolve, reject);
+     };
+@@ normal parse completion, immediately after claimTerminal() @@
++          cleanupDownstreamClose();
+@@ catch path @@
+     } catch (error) {
+       if (!claimTerminal()) return;
++      cleanupDownstreamClose();
+       finishWithError(error, resolve, reject);
+     }
+
+Required regression:
+1. Start streaming request A for session S; upstream remains open.
+2. Start request B for the same session; B waits in SessionRequestGate.
+3. Close A's downstream response before upstream ends.
+4. Assert A's upstream stream is destroyed, pipe resolves, gate releases, and B enters without waiting for upstream timeout/end.
+5. Variant before accepted tool-call: no tool-call reaches client and no accepted checkpoint is invented.
+6. Variant after onToolCallsAccepted: durable pending call remains; next continuation sees QWEN_PENDING_TOOL_RESULT rather than reissuing work.
+7. Different session remains unaffected.
+
+Do not classify downstream disconnect as account/provider failure or cooldown evidence.

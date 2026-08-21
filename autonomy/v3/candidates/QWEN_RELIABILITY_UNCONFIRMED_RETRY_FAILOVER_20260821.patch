@@ -1,0 +1,113 @@
+*** QWEN_RELIABILITY candidate — unconfirmed initial SSE -> unusable end -> sibling failover
+*** Source inspected: Ai-b0ss/qwen-free-api@acfb87af4831b6a3846b2edf1e599d20a769529b
+*** Target: server.js, non-stream collectNonStream catch/retry block
+*** Status: HOSTED_REPRO_CONFIRMED, not yet applied to product branch
+
+Intent
+------
+Do NOT mark an account merely because gateInitialStream() released an unconfirmed stream on timeout/buffer cap. A legitimate first model frame may simply be slow/large.
+
+Only when collectNonStream() later proves that the entire released stream ended with
+`Qwen upstream closed without a usable response`:
+
+1. mark the ACTUAL producing account (`response.account`) as account-local failure once;
+2. choose a fresh eligible candidate from `accountStore.candidates()`;
+3. prepare the retry for that fresh candidate and call `sendChatRequest(..., retryPreferred)`;
+4. if a retry stream itself later ends unusably, mark its ACTUAL `retry.account` once before the next bounded attempt;
+5. never reuse another account's upstream chat id (`currentOnly:false` remains mandatory);
+6. provider-wide circuit behaviour remains unchanged;
+7. do not double-count the initial empty-response failure in the outer generic catch.
+
+Minimal semantic replacement for the existing empty-response retry block
+--------------------------------------------------------------------------
+
+Before the `try { json = await chatAdapter.collectNonStream(...) }` block, add:
+
+    let initialEmptyResponseClassified = false;
+
+Then replace the current empty-response branch inside `catch (err)` with the following logic:
+
+    if (/^Qwen upstream closed without a usable response/i.test(err.message)) {
+      if (response.account) {
+        accountStore.markFailure(response.account, err.message);
+        initialEmptyResponseClassified = true;
+      }
+
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const retryPreferred = accountStore.candidates()[0] || null;
+        if (!retryPreferred) break;
+
+        const retryPrepared = await preparePublicPayloadGoverned(effectiveBody, {
+          currentOnly: false,
+          compaction,
+          sessionKey,
+          headers: req.headers,
+          account: retryPreferred,
+        });
+        const retry = await qwenClient.sendChatRequest(
+          retryPrepared.qwenPayload,
+          retryPreferred,
+        );
+        if (!retry.status) continue;
+
+        try {
+          json = await chatAdapter.collectNonStream(retry.response, {
+            toolParser: retryPrepared.hasTools ? tools.createToolCallStreamParser() : null,
+          });
+          const saved = sessionStore.set(sessionKey, retry.chatId || retryPrepared.chatId, {
+            accountId: retry.account ? retry.account.id : retryPreferred.id,
+            awaitingCompactedHistory: compaction,
+            toolPromptHash: retryPrepared.toolPromptHash,
+            history: sessionStore.checkpointAcceptedToolProgress(
+              restoredMessages,
+              json?.choices?.[0]?.message,
+            ),
+          });
+          if (!saved) {
+            const error = new Error('Accepted non-stream retry tool call checkpoint was rejected');
+            error.code = 'QWEN_TOOL_CHECKPOINT_REJECTED';
+            throw error;
+          }
+          return res.json(json);
+        } catch (retryError) {
+          if (!/^Qwen upstream closed without a usable response/i.test(retryError.message)) {
+            throw retryError;
+          }
+          if (retry.account) accountStore.markFailure(retry.account, retryError.message);
+        }
+      }
+    }
+
+Finally, change the outer generic classification guard from:
+
+    if (!err || err.code !== 'QWEN_TOOL_CHECKPOINT_REJECTED') {
+      accountStore.markFailure(response.account, err.message);
+    }
+
+to semantics equivalent to:
+
+    if (
+      (!initialEmptyResponseClassified || !/^Qwen upstream closed without a usable response/i.test(err.message)) &&
+      (!err || err.code !== 'QWEN_TOOL_CHECKPOINT_REJECTED')
+    ) {
+      accountStore.markFailure(response.account, err.message);
+    }
+
+Required regression
+-------------------
+Offline/hosted, two eligible accounts A/B:
+
+A. initial gate releases `confirmedResponse=false` because of timeout OR buffer cap;
+B. released A stream later ends with no usable choices -> collectNonStream throws empty-response;
+C. A is marked account-local failure exactly once;
+D. next retry prepares and sends with B, not A;
+E. B gets a fresh upstream thread / no A chat id reuse;
+F. if B also ends empty, B is classified once before any third bounded attempt;
+G. a slow/large stream that later yields a real choices frame is NOT classified merely for the unconfirmed release;
+H. provider-wide WAF/trust/pressure still stops sibling probing.
+
+Hosted reproduction before patch
+--------------------------------
+Current retry selection with original `preferredAccount=A` and no local classification produced:
+`A -> A -> A`.
+After classifying the actual unusable producer A, the next eligible candidate is B.

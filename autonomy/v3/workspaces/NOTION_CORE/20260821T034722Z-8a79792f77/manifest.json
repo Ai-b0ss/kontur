@@ -1,0 +1,124 @@
+{
+  "archive": {
+    "parts": 2,
+    "sha256": "83e93a33412cad976dd3754691e342ad1a47aac58dd146b0701eebd9ddb0fab6",
+    "size": 11788
+  },
+  "capsule_id": "20260821T034722Z-8a79792f77",
+  "created_at_utc": "2026-08-21T03:47:22Z",
+  "parts": [
+    {
+      "chars": 12000,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "51cacdc1f80a35db33e90b285104ef3d2bf2a1f3b965b223bfa7b38986169eec"
+    },
+    {
+      "chars": 3720,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "c6ebd2c5d5728572dce4ead0f11cb898f435c42080a9b5ea0c3fd1942c0f0632"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144 + PR8@1d80d4f2939b4c76a43313b722e4e80c1041564c",
+  "worker": "NOTION_CORE",
+  "workspace": {
+    "CHECKPOINT.json": {
+      "mode": "0o644",
+      "sha256": "8a6e760611e03590fc8aba69adddec56c5709e78f7edd9b8319daaee48d1f2ee",
+      "size": 1109,
+      "type": "file"
+    },
+    "codex_probe_exact_head_offline_contract.json": {
+      "mode": "0o644",
+      "sha256": "0f524827bdf0e03ac68cbf876a66fdf4e3cd6a37a746326900e27c2e4d4a44d0",
+      "size": 253,
+      "type": "file"
+    },
+    "durable_replay_conversation_segments_reference.py": {
+      "mode": "0o644",
+      "sha256": "74c70f40fa6f2843e2e62b3c3ce25113a15a5d13b09811d156895773b489e037",
+      "size": 8234,
+      "type": "file"
+    },
+    "durable_replay_migration_passthrough_harness.py": {
+      "mode": "0o644",
+      "sha256": "16ca51de8f5b70562bfd425dd887c0949ca3851bfbd68880d90624c407220f22",
+      "size": 1552,
+      "type": "file"
+    },
+    "durable_replay_migration_passthrough_output.json": {
+      "mode": "0o644",
+      "sha256": "82c77136cc40b3965a25af6b7bb02a29cbfaf7c1d770e6fd4fa37a62e106489d",
+      "size": 108,
+      "type": "file"
+    },
+    "durable_replay_store_evidence.json": {
+      "mode": "0o644",
+      "sha256": "9f8acc8222219b131895e735b21cd15db1bcbfee85e0f7d9eb0dea4b66fb4499",
+      "size": 3706,
+      "type": "file"
+    },
+    "durable_replay_store_harness.py": {
+      "mode": "0o644",
+      "sha256": "b7f4ae8f68c952ee678db3886ca4ece3c7640b205ce5ec6ea1da16182a8156d5",
+      "size": 7089,
+      "type": "file"
+    },
+    "durable_replay_store_output.json": {
+      "mode": "0o644",
+      "sha256": "f5b60e7e5a8b39d818221a54e69bf0ae4a4374da5357dc429f9b9172e1b41b95",
+      "size": 422,
+      "type": "file"
+    },
+    "response_cache_idempotency_evidence.json": {
+      "mode": "0o644",
+      "sha256": "1bb9fe833bc7b0ccbecb24ce7ca797de032cb09e996c11d3e912e5bf89739003",
+      "size": 1180,
+      "type": "file"
+    },
+    "response_cache_idempotency_harness.py": {
+      "mode": "0o644",
+      "sha256": "6979c9535e998f02f715c640ed19a6148e4b6790563bf862d6c539f04c2733f4",
+      "size": 2420,
+      "type": "file"
+    },
+    "response_cache_idempotency_output.txt": {
+      "mode": "0o644",
+      "sha256": "963afe5cf79ab457d795299b70de28ce56d845f14a7ee90f90e01d9cfcdb86f0",
+      "size": 511,
+      "type": "file"
+    },
+    "restart_exact_replay_evidence.json": {
+      "mode": "0o644",
+      "sha256": "dd6bc87c4d05e872037e834dd32e26c197b4ce59d029cef6c03c38b9f4b7482c",
+      "size": 1916,
+      "type": "file"
+    },
+    "restart_exact_replay_failclosed_candidate.patch": {
+      "mode": "0o644",
+      "sha256": "3cccf270d80c2e41e89b314680f764cb5904c3745c08e36a94e0d24ef2f2770d",
+      "size": 1708,
+      "type": "file"
+    },
+    "restart_exact_replay_failclosed_candidate.py": {
+      "mode": "0o644",
+      "sha256": "db061de4fce62c85cf582cd10b7e02dbe7403019f8f04305f673c1c4277d5563",
+      "size": 1885,
+      "type": "file"
+    },
+    "restart_exact_replay_harness.py": {
+      "mode": "0o644",
+      "sha256": "491007bea407af0f3e35a9e5fd48f584af0b09c32ed66137d10ea420fa73f424",
+      "size": 3118,
+      "type": "file"
+    },
+    "restart_exact_replay_output.txt": {
+      "mode": "0o644",
+      "sha256": "2834d25fa45030ce4fa0701a7ba3c479e73f613b1cbadb60a7b24c7c1009607b",
+      "size": 344,
+      "type": "file"
+    }
+  }
+}

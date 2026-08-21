@@ -1,6 +1,6 @@
 # Qwen + Notion — интеграционный помощник
 
-Обновлено: 2026-08-21 21:50 UTC.
+Обновлено: 2026-08-21 21:52 UTC.
 
 Worker id: `INTEGRATION_HELPER`.
 
@@ -22,12 +22,7 @@ Fresh exact Notion source:
 - `payload/delegated_tool_loop.py` blob `ee789e92c5c3f63296923fc6584c55a44c082798`;
 - `tests/test_delegated_tool_loop.py` blob `82e6af93b84b63c8242f40421ead1780db0ff54c`.
 
-В `DelegatedToolLoopSession.run()` модельный лимит проверяется только в условии следующей итерации. Если последний разрешённый модельный ответ содержит tool calls, код сначала:
-1. засчитывает этот модельный ход;
-2. публикует batch call ids в локальную историю;
-3. реально выполняет локальные инструменты;
-4. сохраняет их результаты;
-5. и только затем, при попытке следующего модельного хода, падает с `delegated task exceeded model-turn budget`.
+В `DelegatedToolLoopSession.run()` модельный лимит проверяется только в условии следующей итерации. Если последний разрешённый модельный ответ содержит tool calls, код сначала засчитывает этот модельный ход, публикует batch call ids в локальную историю, реально выполняет инструменты и сохраняет их результаты. Только при попытке следующего модельного хода возникает `delegated task exceeded model-turn budget`.
 
 Это создаёт детерминированный опасный край: инструмент на последнем ходу может изменить файл или выполнить shell-команду, хотя его результат уже некому прочитать — следующего модельного хода по контракту не существует, а задача гарантированно завершится ошибкой.
 
@@ -44,11 +39,7 @@ Verdict: `FINAL_TURN_ORPHAN_TOOL_SIDE_EFFECT_REPRODUCED_AND_GUARD_PASS`.
 - если этот ответ уже расходует последний разрешённый модельный ход и содержит tools, засчитать модельный ход, но fail-closed **до** записи call ids/history и до входа в любой local tool executor;
 - на более ранних ходах поведение не менять.
 
-В candidate probe:
-- read tool = 1;
-- final-turn write = 0;
-- model turns consumed = 2;
-- ошибка возникает до tool execution.
+В candidate probe: read tool = 1; final-turn write = 0; model turns consumed = 2; ошибка возникает до tool execution.
 
 Artifacts:
 - `autonomy/v3/tools/integration_notion_final_turn_tool_budget_probe.py`;
@@ -73,7 +64,7 @@ Artifacts:
 - archive SHA-256 `31ba53852b5a99d8d469ebdb36fa9c59812b16db01a91f6170467389f1a650ba`;
 - manifest и все 5 частей прочитаны отдельно, base64/archive/workspace metadata сверены; restore PASS.
 
-После новой работы локально собрана и проверена новая v4 capsule `20260821T214506Z-c5bb2f558b`, archive SHA-256 `d2e6ac3e4b4c0c84183aa07ae82292b902fab79d90e4050463f8e263cddf4c78`, 8 частей. Все 8 immutable parts и manifest загружены в GitHub и перечитаны обратно; их Git blob SHA совпали с локально рассчитанными. Финальный CAS `LATEST` выполняется только если стартовый blob указателя не изменился.
+После новой работы собрана и локально проверена новая v4 capsule `20260821T214506Z-c5bb2f558b`, archive SHA-256 `d2e6ac3e4b4c0c84183aa07ae82292b902fab79d90e4050463f8e263cddf4c78`, 8 частей. Все 8 immutable parts и manifest загружены в GitHub и перечитаны обратно; их Git blob SHA совпали с локально рассчитанными. Непосредственно перед публикацией `LATEST` всё ещё имел стартовый blob `6f93e439...`; старый указатель сохранён в `PREVIOUS`, затем CAS-публикация новой капсулы прошла. Новый `LATEST` Git blob: `1750e467a53b40267740a846114fd829bb80d6a9`.
 
 ## Следующее
 

@@ -4,7 +4,7 @@
 
 Основная продуктовая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6.
 
-Свежий product head после этого прохода: `5c8fc5299f77a1c3502082da8827b6d3f20e7592`.
+Свежий product head после этого прохода: `5cc928607cf4d001cbf9adbc007277dccbdefe4b`.
 
 ## Уже доказано и не переделывать
 
@@ -31,91 +31,86 @@
 - истёкший provider circuit при неподтверждённой durable cleanup остаётся fail-closed через `state_cleanup_failed`;
 - local preparation, durable `markSuccess`, durable CAPTCHA/rate-limit/account failure и durable provider-circuit trip отделены от provider transport;
 - accepted-stream observer persistence errors не проглатываются;
-- fsync-confirmed account/cooldown replacement не откатывается из-за cleanup-only удаления старого backup.
+- fsync-confirmed account/cooldown replacement не откатывается из-за cleanup-only удаления старого backup;
+- explicit global provider-circuit clear не снимает fail-closed память без durable подтверждения родительского каталога.
 
 ## Закрыто в этом проходе
 
-### Explicit global clear больше не снимает fail-closed память без durable подтверждения
+### Session primary больше не откатывается из-за cleanup-only ошибки после durable commit
 
-Найден крайний случай в `src/provider-circuit.js`.
-
-После неудачного удаления истёкшего provider-circuit процесс правильно ставит `volatileFailClosed=state_cleanup_failed`. Возможна ситуация, когда canonical `provider-circuit.json` уже отсутствует в текущем namespace, но удаление каталога ранее не было подтверждено `fsync`. Старый `clear()` делал `removeState() -> false` и сразу обнулял `volatileFailClosed`, не подтверждая parent directory durability. После crash старый файл теоретически мог снова появиться, хотя текущий процесс уже открыл трафик.
+Свежий `src/session-store.js::writePrimaryAtomic()` перечитан после параллельного изменения ветки. Дефект из прошлого handoff подтвердился: после успешного `rename(tmp -> FILE)` и `syncParentDirectory(FILE)` удаление старого `.txn-backup-*` всё ещё находилось в общем `try`, поэтому чистый `EIO` на уборке мог попасть в rollback-ветку и вернуть старый checkpoint.
 
 Исправление:
-- global `clear()` теперь получает `statePath()` и результат `removeState()`;
-- если canonical file уже отсутствует, но `volatileFailClosed` всё ещё активен, перед снятием latch выполняется `syncParentDirectory(file)`;
-- если этот fsync падает, clear бросает ошибку, `volatileFailClosed` сохраняется и система остаётся provider-wide fail-closed;
-- обычный успешно durable clear не меняется.
+- после успешного parent-directory fsync новый primary считается каноническим;
+- удаление старого transaction backup стало cleanup-only и best-effort;
+- ошибка уборки больше не удаляет fsync-подтверждённый новый session/tool checkpoint;
+- все ошибки до commit point, включая ошибку parent-directory fsync, по-прежнему откатываются к старому подтверждённому primary.
 
-Коммиты product branch:
-- `12f33ac80d46bb0d34bc3a89c166281073a2340c` — новый regression script;
-- `93b745435a59c76726a5b6306d63e20bc1ad5c15` — продуктовый fix;
-- `2626506c2883db349f438de5b97f4f1e72ad91b6` — подключение регрессии в `npm test`;
-- `5c8fc5299f77a1c3502082da8827b6d3f20e7592` — немедленное исправление собственной опечатки в `package.json`: существующая зависимость `cors` восстановлена обратно на `^2.8.5`; никаких продуктовых изменений dependency не осталось.
+Product commits:
+- `ba09219adeb82574fbcbfaa07346b9f7971ed150` — продуктовый fix в `src/session-store.js`;
+- `5cc928607cf4d001cbf9adbc007277dccbdefe4b` — расширенный `scripts/session-store-primary-fsync-test.js` с cleanup-only `EIO` и проверкой reload.
 
-Hosted targeted marker:
-- `PROVIDER_CIRCUIT_CLEAR_DURABILITY_PASS absent_file_requires_directory_fsync=1 failed_clear_stays_closed=1`.
+Важная гонка с другим writer была обработана безопасно: первая запись старой версии файла получила GitHub `409`, после чего был заново перечитан свежий `session-store.js` и сохранены параллельные изменения по exact system-message checkpoint. Старый файл не форсировался и чужая работа не затёрта.
 
-Изменённые product-файлы перечитаны после записи; `src/provider-circuit.js` на head содержит новый durable-clear guard.
+Hosted targeted model marker:
+`SESSION_PRIMARY_CLEANUP_DURABILITY_PASS cleanup_only_no_rollback=1`.
 
-## Следующий найденный дефект — patch уже подготовлен, но в product пока не применён
+Полный exact-tree `npm test` не заявлен: hosted container не смог получить целиком репозиторий по сети. CircleCI/GitHub Actions/Cloudflare не запускались; живых Qwen/provider запросов — 0.
 
-В `src/session-store.js::writePrimaryAtomic()` остаётся тот же класс post-fsync cleanup rollback, который уже был закрыт в account/provider state.
+## Следующий найденный дефект
 
-Текущая последовательность:
-1. новый session primary записан во временный файл и fsync;
-2. старый primary переименован в `.txn-backup-*`;
-3. новый primary установлен;
-4. parent directory fsync успешно подтверждает новый canonical checkpoint;
-5. затем `fs.rmSync(rollback)` находится внутри общего `try`;
-6. если только cleanup старого rollback даёт `EIO`, общий `catch` удаляет уже подтверждённый новый primary и возвращает старый checkpoint.
+Следующий независимый fail-open найден в `src/subagent-batch-store.js` + `src/subagent-agent-runner.js`, то есть в защите от повторного выполнения side effects.
 
-Это способно откатить более новый acknowledged session/tool checkpoint после того, как durable commit уже состоялся.
+`writeAtomic()` уже правильно считает новый batch state каноническим после rename + parent fsync и допускает leftover `.bak-*`, если cleanup старого backup не удался. Но если позже canonical `subagent-batches.json` повреждён, `readState()` молча берёт `readNewestBackup()` и возвращает старый backup как авторитетное состояние без признака recovery uncertainty.
 
-Точный byte-small кандидат сохранён в каноническом control repo:
-`autonomy/v3/candidates/QWEN_RELIABILITY_SESSION_PRIMARY_CLEANUP_20260821.patch`.
+Опасная последовательность:
+1. старый backup содержит `pending` или более старое состояние;
+2. новый canonical `running/uncertain/done` был durable, а cleanup старого backup дал ошибку и backup остался;
+3. позже canonical повреждается;
+4. restart молча восстанавливает старый backup;
+5. `runAgentSubagents()` может снова выполнить задачу, потому что `pending`/обычный старый state не блокирует replay, хотя mutating tool side effect в более новом потерянном состоянии уже мог произойти.
 
-Кандидат делает удаление старого `.txn-backup-*` best-effort после успешного primary directory fsync и расширяет `session-store-primary-fsync-test.js`: cleanup-only `EIO` не должен отменять `store.set()`, а новый `chatId` должен пережить reload.
+Это тот же класс stale-backup uncertainty, который session-store уже обрабатывает fail-closed.
 
-Почему не применён сразу: `session-store.js` большой и общий; доступная запись GitHub Contents требует заменить весь файл. Exact source читается, но безопаснее применить уже подготовленный маленький diff byte-safe git/patch исполнителем, чем реконструировать общий файл вручную и рисковать свежими session изменениями.
+Следующая безопасная правка: recovery из `.bak-*` должен явно маркировать batch/task как uncertain (или возвращать recovery metadata, которое runner трактует как uncertain) и блокировать автоматический replay до явного `retryUncertain=true`. Нельзя автоматически считать stale `done`, `failed` или `pending` истинными. Существующие diagnostics/signature нужно сохранить.
 
-## Проверки и ограничения этого прохода
+Регресс должен покрыть: durable более новый running/side-effect-capable state -> leftover старый backup -> повреждение canonical -> restart из backup -> автоматический запуск блокируется, пока явно не разрешён uncertain retry.
 
-- стартовый PR #6 head был `d605db5d8f8411f9054ffabf258616d5b9e0132d`; до наших записей параллельного сдвига не было;
-- targeted provider-circuit test выполнен на ChatGPT hosted Node и PASS;
-- полный exact-tree `npm test` не заявлен: hosted container по-прежнему не резолвит `github.com` для git clone;
-- CircleCI/GitHub Actions/Cloudflare: 0 ручных запусков;
-- provider/live Qwen: 0 запросов;
-- реальные аккаунты, секреты и production не тронуты.
+Полезные существующие тесты: `subagent-batch-resume-test.js`, `subagent-legacy-uncertain-restart-test.js`, `subagent-persisted-state-conflict-test.js`, `subagent-state-persist-batch-boundary-test.js`, `subagent-uncertain-batch-stop-test.js`.
 
 ## Постоянная память
 
-В начале запуска прочитан `LATEST.json` и запомнен parent Git blob SHA `7c6b4cc41788564284bf5a425231eac0e3c5058e`.
+Стартовый `LATEST`:
+- capsule `20260821T185621Z-d4f0f4eead`;
+- исходный Git blob SHA `660e310c7aca0045e59b56f4d0a28cb3cc53da53`;
+- archive SHA-256 `da6dc69b691b928d09fac2628e5da304be9fa331bc178b61ef44940dd97b4848`.
 
-Стартовая capsule `20260821T180127Z-57d53429ab` была материализована из exact manifest + part и прошла нормативный `capsule_runtime_v4.py restore`; archive SHA-256 `e26712f0911509a4258e3a2bae4884052bfe7e9a76c984e08b6d4850fddbb6f5`.
+Стартовая capsule материализована из exact manifest/part и прошла нормативные v4 `verify + restore`. Лишний локальный newline при первой материализации part был обнаружен проверкой и удалён; неизвестные bytes не угадывались.
 
-После работы выполнен нормативный `checkpoint -> pack v4 -> verify -> restore`.
+После работы выполнены checkpoint workspace evidence -> `pack v4` -> локальные `verify + restore` -> immutable upload -> повторное чтение всех parts и manifest.
 
-Новая immutable capsule:
-- `20260821T185621Z-d4f0f4eead`;
-- source ref `Ai-b0ss/qwen-free-api@5c8fc5299f77a1c3502082da8827b6d3f20e7592`;
-- archive SHA-256 `da6dc69b691b928d09fac2628e5da304be9fa331bc178b61ef44940dd97b4848`;
-- 1 part, 1876 символов, SHA-256 text `e9bd472e540b891c391c9080040e0169f4ca56193d7cbf6c3c28cf327f0705e9`;
-- uploaded part Git blob SHA `3a577386157357add088f187d837fc7e9173d5c2`;
-- uploaded manifest Git blob SHA `c8ae8158d264ce32a8a81588551935bd8ccddef9`.
+Новая capsule:
+- `20260821T200001Z-8a7c1e4d7a`;
+- source ref `Ai-b0ss/qwen-free-api@5cc928607cf4d001cbf9adbc007277dccbdefe4b`;
+- archive SHA-256 `96e35c1aca7cf7149fbce0903e9a290c2a24e145718a4643a15d96479ef4b979`;
+- archive size 1641 bytes;
+- 2 parts: 2048 и 140 символов;
+- uploaded part0 Git blob SHA `7f93270f1ef1c912e7add715ec0d7d4d16bf9161`;
+- uploaded part1 Git blob SHA `dcf021740cf29b8f746e324dc0622622e9cdafc8`;
+- uploaded manifest Git blob SHA `dc49aa3449e3491dbdb7a57323206a573824f1e6`.
 
-После upload part и manifest перечитаны; Git blob SHA точно совпали с локально вычисленными. Локальные `verify + restore` новой capsule дали PASS.
+После upload оба part и manifest перечитаны; их Git blob SHA и SHA-256 текста точно совпали с локальными значениями.
 
-Непосредственно перед CAS `LATEST` был перечитан и сохранил стартовый parent SHA `7c6b4cc...`; конфликтов не было. Старый `LATEST` сохранён в `PREVIOUS`, затем новый `LATEST` опубликован exact CAS и перечитан.
+Непосредственно перед CAS `LATEST` был перечитан и сохранил стартовый parent SHA `660e310c...`; конфликта не было. Старый `LATEST` сохранён в `PREVIOUS`, затем новый опубликован exact CAS и перечитан.
 
 Текущий `LATEST`:
-- capsule `20260821T185621Z-d4f0f4eead`;
-- Git blob SHA `660e310c7aca0045e59b56f4d0a28cb3cc53da53`;
-- archive SHA-256 `da6dc69b691b928d09fac2628e5da304be9fa331bc178b61ef44940dd97b4848`.
+- capsule `20260821T200001Z-8a7c1e4d7a`;
+- Git blob SHA `31d12fe0d190da24c7afc612db55165c675d67a5`;
+- archive SHA-256 `96e35c1aca7cf7149fbce0903e9a290c2a24e145718a4643a15d96479ef4b979`.
 
 ## Следующий безопасный кусок
 
-1. В начале следующего запуска восстановить новый `LATEST` через v4.
-2. Перечитать свежий PR #6: параллельный writer может сдвинуть head.
-3. Если `src/session-store.js` не был параллельно исправлен, применить `QWEN_RELIABILITY_SESSION_PRIMARY_CLEANUP_20260821.patch` byte-safe способом и прогнать `session-store-primary-fsync-test.js` на hosted Node.
-4. Затем продолжить аудит остальных post-fsync cleanup-путей и stream/local-persistence границ, не возвращаясь к уже закрытым дефектам.
+1. Восстановить текущий `LATEST` через normative v4.
+2. Перечитать свежий PR #6 и `subagent-batch-store.js`/runner, потому что параллельный writer может сдвинуть head.
+3. Если stale-backup uncertainty ещё не закрыта, добавить fail-closed recovery marker без автоматического replay и targeted regression на повреждённый canonical + leftover stale backup.
+4. После одного фикса продолжить аудит остальных durable-state cleanup/recovery путей; не возвращаться к уже закрытым дефектам.

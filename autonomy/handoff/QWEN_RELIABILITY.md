@@ -94,3 +94,25 @@ V1 candidate не использовать: у него был хрупкий pa
 - запись: temp fsync -> old canonical to txn-backup -> candidate install -> parent fsync -> cleanup best-effort;
 - ошибка до commit point видна caller и восстанавливает предыдущие acknowledged bytes;
 - cleanup-only failure после commit не откатывает новый safety state.
+
+## Helper correction — 2026-08-21 21:05Z
+
+Предыдущий V2 superseded и удалён вместе с V1. Использовать только финальный кандидат:
+`autonomy/v3/candidates/QWEN_RELIABILITY_GLOBAL_GOVERNOR_DURABILITY_V3_20260821.patch`
+
+V3 добавляет к предыдущему контракту ещё две обязательные границы:
+- после любой неподтверждённой durable save ошибки текущий процесс ставит `persistenceUncertain` latch; все новые `before()` завершаются локальным `QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN` до provider admission, а не продолжают работу на недоказанном состоянии;
+- `quota-telemetry.finish()` изолирует уже post-response ошибку governor persistence: она логируется, но не вылетает из `finish/close` EventEmitter handler и не роняет процесс после уже отправленного клиенту ответа. Сам governor при этом остаётся fail-closed для следующего admission.
+
+V3 содержит:
+1. product patch `src/request-governor.js` с fsync/rollback/fail-closed latch;
+2. небольшой стык `src/quota-telemetry.js` для post-response isolation;
+3. `scripts/request-governor-durable-state-test.js` — corrupt state, ENOENT clean start, rollback после injected replacement EIO, subsequent admission blocked;
+4. `scripts/quota-telemetry-governor-failure-test.js` — governor durability exception после response не выходит из telemetry finish.
+
+После targeted PASS подключить оба новых теста в свежий exact `npm test` отдельной маленькой правкой. Старые V1/V2 пути больше не существуют.
+
+Дополнительно в product уже закрыта небольшая защитная недостача классификатора side effects:
+- `df0f83e8e96cd459d81cc054131e0110b95c435c` добавил `run_command` в possible-side-effect tools;
+- `a0ec9110da9fefb32700e8996d63df53ee818df8` добавил regression.
+Уточнение: стандартный agent `pickTools()` сейчас наружу объявляет `bash`, а `run_command` остаётся внутренним handler alias, поэтому это defence-in-depth/future compatibility, а не доказанный основной production replay path.

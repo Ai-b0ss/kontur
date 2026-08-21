@@ -1,0 +1,151 @@
+diff --git a/src/qwen-client.js b/src/qwen-client.js
+--- a/src/qwen-client.js
++++ b/src/qwen-client.js
+@@
+ function markSuccessDurably(account, operation) {
+@@
+ }
++
++function markFailureDurably(account, error, permanentOrOptions, operation = 'account_failure') {
++  try {
++    return accountStore.markFailure(account, error, permanentOrOptions);
++  } catch (cause) {
++    throw localPersistenceError(operation, cause);
++  }
++}
++
++function markCaptchaDurably(account, reason, durationMs, operation = 'captcha_failure') {
++  try {
++    return accountStore.markCaptchaChallenge(account, reason, durationMs);
++  } catch (cause) {
++    throw localPersistenceError(operation, cause);
++  }
++}
+@@
+       if (failureClass === 'captcha_challenge') {
+-        accountStore.markCaptchaChallenge(account, `CAPTCHA on /chats/new status=${res.status}`);
++        markCaptchaDurably(account, `CAPTCHA on /chats/new status=${res.status}`, undefined, 'chat_create_captcha');
+         logger.warn(`[chats/new] CAPTCHA deferred account=${account.id}; bounded sibling failover`, 'QWEN');
+         continue;
+       }
+@@
+       if (res.status === 401) {
+-        accountStore.markFailure(account, 'AuthExpired on /chats/new', true);
++        markFailureDurably(account, 'AuthExpired on /chats/new', true, 'chat_create_auth_expired');
+         continue;
+       }
+       if (res.status === 429) {
+-        accountStore.markFailure(account, 'RateLimited on /chats/new');
++        markFailureDurably(account, 'RateLimited on /chats/new', false, 'chat_create_rate_limited');
+         continue;
+       }
+@@
+-      accountStore.markFailure(account, 'Qwen did not return a chat id');
++      markFailureDurably(account, 'Qwen did not return a chat id', false, 'chat_create_missing_id');
+     } catch (err) {
++      if (err && err.localPersistence) throw err;
+       if (err && err.providerStop) throw err;
+@@
+       if (failureClass === 'captcha_challenge') {
+-        accountStore.markCaptchaChallenge(account, `CAPTCHA on generateChatID status=${status || 'none'}`);
++        markCaptchaDurably(account, `CAPTCHA on generateChatID status=${status || 'none'}`, undefined, 'chat_create_exception_captcha');
+         logger.warn(`generateChatId CAPTCHA deferred for ${account.id}; bounded sibling failover`, 'QWEN');
+         continue;
+       }
+@@
+-      if (failureClass === 'rate_limited') accountStore.markFailure(account, `RateLimited: ${err.message}`);
+-      else if (failureClass === 'auth_expired') accountStore.markFailure(account, `AuthExpired: ${err.message}`, true);
+-      else accountStore.markFailure(account, err.message);
++      if (failureClass === 'rate_limited') markFailureDurably(account, `RateLimited: ${err.message}`, false, 'chat_create_exception_rate_limited');
++      else if (failureClass === 'auth_expired') markFailureDurably(account, `AuthExpired: ${err.message}`, true, 'chat_create_exception_auth_expired');
++      else markFailureDurably(account, err.message, false, 'chat_create_exception_failure');
+@@
+         if (gated.failureClass === 'captcha_challenge') {
+-          accountStore.markCaptchaChallenge(account, 'CAPTCHA in initial SSE response');
++          markCaptchaDurably(account, 'CAPTCHA in initial SSE response', undefined, 'completion_initial_captcha');
+@@
+         if (gated.failureClass === 'rate_limited') {
+-          accountStore.markFailure(account, 'RateLimited in initial SSE response');
++          markFailureDurably(account, 'RateLimited in initial SSE response', false, 'completion_initial_rate_limited');
+@@
+         if (gated.failureClass === 'empty_response') {
+-          accountStore.markFailure(account, 'Qwen upstream closed without a usable response');
++          markFailureDurably(account, 'Qwen upstream closed without a usable response', false, 'completion_initial_empty');
+@@
+       if (failureClass === 'captcha_challenge') {
+-        accountStore.markCaptchaChallenge(account, `CAPTCHA on chat completion status=${response.status}`);
++        markCaptchaDurably(account, `CAPTCHA on chat completion status=${response.status}`, undefined, 'completion_status_captcha');
+@@
+-      accountStore.markFailure(account, `Unexpected status ${response.status}`);
++      markFailureDurably(account, `Unexpected status ${response.status}`, false, 'completion_unexpected_status');
+     } catch (err) {
++      if (err && err.localPersistence) {
++        logger.error(`local Qwen state persistence failed while recording provider outcome: ${err.cause?.message || err.message}`, 'QWEN');
++        return {
++          status: false,
++          message: 'Local Qwen state persistence failed while recording provider outcome.',
++          errorClass: 'local_persistence',
++          account,
++        };
++      }
+       if (err && err.providerStop) {
+@@
+       if (failureClass === 'captcha_challenge') {
+-        accountStore.markCaptchaChallenge(account, `CAPTCHA on chat completion status=${status || 'none'}`);
++        markCaptchaDurably(account, `CAPTCHA on chat completion status=${status || 'none'}`, undefined, 'completion_exception_captcha');
+@@
+-      if (failureClass === 'rate_limited') accountStore.markFailure(account, `RateLimited: ${err.message}`);
+-      else if (failureClass === 'auth_expired') accountStore.markFailure(account, `AuthExpired: ${err.message}`, true);
+-      else accountStore.markFailure(account, err.message);
++      if (failureClass === 'rate_limited') markFailureDurably(account, `RateLimited: ${err.message}`, false, 'completion_exception_rate_limited');
++      else if (failureClass === 'auth_expired') markFailureDurably(account, `AuthExpired: ${err.message}`, true, 'completion_exception_auth_expired');
++      else markFailureDurably(account, err.message, false, 'completion_exception_failure');
+@@
+ module.exports = {
+@@
+   markSuccessDurably,
++  markFailureDurably,
++  markCaptchaDurably,
+*** End Patch
+
+diff --git a/scripts/failure-persistence-boundary-test.js b/scripts/failure-persistence-boundary-test.js
+new file mode 100644
+--- /dev/null
++++ b/scripts/failure-persistence-boundary-test.js
+@@
++'use strict';
++
++// If durable recording of an already-classified provider outcome fails locally,
++// the request must fail closed as local_persistence. It must not reclassify the
++// disk error as transport, shorten CAPTCHA/rate-limit semantics, or probe a
++// sibling account with uncertain state.
++
++const fs = require('fs');
++const path = require('path');
++
++const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'qwen-client.js'), 'utf8');
++
++function assert(condition, message) {
++  if (!condition) throw new Error(message);
++}
++
++assert(source.includes('function markFailureDurably('), 'missing durable failure wrapper');
++assert(source.includes('function markCaptchaDurably('), 'missing durable CAPTCHA wrapper');
++assert(source.includes("errorClass: 'local_persistence'"), 'local persistence must be fail-closed');
++
++const createStart = source.indexOf('async function generateChatID');
++const sendStart = source.indexOf('async function sendChatRequest');
++const createBody = source.slice(createStart, sendStart);
++assert(createBody.includes('if (err && err.localPersistence) throw err;'), 'chat creation must not reclassify persistence EIO as provider transport');
++
++const sendBody = source.slice(sendStart);
++const persistenceCatch = sendBody.indexOf('if (err && err.localPersistence)');
++const providerClassify = sendBody.indexOf('const failureClass = classifyUpstreamFailure', persistenceCatch);
++assert(persistenceCatch >= 0 && providerClassify > persistenceCatch, 'completion persistence error must exit before provider classification');
++
++assert(!source.includes("accountStore.markCaptchaChallenge(account, 'CAPTCHA in initial SSE response')"), 'initial CAPTCHA must use durable wrapper');
++assert(!source.includes("accountStore.markFailure(account, 'RateLimited in initial SSE response')"), 'initial rate limit must use durable wrapper');
++
++console.log('QWEN_FAILURE_PERSISTENCE_BOUNDARY_PASS');
++
+*** End Patch

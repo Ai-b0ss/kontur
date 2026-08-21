@@ -1,0 +1,19 @@
+{
+  "verdict": "CODEX_RESTART_EXACT_REPLAY_FAIL_CLOSED_PREDICATE_PASS",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_head": "a016664796720c085fd5356af30f6f959e4971bc",
+  "candidate_patch_sha256": "3cccf270d80c2e41e89b314680f764cb5904c3745c08e36a94e0d24ef2f2770d",
+  "candidate_harness_sha256": "db061de4fce62c85cf582cd10b7e02dbe7403019f8f04305f673c1c4277d5563",
+  "cases": {
+    "restart_exact_replay_no_affinity": "FAIL_CLOSED",
+    "same_process_cache_available": "CACHE_PATH_UNCHANGED",
+    "legitimate_appended_tool_result": "CONTINUATION_PATH_UNCHANGED",
+    "history_rewritten": "ROLLOVER_PATH_UNCHANGED",
+    "compaction_exact_replay": "UNCHANGED"
+  },
+  "status": "SAFETY_CANDIDATE_NOT_PRODUCT_FIX",
+  "remaining_acceptance_gap": "This prevents silent re-planning after restart but does not yet provide seamless durable replay. NOTION_CORE_DONE still requires a durable replay/recovery design or another proof that preserves progress without repeating local side effects.",
+  "hosted_ci_started": false,
+  "provider_traffic_started": false,
+  "native_windows_claimed": false
+}

@@ -1,0 +1,38 @@
+{
+  "archive": {
+    "parts": 1,
+    "sha256": "efb09765aa9f261e94a238821ea02f93840223c8dee233dc378d39566ba6d787",
+    "size": 1794
+  },
+  "capsule_id": "20260821T015929Z-4b823c0fc1",
+  "created_at_utc": "2026-08-21T01:59:29Z",
+  "parts": [
+    {
+      "chars": 2392,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "da48b60f8bb8a090d994f1a860d7a1b7069fb203ba3be7fb3fd375e9f6e18aad"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@bfc8805395d4dfef13d63b089a007a1a64637848",
+  "worker": "QWEN_RELIABILITY",
+  "workspace": {
+    "evidence": {
+      "mode": "0o2755",
+      "type": "dir"
+    },
+    "evidence/CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "58a98b7c6e0558882acef16bd827bf819beca7e2956c4b25a4aabf430da5fb92",
+      "size": 2070,
+      "type": "file"
+    },
+    "evidence/PROVIDER_CIRCUIT_TOMBSTONE_FIX.md": {
+      "mode": "0o644",
+      "sha256": "e2ff1af06499cfb218c9998cf29a758bb950d6a6e68858b7ae08a8c641cba998",
+      "size": 545,
+      "type": "file"
+    }
+  }
+}

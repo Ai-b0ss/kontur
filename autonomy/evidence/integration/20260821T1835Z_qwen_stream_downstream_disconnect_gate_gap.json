@@ -1,0 +1,45 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "finding": "QWEN_STREAM_DOWNSTREAM_DISCONNECT_HOLDS_SESSION_GATE",
+  "verdict": "REPRODUCED_CURRENT_GAP_AND_ABORT_CONTRACT_PASS",
+  "fresh_product_head": "d605db5d8f8411f9054ffabf258616d5b9e0132d",
+  "source_blobs": {
+    "server.js": "44d04725f7b1445f61c0f2da17007d1da8f0895f",
+    "src/session-request-gate.js": "8bab117664096ed863b28b9de6815322a9f922c7",
+    "src/stream-session-guard.js": "6c911b17fd4a8604fff995d6ec227e1d593385b5",
+    "scripts/session-request-gate-test.js": "b2f6e065522f22d3cb9cd2348b310f57e468cb28"
+  },
+  "observed": {
+    "server_disconnect_check": "only immediately after gate acquire",
+    "stream_guard_response_close_listener": false,
+    "current_probe_before_upstream_end": {
+      "provider_calls": 1,
+      "gate_size": 1,
+      "first_finished": false,
+      "second_same_session_entered": false
+    }
+  },
+  "risk": "A client that disconnects after streaming provider work starts can leave the session gate occupied until the upstream stream ends or times out. A newer same-session request is head-of-line blocked even though the original client is gone. This can stall autonomous continuation while doing useless provider work.",
+  "candidate_contract": {
+    "stream_downstream_close": "terminate/destroy current upstream stream and resolve the guarded pipe promptly",
+    "tool_call_safety_before_accept": "withheld tool calls must never be released or checkpointed solely because of disconnect",
+    "tool_call_safety_after_accept": "already durably accepted pending tool calls remain pending and must block unsafe continuation",
+    "provider_account_policy": "client disconnect is local cancellation, not provider/account failure; do not cool or rotate an account for it",
+    "same_session_gate": "release after local cancellation so a later same-session request can re-read durable state",
+    "different_sessions": "remain concurrent"
+  },
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_qwen_downstream_disconnect_gate_probe.js",
+    "marker": "QWEN_DOWNSTREAM_DISCONNECT_GATE_GAP_REPRODUCED_AND_ABORT_CONTRACT_PASS",
+    "candidate_upstream_destroyed": true,
+    "candidate_gate_size": 0,
+    "candidate_second_entered": true,
+    "queued_disconnected_request_ran_provider_work": false
+  },
+  "limits": [
+    "No product source changed.",
+    "No hosted CI.",
+    "No live Qwen/Notion/Codex/provider traffic.",
+    "No real accounts, secrets, Windows or production."
+  ]
+}

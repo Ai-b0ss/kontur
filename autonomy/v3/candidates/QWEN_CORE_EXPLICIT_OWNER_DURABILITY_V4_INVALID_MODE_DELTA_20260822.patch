@@ -8,7 +8,10 @@
 +  if (raw === undefined || raw === null || String(raw).trim() === '') return null;
 +  const normalized = String(raw).trim().toLowerCase();
 +  if (normalized !== 'engineer' && normalized !== 'owner') {
-+    const error = new Error(`Unsupported Qwen system prompt mode: ${normalized}`);
++    // Do not reflect arbitrary client-controlled mode text into the response or
++    // logs. The stable error code is sufficient for callers and avoids response
++    // amplification when the supplied value is very large.
++    const error = new Error('Unsupported Qwen system prompt mode');
 +    error.code = 'QWEN_SYSTEM_PROMPT_MODE_INVALID';
 +    throw error;
 +  }
@@ -23,7 +26,22 @@
 +      // recovered session before the capability layer rejects the request.
 +      explicitPromptMode(publicBody, req.headers);
        // History recovered from a fallback backup has an explicit reconciliation
+@@
++        if (err && err.code === 'QWEN_SYSTEM_PROMPT_MODE_INVALID') {
++          return res.status(400).json({
++            error: {
++              message: 'Unsupported Qwen system prompt mode',
++              type: 'invalid_request_error',
++              code: 'QWEN_SYSTEM_PROMPT_MODE_INVALID',
++            },
++          });
++        }
+         if (err && err.code === 'QWEN_SESSION_RECOVERY_UNCERTAIN') {
+           return res.status(409).json({
 *** Update File: scripts/server-explicit-owner-rehydrate-test.js
+@@
+-  const res = { destroyed: false, writableEnded: false, headersSent: false, setHeader() {}, status() { return this; }, json(value) { this.body = value; this.headersSent = true; return this; }, end() { this.writableEnded = true; } };
++  const res = { destroyed: false, writableEnded: false, headersSent: false, statusCode: 200, setHeader() {}, status(code) { this.statusCode = code; return this; }, json(value) { this.body = value; this.headersSent = true; return this; }, end() { this.writableEnded = true; } };
 @@
      assert.strictEqual(persistedMetadata[0].ownerSystemPrompt, null);
 +
@@ -39,9 +57,22 @@
 +    });
 +    assert.strictEqual(providerBodies.length, 0);
 +    assert.strictEqual(persistedMetadata.length, 0);
-+    assert.strictEqual(invalidMode.body.error.type, 'server_error');
-+    assert.match(invalidMode.body.error.message, /Unsupported Qwen system prompt mode/i);
++    assert.strictEqual(invalidMode.statusCode, 400);
++    assert.strictEqual(invalidMode.body.error.type, 'invalid_request_error');
++    assert.strictEqual(invalidMode.body.error.code, 'QWEN_SYSTEM_PROMPT_MODE_INVALID');
++    assert.strictEqual(invalidMode.body.error.message, 'Unsupported Qwen system prompt mode');
++
++    // A huge invalid value must not be reflected back into the error payload.
++    const hugeInvalidMode = await invoke({
++      model: 'qwen-test',
++      stream: false,
++      system_prompt_mode: 'x'.repeat(200000),
++      messages: [{ role: 'user', content: 'continue' }],
++    });
++    assert.strictEqual(hugeInvalidMode.statusCode, 400);
++    assert.strictEqual(hugeInvalidMode.body.error.message, 'Unsupported Qwen system prompt mode');
++    assert.ok(JSON.stringify(hugeInvalidMode.body).length < 1000, 'invalid mode error must stay bounded');
 @@
 -    console.log('SERVER_EXPLICIT_OWNER_REHYDRATE_PASS restart_continue=1 ordinary_turn_sticky=1 project_context_preserved=1 owner_flag_inherits=1 current_authority_wins=1 recovery_stale_owner_blocked=1 oversized_provider_calls=0');
-+    console.log('SERVER_EXPLICIT_OWNER_REHYDRATE_PASS restart_continue=1 ordinary_turn_sticky=1 project_context_preserved=1 owner_flag_inherits=1 current_authority_wins=1 invalid_mode_fail_closed=1 recovery_stale_owner_blocked=1 oversized_provider_calls=0');
++    console.log('SERVER_EXPLICIT_OWNER_REHYDRATE_PASS restart_continue=1 ordinary_turn_sticky=1 project_context_preserved=1 owner_flag_inherits=1 current_authority_wins=1 invalid_mode_fail_closed=1 invalid_mode_http400=1 invalid_mode_bounded=1 recovery_stale_owner_blocked=1 oversized_provider_calls=0');
 *** End Patch

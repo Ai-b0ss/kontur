@@ -1,0 +1,76 @@
+{
+  "archive": {
+    "parts": 4,
+    "sha256": "f90a7d0da40b9ab202adbb359e2e2ad366e427671f0b7c5756b6cc5d4424329c",
+    "size": 2274
+  },
+  "capsule_id": "20260821T145530Z-7d09429766",
+  "created_at_utc": "2026-08-21T14:55:30Z",
+  "parts": [
+    {
+      "chars": 800,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "7b7d5b130b017e19d397b8e4ef68ed10e1d58dd7981a80c8c61653fbf3f74cd3"
+    },
+    {
+      "chars": 800,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "9ed67114e8a512c2de15a3c085af5d3a69c199b4a47674961257cf91f4bd4d75"
+    },
+    {
+      "chars": 800,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "06c1f80349e635b0be201310957f4aeb6126ec08272d2968ad6aab3785860e95"
+    },
+    {
+      "chars": 632,
+      "index": 3,
+      "name": "part-0003.b64",
+      "sha256_text": "6a82df1468948ba0c8a3cb7e596b52a8d7d8481a7cc4197ffc73e93adabbe9ee"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "worker": "NOTION_CORE",
+  "workspace": {
+    "CHECKPOINT.json": {
+      "mode": "0o644",
+      "sha256": "cf67d7a861af502442c33de26869b910a851c9e12f80b15c12439adfeb4791e6",
+      "size": 860,
+      "type": "file"
+    },
+    "CODEX_SHELL_ENV.json": {
+      "mode": "0o644",
+      "sha256": "7a2ea7b8ebee00d5936e49dccd7a344f40f47c201ea268394b60eaf5c5271f03",
+      "size": 604,
+      "type": "file"
+    },
+    "V10.json": {
+      "mode": "0o644",
+      "sha256": "ca4595a425200153ca9abc51dd5c4061a659fb832a36f9e73d7dda2b6265c8db",
+      "size": 867,
+      "type": "file"
+    },
+    "V10_NEXT.md": {
+      "mode": "0o644",
+      "sha256": "5126d53e2b3f55b7e2c12d9e8824d2c64ff9cdafaf8ee9118cfdd44fd93ad9a6",
+      "size": 408,
+      "type": "file"
+    },
+    "V11.json": {
+      "mode": "0o644",
+      "sha256": "08a57bc1b0efc0a898c23be665f8935d6b03797c0ec04afac82f7560f90ca86b",
+      "size": 843,
+      "type": "file"
+    },
+    "V11_NEXT.md": {
+      "mode": "0o644",
+      "sha256": "3308d7b07f6ee7a97e6db4a673396634eb4b2431c65bf3df0609c51da283add7",
+      "size": 438,
+      "type": "file"
+    }
+  }
+}

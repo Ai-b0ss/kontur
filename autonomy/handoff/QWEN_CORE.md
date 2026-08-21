@@ -89,3 +89,30 @@
 2. Проверить, можно ли fail-closed отклонять oversized system checkpoint ещё до первого provider request, чтобы не тратить Qwen-ход на ответ, который невозможно безопасно сохранить. Менять только после воспроизводимого теста и без ослабления owner-mode.
 3. Вернуть случайно удалённые comment-only строки `server.js` только через точный blob/patch; не реконструировать большой файл вручную.
 4. Узкую механику cooldown/account selection не трогать, если она не пересекается с Core.
+
+## Helper note — 2026-08-21 21:12Z
+
+Пункт 2 воспроизведён и уже имеет готовый минимальный кандидат, созданный параллельным Core-проходом:
+`autonomy/v3/candidates/QWEN_CORE_SYSTEM_CHECKPOINT_PREFLIGHT_20260821.patch`.
+
+Он ставит pure `sessionStore.checkpointMessages(effectiveBody.messages)` после session restore/pending-tool gate, но до `preparePublicPayloadGoverned()` и `qwenClient.sendChatRequest()`. Динамический `server-system-checkpoint-rejected-test.js` меняется на `sendChatCalls=0`. Это правильное место: availability/session conflict semantics остаются прежними, а заведомо непредставимый message-based system prompt не тратит Qwen turn.
+
+Однако найден отдельный более глубокий owner-mode durability gap, который этот простой preflight НЕ закрывает.
+
+`owner_system_prompt` / `ownerSystemPrompt` — официально поддержанный lossless generic OpenAI path (`scripts/system-prompt-mode-test.js`). `qwen-v3-capabilities.prepareInput()` отделяет этот приватный prompt от `messages`, удаляет конкурирующую client persona и затем добавляет owner prompt непосредственно в Qwen payload. Но `session-store.set()` durable record сохраняет только chat/account/compaction/toolPromptHash/history; explicit owner field и owner mode отдельно не сохраняются. Server checkpoint пишет `restoredMessages`, а не detached explicit owner authority.
+
+Следовательно последовательность `explicit owner_system_prompt -> accepted response -> process restart -> short continue without resending explicit field` может потерять приватный owner authority, хотя обычный `role=system` restart path уже закрыт.
+
+Подробный implementation/test contract сохранён здесь:
+`autonomy/v3/candidates/QWEN_CORE_EXPLICIT_OWNER_DURABLE_SESSION_SPEC_20260821.md`
+
+Ключевые требования спецификации:
+- explicit owner prompt хранить отдельно от обычной `history`, не синтезировать его слепо обратно в generic `role=system` (иначе OpenCode MCP/project parsing может смешать authority и project rules);
+- durable record должен помнить owner mode + exact explicit owner text;
+- short continuation без нового owner/system authority наследует durable owner authority;
+- новый explicit owner prompt заменяет старый; explicit engineer/new current authority не должен быть затёрт stale owner prompt;
+- explicit owner field получает жёсткий bounded fail-closed limit и preflight до provider traffic;
+- persistence parity обязательна для primary/retry non-stream и всех streaming checkpoint/final paths;
+- обязательны restart, replacement precedence, oversized sendChatCalls=0 и stream parity regressions.
+
+Не считать простой `QWEN_CORE_SYSTEM_CHECKPOINT_PREFLIGHT_20260821.patch` полным решением owner durability: сначала применить/проверить его как отдельный маленький gate либо совместить с explicit-owner pass, но не потерять второй дефект.

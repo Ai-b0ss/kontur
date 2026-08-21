@@ -1,0 +1,251 @@
+--- a/payload/conversation_segments.py
++++ b/payload/conversation_segments.py
+@@ -1,6 +1,7 @@
+ from __future__ import annotations
+ 
+ import asyncio
++import copy
+ import hashlib
+ import json
+ import os
+@@ -22,6 +23,11 @@
+ 
+ CONVERSATION_TTL = 30 * 24 * 60 * 60
+ MAX_CONVERSATIONS = 500
++REPLAY_SCHEMA_VERSION = 1
++REPLAY_TTL = 6 * 60 * 60
++MAX_REPLAY_RESPONSE_BYTES = 512 * 1024
++MAX_TOTAL_REPLAY_BYTES = 8 * 1024 * 1024
++MAX_STALE_REPLAY_FINGERPRINTS = 32
+ # Version 2 invalidates bindings created while Notion recorded the thread as Auto.
+ STATE_VERSION = 2
+ 
+@@ -79,6 +85,15 @@
+     output_tokens: int
+     updated_at: float
+     model: str | None = None
++    replay_schema_version: int = 0
++    replay_request_fingerprint: str | None = None
++    replay_response: dict[str, Any] | None = None
++    replay_updated_at: float | None = None
++    stale_replay_fingerprints: tuple[str, ...] = ()
++
++
++class ConversationPersistenceError(RuntimeError):
++    pass
+ 
+ 
+ class ConversationSegmentStore:
+@@ -124,12 +139,40 @@
+         input_tokens: int,
+         output_tokens: int,
+         model: str,
++        replay_request_fingerprint: str | None = None,
++        replay_response: dict[str, Any] | None = None,
++        require_persistence: bool = False,
+     ) -> None:
+         if key is None:
++            if require_persistence:
++                raise ConversationPersistenceError("durable conversation key is required")
+             return
++        if replay_response is not None and replay_request_fingerprint is None:
++            raise ValueError("replay_request_fingerprint is required with replay_response")
++        encoded_replay = None
++        if replay_response is not None:
++            encoded_replay = json.dumps(
++                replay_response, ensure_ascii=False, sort_keys=True, separators=(",", ":")
++            ).encode("utf8")
++            if len(encoded_replay) > MAX_REPLAY_RESPONSE_BYTES:
++                raise ConversationPersistenceError("rendered replay exceeds per-response limit")
+         async with self._guard:
+             self._load_locked()
+-            self._items[conversation_storage_key(key)] = ConversationSegment(
++            if require_persistence and (self.path is None or self._persistence_blocked):
++                raise ConversationPersistenceError("durable conversation persistence is unavailable")
++            storage_key = conversation_storage_key(key)
++            previous_items = copy.deepcopy(self._items)
++            previous = self._items.get(storage_key)
++            stale = list(previous.stale_replay_fingerprints if previous is not None else ())
++            if (
++                previous is not None
++                and previous.replay_request_fingerprint
++                and previous.replay_request_fingerprint != replay_request_fingerprint
++            ):
++                stale.append(previous.replay_request_fingerprint)
++            stale = list(dict.fromkeys(stale))[-MAX_STALE_REPLAY_FINGERPRINTS:]
++            now = time.time()
++            self._items[storage_key] = ConversationSegment(
+                 account_id=account_id,
+                 notion_thread_id=notion_thread_id,
+                 input_fingerprints=input_fingerprints,
+@@ -138,11 +181,51 @@
+                 turns=turns,
+                 input_tokens=input_tokens,
+                 output_tokens=output_tokens,
+-                updated_at=time.time(),
++                updated_at=now,
+                 model=model,
++                replay_schema_version=(
++                    REPLAY_SCHEMA_VERSION
++                    if replay_request_fingerprint is not None
++                    else previous.replay_schema_version if previous is not None else 0
++                ),
++                replay_request_fingerprint=replay_request_fingerprint,
++                replay_response=(
++                    copy.deepcopy(replay_response) if replay_response is not None else None
++                ),
++                replay_updated_at=(now if replay_response is not None else None),
++                stale_replay_fingerprints=tuple(stale),
+             )
+             self._cleanup_locked()
+-            self._save_locked()
++            self._enforce_replay_budget_locked()
++            try:
++                self._save_locked(strict=require_persistence)
++            except ConversationPersistenceError:
++                self._items = previous_items
++                raise
++
++    async def replay(
++        self, key: str | None, request_fingerprint: str
++    ) -> tuple[str, dict[str, Any] | None, ConversationSegment | None]:
++        if key is None:
++            return "none", None, None
++        async with self._guard:
++            self._load_locked()
++            changed = self._cleanup_locked()
++            if changed:
++                self._save_locked()
++            item = self._items.get(conversation_storage_key(key))
++            if item is None:
++                return "none", None, None
++            if (
++                item.replay_schema_version == REPLAY_SCHEMA_VERSION
++                and item.replay_request_fingerprint == request_fingerprint
++            ):
++                if item.replay_response is not None:
++                    return "hit", copy.deepcopy(item.replay_response), item
++                return "stale", None, item
++            if request_fingerprint in item.stale_replay_fingerprints:
++                return "stale", None, item
++            return "miss", None, item
+ 
+     @asynccontextmanager
+     async def lock(self, key: str | None) -> AsyncIterator[None]:
+@@ -216,32 +299,104 @@
+                     output_tokens=int(raw.get("output_tokens", 0)),
+                     updated_at=float(raw.get("updated_at", 0)),
+                     model=(str(raw["model"]) if raw.get("model") else None),
++                    replay_schema_version=int(raw.get("replay_schema_version", 0)),
++                    replay_request_fingerprint=(
++                        str(raw["replay_request_fingerprint"])
++                        if raw.get("replay_request_fingerprint") else None
++                    ),
++                    replay_response=(
++                        dict(raw["replay_response"])
++                        if isinstance(raw.get("replay_response"), dict) else None
++                    ),
++                    replay_updated_at=(
++                        float(raw["replay_updated_at"])
++                        if raw.get("replay_updated_at") is not None else None
++                    ),
++                    stale_replay_fingerprints=tuple(
++                        str(value)
++                        for value in raw.get("stale_replay_fingerprints", [])
++                        if isinstance(value, str)
++                    )[-MAX_STALE_REPLAY_FINGERPRINTS:],
+                 )
+         except (OSError, UnicodeDecodeError, ValueError, TypeError, KeyError, json.JSONDecodeError):
+             self._persistence_blocked = True
+             self._items = {}
+ 
+     def _cleanup_locked(self) -> bool:
+-        cutoff = time.time() - self.ttl
++        now = time.time()
++        cutoff = now - self.ttl
++        changed = False
+         before = len(self._items)
+         self._items = {
+             key: item for key, item in self._items.items() if item.updated_at >= cutoff
+         }
++        changed = len(self._items) != before
+         if len(self._items) > self.maximum:
+             newest = sorted(
+                 self._items.items(), key=lambda pair: pair[1].updated_at, reverse=True
+             )[:self.maximum]
+             self._items = dict(newest)
++            changed = True
++        replay_cutoff = now - REPLAY_TTL
++        for item in self._items.values():
++            if (
++                item.replay_response is not None
++                and item.replay_updated_at is not None
++                and item.replay_updated_at < replay_cutoff
++            ):
++                if item.replay_request_fingerprint:
++                    stale = list(item.stale_replay_fingerprints)
++                    stale.append(item.replay_request_fingerprint)
++                    item.stale_replay_fingerprints = tuple(
++                        dict.fromkeys(stale)
++                    )[-MAX_STALE_REPLAY_FINGERPRINTS:]
++                item.replay_response = None
++                changed = True
++        if self._enforce_replay_budget_locked():
++            changed = True
+         stale_locks = [
+             key for key, lock in self._locks.items()
+             if key not in self._items and not lock.locked()
+         ]
+         for key in stale_locks:
+             self._locks.pop(key, None)
+-        return len(self._items) != before
++        return changed
+ 
+-    def _save_locked(self) -> None:
++    def _replay_size(self, item: ConversationSegment) -> int:
++        if item.replay_response is None:
++            return 0
++        return len(json.dumps(
++            item.replay_response, ensure_ascii=False, sort_keys=True, separators=(",", ":")
++        ).encode("utf8"))
++
++    def _enforce_replay_budget_locked(self) -> bool:
++        total = sum(self._replay_size(item) for item in self._items.values())
++        if total <= MAX_TOTAL_REPLAY_BYTES:
++            return False
++        changed = False
++        candidates = sorted(
++            (item for item in self._items.values() if item.replay_response is not None),
++            key=lambda item: item.replay_updated_at or 0.0,
++        )
++        for item in candidates:
++            size = self._replay_size(item)
++            if item.replay_request_fingerprint:
++                stale = list(item.stale_replay_fingerprints)
++                stale.append(item.replay_request_fingerprint)
++                item.stale_replay_fingerprints = tuple(
++                    dict.fromkeys(stale)
++                )[-MAX_STALE_REPLAY_FINGERPRINTS:]
++            item.replay_response = None
++            changed = True
++            total -= size
++            if total <= MAX_TOTAL_REPLAY_BYTES:
++                break
++        return changed
++
++    def _save_locked(self, *, strict: bool = False) -> None:
+         if self.path is None or self._persistence_blocked:
++            if strict:
++                raise ConversationPersistenceError("durable conversation persistence is unavailable")
+             return
+         payload = {
+             "version": STATE_VERSION,
+@@ -262,5 +417,7 @@
+                 self._disk_snapshot = ncm28_atomic_write_from_snapshot(
+                     self.path, raw, self._disk_snapshot, parent_guard=parent_guard
+                 )
+-        except (FilesystemOwnershipError, OSError):
++        except (FilesystemOwnershipError, OSError) as exc:
+             self._persistence_blocked = True
++            if strict:
++                raise ConversationPersistenceError("durable conversation persistence failed") from exc

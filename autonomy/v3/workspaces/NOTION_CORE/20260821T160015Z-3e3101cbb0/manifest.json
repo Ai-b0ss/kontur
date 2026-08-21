@@ -1,0 +1,88 @@
+{
+  "archive": {
+    "parts": 5,
+    "sha256": "7f58f9ff173d2e03545fa8ed77c2298f086e032051090dfecaced9957e845064",
+    "size": 2828
+  },
+  "capsule_id": "20260821T160015Z-3e3101cbb0",
+  "created_at_utc": "2026-08-21T16:00:15Z",
+  "parts": [
+    {
+      "chars": 800,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "0cdaef07e046369d4068d5082012395401e7a5f58e63107a4fa2717e7e71d748"
+    },
+    {
+      "chars": 800,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "1f3255b1be7ed00c72f57aa8ee3be95922993984fb79d4e042feb10c72105f7b"
+    },
+    {
+      "chars": 800,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "9cb04cd4d0345a7a70277459c6b4d17450acfcab8723f4f3cd8f512ffce9a155"
+    },
+    {
+      "chars": 800,
+      "index": 3,
+      "name": "part-0003.b64",
+      "sha256_text": "5e7de2df88cc68c6a1820732fb96924b6b29064b85f53702e393235faa494532"
+    },
+    {
+      "chars": 572,
+      "index": 4,
+      "name": "part-0004.b64",
+      "sha256_text": "63e3c0dd23bf355a09050d1b2e19dde78985ee5817c1c096a151791975ca5f02"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "worker": "NOTION_CORE",
+  "workspace": {
+    "CHECKPOINT.json": {
+      "mode": "0o644",
+      "sha256": "8e9d7c0141767d61db5941a9bd0bb3b06665ffcb1f6a430ef1658d6bd2a9a441",
+      "size": 1357,
+      "type": "file"
+    },
+    "CODEX_SHELL_ENV.json": {
+      "mode": "0o644",
+      "sha256": "7a2ea7b8ebee00d5936e49dccd7a344f40f47c201ea268394b60eaf5c5271f03",
+      "size": 604,
+      "type": "file"
+    },
+    "DURABLE_REPLAY_STORE_V2.json": {
+      "mode": "0o644",
+      "sha256": "db2f0125a071b788e6de9cf2249f555a2c9f456a3a8e4ae1e463f7d389fd92c7",
+      "size": 605,
+      "type": "file"
+    },
+    "V10.json": {
+      "mode": "0o644",
+      "sha256": "ca4595a425200153ca9abc51dd5c4061a659fb832a36f9e73d7dda2b6265c8db",
+      "size": 867,
+      "type": "file"
+    },
+    "V10_NEXT.md": {
+      "mode": "0o644",
+      "sha256": "5126d53e2b3f55b7e2c12d9e8824d2c64ff9cdafaf8ee9118cfdd44fd93ad9a6",
+      "size": 408,
+      "type": "file"
+    },
+    "V11.json": {
+      "mode": "0o644",
+      "sha256": "08a57bc1b0efc0a898c23be665f8935d6b03797c0ec04afac82f7560f90ca86b",
+      "size": 843,
+      "type": "file"
+    },
+    "V11_NEXT.md": {
+      "mode": "0o644",
+      "sha256": "3308d7b07f6ee7a97e6db4a673396634eb4b2431c65bf3df0609c51da283add7",
+      "size": 438,
+      "type": "file"
+    }
+  }
+}

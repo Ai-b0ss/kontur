@@ -82,9 +82,20 @@ Hosted synthetic proof: `PROVIDER_CIRCUIT_ACCOUNT_RESET_FAIL_CLOSED_PASS`.
 - manifest blob `d2baa37c8c4be6e414274dbb5bb5592d91e2d511`;
 - part blob `08ad6603181e7a299c692404dfe103380665c5d6`.
 
-LATEST capsule была восстановлена через v4: part length/hash и archive SHA совпали, workspace verification/restore = PASS. Неизвестные bytes не угадывались.
+Стартовая capsule была восстановлена через v4: part length/hash и archive SHA совпали, workspace verification/restore = PASS. Неизвестные bytes не угадывались.
 
-Финишная capsule этого запуска должна быть опубликована только после `pack` v4, immutable upload, повторного чтения всех частей/manifest и CAS-проверки LATEST против стартового blob SHA выше. Если LATEST уже изменился, не force-write.
+Финиш текущего запуска:
+
+- v4 `pack`, `verify` и `restore` локально = PASS;
+- новая capsule: `20260821T030413Z-4f34d77e1e`;
+- source ref: `Ai-b0ss/qwen-free-api@ffd19b208da8be58f5de9d11c4240327b9e0ad81`;
+- archive SHA-256: `96c7b605db9910157c9caf2f222bfb72aab89a402eb60c1a61766a6cbffa71f2`;
+- 1 part, 1724 chars, text SHA-256 `ba99acfbd23b520f48b0fbfa046af0f280e049616ac14f8e20c58921176449a8`;
+- remote part Git blob SHA `54a34b72f73250ccd7a3fbae1562736e9349da40` совпал с локально вычисленным blob SHA;
+- remote manifest Git blob SHA `ed4ca75a74c298793f71dd63a4f7c88720500da3` совпал с локально вычисленным blob SHA;
+- непосредственно перед CAS LATEST всё ещё имел стартовый blob SHA `fafc1a99...`, конфликта писателя не было;
+- прежний LATEST сохранён как PREVIOUS;
+- новый LATEST опубликован CAS-обновлением и перечитан; новый blob SHA `8b0fbc3de020c5bf5b120cef7d936d326b6d6664`.
 
 ## Следующий приоритет
 

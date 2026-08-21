@@ -1,0 +1,32 @@
+{
+  "schema": "integration_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "observed_at_utc": "2026-08-21T18:55:00Z",
+  "product": "Ai-b0ss/qwen-free-api",
+  "product_ref": "autopilot/qwen-runtime-preflight-20260818@d605db5d8f8411f9054ffabf258616d5b9e0132d",
+  "source": {
+    "path": "src/command-handler.js",
+    "blob_sha": "85f8586a37b4308e52cf138043d174030e52b090"
+  },
+  "finding": "isCommandMessage() searches backward for the latest user message instead of requiring the request tail itself to be a user command. Therefore a historical management command remains executable when later assistant/tool messages are appended without a newer user turn.",
+  "risk": "A replayed or tool-result-bearing OpenAI-compatible transcript can re-enter command handling instead of normal continuation. Mutating commands such as reset, account removal/addition, export or update can be repeated from history; command handling also bypasses the normal session request gate on the current head.",
+  "reproduction": {
+    "probe": "autonomy/v3/tools/integration_qwen_command_tail_replay_probe.py",
+    "current": {
+      "command_only": true,
+      "historical_command_then_tool": true,
+      "historical_command_then_assistant": true,
+      "normal_new_user": false
+    },
+    "candidate": {
+      "command_only": true,
+      "historical_command_then_tool": false,
+      "historical_command_then_assistant": false,
+      "normal_new_user": false
+    }
+  },
+  "minimal_contract": "Treat a management command as executable only when the final request message is role=user and that final message contains the command. Historical user commands must be inert transcript data. Keep the separate per-session command-gate fix for state-mutating commands.",
+  "provider_calls": 0,
+  "hosted_ci_runs": 0,
+  "production_mutations": 0
+}

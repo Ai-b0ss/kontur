@@ -1,0 +1,129 @@
+diff --git a/src/qwen-client.js b/src/qwen-client.js
+--- a/src/qwen-client.js
++++ b/src/qwen-client.js
+@@
+ function buildHeaders(refererPath, account) {
+@@
+ }
++
++function buildHeadersForProvider(refererPath, account) {
++  try {
++    return buildHeaders(refererPath, account);
++  } catch (cause) {
++    const err = new Error('Local Qwen request preparation failed before provider I/O.');
++    err.code = 'QWEN_LOCAL_PREPARATION';
++    err.localPreparation = true;
++    err.cause = cause;
++    throw err;
++  }
++}
+@@
+   for (const account of candidates) {
+     const midCircuit = circuitError();
+     if (midCircuit) throw midCircuit;
+-    markProviderAttempt(attemptContext, account);
++    // Local header/cookie/timezone preparation is not a provider attempt. If it
++    // fails, do not spend request-wide failover budget and do not cool a healthy
++    // account as though Qwen had failed.
++    const requestHeaders = buildHeadersForProvider('/c/new-chat', account);
++    markProviderAttempt(attemptContext, account);
+     try {
+       const res = await axios.post(
+@@
+-        { headers: buildHeaders('/c/new-chat', account), timeout: 30000 }
++        { headers: requestHeaders, timeout: 30000 }
+       );
+@@
+   for (const account of candidates) {
+     const midCircuit = circuitError();
+     if (midCircuit) return { status: false, message: midCircuit.message, errorClass: midCircuit.errorClass };
+     try {
+       let accountChatId = originalChatId;
+       if (!canReuseOriginalChatId(account, originalChatId, preferredAccount)) {
+         accountChatId = await generateChatID(model, chatType, account, attemptContext);
+-      } else {
+-        markProviderAttempt(attemptContext, account);
+       }
+       if (!accountChatId) {
+         continue;
+       }
+ 
+       const accountPayload = { ...payload, chat_id: accountChatId, chatId: accountChatId };
+       const url = `${config.BASE_URL}/api/v2/chat/completions?chat_id=${accountChatId}`;
++      const requestHeaders = buildHeadersForProvider(`/c/${accountChatId}`, account);
++      // A newly-created chat already consumed this account at /chats/new.
++      // Existing-thread reuse has not touched the provider yet, so consume the
++      // slot only after local request preparation succeeded.
++      if (canReuseOriginalChatId(account, originalChatId, preferredAccount)) {
++        markProviderAttempt(attemptContext, account);
++      }
+       const response = await axios.post(url, accountPayload, {
+-        headers: buildHeaders(`/c/${accountChatId}`, account),
++        headers: requestHeaders,
+         responseType: 'stream',
+         timeout: 10 * 60 * 1000,
+       });
+@@
+     } catch (err) {
++      if (err && err.localPreparation) {
++        logger.error(`local Qwen request preparation failed before provider I/O: ${err.cause?.message || err.message}`, 'QWEN');
++        return {
++          status: false,
++          message: 'Local Qwen request preparation failed before provider I/O.',
++          errorClass: 'local_preparation',
++        };
++      }
+       if (err && err.providerStop) {
+@@
+ module.exports = {
+@@
+   classifyUpstreamFailure,
++  buildHeadersForProvider,
+*** End Patch
+
+diff --git a/scripts/local-preparation-boundary-test.js b/scripts/local-preparation-boundary-test.js
+new file mode 100644
+--- /dev/null
++++ b/scripts/local-preparation-boundary-test.js
+@@
++'use strict';
++
++// Regression contract for request-wide failover accounting:
++// 1) synchronous local header/cookie/timezone preparation failure must happen
++//    before markProviderAttempt();
++// 2) it must not call axios/provider I/O;
++// 3) it must not call accountStore.markFailure()/markCaptchaChallenge();
++// 4) it must not add the healthy account to attemptedAccountIds;
++// 5) after preparation succeeds, the account is charged immediately before the
++//    provider path; same-owner rebase semantics remain unchanged.
++
++const fs = require('fs');
++const path = require('path');
++
++const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'qwen-client.js'), 'utf8');
++
++function assert(condition, message) {
++  if (!condition) throw new Error(message);
++}
++
++assert(source.includes("err.code = 'QWEN_LOCAL_PREPARATION'"), 'missing local preparation error boundary');
++assert(source.includes("errorClass: 'local_preparation'"), 'local preparation must have a non-provider error class');
++
++const createStart = source.indexOf('async function generateChatID');
++const sendStart = source.indexOf('async function sendChatRequest');
++const createBody = source.slice(createStart, sendStart);
++assert(createBody.indexOf("buildHeadersForProvider('/c/new-chat', account)") < createBody.indexOf('markProviderAttempt(attemptContext, account)'), 'chat creation must prepare locally before charging provider budget');
++
++const sendBody = source.slice(sendStart);
++const completionHeaders = sendBody.indexOf('buildHeadersForProvider(`/c/${accountChatId}`, account)');
++const existingThreadCharge = sendBody.indexOf('markProviderAttempt(attemptContext, account)', completionHeaders);
++const axiosPost = sendBody.indexOf('const response = await axios.post', completionHeaders);
++assert(completionHeaders >= 0 && existingThreadCharge > completionHeaders && axiosPost > existingThreadCharge, 'existing-thread completion ordering must be prepare -> charge -> provider');
++
++const localCatch = sendBody.indexOf('if (err && err.localPreparation)');
++const providerClassification = sendBody.indexOf('const status = err.response', localCatch);
++assert(localCatch >= 0 && providerClassification > localCatch, 'local preparation error must exit before upstream failure classification');
++
++console.log('QWEN_LOCAL_PREPARATION_BOUNDARY_PASS');
++
+*** End Patch

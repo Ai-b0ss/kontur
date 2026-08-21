@@ -1,0 +1,38 @@
+{
+  "schema": "notion_core_durable_rendered_replay_atomic_record_model_v1",
+  "source": {
+    "core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_boundary_pr8": "9cd1a98ee1d1c85a9d3650c6d756852810a055f3",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213"
+  },
+  "existing_defect": {
+    "same_process_cache": "stores completion_text then re-renders Responses payload, regenerating response/item/call UUIDs",
+    "restart": "persistent segment progress can survive while rendered Responses result does not",
+    "ordering": "current server persists turn affinity and conversation segment before responses_payload() renders the client-visible tool call"
+  },
+  "required_design": {
+    "atomic_unit": "one durable record containing request fingerprint + segment progress + already-rendered Responses result",
+    "identity": "request key remains content-free fingerprint; do not persist owner prompt or secrets as identity material",
+    "replay": "exact retry returns stored rendered payload with identical response_id/item_id/call_id and no provider inference",
+    "streaming": "SSE is regenerated only from the stored rendered payload; IDs remain identical",
+    "safety_floor": "legacy/corrupt state that proves progress but lacks matching replay must fail closed, never re-plan"
+  },
+  "offline_crash_matrix": {
+    "after_provider_before_atomic_publish": "PROVIDER_ALLOWED because no durable progress was published",
+    "after_atomic_publish_before_http_or_sse_return": "REPLAY exact stored payload",
+    "after_http_or_sse_return": "REPLAY exact stored payload",
+    "segment_progress_without_replay_via_new_writer": "UNREACHABLE",
+    "legacy_progress_without_replay": "FAIL_CLOSED"
+  },
+  "stable_id_fixture": {
+    "response_id": "resp_FIXED",
+    "item_id": "fc_FIXED",
+    "call_id": "call_FIXED"
+  },
+  "verdict": "DURABLE_RENDERED_REPLAY_ATOMIC_RECORD_MODEL_PASS",
+  "implementation_note": "Do not bolt a second replay file beside conversation_segments.json: two independent atomic renames still permit crash states where segment progress exists without replay. The replay and segment progress for the completed turn must share one atomic publication boundary, or use an equivalent journal/transaction with recovery proof.",
+  "windows": "No native Windows semantics claimed. This is a platform-neutral lifecycle/crash invariant model only.",
+  "provider_traffic": false,
+  "hosted_ci": false
+}

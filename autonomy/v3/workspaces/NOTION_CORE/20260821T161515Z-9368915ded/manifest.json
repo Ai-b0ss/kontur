@@ -1,0 +1,94 @@
+{
+  "archive": {
+    "parts": 4,
+    "sha256": "b932fbdd01f63f4a71598aee0fb8dde1ada6a56934084ff84b50c515e5cd8fb1",
+    "size": 5381
+  },
+  "capsule_id": "20260821T161515Z-9368915ded",
+  "created_at_utc": "2026-08-21T16:15:15Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "5ed03778455bdca1056a7a1f9b7937200ea3941cbd623f44757694199f17b2c2"
+    },
+    {
+      "chars": 2048,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "e1b9888bf00af5a0ad6c01896fc9a6775f0245807502d5882aab03ac8b1df673"
+    },
+    {
+      "chars": 2048,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "16022c821f5997c26ce50841237c0f095f68679186490544e8bd12868ba24630"
+    },
+    {
+      "chars": 1032,
+      "index": 3,
+      "name": "part-0003.b64",
+      "sha256_text": "5aa0e87cbe49c1f13e9e5791504fc08c8d41f554896a92fc03e403795fe0ec50"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "worker": "NOTION_CORE",
+  "workspace": {
+    "CHECKPOINT.json": {
+      "mode": "0o644",
+      "sha256": "458595c5c12f34241f40373096d8c0d420ef45ce8fa4ac4686ad4666980db8e0",
+      "size": 950,
+      "type": "file"
+    },
+    "CODEX_SHELL_ENV.json": {
+      "mode": "0o644",
+      "sha256": "7a2ea7b8ebee00d5936e49dccd7a344f40f47c201ea268394b60eaf5c5271f03",
+      "size": 604,
+      "type": "file"
+    },
+    "V10.json": {
+      "mode": "0o644",
+      "sha256": "ca4595a425200153ca9abc51dd5c4061a659fb832a36f9e73d7dda2b6265c8db",
+      "size": 867,
+      "type": "file"
+    },
+    "V10_NEXT.md": {
+      "mode": "0o644",
+      "sha256": "5126d53e2b3f55b7e2c12d9e8824d2c64ff9cdafaf8ee9118cfdd44fd93ad9a6",
+      "size": 408,
+      "type": "file"
+    },
+    "V11.json": {
+      "mode": "0o644",
+      "sha256": "08a57bc1b0efc0a898c23be665f8935d6b03797c0ec04afac82f7560f90ca86b",
+      "size": 843,
+      "type": "file"
+    },
+    "V11_NEXT.md": {
+      "mode": "0o644",
+      "sha256": "3308d7b07f6ee7a97e6db4a673396634eb4b2431c65bf3df0609c51da283add7",
+      "size": 438,
+      "type": "file"
+    },
+    "V12.json": {
+      "mode": "0o644",
+      "sha256": "59780a5147c86c8f9aeeba10dfa394f2f3d36e075365af06ecc1048dbaeb1024",
+      "size": 611,
+      "type": "file"
+    },
+    "V12_NEXT.md": {
+      "mode": "0o644",
+      "sha256": "d532179733c78740a83fa7374241baad5c71a6d4f2d2c7af7eb68cace7a6805c",
+      "size": 506,
+      "type": "file"
+    },
+    "V12_REPLAY_HARNESS.py": {
+      "mode": "0o644",
+      "sha256": "658061896f9fb6525d2f79f81b31d160a9a0de31ccf55e5dca0922cca315de00",
+      "size": 8140,
+      "type": "file"
+    }
+  }
+}

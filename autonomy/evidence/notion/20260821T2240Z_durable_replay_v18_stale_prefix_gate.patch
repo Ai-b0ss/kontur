@@ -1,0 +1,53 @@
+# Apply after V12/V12-fixup/V17 and before final server integration.
+# V18 closes a bounded stale-fingerprint history gap: V12 keeps only 32 old
+# request fingerprints, so a sufficiently old exact retry can fall out of that
+# ring and otherwise be mistaken for rewritten/new history. Codex Responses input
+# is append-oriented inside one segment; an incoming history that is a strict
+# prefix of the latest durable history is therefore an old request, not new work.
+
+diff --git a/payload/server.py b/payload/server.py
+--- a/payload/server.py
++++ b/payload/server.py
+@@
+     current_fingerprints = response_input_fingerprints(body)
++    # The content-free stale fingerprint ring is intentionally bounded. Do not
++    # let an older exact request become executable again merely because its hash
++    # aged out of that ring. Within one unchanged model/segment contract, an
++    # incoming input history that is a strict prefix of the durable latest
++    # history is necessarily older work. Fail closed before provider planning.
++    # Post-compaction normal turns are exempt because Codex may legitimately
++    # replace the pre-compaction history with a shorter compacted history.
++    if (
++        segment is not None
++        and segment.model == model
++        and not bool(getattr(segment, "awaiting_compacted_history", False))
++        and len(current_fingerprints) < len(segment.input_fingerprints)
++        and input_prefix_length(
++            tuple(current_fingerprints), tuple(segment.input_fingerprints)
++        ) is not None
++    ):
++        return replay_error("stale prior request history cannot be executed again")
+     segment_prefix = (
+         input_prefix_length(segment.input_fingerprints, current_fingerprints)
+         if segment is not None else None
+     )
+@@
+ async def handle_openai_compaction(
+@@
+     current_fingerprints = response_input_fingerprints(body)
++    # Compaction also needs the monotonic stale-history guard. Unlike a normal
++    # post-compaction turn, a new compaction request must not legitimately be an
++    # older strict prefix of the already durable conversation history.
++    if (
++        segment is not None
++        and segment.model == model
++        and len(current_fingerprints) < len(segment.input_fingerprints)
++        and input_prefix_length(
++            tuple(current_fingerprints), tuple(segment.input_fingerprints)
++        ) is not None
++    ):
++        return replay_error("stale prior compaction history cannot be executed again")
+     prefix = (
+         input_prefix_length(segment.input_fingerprints, current_fingerprints)
+         if segment is not None else None
+     )

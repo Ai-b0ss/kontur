@@ -1,0 +1,54 @@
+{
+  "candidate": {
+    "change": "replace string-only lastUser extraction with existing extractSessionText(lastUser?.content)",
+    "patch_artifact": "autonomy/v3/candidates/QWEN_PENDING_TOOL_CONTENT_SHAPE_20260821.patch",
+    "probe_result": "PASS",
+    "regressions": [
+      "string continue remains recognized",
+      "OpenAI-style text-part array continue recognized",
+      "object text continue recognized",
+      "ordinary non-continuation structured content not misclassified",
+      "pending tool call blocks all recognized short continuation shapes before provider attempt"
+    ]
+  },
+  "finding": "QWEN_PENDING_TOOL_RESTART_GATE_CONTENT_SHAPE_BYPASS",
+  "observed": {
+    "existing_extractSessionText": "already supports string, array text parts, and object text/content",
+    "existing_regression": "restart test covers plain string 'continue' only",
+    "pending_tool_gate": "findPendingToolCalls is invoked only when isContinuationTurn is true",
+    "server_continuation_classifier": "reads last user content only when typeof content === 'string'"
+  },
+  "reproduction": {
+    "generic_text_object_continue": {
+      "classified": false,
+      "pending_gate_blocks": false
+    },
+    "openai_text_part_array_continue": {
+      "classified": false,
+      "pending_gate_blocks": false
+    },
+    "plain_string_continue": {
+      "classified": true,
+      "pending_gate_blocks": true
+    },
+    "risk": "after restart with a durably accepted mutating tool call and no matching tool result, a short continuation encoded as non-string content can bypass QWEN_PENDING_TOOL_RESULT and reach model/provider processing"
+  },
+  "schema": "integration_helper_evidence_v1",
+  "scope": {
+    "hosted_ci": false,
+    "live_provider": false,
+    "native_windows_claim": false,
+    "not_current_qwen_core_work": "Core handoff is durable checkpointing of accepted assistant text and stream lifecycle",
+    "not_current_qwen_reliability_work": "Reliability handoff is nested bounded retry/account-affinity attempt budget",
+    "production": false,
+    "secrets": false
+  },
+  "source": {
+    "qwen_head": "51a54afdb39fac3198a33d8809a57a474b20eca9",
+    "qwen_pr": 6,
+    "server_js_blob": "1df9b76dcefce086aa22b9c3fe8d57688a8ed9e5",
+    "session_pending_test_blob": "d11ba98cf1f303db81443bdefe0a7a2d79644221"
+  },
+  "verdict": "REPRODUCED_OFFLINE_AND_MINIMAL_CANDIDATE_PASS",
+  "worker": "INTEGRATION_HELPER"
+}

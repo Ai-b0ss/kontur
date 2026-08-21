@@ -15,6 +15,14 @@
 - Следующий точный Core-дефект уже воспроизведён, но пока не исправлен: message-count/char trimming может отрезать `assistant.tool_calls` на старой границе, оставив более новый `role=tool` без соответствующего assistant call. Маркер: `QWEN_CHECKPOINT_TOOL_PAIR_SPLIT_REPRO_PASS orphan_tool_result=1 assistant_call_dropped=1`. Следующий проход должен сделать checkpoint trimming tool-pair aware (не сохранять orphan tool result и не терять pending call на границе), затем проверить restart через настоящий `session-store`.
 - Полный exact-tree `npm test` всё ещё **не заявлен**: приватное дерево целиком не материализовано на hosted-машине. Внешний CI, живой Qwen, Cloudflare, production и секреты не использовались.
 
+### Постоянная память этого прохода
+
+- После существенной работы exact `capsule_runtime_v4.py` использован для `pack → verify → restore`; локальная восстановленная рабочая папка побайтно совпала с исходной.
+- Новый immutable checkpoint: `20260821T030348Z-d475ee3ae1`, source ref `ffd19b208da8be58f5de9d11c4240327b9e0ad81`, archive SHA-256 `f0e6c3afe2b792c2554b96a84dc44c6c4c829968ba24ba33f83af5fd1a80ad8c`.
+- Uploaded immutable bytes перечитаны и сверены по Git blob SHA с локальными: `part-0000` blob `767b5319e73b5ac57ebd7f78e48202f1e7fea62b`, `part-0001` blob `a6dfcd7225c432e1bdca5d01b55aa30574533a20`, manifest blob `a1c605fbdc8b48ed4e8b626af5902ff8887cb758`.
+- Перед CAS-публикацией LATEST всё ещё имел точный run-start blob `12f53eb58606568331f83609549e8bab8ca802bd`. Старый LATEST сохранён как PREVIOUS; новый LATEST опубликован только с этим exact parent SHA.
+- Текущий LATEST: capsule `20260821T030348Z-d475ee3ae1`, pointer blob `4be671a4e1bce81dd8f2c443114301e5f3929d56`. PREVIOUS теперь указывает на `20260821T015504Z-3ef1e77567` и имеет blob `12f53eb58606568331f83609549e8bab8ca802bd`.
+
 ## Предыдущий накопленный канон
 
 `qwen-workspace`: PR #5, ветка `fix/u01-cache-coherence`, head `ce51b26c227b08032301a8574fee4fe2ee9330a3` по последней проверке.

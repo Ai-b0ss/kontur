@@ -1,0 +1,45 @@
+# QWEN_FAILOVER_GOVERNOR_ACCOUNTING_20260822.patch
+# Contract patch / integration guidance. Do not apply blindly across a moving PR.
+# Fresh preimage: qwen-free-api head 36dcf2424923de926e3e04848ae2e5dfa6402645.
+#
+# Required behavior:
+#
+# 1. Carry governor size metadata in the request-wide attempt context after the
+#    initial preparePublicPayloadGoverned() admission:
+#
+#    requestAttemptContext.governorChars = <the exact admission chars>;
+#    requestAttemptContext.governedAccountIds = new Set([preferredAccount.id]);
+#    requestAttemptContext.settledGovernorAccountIds = new Set();
+#
+# 2. In qwen-client, immediately before first provider I/O on any sibling account
+#    selected by sendChatRequest()/generateChatID(), ensure that account has its own
+#    admission:
+#
+#    await ensureGovernorAdmission(attemptContext, account)
+#
+#    where ensureGovernorAdmission calls requestGovernor.before(account.id,
+#    { chars: attemptContext.governorChars }) exactly once per account.
+#
+# 3. Before continuing from a failed account A to sibling B, settle A's admission
+#    exactly once with the same classified failure that caused failover. Do this for
+#    captcha/rate-limit/auth/transport branches that continue to another account.
+#
+# 4. Do NOT settle the final successful account inside qwen-client: keep that
+#    admission until quota telemetry has actual usage, then success(finalAccount,
+#    usage) settles it. Telemetry must know that earlier failed attempts were already
+#    settled and must never emit a second outcome for them.
+#
+# 5. If the whole operation terminates before a final successful response, settle
+#    the last admitted-but-unsettled account exactly once before returning the local
+#    error. Local preparation failures before provider I/O must not be mislabeled as
+#    provider pressure.
+#
+# Regression required before product write:
+#   A admitted -> A CAPTCHA -> B admitted -> B succeeds -> response finishes
+# Assertions:
+#   admissions == [A, B]
+#   outcomes include failure(A, captcha) and success(B, usage)
+#   pending(A) == 0
+#   pending(B) == 0
+#   provider calls to B before before(B) == 0
+#   failover budget/account affinity semantics unchanged

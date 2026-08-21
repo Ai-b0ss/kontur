@@ -2,7 +2,7 @@
 
 Core: `Ai-b0ss/notion-agent-bridge:candidate/ncm28-windows-fixed-v1`, PR #7, exact head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
-Agent integration boundary: draft PR #8 `autonomy/notion-prompt-modes-20260819`; freshest read-only head в этом запуске `1d80d4f2939b4c76a43313b722e4e80c1041564c`. Не переносить/дублировать rotation, prompt modes, delegation или account/thread affinity; Core проверяет только необходимый lifecycle/Codex стык.
+Agent integration boundary: draft PR #8 `autonomy/notion-prompt-modes-20260819`; freshest read-only head `23a52f88b065a9d03b93b94e2f2ea0044c167ece`. Не переносить/дублировать rotation, prompt modes, delegation или account/thread affinity; Core проверяет только необходимый lifecycle/Codex стык.
 
 ## Режим
 
@@ -11,16 +11,14 @@ ZERO-MINUTE: CircleCI/GitHub Actions/Cloudflare/другой hosted CI не за
 ## Постоянная память
 
 Текущий проверенный v4 `LATEST`:
-- capsule `20260821T040846Z-acb0adfd7d`;
-- archive SHA-256 `9dd89a8f1ce07a2ec5fe10e858f318417f7bf5ba6e2fed32956b34b4324f484a`, size 8209, 6 parts;
-- part Git blobs: `c46e0366a66a2681039cd6949eca3ea47a084fdf`, `5c1d8ac3af3e9abc0f46797322b5c63df6394d4f`, `a363d65dbc04d87ded827a857282b57d2d969d5c`, `1b6e25937d7b148e2ef64574076c45a79f8af7c0`, `284d82e0074453a3259aef9e119bf2988afe22d9`, `3e81638d7300238a80c1fa72feaf2db56b56bf15`;
-- manifest Git blob `85b37fd0297c61fe2270f5e728119822c1e391e8`;
-- `LATEST.json` Git blob после CAS: `71f46ae1bdc98f133a1e1e51b3c6b76091350027`;
-- `PREVIOUS.json` сохранён на capsule `20260821T015251Z-9afa256e7a`.
+- capsule `20260821T044703Z-495592db42`;
+- archive SHA-256 `0ac8b64df353c5d817304bdde747166af76d7f24ee3e81d9cf67cdab25f9da93`, size 11964, 8 parts;
+- part Git blobs: `d4081761d1e51eb01cde97247b73f1f65cf276fc`, `0028731ebf0e0b220a43a28bfaea06bae81bd6fa`, `ec34d9a1fd6f557717baf1820a40ea917b4ecf68`, `312b116fa8fa729610867ebac94fc47449dcac19`, `302b045d3b824054610912cb8761fd6725a2c3b6`, `fad96eebb6fa494fe47cdae571730683632f1b93`, `faae4cb3ad41b542d86ccd5df5f147b3bc3b9073`, `5f624cac884a8a1218f333fa04f553cf8b1801d9`;
+- manifest Git blob `03ca450d4bcefda5fe0a4387db3383c33ea38412`;
+- `LATEST.json` Git blob after CAS `71e2b0fc71aca0cf29ea87bbbcf1833f04b9ff48`;
+- `PREVIOUS.json` now preserves capsule `20260821T040846Z-acb0adfd7d`.
 
-Все 6 parts и manifest после публикации перечитаны из GitHub; Git blob SHA совпали с локально рассчитанными. Старый LATEST был повторно прочитан непосредственно перед CAS и всё ещё имел ожидаемый blob `be2508d8ef972de25f3a0ace409f817b9288db8a`.
-
-Важно: каталог `20260821T040429Z-dde6714f39` — невалидный orphan после неуспешной readback-проверки первой части. Он никогда не публиковался в LATEST и не должен использоваться для restore.
+Все 8 parts и manifest после публикации перечитаны из GitHub; их Git blob SHA совпали с локально рассчитанными. Перед CAS старый `LATEST` был перечитан и всё ещё имел ожидаемый blob `71f46ae1bdc98f133a1e1e51b3c6b76091350027`.
 
 ## NCM28 / Windows
 
@@ -28,7 +26,7 @@ ZERO-MINUTE: CircleCI/GitHub Actions/Cloudflare/другой hosted CI не за
 
 Уже доказано настоящим Windows: `build`, `happy-running`, `happy-stopped`, `rerun-noop` проходят; аварийный `auth-rollback` остаётся красным; managed-file rollback и non-target preservation проходят; auth/stable rollback падают с `PermissionError`; `remove_plain_tree` исключён как источник.
 
-Существующий digest-разрез workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3` НЕ перезапускать. Read-only status в этом запуске снова показал все пять задач (`auth`, `codex`, `migration`, `runtime`, `outside-digest`) как `pending`. Hosted Windows/CI не запускался.
+Существующий digest-разрез workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3` НЕ перезапускать. В этом запуске все пять задач (`auth`, `codex`, `migration`, `runtime`, `outside-digest`) снова `pending`. Hosted Windows/CI не запускался.
 
 Когда появится новый точный callsite/outside-digest: использовать готовый call-cut `autonomy/ncm28-callcut-ready-20260820@f72c450fdb8877981c8a79c550e7bc0479c7f8f4` → минимальный фикс → бесплатные Linux/Python регрессии → один разрешённый native Windows gate → `tests.test_crash_recovery` + `RUN_NCM28_LOCAL_VERIFY.py`.
 
@@ -52,65 +50,43 @@ ignore_default_excludes = false
 ```
 Локально доказано, что эта политика не пропускает `NOTION_BRIDGE_API_KEY`, `RUNTIME_STATE_KEY` и тестовый AWS secret в model-reachable shell. До применения защиты живой Codex/Notion probe не запускать.
 
-## Core lifecycle: durable rendered Responses replay
+## Core lifecycle: durable rendered Responses replay v4
 
-Fresh PR #8 сохраняет два старых Core-дефекта:
-1. same-process `TurnAffinityStore` хранит только `completion_text`; cache hit заново вызывает `responses_payload()`, поэтому меняются `response_id`, output item id и tool `call_id`;
-2. persistent `ConversationSegmentStore` хранит progress/thread/fingerprints, но не готовый Responses result. После restart exact replay может иметь persisted progress без replayable protocol result.
+Fresh PR #8 сохраняет исходные дефекты: `TurnAffinityStore` хранит только `completion_text`, а `responses_payload()` заново создаёт `response_id`, output item id и tool `call_id`; persistent `ConversationSegmentStore` хранит progress/thread/fingerprints, но не canonical Responses result.
 
-В этом запуске доказаны ещё три обязательные границы реализации.
+В этом запуске exact source дал ещё критическую границу: `handle_openai_responses()` сейчас сохраняет `TurnAffinityStore` ДО `ConversationSegmentStore`. Поэтому простое добавление durable replay в conversation store недостаточно: если disk publication упадёт после affinity put, same-process retry сможет получить незакоммиченный tool recommendation из semantic cache и заново отрендерить его с новым `call_id`.
 
-### 1. Streaming preflight должен решить replay ДО первого SSE-байта
+Первый v3-кандидат из `autonomy/evidence/notion/20260821T0448Z_durable_rendered_replay_v3_candidate.patch` после self-review ОТКЛОНЁН и не является apply-ready.
 
-`stream_openai_responses()` сейчас создаёт свежий `response_id` и сразу отправляет `response.created`, а только затем фоново вызывает `handle_openai_responses()`. После введения durable replay это способно дать один id в `response.created` и сохранённый старый id в `response.completed`/tool output.
+Доказанный порядок v4:
+1. provider completion;
+2. render canonical Responses result с окончательными response/item/call IDs;
+3. один атомарный durable commit conversation record;
+4. только после успешного durable commit — same-process affinity cache;
+5. только после этого — exposure клиенту.
 
-Требование: replay/miss определяется под той же сериализацией conversation+turn **до** первого SSE event. На replay поток строится напрямую из сохранённого canonical response. На miss новый `response_id` создаётся только после решения, что replay нет. Сохранять существующий порядок блокировок, не вводить обратный lock order.
+Дополнительные обязательные инварианты:
+- `ConversationSegmentStore.put()` должен явно подтверждать durable success или поднимать отдельную ошибку и откатывать in-memory mutation;
+- exact replay использует отдельный full-request fingerprint; per-item fingerprints остаются для prefix/continuation;
+- legacy v2 exact progress без replay fail-closed, а не повторный provider call;
+- tool-call с `conversation_key=None` fail-closed до affinity/exposure, потому что side effect нечем связать с durable replay identity;
+- stream не должен отправлять `response.created` до решения replay/durable publication. Пока provider работает, допустимы только identity-free SSE comments/keep-alive; после commit поток строится из canonical stored response;
+- bounded replay TTL candidate: 6h. После expiry payload удаляется, но request fingerprint остаётся; exact retry затем fail-closed, не перепланирует возможный side effect.
 
-### 2. Durable publication сейчас нельзя подтвердить вызывающему коду
+Локальные доказательства:
+- `DURABLE_RENDERED_REPLAY_V4_ORDERING_PASS`: forced durable failure => 503, affinity пуст, response не exposed; missing conversation identity для tool call => fail-closed; successful tool round следует `provider→render→durable→affinity→expose`; final text остаётся совместимым для клиента без Codex conversation identity.
+- `DURABLE_RENDERED_REPLAY_V4_REAL_STORE_CLASS_PASS`: v2 load как legacy-without-replay; v3 canonical replay survives restart; forced NCM28 save failure возвращает in-memory состояние и не меняет disk; expiry удаляет payload, но сохраняет fingerprint; `input=[]` подтверждает необходимость отдельного full-request fingerprint.
 
-`ConversationSegmentStore._save_locked()` ловит `FilesystemOwnershipError/OSError`, ставит `_persistence_blocked=True` и ничего не возвращает. `put()` поэтому не знает, достигла ли запись диска. Для tool-call это блокирующая проблема: нельзя показать Codex действие, если progress+replay существует только в памяти.
-
-Требование: `put()` должен явно вернуть durable success либо поднять отдельную ошибку. При неудаче публикации восстановить предыдущее in-memory значение, чтобы недолговечное новое состояние не выглядело как сохранённое. До выдачи tool-call — fail closed.
-
-### 3. Exact replay key должен быть отдельным full-request fingerprint
-
-`response_input_fingerprints()` смешивает request context в каждый input-item и нужен для prefix/continuation. Но при `input=[]` результат — пустой tuple, поэтому equality tuple недостаточна для exact replay. Хранить отдельно `replay_request_fingerprint=response_input_fingerprint(body)`; per-item fingerprints оставить для prefix semantics.
-
-### Доказанный минимальный инвариант v2
-
-Одна атомарная conversation record должна одновременно содержать:
-- существующий segment progress/account/thread metadata;
-- `replay_request_fingerprint`;
-- уже отрендеренный completed Responses payload с окончательными `response_id`, item id и `call_id`.
-
-Legacy v2 нельзя просто сделать невидимым bump-ом версии: если старый record показывает exact progress, но не имеет replay, запрос должен fail closed (например 409), а не тихо повторно вызвать модель.
-
-Offline harness прошёл:
-- crash до atomic publication → provider retry разрешён;
-- crash после publication до HTTP/SSE return → тот же stored response, provider call_count остаётся 1;
-- same-process exact retry → те же response/item/call ids;
-- process restart exact retry → те же ids;
-- stream/non-stream строятся из одного canonical response;
-- legacy exact progress-without-replay → fail closed;
-- changed request → replay miss;
-- failed durable publication → success наружу не выдаётся.
-
-Вердикт: `DURABLE_RENDERED_REPLAY_V2_LOCAL_PASS`.
-
-Материал: `autonomy/evidence/notion/20260821T040221Z_durable_replay_stream_preflight_evidence.json`.
-
-### Реализационный нюанс безопасности
-
-До product patch отдельно решить объём сохраняемого replay. `ConversationSegmentStore` исторически был content-free, а полный rendered response может содержать текст ответа. Минимально необходимая долговечность точно нужна для tool-call round, чтобы не повторить side effect после crash. Не превращать content-free state в бесконтрольный transcript-кэш без явного решения; предпочтителен минимальный canonical replay, достаточный для exact protocol replay, с bounded TTL/cleanup.
+Основное evidence: `autonomy/evidence/notion/20260821T0458Z_durable_rendered_replay_v4_evidence.json`.
 
 ## Следующий порядок
 
 1. Не перезапускать pending Windows digest; только read-only проверять новый факт.
-2. На exact свежем PR #8 локально подготовить bounded Core patch: durable success signal/rollback в `ConversationSegmentStore`; separate replay fingerprint; render-before-one-atomic-save; exact replay до semantic affinity cache; fail closed legacy progress-without-replay.
-3. Перестроить streaming entry так, чтобы replay preflight происходил до `response.created`, не нарушая lock order.
-4. Локально прогнать реальные классы store/server helper: same-process retry, process restart, stream/non-stream, tool call, final text, empty-input exact key и forced persistence failure; provider stub `call_count=1` после durable publication.
-5. Держать shell-env hardening для real Codex probe; product push не делать до снятия ZERO-MINUTE.
+2. На exact свежем PR #8 материализовать локальные `conversation_segments.py` + `server.py` и собрать apply-ready v4 patch, НЕ пушить product branch при ZERO-MINUTE.
+3. В patch соблюдать `provider→render→durable→affinity→expose`; shallow rollback не использовать, если cleanup может мутировать dataclass in-place — применять immutable replacement/deep snapshot.
+4. Локально прогнать реальные классы: v2 load, forced NCM28 save failure, same-process exact retry, process restart, stream/non-stream, tool call, final text, empty-input exact key, replay expiry; provider stub `call_count=1` после durable publication.
+5. Держать shell-env hardening для real Codex probe.
 6. При первом разрешённом native Windows gate совместить auth-rollback callsite с PowerShell restore proof; без нового fanout.
 7. После Core gates: один bounded авторизованный `codex exec → bridge → Notion → local tool → verifier FAIL → tool result → fix → VERIFY_OK`, затем restart/recovery без повторного локального side effect.
 
-Product PR #7/PR #8 не менялись; hosted CI, provider traffic и реальные пользовательские данные не трогались.
+Product PR #7/PR #8 в этом запуске не менялись; hosted CI, provider traffic и реальные пользовательские данные не трогались.

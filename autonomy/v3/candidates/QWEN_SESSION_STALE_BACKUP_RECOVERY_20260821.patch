@@ -1,0 +1,24 @@
+*** Candidate only; exact Qwen head 17a71b9636eeead5873a0bd716e27a6bf073c913 ***
+
+src/session-store.js
+- Track whether load() succeeded from FILE or fell back to BACKUP_FILE.
+- Export a read-only recovery provenance accessor, e.g. recoveryState().
+- Do not clear the recovered-from-backup uncertainty merely because the backup parsed.
+
+server.js
+- After isContinuationTurn is known, if sessionStore recovery source is backup and
+  the request is a short continuation, return 409 QWEN_SESSION_RECOVERY_UNCERTAIN
+  before preparePublicPayloadGoverned()/qwenClient.sendChatRequest().
+- Do not reuse record.chatId incrementally from a backup-recovered store until the
+  client has supplied explicit full history and the session has been durably rewritten.
+- A full-history reconciliation must re-run findPendingToolCalls on reconciled history.
+
+Regression
+1. Persist baseline primary+backup without pending calls.
+2. Persist accepted mutating tool call to primary while injecting BACKUP_FILE write failure.
+3. Assert sessionStore.set() currently succeeds.
+4. Corrupt primary; reload.
+5. POST short continue with explicit session id.
+6. Assert 409 QWEN_SESSION_RECOVERY_UNCERTAIN and provider call_count === 0.
+7. Supply complete explicit history including exact tool result; durably rewrite session.
+8. Only then permit normal continuation.

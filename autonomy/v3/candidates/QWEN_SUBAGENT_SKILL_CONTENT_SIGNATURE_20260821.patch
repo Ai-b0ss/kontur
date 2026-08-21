@@ -1,0 +1,44 @@
+diff --git a/src/subagent-agent-runner.js b/src/subagent-agent-runner.js
+--- a/src/subagent-agent-runner.js
++++ b/src/subagent-agent-runner.js
+@@
+ function executionSignatureContext(options, prefix) {
+@@
+ }
++
++function selectedSkillExecutionContext(tasks) {
++  const fingerprints = {};
++  for (const task of tasks) {
++    if (!Array.isArray(task.skills) || task.skills.length === 0) continue;
++    const technicalBlock = buildTechnicalSkillBlock(task.skills);
++    fingerprints[task.id] = crypto
++      .createHash('sha256')
++      .update(technicalBlock)
++      .digest('hex');
++  }
++  return Object.keys(fingerprints).length
++    ? { selectedSkillContextSha256ByTask: fingerprints }
++    : {};
++}
+ 
+ function persistedBatchContext(tasks, options, prefix) {
+@@
+-  const batch = store.ensure(batchId, tasks, executionSignatureContext(options, prefix));
++  const batch = store.ensure(batchId, tasks, {
++    ...executionSignatureContext(options, prefix),
++    ...selectedSkillExecutionContext(tasks),
++  });
+   return { batchId, store, batch };
+ }
+@@
+   executionSignatureContext,
++  selectedSkillExecutionContext,
+   persistedBatchContext,
+
+# Regression contract:
+# 1. Create one persisted batch with task.skills=['debug-repair'] and skill body V1.
+# 2. Recreate the same task/batch/session/settings after changing only the selected
+#    skill body to V2.
+# 3. Expect QWEN_SUBAGENT_BATCH_SIGNATURE_MISMATCH before resume/retry.
+# 4. Verify the persisted context contains only SHA-256, never skill plaintext.
+# 5. Verify a no-skill batch keeps the previous signature shape for compatibility.

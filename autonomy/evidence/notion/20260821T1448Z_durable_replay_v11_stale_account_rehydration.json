@@ -1,0 +1,37 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "lane": "NOTION_CORE",
+  "verdict": "DURABLE_REPLAY_V11_STALE_ACCOUNT_REHYDRATION_LOCAL_PASS",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "integration_head": "cba70d87c2fad9736f4f2cefa1854b3efbf7636d",
+  "exact_blobs": {
+    "payload/server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "payload/conversation_segments.py": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "payload/turn_affinity.py": "f4bc004ec08cbaf3f1118dec0926015ab41b8bd3"
+  },
+  "reproduced_defect": "A persisted tool-call can name an account that is no longer present after restart. Blindly recreating ForegroundAccountReservations for that stale id can consume the apparent reservation capacity of a one-account pool for unrelated work even though the configured replacement account is actually free.",
+  "exact_source_basis": [
+    "ForegroundAccountReservations.reserve accepts an arbitrary account_id and wait_for_turn_route compares distinct reserved ids with pool_size.",
+    "NotionAccountPool.status returns the current configured account ids in accounts[].id, so Core can validate a persisted owner without probing Notion or mutating pool policy.",
+    "Current durable-replay product code is not yet integrated; this is an ordering/rehydration guard for the pending V8/V9/V10 patch."
+  ],
+  "required_v11_rule": [
+    "Before rehydrating a persisted tool-call reservation, obtain the current configured account-id set from the already-constructed local account pool.",
+    "If persisted account_id is still configured, reserve exactly that account before any identity-bearing replay is sent to Codex.",
+    "If persisted account_id is absent, clear any stale in-memory reservation and fail closed; do not silently substitute another account/thread in Core.",
+    "A later NOTION_AGENT integration may provide an explicitly proven full-history rebase/failover path; Core must not invent one."
+  ],
+  "local_cases": {
+    "current_semantics_removed_id_one_account": "REPRODUCED_GHOST_BLOCK",
+    "v11_removed_id": "PASS_NO_RESERVATION_FAIL_CLOSED",
+    "v11_owner_still_present": "PASS_EXACT_OWNER_RESTORED",
+    "v11_no_silent_replacement": "PASS"
+  },
+  "not_proven": [
+    "native Windows semantics",
+    "full exact FastAPI server integration",
+    "live Codex/Notion traffic"
+  ],
+  "hosted_ci_started": false,
+  "provider_traffic_started": false
+}

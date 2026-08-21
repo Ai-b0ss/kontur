@@ -1,0 +1,175 @@
+*** Begin Patch
+*** Update File: src/request-governor.js
+@@
+   const __w2WAF_PENALTIES = [120_000,300_000,600_000,900_000,1_800_000,3_600_000];
+ 
+   function __w2sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
++  function __w2syncParent(target){
++    if(process.platform==='win32')return;
++    let fd=null;
++    try{
++      fd=__w2fs.openSync(__w2path.dirname(target),'r');
++      __w2fs.fsyncSync(fd);
++    }catch(error){
++      if(!error||!['EINVAL','ENOTSUP','EOPNOTSUPP'].includes(error.code))throw error;
++    }finally{
++      if(fd!==null){try{__w2fs.closeSync(fd)}catch(_){}}
++    }
++  }
++  function __w2uncertainError(reason){
++    const error=new Error('Global request-governor state is uncertain: '+String(reason||'unreadable state'));
++    error.code='QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN';
++    return error;
++  }
+   function __w2load(){
+-    let x={};
+-    try{x=JSON.parse(__w2fs.readFileSync(__w2STATE,'utf8'))}catch(_){}
++    let x={};
++    let recoveryUncertain=false;
++    try{
++      x=JSON.parse(__w2fs.readFileSync(__w2STATE,'utf8'));
++      if(!x||typeof x!=='object'||Array.isArray(x))throw new Error('invalid global governor state');
++    }catch(error){
++      if(!error||error.code!=='ENOENT')recoveryUncertain=true;
++      x={};
++    }
+     return {
+       starts:Array.isArray(x.starts)?x.starts.map(Number).filter(Number.isFinite):[],
+       usage:Array.isArray(x.usage)?x.usage.filter(e=>e&&Number.isFinite(Number(e.t))&&Number.isFinite(Number(e.tokens))).map(e=>({t:Number(e.t),tokens:Number(e.tokens)})):[],
+@@
+-      lastFailureKind:String(x.lastFailureKind||'')
++      lastFailureKind:String(x.lastFailureKind||''),
++      recoveryUncertain
+     };
+   }
+   let __w2g=__w2load(), __w2gate=Promise.resolve();
+   function __w2save(){
++    if(__w2g.recoveryUncertain)throw __w2uncertainError('canonical state could not be read');
+     __w2fs.mkdirSync(__w2path.dirname(__w2STATE),{recursive:true});
+     const d={version:3,starts:__w2g.starts,usage:__w2g.usage,penaltyUntil:__w2g.penaltyUntil,
+       wafStrikes:__w2g.wafStrikes,successStreak:__w2g.successStreak,lastWafAt:__w2g.lastWafAt,
+       lastStartAt:__w2g.lastStartAt,lastFailureAt:__w2g.lastFailureAt,lastFailureKind:__w2g.lastFailureKind,
+       updatedAt:Date.now()};
+-    const tmp=__w2STATE+'.tmp-'+process.pid+'-'+__w2crypto.randomBytes(3).toString('hex');
+-    __w2fs.writeFileSync(tmp,JSON.stringify(d,null,2),'utf8');
+-    try{__w2fs.renameSync(tmp,__w2STATE)}catch(e){try{__w2fs.rmSync(__w2STATE,{force:true});__w2fs.renameSync(tmp,__w2STATE)}catch(_){try{__w2fs.rmSync(tmp,{force:true})}catch(__){}}}
++    const suffix=process.pid+'-'+__w2crypto.randomBytes(6).toString('hex');
++    const tmp=__w2STATE+'.tmp-'+suffix;
++    const backup=__w2STATE+'.txn-backup-'+suffix;
++    let fd=null,movedOriginal=false,installed=false,committed=false;
++    try{
++      fd=__w2fs.openSync(tmp,'wx',0o600);
++      __w2fs.writeFileSync(fd,JSON.stringify(d,null,2),'utf8');
++      __w2fs.fsyncSync(fd);
++      __w2fs.closeSync(fd);fd=null;
++      if(__w2fs.existsSync(__w2STATE)){
++        __w2fs.renameSync(__w2STATE,backup);movedOriginal=true;
++      }
++      __w2fs.renameSync(tmp,__w2STATE);installed=true;
++      __w2syncParent(__w2STATE);committed=true;
++      if(movedOriginal){
++        try{__w2fs.rmSync(backup,{force:true})}catch(_){}
++        try{__w2syncParent(__w2STATE)}catch(_){}
++      }
++    }catch(error){
++      if(fd!==null){try{__w2fs.closeSync(fd)}catch(_){}fd=null;}
++      if(!committed){
++        try{
++          if(installed&&__w2fs.existsSync(__w2STATE))__w2fs.rmSync(__w2STATE,{force:true});
++          if(movedOriginal&&__w2fs.existsSync(backup))__w2fs.renameSync(backup,__w2STATE);
++          try{__w2syncParent(__w2STATE)}catch(_){}
++        }catch(_){}
++      }
++      try{__w2fs.rmSync(tmp,{force:true})}catch(_){}
++      throw error;
++    }finally{
++      if(fd!==null){try{__w2fs.closeSync(fd)}catch(_){} }
++      try{__w2fs.rmSync(tmp,{force:true})}catch(_){}
++    }
+   }
+@@
+   async function __w2admit(){
++    if(__w2g.recoveryUncertain)throw __w2uncertainError('canonical state could not be read');
+     let now=Date.now();__w2prune(now);
+*** Add File: scripts/request-governor-durable-state-test.js
++'use strict';
++
++const assert = require('assert');
++const fs = require('fs');
++const os = require('os');
++const path = require('path');
++
++const root = fs.mkdtempSync(path.join(os.tmpdir(), 'qwen-governor-durable-'));
++const stateFile = path.join(root, 'global-pressure.json');
++const modulePath = require.resolve('../src/request-governor');
++const previousFile = process.env.QWEN_WAFMIN2_STATE_FILE;
++
++function loadGovernor() {
++  delete require.cache[modulePath];
++  process.env.QWEN_WAFMIN2_STATE_FILE = stateFile;
++  return require('../src/request-governor');
++}
++
++(async () => {
++  try {
++    // Corrupt safety state must never be interpreted as an empty/healthy state.
++    fs.writeFileSync(stateFile, '{corrupt global governor state', 'utf8');
++    let governor = loadGovernor();
++    await assert.rejects(
++      () => governor.before('account-a', { chars: 100 }),
++      (error) => error && error.code === 'QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN',
++      'corrupt persisted governor state must fail closed before provider admission',
++    );
++
++    // A genuinely absent state is a valid clean start.
++    fs.rmSync(stateFile, { force: true });
++    governor = loadGovernor();
++    await governor.before('account-a', { chars: 100 });
++    assert.ok(fs.existsSync(stateFile), 'successful admission must durably create global governor state');
++    const acknowledged = fs.readFileSync(stateFile, 'utf8');
++
++    // Fail after the old canonical was moved aside but before replacement commit.
++    // The call must report failure and the prior acknowledged bytes must return.
++    const originalRenameSync = fs.renameSync;
++    let injected = false;
++    fs.renameSync = (from, to) => {
++      if (!injected && String(to) === stateFile && String(from).includes('.tmp-')) {
++        injected = true;
++        const error = new Error('simulated governor replacement failure');
++        error.code = 'EIO';
++        throw error;
++      }
++      return originalRenameSync(from, to);
++    };
++    try {
++      assert.throws(
++        () => governor.failure('account-a', 'WAF_CAPTCHA_CHALLENGE'),
++        (error) => error && error.code === 'EIO',
++        'failed durable pressure-state replacement must be visible to the caller',
++      );
++    } finally {
++      fs.renameSync = originalRenameSync;
++    }
++    assert.ok(injected, 'failure injection must reach canonical replacement');
++    assert.strictEqual(
++      fs.readFileSync(stateFile, 'utf8'),
++      acknowledged,
++      'failed replacement must restore the previous acknowledged global governor bytes',
++    );
++
++    console.log('REQUEST_GOVERNOR_DURABLE_STATE_PASS corrupt_fail_closed=1 rollback=1');
++  } finally {
++    if (previousFile === undefined) delete process.env.QWEN_WAFMIN2_STATE_FILE;
++    else process.env.QWEN_WAFMIN2_STATE_FILE = previousFile;
++    delete require.cache[modulePath];
++    fs.rmSync(root, { recursive: true, force: true });
++  }
++})().catch((error) => {
++  console.error(error && error.stack ? error.stack : error);
++  process.exitCode = 1;
++});
+*** Update File: package.json
+@@
+-    "test": "node --check server.js &&
++    "test": "node --check server.js && node scripts/request-governor-durable-state-test.js &&
+*** End Patch

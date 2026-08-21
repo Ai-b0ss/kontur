@@ -1,0 +1,59 @@
+*** Begin Patch
+*** Update File: src/session-store.js
+@@
+     syncParentDirectory(FILE);
+ 
+     if (movedOriginal) {
+-      fs.rmSync(rollback, { force: true });
++      // The new primary checkpoint is already canonical and directory-fsync
++      // confirmed. Removing the previous transaction backup is cleanup-only:
++      // failure here must not roll an acknowledged newer session/tool state
++      // back to the older checkpoint.
++      try { fs.rmSync(rollback, { force: true }); } catch (_) {}
+       try { syncParentDirectory(FILE); } catch (_) {}
+     }
+*** Update File: scripts/session-store-primary-fsync-test.js
+@@
+   assert.strictEqual(
+     store.getRecord('fsync-session').chatId,
+     'chat-old',
+     'fallback recovery must not resurrect the rejected post-rename candidate',
+   );
++
++  // Once the primary rename + parent-directory fsync succeeded, failure to
++  // delete the old transaction backup is cleanup-only. It must not undo the
++  // newer acknowledged checkpoint.
++  store = loadStore();
++  const originalRmSync = fs.rmSync;
++  let cleanupInjected = false;
++  fs.rmSync = (target, options) => {
++    if (!cleanupInjected && String(target).includes('.txn-backup-')) {
++      cleanupInjected = true;
++      const error = new Error('simulated session transaction backup cleanup failure');
++      error.code = 'EIO';
++      throw error;
++    }
++    return originalRmSync(target, options);
++  };
++  try {
++    assert.strictEqual(
++      store.set('fsync-session', 'chat-new', { accountId: 'account-new' }),
++      true,
++      'cleanup-only failure after durable primary replacement must not reject the mutation',
++    );
++  } finally {
++    fs.rmSync = originalRmSync;
++  }
++  assert.ok(cleanupInjected, 'failure injection must reach old transaction-backup cleanup');
++  assert.strictEqual(store.getRecord('fsync-session').chatId, 'chat-new');
++  store = loadStore();
++  assert.strictEqual(
++    store.getRecord('fsync-session').chatId,
++    'chat-new',
++    'restart must retain the fsync-confirmed newer primary after cleanup-only failure',
++  );
+ 
+-  console.log('SESSION_STORE_PRIMARY_FSYNC_PASS rollback_after_visible_rename=1 backup_acknowledged_only=1');
++  console.log('SESSION_STORE_PRIMARY_FSYNC_PASS rollback_after_visible_rename=1 backup_acknowledged_only=1 cleanup_only_no_rollback=1');
+ } finally {
+*** End Patch

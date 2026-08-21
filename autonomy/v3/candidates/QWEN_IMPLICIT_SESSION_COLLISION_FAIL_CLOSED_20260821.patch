@@ -1,0 +1,44 @@
+# Candidate only; do not apply blindly.
+# Exact source preimage: Ai-b0ss/qwen-free-api@205faf3e4b9f89c53e40930cb6447cba6ed37677
+# server.js Git blob: 44d04725f7b1445f61c0f2da17007d1da8f0895f
+# Goal: content-derived fallback keys must not authorize durable/upstream-thread affinity.
+
+--- a/server.js
++++ b/server.js
+@@
+   const publicBody = req.body || {};
+   const streamRequested = publicBody.stream === true;
+   const sessionKey = getOpenCodeSessionKey(req, publicBody);
++  const explicitSession = hasExplicitSessionId(req, publicBody);
+@@
+-      const record = sessionStore.getRecord(sessionKey);
++      // A content-derived key is not a proof of conversation identity: two
++      // independent OpenAI-compatible clients may have the same model/user/first
++      // message. Without an explicit session id, run statelessly and never reuse
++      // durable Qwen thread/account/memo affinity from another request.
++      const record = explicitSession ? sessionStore.getRecord(sessionKey) : null;
+@@
+-      const restoredMessages = sessionStore.restoreCheckpoint(
++      const restoredMessages = sessionStore.restoreCheckpoint(
+         publicBody.messages,
+         record,
+-        hasExplicitSessionId(req, publicBody),
++        explicitSession,
+       );
+@@
+-          if (response.account) {
++          if (response.account && explicitSession) {
+             const saved = sessionStore.set(sessionKey, response.chatId || prepared.chatId, {
+@@
+-                const saved = sessionStore.set(sessionKey, retry.chatId || retryPrepared.chatId, {
++                const saved = explicitSession ? sessionStore.set(sessionKey, retry.chatId || retryPrepared.chatId, {
+                   ...
+-                });
++                }) : true;
+
+# Apply the same explicitSession guard to every stream/non-stream sessionStore.set
+# and toolMemo/session-affinity write in this route. For implicit sessions, pass the
+# full caller transcript (`currentOnly:false`, `chatId:null`) to a fresh Qwen thread.
+# If the request is a short continuation that requires durable prior state but has
+# no explicit session id, fail closed with a stable 4xx such as
+# QWEN_EXPLICIT_SESSION_REQUIRED instead of guessing identity from message content.

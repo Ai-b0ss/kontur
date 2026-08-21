@@ -1,0 +1,58 @@
+{
+  "schema": "notion_core_durable_rendered_replay_v5_evidence",
+  "timestamp_utc": "2026-08-21T05:55:00Z",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_integration_head": "e1411c03b861ab31968ea26c414b693c6a3db26b",
+  "exact_source_blobs": {
+    "conversation_segments.py": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "turn_affinity.py": "f4bc004ec08cbaf3f1118dec0926015ab41b8bd3"
+  },
+  "windows_digest": {
+    "workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "status": "all_five_pending",
+    "rerun": false
+  },
+  "new_findings": [
+    "response_input_fingerprints() returns an empty tuple for input=[], so tool/prompt/context changes are invisible to persistent segment identity in that case; a separate request-context fingerprint is required.",
+    "A v2 legacy fail-closed marker must survive any later v3 save of the same state file. A loader that derives legacy_without_replay only from the file-level version loses that protection after mixed v2->v3 persistence.",
+    "request_kind affects Responses routing/model/prompt semantics and therefore must participate in exact replay and context identity even though it is carried in Codex metadata rather than ordinary input.",
+    "The current streaming implementation exposes response.created and response IDs before replay/durable publication is resolved. Identity-free SSE comments can keep the connection alive before commit, but the candidate still needs an exact-class streaming compatibility regression before product application.",
+    "Persisting a canonical replay payload changes conversation state from content-free metadata to bounded plaintext protocol output/tool arguments. The 6h TTL bounds retention, but storage/privacy size limits need an explicit product review before merging."
+  ],
+  "candidate": {
+    "patch_file": "durable_rendered_replay_v5_candidate.patch",
+    "patch_sha256": "fbf93ec6ec9099635917c7280c8063c68d2d5936f1b8311ab015c540b3020f96",
+    "store_candidate_sha256": "791d092075560d12a5ab3e1857f1ad501200833b0c12b75c38ca842d61f707ea",
+    "status": "LOCAL_CANDIDATE_NOT_PRODUCT_APPLY_READY",
+    "reason_not_apply_ready": [
+      "No complete exact PR8 checkout is available in the hosted container, so git apply --check and the real server test suite have not run.",
+      "Streaming after durable publication must be checked against current Codex expectations; this candidate intentionally removes pre-commit reasoning IDs and uses identity-free keepalive comments while waiting.",
+      "Plaintext replay retention/size policy needs a bounded limit or explicit acceptance before product merge."
+    ]
+  },
+  "local_harness": {
+    "verdict": "DURABLE_RENDERED_REPLAY_V5_LOCAL_PASS",
+    "cases": 11,
+    "provider_call_count_after_same_process_and_restart_replay": 1,
+    "replay_ttl_seconds": 21600,
+    "proved": [
+      "canonical tool response is durably published before same-process cache/exposure",
+      "same-process retry including stream toggle reuses identical response/item/call IDs without a second provider call",
+      "process restart reloads the same canonical response without a provider call",
+      "forced NCM28 atomic-write failure returns 503 and exposes/caches nothing",
+      "tool call without durable conversation identity fails closed",
+      "final text remains compatible without conversation identity",
+      "expired replay keeps request fingerprint and exact retry fails closed without provider call",
+      "legacy v2 exact progress fails closed",
+      "legacy fail-closed marker survives a later mixed v3 save and restart",
+      "empty-input context drift is caught by a separate context fingerprint",
+      "request_kind participates in both exact replay and context identity"
+    ]
+  },
+  "native_windows_claimed": false,
+  "provider_traffic": false,
+  "hosted_ci_started": false,
+  "product_branch_mutated": false,
+  "next": "Before applying to PR8, materialize a complete exact checkout or equivalent exact server test fixture, add real-class tests for stream/non-stream canonical replay and bounded replay storage policy, then run local tests. Keep pending Windows digest read-only."
+}

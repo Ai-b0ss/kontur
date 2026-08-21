@@ -2,7 +2,7 @@
 
 Core: `Ai-b0ss/notion-agent-bridge:candidate/ncm28-windows-fixed-v1`, PR #7, exact head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
-Agent integration boundary: draft PR #8 `autonomy/notion-prompt-modes-20260819`, fresh read-only head `bca2bd16d5dcbf4d4dfa6638f5e914807617ec2f`. С предыдущей границы `ce610b78...` пришёл ровно один commit и он меняет только `tools/materialize_agent_wiring.py`; нужные Core-стыку `conversation_segments.py/server.py/turn_affinity.py/account_pool.py` не изменились. Не дублировать rotation, prompt modes, delegation или account/thread affinity.
+Agent integration boundary: draft PR #8 `autonomy/notion-prompt-modes-20260819`, fresh read-only head `7742691ca681b13b92d6ca59fb190d89883346d8`. С предыдущей границы `bca2bd16...` пришли два commit и они меняют только `payload/reservation_aware_lease.py` и `tests/test_reservation_aware_lease.py`; нужные Core-стыку `conversation_segments.py/server.py/turn_affinity.py/account_pool.py` не изменились. Не дублировать rotation, prompt modes, delegation или account/thread affinity.
 
 ## Режим
 
@@ -18,11 +18,13 @@ ZERO-MINUTE: CircleCI/GitHub Actions/Cloudflare/другой hosted CI не за
 - manifest Git blob `8ca3e2581bbd7a67800648f4945f2b1beefbfa92`;
 - `LATEST.json` Git blob `170db9da4c5e92e93a3905264b1de95ce45e4a8c`.
 
-В этом запуске `LATEST`, manifest и все шесть immutable parts были прочитаны из GitHub и сверены с manifest-метаданными. Новый `LATEST` не публиковался: в текущей hosted-среде не удалось безопасно передать уже прочитанные connector-bytes в файловую систему для обязательного exact `capsule_runtime_v4.py restore -> pack` цикла. Неизвестные/неперенесённые bytes не реконструировались и CAS-указатель не подменялся. Новая работа долговечно сохранена отдельными evidence/patch файлами и этим handoff.
+В этом запуске `LATEST`, manifest и все шесть immutable parts были снова прочитаны из GitHub и сверены с manifest-метаданными. Контейнер по-прежнему не имеет DNS к GitHub, а connector-ответы не монтируются как локальные файлы, поэтому обязательный exact `capsule_runtime_v4.py restore -> pack` цикл безопасно выполнить не удалось. Неизвестные bytes не реконструировались и `LATEST` не подменялся. Новая работа долговечно сохранена отдельными evidence/patch файлами и этим handoff.
 
 Новый материал:
-- `autonomy/evidence/notion/20260821T1848Z_durable_replay_v15_post_get_and_compaction_gate.json`;
-- `autonomy/evidence/notion/20260821T1848Z_durable_replay_v15_overlay.patch`.
+- `autonomy/evidence/notion/20260821T1948Z_durable_compaction_replay_v16_evidence.json`;
+- `autonomy/evidence/notion/20260821T1948Z_durable_compaction_replay_v16_overlay.patch`;
+- `autonomy/evidence/notion/20260821T1955Z_durable_compaction_replay_v16_self_review.json`;
+- `autonomy/evidence/notion/20260821T1955Z_durable_compaction_replay_v16_fixup.patch`.
 
 ## NCM28 / Windows
 
@@ -30,7 +32,7 @@ ZERO-MINUTE: CircleCI/GitHub Actions/Cloudflare/другой hosted CI не за
 
 При одном будущем разрешённом native-Windows Core gate совместить точный `auth-rollback` callsite, PowerShell runtime-restore replace proof и затем полный NCM28 gate; не создавать новый diagnostic fanout. Runtime restore v3 остаётся Linux-PASS; нативная PowerShell replace-семантика не заявлена.
 
-## Durable Responses replay — V12/V14 + V15 overlay
+## Durable Responses replay — V12/V14 + V15 + V16
 
 Fresh exact blobs PR #8 остаются:
 - `payload/conversation_segments.py` `553bd3496c21a7949c3a5dfa03f33b9e09293213`;
@@ -42,9 +44,11 @@ Fresh exact blobs PR #8 остаются:
 
 База кандидата:
 - `20260821T1640Z_durable_replay_v12_exact_candidate.patch`;
-- затем обязательно `20260821T1705Z_durable_replay_v12_candidate_fixup.patch` (закрывает SR-1..3);
+- затем обязательно `20260821T1705Z_durable_replay_v12_candidate_fixup.patch`;
 - сохранить V14 требование durable tombstone для ответа >512 KiB, чтобы exact retry после 413 не делал второй provider call;
-- затем применить V15 overlay из `20260821T1848Z_durable_replay_v15_overlay.patch`.
+- затем `20260821T1848Z_durable_replay_v15_overlay.patch`;
+- затем `20260821T1948Z_durable_compaction_replay_v16_overlay.patch`;
+- затем обязательно `20260821T1955Z_durable_compaction_replay_v16_fixup.patch`.
 
 ### Уже доказанная V12/V14 граница
 
@@ -53,22 +57,30 @@ Fresh exact blobs PR #8 остаются:
 
 После successful durable replay: exact retry/restart должны возвращать те же `response_id/item_id/call_id`, `provider call_count=1`. При strict write failure: zero cache, zero reservation, zero identity-bearing/provider-derived client output. Removed persisted tool-owner account => clear ghost reservation + fail closed, без молчаливой подмены account/thread. Stream/non-stream — проекции одного persisted canonical payload.
 
-### V15 — новый exact-source gap 1: stale pre-provider readiness check
+### V15 — post-get blocked-store gate
 
 V12 делает `require_persistence_ready()` до `ConversationSegmentStore.get()`. Но `get()` запускает cleanup, а cleanup сам может попытаться записать NCM28 state и на ошибке поставить `persistence_blocked=True`. Значит первоначальная проверка может быть зелёной, затем `get()` блокирует persistence, а сервер всё равно идёт к provider.
 
-Локальная минимальная репродукция:
-- precheck-only => provider calls `1`;
-- post-get recheck => provider calls `0`;
-- verdict `DURABLE_REPLAY_V15_POST_GET_BLOCK_GATE_PASS`.
-
 Fix: после `segment = await conversation_segments.get(conversation_key)` ещё раз вызвать `require_persistence_ready()` до любого provider planning. При blocked store вернуть 503.
 
-### V15 — новый exact-source gap 2: compaction durable ordering
+### V15 — compaction durable ordering
 
-`handle_openai_compaction()` сейчас сначала пишет `TurnAffinity`, затем вызывает legacy non-strict `conversation_segments.put()`. При NCM28 write failure store только выставляет `persistence_blocked`, а Codex всё равно может получить compaction result. После restart durable state остаётся pre-compaction и следующий turn способен продолжить неправильный Notion segment.
+`handle_openai_compaction()` в product-коде сначала пишет `TurnAffinity`, затем legacy non-strict `conversation_segments.put()`. V15 переставляет это на strict durable state -> TurnAffinity -> client result и переводит write failure в 503.
 
-Fix после V12 store API: strict `conversation_segments.put(... awaiting_compacted_history=True, require_persistence=(conversation_key is not None))` должен идти ПЕРЕД TurnAffinity и перед client-visible compact result; `ConversationPersistenceError` => 503. Overlay уже сохранён.
+### V16 — новый blocking gap: exact compaction result не хранится долговечно
+
+V15 закрывает порядок compaction lifecycle, но сохраняет только `awaiting_compacted_history=True`, thread/account/input metadata. Сам `compact_payload(completion.text, turn_key)`, который должен получить Codex, остаётся вне durable transaction.
+
+Crash window: provider уже выдал `summary-1` -> strict durable lifecycle publication успешна -> процесс падает до ответа Codex. После restart memory TurnAffinity пуст. Exact retry не имеет сохранённого compact payload и снова вызывает provider, получая `summary-2`. Локальная модель воспроизвела `provider calls=2`.
+
+V16 использует уже существующий V12 replay slot: fingerprint `durable_replay_fingerprint(body, turn_key, "compaction")`, canonical `compact_payload` формируется до strict put и публикуется вместе с lifecycle state. После crash exact retry возвращает тот же payload, provider count остаётся 1. Новый `turn_id` с тем же input считается новой работой.
+
+Self-review поймал V16-SR-1: pre-replay-schema segment может уже иметь `awaiting_compacted_history=true` и точные `input_fingerprints`, но не иметь exact compact payload. Такой exact legacy retry нельзя повторно планировать: fixup возвращает `restart_replay_unavailable`; appended/new history может идти дальше и обновить schema.
+
+Локальные verdicts:
+- `DURABLE_COMPACTION_REPLAY_V16_GAP_REPRODUCED`;
+- `DURABLE_COMPACTION_REPLAY_V16_MODEL_PASS`;
+- `DURABLE_COMPACTION_REPLAY_V16_SR1_LEGACY_AMBIGUITY_REPRODUCED`.
 
 ## Codex shell-env safety
 
@@ -77,9 +89,9 @@ Fix после V12 store API: strict `conversation_segments.put(... awaiting_com
 ## Следующий порядок
 
 1. Read-only проверить Windows digest; не перезапускать.
-2. Материализовать полный exact PR #8 source локально и собрать один combined candidate: V12 exact + SR fixup + V14 oversize tombstone + V15 overlay.
-3. Прогнать real-class offline tests: same retry / restart / distinct turn / stale retry / tool / final / forced NCM28 write / cleanup-write failure inside get / blocked retry / post-commit reservation failure / account removed / stream↔non-stream / TTL+size / oversize tombstone / compaction write failure.
-4. Отдельные обязательные assertions: successful replay => provider count 1 и exact IDs; any durable failure before publication => zero TurnAffinity, zero reservation, zero client IDs; compaction durable failure => no ephemeral affinity/client compaction result.
+2. Материализовать полный exact PR #8 source локально и собрать один combined candidate: V12 exact + SR fixup + V14 oversize tombstone + V15 + V16 + V16 fixup.
+3. Прогнать real-class offline tests: same retry / restart / distinct turn / stale retry / tool / final / forced NCM28 write / cleanup-write failure inside get / blocked retry / post-commit reservation failure / account removed / stream↔non-stream / TTL+size / oversize tombstone / compaction exact retry / compaction restart retry / legacy compaction exact retry / compaction write failure.
+4. Отдельные обязательные assertions: successful normal replay => provider count 1 и exact IDs; successful compaction replay => provider count 1 и exact compact payload; any durable failure before publication => zero TurnAffinity, zero reservation, zero client IDs/result; stale/legacy ambiguous request => fail closed before provider.
 5. Совместить уже готовый shell-env patch локально. Product push не делать при ZERO-MINUTE.
 6. После Core safety gates — один bounded authorized `codex exec -> bridge -> Notion -> local tool -> verifier FAIL -> correction -> VERIFY_OK`, затем restart/recovery proof.
 

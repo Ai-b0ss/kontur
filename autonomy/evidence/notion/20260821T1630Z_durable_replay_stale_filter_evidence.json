@@ -1,0 +1,39 @@
+{
+  "schema": "notion_core_durable_replay_stale_filter_v1",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "integration_head": "2668e84c0b1ba63750c7db708e5124d0d6cede14",
+  "exact_source_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+  "supersedes_candidate": "20260821T1605Z_durable_replay_store_exact_candidate.patch",
+  "reproduced_defect": {
+    "verdict": "DURABLE_REPLAY_STALE_WINDOW_OVERFLOW_REPRODUCED",
+    "old_bound": 32,
+    "behavior": "after more than 32 completed requests, the oldest request fingerprint was forgotten and replay() returned miss, allowing a future server path to call the provider again"
+  },
+  "candidate_v2": {
+    "outer_state_version": 2,
+    "recent_exact_fingerprints": 32,
+    "stale_filter_bytes": 8192,
+    "stale_filter_hashes": 5,
+    "filter_semantics": "Bloom-style fail-closed membership: false positives may reject a novel request, but a recorded old request is not forgotten when it falls out of the recent exact list",
+    "legacy_candidate_compatibility": "on load, an older replay record without the filter seeds it from its surviving recent exact fingerprints"
+  },
+  "verdicts": [
+    "DURABLE_REPLAY_STORE_EXACT_CLASS_PASS",
+    "DURABLE_REPLAY_STALE_FILTER_OVERFLOW_PASS",
+    "DURABLE_REPLAY_SERVER_ORDERING_MODEL_PASS"
+  ],
+  "artifacts": {
+    "patch": {
+      "path": "20260821T1630Z_durable_replay_store_exact_candidate_v2.patch",
+      "sha256": "9574c80e7cfe0e09f621b5af21f80aa8a24ce2812816adaca86e1c18dedf48d9",
+      "bytes": 13442
+    },
+    "candidate_source_sha256": "228dbeb5526c459b8f78b12f151a0756d72678f33b9e9d592679b4b139c5b19e",
+    "overflow_test_sha256": "7a70bdee60b04b8be5d8777203243649463dc6d93482ad872c1426f81dddb556"
+  },
+  "limits": [
+    "the filter is deliberately fail-closed and can produce false positives after very large numbers of historical requests; this is an availability tradeoff, not a replay-safety false negative",
+    "server exact-context integration remains the next step",
+    "native Windows semantics remain unproven and no hosted CI was started"
+  ]
+}

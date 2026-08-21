@@ -64,10 +64,22 @@ Read-back exact head подтверждает новое тело функции
 
 ## Постоянная память и ограничения
 
-- LATEST на старте: `20260821T075724Z-cde1edd7be`;
+Старт этого запуска:
+- LATEST: `20260821T075724Z-cde1edd7be`;
 - стартовый Git blob SHA LATEST: `d9e20a6f36370121cb72bcd6f7a79bf811107685`;
-- manifest schema v4, archive SHA `138762e5df9c86c8d444f30fc917466105173a5e99664d3482b3e807b4869c77`;
-- LATEST восстановлен на hosted машине с полной проверкой part length/SHA, archive size/SHA, безопасным extract и точным workspace manifest; CHECKPOINT/RESULTS прочитаны;
+- стартовый archive SHA: `138762e5df9c86c8d444f30fc917466105173a5e99664d3482b3e807b4869c77`;
+- capsule восстановлена на hosted машине с полной проверкой part length/SHA, archive size/SHA, безопасным extract и точным workspace manifest; CHECKPOINT/RESULTS прочитаны.
+
+После работы опубликована новая нормативная v4 capsule:
+- capsule id: `20260821T085551Z-b1d2dc2cad`;
+- archive SHA-256: `2d553b76029316dd88ed083ca0ccc6c30a9c13a90a3da74625e31abb452cba6a`;
+- manifest Git blob SHA после повторного чтения: `321e59e5b64bfc19e25e0f1e632ef6393fd20f04`;
+- part-0000 Git blob SHA после повторного чтения: `e3c0abb4ee1f242a47ed768d5867c5bbe2528102`;
+- прежний LATEST сохранён в PREVIOUS;
+- перед публикацией LATEST был перечитан и сохранил исходный blob SHA `d9e20a6f...`, поэтому CAS-конфликта не было;
+- новый LATEST опубликован exact-CAS и после записи перечитан; текущий blob SHA `3a662b584201249ae45c4ae4f1919372f506e182`.
+
+Ограничения:
 - CircleCI/GitHub Actions/Cloudflare не запускались;
 - provider/live запросов к Qwen: 0;
 - реальные аккаунты, секреты и production не тронуты;

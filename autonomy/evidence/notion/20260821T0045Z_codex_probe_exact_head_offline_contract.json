@@ -1,0 +1,25 @@
+{
+  "scope": "NOTION_CORE Codex integration safety",
+  "notion_agent_pr8_head": "20e754321d9d0d0c83c13490a040f03b9fc62fb5",
+  "probe_blob_sha": "2f6d5873606975771b5ab418d5f9d45cd602304c",
+  "probe_contract_test_blob_sha": "2958fac16ecf6ded815c6dfc12aa1060319a62e8",
+  "candidate_patch_blob_sha": "fbd2c78e1ea879cc55f16eb702b9480d5bd85f14",
+  "windows_digest": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+  "windows_digest_status": "all five existing CircleCI contexts still pending; not rerun",
+  "exact_head_probe_still_unhardened": true,
+  "offline_check": {
+    "verdict": "CODEX_PROBE_EXACT_CONFIG_PATCH_CONTRACT_PASS",
+    "assertions": [
+      "generated TOML parses",
+      "shell_environment_policy.inherit == core",
+      "shell_environment_policy.ignore_default_excludes == false",
+      "provider still reads bridge credential only through env_key NOTION_BRIDGE_API_KEY",
+      "no credential value is embedded in config"
+    ]
+  },
+  "boundary": "This proves the exact generated-config contract only. It does not claim a live Codex/Notion pass and does not claim native Windows behavior.",
+  "hosted_ci_started": false,
+  "provider_traffic_started": false,
+  "product_branch_mutated": false,
+  "next": "Before any live Codex probe, apply the bounded integration-only patch to the exact probe materialization and run the existing contract test offline. Then exercise combined restart/tool-result lifecycle without provider traffic."
+}

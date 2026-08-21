@@ -4,7 +4,7 @@
 
 Основная продуктовая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6.
 
-Свежий product head после этого запуска: `51a54afdb39fac3198a33d8809a57a474b20eca9`.
+Свежий product head после этого запуска: `17a71b9636eeead5873a0bd716e27a6bf073c913`.
 
 ## Уже доказано и не переделывать
 
@@ -23,45 +23,52 @@
 - unconfirmed initial release, позднее доказанный пустым, охлаждает фактический аккаунт один раз и выбирает свежего sibling;
 - `reset(account)` не снимает provider-wide circuit;
 - stale preferred object не обходит canonical cooldown/state;
-- удалённый managed account не воскресает через detached snapshot.
+- удалённый managed account не воскресает через detached snapshot;
+- durable provider-circuit replacement не откатывается из-за cleanup-only ошибки удаления старого transaction backup.
 
 ## Что исправлено в этом запуске
 
-1. Обнаружен устаревший `provider-circuit-persistence-test.js`: после перевода всех provider circuit на глобальную семантику он всё ещё ожидал, что `clear('account-b')` удаляет provider-wide circuit. Это противоречило текущему fail-closed контракту и делало штатный `npm test` красным по неверному ожиданию. Тест приведён к фактическому контракту: per-account clear возвращает `false`, глобальная очистка выполняется только `clear()`.
+Закрыт старый cleanup в `qwen-client.operationCandidates()`. Раньше функция повторно вручную вставляла caller-owned `preferredAccount`, хотя `accountStore.candidates(preferredAccount)` уже канонизирует id, повторно читает актуальное состояние аккаунта, учитывает cooldown/remove и сохраняет LRU-порядок.
 
-2. Найден отдельный продуктовый дефект в `provider-circuit.atomicWriteState()`. После успешного `rename` нового состояния и подтверждённого directory `fsync` ошибка удаления старого `.txn-backup-*` попадала в общий `catch` и откатывала уже durable новый circuit. В худшем случае более сильный `trust_restriction` мог откатиться к старому короткому `provider_pressure` только из-за cleanup-only ошибки.
+Теперь один источник истины:
 
-Исправление: после подтверждённой установки нового canonical state удаление transaction backup считается только уборкой и не может откатить circuit. Настоящая ошибка directory `fsync` до подтверждения canonical state по-прежнему приводит к rollback и пробрасывается наружу.
+`accountStore.candidates(preferredAccount).slice(0, MAX_ACCOUNTS_PER_OPERATION)`.
 
-Продуктовые коммиты этого запуска:
-- `fc17ef80deb5ecca248fcba19daf0338d0e21255` — привести persistence-тест к provider-wide clear semantics;
-- `9d7f3285cad07097074be3f1fab125ef53bcbf97` — не откатывать durable provider circuit при ошибке cleanup backup;
-- `51a54afdb39fac3198a33d8809a57a474b20eca9` — расширить regression на corrupt-state fail-closed, global clear, tombstone cleanup и replacement-backup cleanup.
+Продуктовый commit: `17a71b9636eeead5873a0bd716e27a6bf073c913`.
 
-Hosted targeted check: `PROVIDER_CIRCUIT_DURABLE_REPLACEMENT_CLEANUP_PASS`.
+Read-back exact head подтверждает новое тело функции. Внешний CI не запускался.
 
-Важно: corrupt `provider-circuit.json` остаётся fail-closed (`state_corrupt`, `until=MAX_SAFE_INTEGER`). Обычный `trip()` не должен молча превращать его в конечный cooldown; восстановление требует явного глобального `clear()`. Regression теперь фиксирует именно этот инвариант.
+## Новый найденный дефект: request-wide bounded retry
 
-## Незавершённый старый cleanup
+Подтверждено, что текущий лимит `MAX_ACCOUNTS_PER_OPERATION` действует только внутри одного вызова `qwenClient.sendChatRequest()`, а `server.js` поверх него имеет собственные циклы повторов:
 
-`qwen-client.operationCandidates()` всё ещё вручную вставляет caller-owned `preferredAccount`, хотя `accountStore.candidates(preferredAccount)` уже канонизирует preferred id, применяет cooldown/remove/LRU и возвращает canonical object.
+- non-stream: до 3 поздних empty-response retry;
+- stream: `maxEmptyRetries: 3` + `retryEmpty`, внутри которого снова вызывается `sendChatRequest()`;
+- отдельный rebase при смене владельца upstream-thread.
 
-Точный patch остаётся в control repo:
-`autonomy/v3/candidates/QWEN_RELIABILITY_OPERATION_CANDIDATES_20260821.patch`.
+Из-за этого один пользовательский запрос может заново получать полный внутренний бюджет на каждом внешнем повторе и в пуле из 11 аккаунтов затронуть существенно больше настроенного лимита 4 / жёсткого потолка 6 различных аккаунтов. Hosted-модель текущей схемы воспроизвела 11 различных аккаунтов при `MAX=4` (`NESTED_RETRY_BUDGET_REPRO_PASS`). Это нарушение смысла bounded failover, даже если уже классифицированные аккаунты не повторяются из-за cooldown.
 
-После нынешней канонизации account-store этот хвост в основном дублирует уже работающую защиту; срочность ниже, чем у найденного provider-circuit rollback. При byte-safe редакторе всё равно стоит свести `operationCandidates()` к одному источнику истины и прогнать thread-affinity regression.
+Подготовлен точный кандидат исправления:
+`autonomy/v3/candidates/QWEN_RELIABILITY_REQUEST_WIDE_BUDGET_20260821.patch`.
+
+Идея кандидата: один общий `attemptContext` на весь HTTP-запрос с `attemptedAccountIds` и общим лимитом; qwen-client добавляет id перед provider-attempt, а все внешние retry используют тот же контекст. Специальный rebase может повторно использовать уже выбранного владельца треда без расходования нового distinct-account slot. Hosted-проверка модели кандидата: `REQUEST_WIDE_FAILOVER_BUDGET_CANDIDATE_PASS`.
+
+Кандидат пока не применён к `server.js`: это большой общий файл, и перед product-write нужен отдельный регресс на два свойства одновременно: (1) не больше request-wide лимита различных аккаунтов; (2) rebase сохраняет account/thread affinity и может повторно использовать текущего владельца без открытия нового sibling slot.
 
 ## Следующий безопасный кусок
 
-Проверить следующий bounded-retry/account-affinity крайний случай, не залезая в Qwen Core. В частности обратить внимание на stream/non-stream retry loops в `server.js`: локальный retry budget сверху складывается с внутренним `MAX_ACCOUNTS_PER_OPERATION`, поэтому нужно доказать, что один пользовательский запрос не может сделать существенно больше provider-attempts, чем предполагает общий bounded failover контракт, и что уже охлаждённые аккаунты не пробуются повторно в новом вложенном retry.
+1. На свежем product head проверить, не сдвинулся ли `server.js` параллельным писателем.
+2. Применить request-wide attempt context byte-safe способом к `qwen-client.js` + `server.js`.
+3. Добавить офлайн-regression: pool 11, внутренние локальные failures + late-empty outer retries => distinct account ids `<= MAX_ACCOUNTS_PER_OPERATION`; уже охлаждённый аккаунт не возвращается; intentional rebase того же владельца разрешён и не расходует новый slot.
+4. Только после этого искать следующий bounded retry/account-affinity крайний случай.
 
 ## Постоянная память и ограничения
 
-- LATEST на старте: `20260821T060242Z-70f4eb934f`;
-- стартовый Git blob SHA LATEST: `d7d197fb4bfe0551530323739fb7097edab03d60`;
-- manifest schema v4, archive SHA `aeab1d8abf8300f6f7375ece04f2e344de7e18a36c41929f207c14004adeb53a`;
-- LATEST восстановлен через `capsule_runtime_v4.py verify + restore` на hosted машине; CHECKPOINT/RESULTS прочитаны;
+- LATEST на старте: `20260821T075724Z-cde1edd7be`;
+- стартовый Git blob SHA LATEST: `d9e20a6f36370121cb72bcd6f7a79bf811107685`;
+- manifest schema v4, archive SHA `138762e5df9c86c8d444f30fc917466105173a5e99664d3482b3e807b4869c77`;
+- LATEST восстановлен на hosted машине с полной проверкой part length/SHA, archive size/SHA, безопасным extract и точным workspace manifest; CHECKPOINT/RESULTS прочитаны;
 - CircleCI/GitHub Actions/Cloudflare не запускались;
 - provider/live запросов к Qwen: 0;
 - реальные аккаунты, секреты и production не тронуты;
-- полный `npm test` exact-tree не заявлять: hosted container не имеет DNS до GitHub; выполнен целевой hosted-probe изменённого durability-инварианта.
+- полный `npm test` exact-tree не заявлять; выполнены целевые hosted-проверки изменённой политики и нового bounded-retry воспроизведения.

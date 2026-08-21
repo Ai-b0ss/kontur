@@ -1,0 +1,66 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "QWEN_SESSION_STORE_TOTAL_RECOVERY_FAIL_OPEN",
+  "timestamp_utc": "2026-08-21T17:00:00Z",
+  "verdict": "TWO_RECOVERY_GAPS_REPRODUCED_AND_V2_FAIL_CLOSED_CANDIDATE_PASS",
+  "supersedes_candidate": "autonomy/v3/candidates/QWEN_STALE_BACKUP_MISSING_SESSION_FAIL_CLOSED_20260821.patch",
+  "exact_source": {
+    "qwen_head": "a656d42522c463ca36937c9a2a552df0836fd020",
+    "src/session-store.js_git_blob": "d13f79a1c999ca5221cac190ad7b155f4854ae9b",
+    "server.js_git_blob": "44d04725f7b1445f61c0f2da17007d1da8f0895f",
+    "src/session-request-gate.js_git_blob": "8bab117664096ed863b28b9de6815322a9f922c7"
+  },
+  "coordination": {
+    "qwen_core_current_narrow_task": "preserve system instructions while reconciling an existing record restored from stale backup",
+    "qwen_reliability_current_narrow_task": "provider/account persistence and qwen-client failure boundaries",
+    "notion_agent_current_narrow_task": "ordinary Responses dynamic reservation/materialization and transport provenance",
+    "notion_core_current_narrow_task": "durable Responses replay ordering and native Windows gate"
+  },
+  "current_behavior": [
+    "When primary is unreadable and backup loads, only keys present in the backup enter recoveredFromBackupKeys.",
+    "A session created only in a newer primary and absent from the stale backup is returned as record=null and can be treated as fresh.",
+    "When both primary and backup are unreadable, load() silently installs an empty Map and an empty recoveredFromBackupKeys set.",
+    "If persistence artifacts existed, this empty state is not proof that all previous sessions safely disappeared; accepted mutating tool calls may have existed in the lost newer state.",
+    "Therefore explicit session ids can reach provider work again without QWEN_SESSION_RECOVERY_UNCERTAIN in both cases."
+  ],
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_qwen_session_store_total_recovery_probe.js",
+    "git_blob_sha": "08c442cd0c86c2bda032be65a5d4f1116f06dc83",
+    "verdict": "QWEN_SESSION_STORE_TOTAL_RECOVERY_GAPS_REPRODUCED_AND_V2_FAIL_CLOSED_PASS",
+    "observed": {
+      "current_stale_backup_missing_key_provider_allowed": true,
+      "current_both_unreadable_provider_allowed": true,
+      "candidate_stale_backup_missing_key_blocked": true,
+      "candidate_both_unreadable_missing_key_blocked": true,
+      "candidate_first_ever_start_allowed": true,
+      "candidate_readable_empty_primary_allowed": true,
+      "candidate_explicit_reset_unblocks": true
+    }
+  },
+  "candidate": {
+    "path": "autonomy/v3/candidates/QWEN_SESSION_STORE_TOTAL_RECOVERY_FAIL_CLOSED_V2_20260821.patch",
+    "git_blob_sha": "815e61790de9a0f95c40b69459cc0e1e851fbe5a",
+    "contract": [
+      "Track store-wide recovery uncertainty if backup is used.",
+      "Also track store-wide recovery uncertainty when persistence artifacts existed but neither primary nor backup can be read.",
+      "Under store-wide uncertainty, an explicit session key absent from the loaded snapshot is ambiguous and must fail closed before provider work.",
+      "Existing recovered keys remain uncertain as before.",
+      "An explicit reset/clear is the deliberate local action that authorizes an ambiguous missing key to start fresh.",
+      "First-ever startup with no persistence artifacts and a normal readable empty primary keep accepting new session ids."
+    ]
+  },
+  "required_product_regressions": [
+    "Stale backup lacks session-X; newer primary accepted a pending mutating tool call for session-X; primary corrupts; restart from backup; explicit session-X must fail before provider.",
+    "Both primary and backup exist but are unreadable after prior persisted work; restart; arbitrary explicit prior session-X must fail before provider rather than look fresh.",
+    "First-ever startup with no persistence artifacts must allow a new explicit session id.",
+    "Readable empty primary must allow a new explicit session id.",
+    "Explicit reset of an ambiguous missing key must permit a consciously fresh session afterward."
+  ],
+  "limits": [
+    "No Qwen/Notion product file changed.",
+    "No live provider, Notion, or Codex traffic.",
+    "No CircleCI, GitHub Actions, Cloudflare, or other hosted CI.",
+    "No production, real accounts, secrets, user data, or native Windows."
+  ]
+}

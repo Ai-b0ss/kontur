@@ -1,0 +1,46 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "NOTION_SUBAGENT_REBIND_CAN_OVERLAP_SAME_LOGICAL_ACCOUNT_ACROSS_POOL_GENERATIONS",
+  "verdict": "REPRODUCED_OFFLINE",
+  "source": {
+    "repository": "Ai-b0ss/notion-agent-bridge",
+    "pr": 8,
+    "head": "a016664796720c085fd5356af30f6f959e4971bc",
+    "server_subagent_lifecycle_blob": "271e4f58c6239852b32bafac855534aadda1b830",
+    "server_subagent_runtime_blob": "19362b1c73862247d833bfdc7d0ae5cd648e76c2",
+    "notion_subagent_runtime_blob": "801ea26dc25cfd59938b5f62cc177fd993d2d065",
+    "account_pool_blob": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f",
+    "lifecycle_drain_test_blob": "b907a93b6ef799095a059aa6574e598a30ac9895"
+  },
+  "observed": {
+    "description": "ServerSubagentLifecycle.rebind_pool_and_drain publishes the replacement entrypoint before the retired entrypoint drains. Each NotionAccountPool instance owns its own per-slot busy flag. A refreshed pool built from the same logical accounts therefore starts with no knowledge that an old-generation child still holds account-A.",
+    "current_test_contract": "The existing drain test explicitly requires a new child to run on the replacement entrypoint while the old generation is still active, but fake entrypoints do not model overlapping logical account identities.",
+    "reservation_gap": "The shared reserved_account_ids callback protects foreground parent reservations; it does not expose the account currently leased by a retired delegated child, so it cannot bridge busy state between pool generations.",
+    "offline_reproduction": "Two independent pool instances containing the same logical account-A were placed behind publish-before-drain semantics. Old generation held account-A while the replacement generation selected account-A concurrently; observed peak logical-account concurrency=2."
+  },
+  "risk": [
+    "One legitimate Notion account can receive concurrent delegated provider work through two pool generations during auth/runtime refresh.",
+    "Per-pool busy serialization and cooldown accounting are bypassed across generations even though each pool is individually correct.",
+    "If either child owns a remote thread/tool chain, cross-generation overlap can create rate-limit pressure or inconsistent account-scoped state exactly during recovery/rebind."
+  ],
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_notion_rebind_same_account_overlap_probe.py",
+    "result": "PASS",
+    "current_peak_same_logical_account": 2,
+    "conservative_candidate_peak": 1
+  },
+  "recommended_contract": {
+    "minimum_safe_option": "During rebind_pool_and_drain, do not admit replacement-generation delegated launches until all retired-generation delegated children have drained; then publish the replacement entrypoint.",
+    "higher_concurrency_option": "If immediate publication is required, propagate exact active delegated account ids from retired generations into replacement reservation avoidance until each old lease releases. This requires explicit account-id exposure from the adapter/lifecycle and must not infer provider thread affinity.",
+    "required_regression": "Old and new pools contain the same logical account-A. While old child holds A, a new child must not begin provider work on A. After old release, new child may use A. Different non-overlapping logical accounts may still proceed if the chosen design proves that safely."
+  },
+  "scope": {
+    "product_files_modified": false,
+    "hosted_ci": false,
+    "provider_traffic": false,
+    "production": false,
+    "secrets": false,
+    "native_windows_claim": false
+  }
+}

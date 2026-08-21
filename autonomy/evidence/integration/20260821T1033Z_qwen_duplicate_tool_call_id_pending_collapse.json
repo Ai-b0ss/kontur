@@ -1,0 +1,33 @@
+{
+  "candidate_contract": [
+    "reject duplicate tool_call ids within one newly accepted assistant message before durable checkpoint/release",
+    "for restored/imported history, track unresolved multiplicity per id; a tool result resolves one outstanding occurrence, not every occurrence sharing the id",
+    "short continue remains blocked while any unresolved occurrence remains",
+    "reuse of an id after its prior occurrence was already resolved is not treated as concurrently ambiguous"
+  ],
+  "current_behavior": {
+    "findPendingToolCalls": "uses Map keyed only by tool_call.id; every assistant call overwrites prior pending entry with same id; one tool result deletes the id entirely",
+    "reproduction": "two unresolved assistant tool calls reuse call-1, then one tool result call-1; current pending count becomes 0",
+    "risk": "a malformed/reused tool_call id can make an older unresolved mutating call disappear from restart/continue safety, allowing provider work when tool state is ambiguous"
+  },
+  "finding": "QWEN_DUPLICATE_TOOL_CALL_ID_PENDING_COLLAPSE",
+  "limits": [
+    "zero hosted CI",
+    "zero live Qwen/provider traffic",
+    "no secrets/accounts/production/Windows"
+  ],
+  "observed_at_utc": "2026-08-21T10:33:00Z",
+  "offline_probe": {
+    "candidate_duplicate_new_message_rejected": true,
+    "candidate_pending_after_two_calls_one_result": 1,
+    "current_pending_after_two_calls_one_result": 0,
+    "path": "autonomy/v3/tools/integration_qwen_duplicate_tool_call_id_probe.js",
+    "result": "REPRODUCED_CURRENT_PENDING_COLLAPSE_AND_CANDIDATE_PASS"
+  },
+  "ownership": "no qwen product file rewritten; patch artifact only because Qwen Core currently owns session/stream checkpointing and Qwen Reliability owns retry budget",
+  "qwen_head": "9c7ea9b876eb139cb8d7c141f62326893f52544a",
+  "schema": "integration_helper_evidence_v1",
+  "session_store_blob": "a36fc19496e0fb146df11aa7ff1e477bd9fc095c",
+  "source_freshness": "session-store unchanged from 17a71b9636eeead5873a0bd716e27a6bf073c913 to current head; compare shows only package/server/stream-session files changed",
+  "worker": "INTEGRATION_HELPER"
+}

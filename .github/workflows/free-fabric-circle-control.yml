@@ -21,6 +21,17 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Confirm encrypted secrets are mounted
+        shell: bash
+        env:
+          CIRCLE_TOKEN_A: ${{ secrets.CIRCLE_TOKEN_A }}
+          CIRCLE_TOKEN_B: ${{ secrets.CIRCLE_TOKEN_B }}
+        run: |
+          set -euo pipefail
+          test -n "${CIRCLE_TOKEN_A:-}" || { echo 'CIRCLE_TOKEN_A missing'; exit 11; }
+          test -n "${CIRCLE_TOKEN_B:-}" || { echo 'CIRCLE_TOKEN_B missing'; exit 12; }
+          echo 'Both CircleCI tokens are present; values remain masked.'
+
       - name: Start or adopt Circle pipeline
         id: start
         continue-on-error: true
@@ -73,6 +84,7 @@ jobs:
           name: free-fabric-circle-control-evidence
           path: .free-fabric/runtime/circle-control-state.json
           if-no-files-found: error
+          retention-days: 7
 
       - name: Final gate
         if: always()

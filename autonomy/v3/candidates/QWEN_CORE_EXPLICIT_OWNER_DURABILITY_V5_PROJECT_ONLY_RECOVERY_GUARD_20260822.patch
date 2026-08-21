@@ -1,0 +1,111 @@
+*** Begin Patch
+*** Update File: server.js
+@@
+ function hasIncomingSystemAuthority(body = {}) {
+   return Array.isArray(body.messages) && body.messages.some((message) => message && message.role === 'system');
+ }
++
++function recoverySystemText(content) {
++  if (typeof content === 'string') return content;
++  if (Array.isArray(content)) {
++    const parts = [];
++    for (const part of content) {
++      if (typeof part === 'string') parts.push(part);
++      else if (part && typeof part.text === 'string') parts.push(part.text);
++      else if (part && typeof part.content === 'string') parts.push(part.content);
++      else return null;
++    }
++    return parts.join('');
++  }
++  if (content && typeof content === 'object') {
++    if (typeof content.text === 'string') return content.text;
++    if (typeof content.content === 'string') return content.content;
++  }
++  return content == null ? '' : null;
++}
++
++function hasRecoverableOwnerSystemAuthority(body = {}) {
++  if (explicitOwnerSystemPrompt(body) !== null) return true;
++  if (!Array.isArray(body.messages)) return false;
++  for (const message of body.messages) {
++    if (!message || message.role !== 'system') continue;
++    const text = recoverySystemText(message.content);
++    if (typeof text !== 'string' || !text.trim()) continue;
++    // OpenCode's private owner authority is carried inside mcp_instructions and
++    // can be re-derived by the capability layer. A plain `Instructions from:`
++    // block is repository/project context, not sufficient proof of a fresh
++    // private owner prompt after fallback-backup recovery.
++    if (text.includes('<mcp_instructions>')) return true;
++    if (!/^\s*Instructions from:/i.test(text)) return true;
++  }
++  return false;
++}
+@@
+ function assertRecoveredPromptAuthority(record, body = {}, headers = {}) {
+@@
+   const mode = explicitPromptMode(body, headers);
+   const owner = explicitOwnerSystemPrompt(body);
+-  const hasSystem = hasIncomingSystemAuthority(body);
++  const hasOwnerSystemAuthority = hasRecoverableOwnerSystemAuthority(body);
+@@
+-  // Owner mode without an explicit detached prompt is acceptable only when the
+-  // current request contains system material from which owner mode can derive
+-  // current authority. A bare `mode=owner` must not resurrect stale backup text.
+-  if (mode === 'owner' && hasSystem) return;
++  // Owner mode without an explicit detached prompt is acceptable only when the
++  // current request contains owner-bearing system material. Project-only
++  // `Instructions from:` blocks must not be promoted to private owner authority
++  // merely because a stale recovered record used owner mode.
++  if (mode === 'owner' && hasOwnerSystemAuthority) return;
+   throw recoveryPromptAuthorityError();
+ }
+*** Update File: scripts/server-explicit-owner-rehydrate-test.js
+@@
+     record.recoveryUncertain = true;
+     const recoveryBlocked = await invoke({
+       model: 'qwen-test', stream: false,
+       messages: [{ role: 'user', content: 'continue' }],
+     });
+     assert.strictEqual(providerBodies.length, 0);
+     assert.strictEqual(recoveryBlocked.body.error.code, 'QWEN_SESSION_RECOVERY_UNCERTAIN');
++
++    // A mode flag plus fresh repository instructions is still not proof of a
++    // fresh private owner prompt. Do not promote project context to owner.
++    providerBodies = []; persistedMetadata = [];
++    const projectOnlyRecovery = await invoke({
++      model: 'qwen-test', stream: false,
++      system_prompt_mode: 'owner',
++      messages: [
++        { role: 'system', content: 'Instructions from: PROJECT.md\nFRESH_PROJECT_RULE' },
++        { role: 'user', content: 'continue' },
++      ],
++    });
++    assert.strictEqual(providerBodies.length, 0);
++    assert.strictEqual(projectOnlyRecovery.body.error.code, 'QWEN_SESSION_RECOVERY_UNCERTAIN');
++
++    // A genuinely current generic owner system prompt is sufficient, as is the
++    // explicit detached owner_system_prompt path.
++    providerBodies = []; persistedMetadata = [];
++    await invoke({
++      model: 'qwen-test', stream: false,
++      system_prompt_mode: 'owner',
++      messages: [
++        { role: 'system', content: 'CURRENT_PRIVATE_OWNER_AUTHORITY' },
++        { role: 'user', content: 'continue' },
++      ],
++    });
++    assert.strictEqual(providerBodies.length, 1);
++
++    providerBodies = []; persistedMetadata = [];
++    await invoke({
++      model: 'qwen-test', stream: false,
++      system_prompt_mode: 'owner',
++      owner_system_prompt: 'CURRENT_DETACHED_OWNER_AUTHORITY',
++      messages: [{ role: 'user', content: 'continue' }],
++    });
++    assert.strictEqual(providerBodies.length, 1);
+     record.recoveryUncertain = false;
+@@
+-    console.log('SERVER_EXPLICIT_OWNER_REHYDRATE_PASS restart_continue=1 ordinary_turn_sticky=1 project_context_preserved=1 owner_flag_inherits=1 current_authority_wins=1 invalid_mode_fail_closed=1 invalid_mode_http400=1 invalid_mode_bounded=1 recovery_stale_owner_blocked=1 oversized_provider_calls=0');
++    console.log('SERVER_EXPLICIT_OWNER_REHYDRATE_PASS restart_continue=1 ordinary_turn_sticky=1 project_context_preserved=1 owner_flag_inherits=1 current_authority_wins=1 invalid_mode_fail_closed=1 invalid_mode_http400=1 invalid_mode_bounded=1 recovery_stale_owner_blocked=1 recovery_project_only_blocked=1 recovery_current_owner_allowed=1 oversized_provider_calls=0');
+*** End Patch

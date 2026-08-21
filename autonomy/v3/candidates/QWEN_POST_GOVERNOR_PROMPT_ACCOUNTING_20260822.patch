@@ -1,0 +1,32 @@
+*** Begin Patch
+*** Update File: src/qwen-v3-capabilities.js
+@@
+ function applySystemPromptMode(prepared, resolved) {
+@@
+ }
++
++function postPrepareInjectedPromptBytes(resolved = {}) {
++  // requestGovernor must stay before chatAdapter.preparePublicPayload(): that
++  // function may create a remote Qwen chat id. Measure the exact text that
++  // applyPrepared() will add later without moving admission behind provider work.
++  const message = { content: '' };
++  skills.appendSkillContext(message, resolved.selectedSkillContext || '');
++  applySystemPromptMode({ qwenPayload: { messages: [message] } }, resolved);
++  return Buffer.byteLength(String(message.content || ''), 'utf8');
++}
+@@
+ module.exports = {
+@@
+   applySystemPromptMode,
++  postPrepareInjectedPromptBytes,
+   resolveCapabilityAccount,
+   selfTest,
+ };
+*** Update File: server.js
+@@
+   let chars = 0;
+   try {
+     chars = Buffer.byteLength(JSON.stringify(body || {}), 'utf8');
++    chars += qwenV3Capabilities.postPrepareInjectedPromptBytes(v3Input.mode);
+   } catch (_) {}
+*** End Patch

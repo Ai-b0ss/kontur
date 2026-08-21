@@ -1,88 +1,90 @@
 # Qwen + Notion — интеграционный помощник
 
-Обновлено: 2026-08-21 05:35 UTC.
+Обновлено: 2026-08-21 06:30 UTC.
 
 Worker id: `INTEGRATION_HELPER`.
 
 ## Свежие головы источников
 
-- Qwen PR #6: `4bf8bbdb0b7dcf185e2180dd5894fbc49bf6ebd4`.
-- Notion PR #8: `e1411c03b861ab31968ea26c414b693c6a3db26b`.
+- Qwen PR #6: `73083123db9f3e18ea70fe06397b3bb4c84f83e2`.
+- Notion PR #8: `75a4a6de243e22e0df3c15e572e7aa09977d1fcb`.
 - Notion Core PR #7: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
-Свежие handoff основных работников перечитаны перед работой. Их текущие узкие зоны не перехватывались: Qwen Core — checkpoint/tool-call char-budget и restart; Qwen Reliability — canonical preferred account/cooldown/provider safety; Notion Agent — ordinary Responses/dynamic reservation materialization; Notion Core — durable rendered replay + Windows auth rollback gate.
+Свежие handoff четырёх основных работников перечитаны перед работой. Их текущие узкие зоны не перехватывались:
+- Qwen Core — streaming/session durability на границе checkpoint и исчезнувшего клиента;
+- Qwen Reliability — canonical preferred account/cooldown и очистка `operationCandidates()` без потери thread affinity;
+- Notion Agent — materialization ordinary Responses dynamic reservation + transport provenance;
+- Notion Core — durable rendered parent Responses replay и pending native-Windows auth rollback.
 
-## Новое — глобальный lost-update в persisted Qwen subagent batch store
+## Новый стыковой дефект — Notion child restart может повторить локальный side effect
 
-Свежий `src/subagent-batch-store.js` (`blob f384b57e52d54e298d466b858831eedb2a0dc4f1`) делает каждую мутацию как `readState(target) -> clone -> mutate -> writeAtomic(target, whole JSON)`.
+Fresh exact blobs на PR #8:
+- `payload/delegated_tool_loop.py` = `ee789e92c5c3f63296923fc6584c55a44c082798`;
+- `payload/subagent_lifecycle.py` = `c90ff249e2199dcdc43002dfb3277fc60fc63b53`;
+- `payload/delegation_policy.py` = `cc50fc7373578262e6051e76716563a98f8f4935`.
 
-`writeAtomic()` защищает один replace от частичной записи, но НЕ сериализует два независимых read-modify-write между процессами. Поэтому два процесса могут прочитать один старый snapshot и затем по очереди заменить весь файл. Поздний writer молча стирает изменение раннего writer, даже если менялись разные batch/task.
+Текущий `DelegatedToolLoopSession` держит history, seen call ids, completed model turns и final text только в памяти процесса. `SubagentLifecycle` тоже держит active child identities только в памяти. Поэтому процесс может умереть после того, как локальный `write/edit/shell` уже изменил проект, но до того, как появился долговечный child result/function output. После restart та же логическая дочерняя задача выглядит свежей и может повторить изменение.
 
-Детерминированное offline reproduction:
-- A и B сначала оба читают один старый state;
-- A пишет `batch-a/task-a = running`;
-- B после этого пишет свой stale snapshot с `batch-b/task-b = running`;
-- финал: `task-a` снова `pending`, `task-b=running` — update A потерян.
+Детерминированный offline probe:
+1. child `(notion,parent-A,child-1)` принимает mutating tool-call;
+2. локальное изменение происходит;
+3. моделируется process death до durable tool result;
+4. новый процесс запускает ту же логическую child identity как свежую;
+5. изменение выполняется второй раз.
 
-Тот же harness с сериализацией всего интервала `read -> mutate -> durable replace` сохраняет оба состояния `running`.
+Наблюдение текущей семантики: `side_effects = 2`.
 
-Материал:
-- `autonomy/v3/tools/integration_qwen_batch_store_global_lost_update_probe.js`;
-- `autonomy/evidence/integration/20260821T0535Z_qwen_batch_store_global_lost_update.json`.
+Candidate contract probe:
+- перед входом в потенциально изменяющий executor долговечно записать `tool_inflight_mutating` + call id/tool name;
+- restart переводит такой inflight в `uncertain`;
+- автоматический повтор той же parent-scoped identity блокируется;
+- `side_effects = 1`.
 
-Это шире уже найденного предыдущим запуском same-task claim race. Даже если владелец Qwen добавит атомарный claim для одного task, общий JSON store всё равно сможет потерять этот claim/terminal result из-за параллельной мутации другого batch.
+Материалы:
+- `autonomy/v3/tools/integration_notion_delegated_restart_side_effect_probe.py`;
+- `autonomy/evidence/integration/20260821T0630Z_notion_delegated_restart_side_effect_gap.json`.
 
-Обязательный продуктовый контракт:
-1. сериализовать между процессами весь store transaction, начиная ДО чтения snapshot;
-2. либо использовать общий store-wide CAS/versioning, который заставляет stale writer перечитать и повторить мутацию;
-3. task-claim и все `markRunning/Done/Failed/Uncertain/ensure` должны жить в одной сериализации/версии;
-4. lock/CAS должен быть crash-safe и bounded, без вечного lock после падения процесса;
-5. regression: два процесса меняют разные batch из одного исходного snapshot — оба изменения обязаны сохраниться;
-6. отдельная regression: terminal/uncertain result одного task нельзя откатить stale записью другого task.
+Обязательный контракт для владельца Notion:
+1. стабильная identity `(target, parent_turn_id, task_id)` — в согласовании с уже найденным parent-scope gap;
+2. долговечное child-state отдельно от provider account/thread state;
+3. accepted assistant tool batch сохранить до локального исполнения;
+4. mutating tool inflight сохранить до executor;
+5. restart: inflight mutating => `uncertain`, без автоматического replay;
+6. durable tool result/history сохранить до следующего model call;
+7. read-only retry может иметь отдельную доказанную политику; mutating tools нельзя считать безопасно повторяемыми.
 
-Продуктовый `src/subagent-batch-store.js` не переписывался: основному Qwen-владельцу передан точный regression/contract, чтобы он не получил параллельный большой rewrite.
+Продуктовый PR #8 не переписывался: оставлена только независимая регрессия/evidence для владельца линии.
 
-## Предыдущий открытый стык 1 — Qwen tool workspace глобален на весь процесс
+## Продвинут предыдущий Qwen gap — проверен кандидат межпроцессной сериализации batch store
 
-`src/tool-executor.js` хранит `workspace` в одной process-global переменной. `initWorkspace(dir)` меняет её для всех последующих file/shell tool calls. При interleave двух delegated projects child A может продолжить запись уже в workspace B.
+Свежий `src/subagent-batch-store.js` = blob `f384b57e52d54e298d466b858831eedb2a0dc4f1`. Предыдущим запуском доказан global lost-update: `readState -> clone -> mutate -> whole-file replace` не сериализован между процессами.
 
-Материал:
-- `autonomy/v3/tools/integration_qwen_global_workspace_isolation_probe.js`;
-- `autonomy/evidence/integration/20260821T0335Z_qwen_notion_delegated_workspace_scope_gap.json`.
+В этом запуске добавлен независимый support candidate, не product rewrite. Два настоящих Node-процесса намеренно перекрывали изменения разных batch. Кандидат берёт один store-wide lock ДО `readState` и держит его до atomic replace.
 
-Безопасная граница: immutable per-delegation executor/workspace либо временно process-wide lock на весь интервал `initWorkspace -> coding-subagent completion`.
+Offline PASS:
+- оба независимых update сохранены;
+- dead-owner lock восстанавливается через атомарный rename lock-directory, а не blind delete;
+- release сверяет PID + random ownership token, поэтому старый releaser не может удалить lock преемника;
+- ожидание ограничено timeout и fail-closed.
 
-## Предыдущий открытый стык 2 — persisted Qwen batch не связан с логическим workspace/project identity
+Материалы:
+- `autonomy/v3/tools/integration_qwen_batch_store_interprocess_lock_candidate.js`;
+- `autonomy/evidence/integration/20260821T0630Z_qwen_batch_store_interprocess_lock_candidate.json`.
 
-`executionSignatureContext()` Qwen включает mode/model/sessionPrefix/settings/owner-prompt hash, а `taskSignature()` — task id/prompt/skill names. Stable workspace/project identity туда не входит. Текущий provider-neutral Notion `DelegationRequest/Context` её тоже не передаёт.
+Статус: support candidate, НЕ apply-ready product fix. Linux process semantics доказаны; если выбран именно directory-lock, native Windows semantics ещё требуют отдельного доказательства. Product `src/subagent-batch-store.js` не менялся.
 
-Материал:
-- `autonomy/v3/tools/integration_qwen_persisted_workspace_identity_probe.js`;
-- `autonomy/evidence/integration/20260821T0335Z_qwen_notion_delegated_workspace_scope_gap.json`.
+## Ранее доказанные стыки — не дублировать
 
-Контракт: передавать стабильную непрозрачную логическую workspace identity; в persisted signature хранить только её SHA-256. Не использовать абсолютный путь или mutable checkout hash как единственную identity.
-
-## Остальные ранее доказанные стыки — не дублировать
-
-Сохраняются: same-task cross-process claim race; global parallelism при Notion rebind; same-account overlap across generations; parent-scoped child identity; stable Qwen taskId/batchId/sessionPrefix; typed completed/uncertain/failed/skipped result; cancellation/side-effect uncertainty; explicit delegated prompt policy; Notion 24 vs Qwen 12 turns; успешный Qwen result с пустым text; cross-parent bare task_id conflict; selected-skill content fingerprint; delegated tool-capability policy.
+Сохраняются: Qwen same-task claim race; global store lost-update; process-global tool workspace; persisted workspace identity; Notion rebind global parallelism и same-account overlap; parent-scoped child identity; stable Qwen taskId/batchId/sessionPrefix; typed completed/uncertain/failed/skipped result; cancellation/side-effect uncertainty; explicit delegated prompt policy; Notion 24 vs Qwen 12 turns; successful Qwen result с пустым text; selected-skill content fingerprint; delegated tool-capability policy; cross-parent bare task-id conflict.
 
 ## Следующий безопасный интеграционный шаг
 
-После store-wide serialization fix проверить единым offline harness две независимые доставки/процесса:
-- same task => ровно один claim/executor;
-- different tasks/batches => ни один durable update не теряется;
-- done/uncertain одного task нельзя откатить unrelated writer;
-- restart видит тот же terminal/uncertain state и не повторяет side effect;
-- затем объединить с уже подготовленными parent identity / prompt policy / typed status / workspace identity / tool-policy регрессиями будущего Notion→Qwen adapter.
+1. После product store-wide serialization от Qwen-владельца прогнать единый offline restart harness: same task => один executor; unrelated batches не теряют updates; done/uncertain нельзя откатить stale writer; restart не повторяет side effect.
+2. Для Notion подготовить минимальный durable child-state design/regression поверх текущего `DelegatedToolLoopSession`, не смешивая его с Notion Core parent Responses replay и provider thread/account state.
+3. Затем объединить это с уже подготовленными parent identity / prompt policy / typed result / workspace identity / tool-policy контрактами будущего Notion→Qwen adapter.
 
-## Ограничения
+## Ограничения и постоянная память
+
+Run-start `LATEST.json`: capsule `20260821T054341Z-e45fead477`, archive SHA-256 `e21ac51d8884aa1970c0cc072e36aa2a1b422379400126ec0bb87cad3f3904b7`, Git blob SHA `ffc3e9d98b387fe9cb9cdb76fae80050027468cd`. Manifest и 7 parts получены отдельно; их длины/SHA совпали, archive size/SHA совпали, workspace восстановлен.
 
 CircleCI, GitHub Actions, Cloudflare и другой hosted CI не запускались. Live Qwen/Notion/Codex/provider traffic — 0. Native Windows не заявлялся. Production, реальные данные, аккаунты и секреты не трогались.
-
-## Постоянная память
-
-Run-start `LATEST.json` прочитан первым: capsule `20260821T044216Z-2ac9511f2d`, archive SHA-256 `b2647ff584e111d85ef6562680f6cf940f29f80584a15b148ca4cabe2a2bc0e1`, Git blob SHA `c6c6ea1cfb67fae7994f3ceeb569a77cee42b738`.
-
-Все 4 immutable parts были получены отдельно; их длины/SHA совпали с manifest. Exact `capsule_runtime_v4.py` (`blob 6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`) выполнил `verify=PASS` и `restore=PASS` для capsule `20260821T044216Z-2ac9511f2d`.
-
-После этого run должен закончиться новым checkpoint -> exact v4 pack/verify/restore -> immutable upload/readback -> повторное чтение LATEST и CAS только если blob всё ещё `c6c6ea...`. При конфликте force-write запрещён.

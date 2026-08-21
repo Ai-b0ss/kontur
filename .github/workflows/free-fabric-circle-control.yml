@@ -97,3 +97,5 @@ jobs:
           if (d.get('result') or {}).get('status')!='success':
               raise SystemExit(2)
           PY
+
+# trigger: 2026-08-21T13:26+03:00

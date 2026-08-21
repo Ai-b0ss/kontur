@@ -1,0 +1,65 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "QWEN_PENDING_TOOL_DURABLE_OBLIGATION_GAP",
+  "verdict": "REPRODUCED_OFFLINE_AND_MINIMAL_PATCH_CANDIDATE_PREPARED",
+  "observed_at_utc": "2026-08-21T13:36:00Z",
+  "source": {
+    "qwen_pr": 6,
+    "qwen_head": "861a8f176a6037acaec5721b2f6bbad3041d7dd9",
+    "server_blob": "b6131886a6ff739eb35765982d778632e25ab689",
+    "session_store_blob": "d13f79a1c999ca5221cac190ad7b155f4854ae9b",
+    "notion_pr": 8,
+    "notion_head_read_only": "1b4f9eb195f1fc2aadf6344a5e0b55ef7588201e"
+  },
+  "coordination": {
+    "not_duplicate_of_qwen_core_current_work": "Qwen Core is currently closing stale-backup reconciliation and the external QWEN_SESSION_RECOVERY_UNCERTAIN contract.",
+    "not_duplicate_of_qwen_reliability_current_work": "Qwen Reliability is currently isolating local request preparation / post-success persistence from provider failure accounting.",
+    "not_duplicate_of_previous_integration_helper": "Previous helper findings already include short-continuation content shapes, duplicate tool_call ids, same-session request serialization, command/reset gate and command content-shape. This finding concerns any unresolved accepted tool obligation regardless of next-turn wording or caller-supplied transcript shape."
+  },
+  "current_product_behavior": {
+    "server_guard_scope": "server.js computes pendingToolCalls only when isContinuationTurn is true",
+    "ordinary_user_turn": {
+      "stored_pending": ["call-write-2"],
+      "incoming": "please keep working on the file and finish the task",
+      "is_short_continuation": false,
+      "restored_pending": ["call-write-2"],
+      "current_guard_blocks": false,
+      "provider_would_run": true
+    },
+    "explicit_transcript_omission": {
+      "stored_pending": ["call-write-2"],
+      "incoming_multi_message_transcript_omits_pending_call": true,
+      "restoreCheckpoint_returns_caller_messages_when_non_system_count_gt_1": true,
+      "pending_visible_in_restored_messages": [],
+      "pending_still_present_in_durable_record": ["call-write-2"],
+      "checking_only_restored_messages_is_insufficient": true
+    }
+  },
+  "risk": "An accepted mutating tool call can remain unresolved after restart while a differently worded user turn or an explicit transcript that omits the call reaches Qwen. The model may then continue/re-plan without authoritative knowledge of the tool result, creating a path to duplicate or conflicting side effects.",
+  "candidate_contract": {
+    "rule": "Any accepted unresolved tool call in durable session state blocks provider work, independent of wording in the next request.",
+    "post_restore_reread": "After restoreCheckpoint(), re-read the session record because matching incoming tool results may have been durably persisted there.",
+    "request_guard": "Also inspect restored request messages for unresolved tool calls so caller-provided pending sequences stay fail-closed.",
+    "resolution": "Only a matching durable tool result (or explicit session reset/new session) clears the obligation.",
+    "http": "Reuse QWEN_PENDING_TOOL_RESULT / 409; no new provider/account failure classification is required."
+  },
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_qwen_pending_tool_durable_obligation_probe.js",
+    "verdict": "QWEN_PENDING_TOOL_DURABLE_OBLIGATION_REPRO_PASS",
+    "checked": [
+      "ordinary non-short user turn currently reaches provider with durable pending write_file",
+      "explicit multi-message transcript can hide the pending call from restoredMessages while durable state still contains it",
+      "candidate durable-state boundary blocks both cases",
+      "candidate allows continuation after a matching tool result is durable"
+    ]
+  },
+  "patch_candidate": "autonomy/v3/candidates/QWEN_PENDING_TOOL_DURABLE_OBLIGATION_GUARD_20260821.patch",
+  "limits": [
+    "No product Qwen/Notion file changed.",
+    "No hosted CI triggered.",
+    "No Qwen/Notion/Codex provider traffic.",
+    "No Windows claim.",
+    "No production, real account, user data or secret access."
+  ]
+}

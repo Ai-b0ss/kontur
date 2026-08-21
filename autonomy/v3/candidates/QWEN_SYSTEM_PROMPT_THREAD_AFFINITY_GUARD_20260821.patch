@@ -1,0 +1,81 @@
+# Candidate contract patch — DO NOT apply blindly.
+# Exact source boundary: qwen-free-api@5cc928607cf4d001cbf9adbc007277dccbdefe4b
+# Purpose: a local session must never reuse a Qwen remote thread across an effective
+# application/system-prompt policy change.
+
+--- a/src/qwen-v3-capabilities.js
++++ b/src/qwen-v3-capabilities.js
+@@
++'use strict';
++const crypto = require('crypto');
+@@
++function promptPolicyFingerprint(body = {}, ctx = {}) {
++  const systemPromptMode = resolveSystemPromptMode(body, ctx);
++  const detached = detachOwnerSystemPrompt(body, systemPromptMode, ctx);
++  const promptSafeBody = systemPromptMode === 'engineer'
++    ? preserveEngineerSystemMessages(detached.body, ctx)
++    : detached.body;
++  const systemContext = (promptSafeBody.messages || [])
++    .filter((m) => m && m.role === 'system')
++    .map((m) => systemContentToText(m.content));
++  const policy = {
++    version: 1,
++    mode: systemPromptMode,
++    application_prompt: systemPromptMode === 'owner'
++      ? detached.ownerSystemPrompt
++      : ENGINEER_BASE_PROMPT,
++    system_context: systemContext,
++  };
++  return crypto.createHash('sha256')
++    .update(JSON.stringify(policy), 'utf8')
++    .digest('hex');
++}
+@@
+ module.exports = {
++  promptPolicyFingerprint,
+   ...
+ };
+
+--- a/src/session-store.js
++++ b/src/session-store.js
+@@
+   const record = {
+     chatId: nextChatId,
+     accountId: requestedAccountId || (previous ? previous.accountId : undefined),
++    systemPromptHash: metadata.systemPromptHash !== undefined
++      ? metadata.systemPromptHash
++      : (previous ? previous.systemPromptHash : undefined),
+     awaitingCompactedHistory: Boolean(metadata.awaitingCompactedHistory),
+     ...
+   };
+
+--- a/server.js
++++ b/server.js
+@@
+     const record = sessionStore.getRecord(sessionKey);
++    const systemPromptHash = qwenV3Capabilities.promptPolicyFingerprint(publicBody, {
++      headers: req.headers,
++    });
+@@
+-    const existingChatId = (!rollover && savedAccountAvailable) ? (record?.chatId || null) : null;
++    const promptAffinityMatches = Boolean(
++      record && record.systemPromptHash && record.systemPromptHash === systemPromptHash
++    );
++    const existingChatId = (!rollover && savedAccountAvailable && promptAffinityMatches)
++      ? (record?.chatId || null)
++      : null;
+@@
+     sessionStore.set(sessionKey, acceptedChatId, {
+       accountId: acceptedAccountId,
++      systemPromptHash,
+       awaitingCompactedHistory: compaction,
+       toolPromptHash: prepared.toolPromptHash,
+       history: ...,
+     });
+
+# Apply the metadata field to EVERY accepted stream/non-stream/retry checkpoint path.
+# A legacy record with chatId but no systemPromptHash intentionally rebases once.
+# Prompt mismatch is not an account failure and must not trigger cooldown/provider accounting.
+# Never log or persist owner_system_prompt plaintext as metadata; only the SHA-256 fingerprint.
+# Before product integration add tests for owner A->B, engineer<->owner, exact-match sticky reuse,
+# legacy record rebase, and prompt-change combined with account failover/restart.

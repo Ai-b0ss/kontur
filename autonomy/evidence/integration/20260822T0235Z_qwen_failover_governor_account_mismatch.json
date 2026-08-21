@@ -1,0 +1,46 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "QWEN_FAILOVER_GOVERNOR_ACCOUNT_MISMATCH",
+  "verdict": "REPRODUCED_AND_CANDIDATE_CONTRACT_PASS",
+  "fresh_product_head": "36dcf2424923de926e3e04848ae2e5dfa6402645",
+  "fresh_blobs": {
+    "server.js": "09a734ebe7e8abf5b7f63c4cfbd0c9998c79ea78",
+    "src/qwen-client.js": "2ee2c8dac717ffef23b5e21e43d939567e3b7cf0",
+    "src/request-governor.js": "aca56575c799ca03b01b174a2b375807b32e8b4e",
+    "src/quota-telemetry.js": "53aeb46a5c111e3d5e164f6afb83e5582a4bac96"
+  },
+  "observed_contract": [
+    "server prepares one governor admission for the initially preferred account",
+    "qwen-client may fail over inside the same logical operation from account A to account B",
+    "no sibling-account requestGovernor.before(B) is performed by qwen-client",
+    "quota telemetry is rebound to the final response account and emits one governor outcome at response finish"
+  ],
+  "reproduction": {
+    "provider_attempts": ["A", "B"],
+    "governor_admissions_current": ["A"],
+    "governor_outcomes_current": [["success", "B"]],
+    "pending_A_after_finish": 1,
+    "pending_B_after_finish": 0,
+    "sibling_B_provider_attempt_was_ungoverned": true,
+    "initial_A_reservation_leaked_until_ttl": true
+  },
+  "risk": [
+    "sibling failover traffic can bypass per-account admission, token reservation, burst pressure and penalty waits",
+    "the initial account can retain a stale in-flight reservation after its failure",
+    "the governor can miss the pressure class that caused the failover because the final response account overwrites telemetry ownership"
+  ],
+  "candidate_contract": [
+    "every account that can reach provider I/O in one logical operation must have its own governor admission before that account's first provider call",
+    "every failed account attempt must settle exactly its own admission before failover continues",
+    "the successful final account keeps its admission until final usage is known, then success(account, usage) settles it",
+    "no account may receive success/failure for a reservation owned by another account",
+    "the existing bounded failover budget remains unchanged"
+  ],
+  "offline_probe": "autonomy/v3/tools/integration_qwen_failover_governor_accounting_probe.js",
+  "limits": [
+    "semantic/offline reproduction; no provider traffic",
+    "no production files changed",
+    "no hosted CI, Windows, Cloudflare, secrets or real accounts"
+  ]
+}

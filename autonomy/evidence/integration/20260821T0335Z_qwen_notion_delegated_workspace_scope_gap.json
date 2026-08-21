@@ -1,0 +1,65 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "timestamp_utc": "2026-08-21T03:35:00Z",
+  "finding": "QWEN_NOTION_DELEGATED_WORKSPACE_SCOPE_GAP",
+  "verdict": "REPRODUCED_TWO_LINKED_GAPS_AND_SAFE_CONTRACT_PROBES_PASS",
+  "source_heads": {
+    "qwen_pr6": "ffd19b208da8be58f5de9d11c4240327b9e0ad81",
+    "notion_pr8": "1d80d4f2939b4c76a43313b722e4e80c1041564c",
+    "notion_core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144"
+  },
+  "source_blobs": {
+    "qwen_src_tool_executor_js": "85cd74b92a4f4496d787e66e0ccaa96ec6f9f086",
+    "qwen_src_subagent_agent_runner_js": "53e8682563c39d9d10ccf8d748263ce63fb43e28",
+    "qwen_src_subagent_batch_store_js": "f384b57e52d54e298d466b858831eedb2a0dc4f1",
+    "notion_payload_delegation_policy_py": "cc50fc7373578262e6051e76716563a98f8f4935",
+    "notion_payload_delegation_dispatcher_py": "66d839a1db347684f2fa2681ceaf98600415298d"
+  },
+  "observed_gap": [
+    "Qwen tool-executor keeps workspace in one process-global mutable variable. initWorkspace() changes that variable for every later file/shell tool call in the process.",
+    "A future Notion->Qwen adapter may run two independent delegated children concurrently. If they target different projects and select their workspaces per child, child B can switch the global workspace after child A has started but before A reaches a tool call. A's tool then resolves inside B's project.",
+    "The current provider-neutral Notion DelegationRequest/DelegationContext contains task/parent/conversation/objective/max-turns but no stable workspace/project identity.",
+    "Qwen persisted coding-subagent batch signature covers task prompt/skill names plus mode/model/session/settings/owner-prompt hash, but not a stable workspace identity. Therefore the same deterministic delegated task/batch/session identity can validate across two logical projects unless the future adapter adds an extra contract field."
+  ],
+  "offline_proofs": {
+    "global_workspace_probe": {
+      "path": "autonomy/v3/tools/integration_qwen_global_workspace_isolation_probe.js",
+      "verdict": "QWEN_GLOBAL_WORKSPACE_CROSS_CHILD_ISOLATION_GAP_REPRO_PASS",
+      "current": {
+        "a_has_file": false,
+        "b_has_file": true,
+        "cross_workspace_write": true
+      },
+      "candidate": {
+        "a_ok": true,
+        "b_ok": true,
+        "distinct_paths": true
+      }
+    },
+    "persisted_workspace_identity_probe": {
+      "path": "autonomy/v3/tools/integration_qwen_persisted_workspace_identity_probe.js",
+      "verdict": "QWEN_PERSISTED_BATCH_WORKSPACE_IDENTITY_GAP_REPRO_PASS",
+      "current_signature": "71a28405f723f89aa3ed9dad081662e11cb42ce8e27750369aff7b2282f9b8e1",
+      "same_signature_across_logical_workspaces": true,
+      "candidate_project_a_signature": "3c9716edf3501bb72a4514bc6d63309658e7e66804f4b28d050e7d0f324e86ec",
+      "candidate_project_b_signature": "bffaed0f8b44f7c9fb4c9269136205cea1187dc9ec1bf7cc212c18bd6e5abb2e",
+      "candidate_signatures_differ": true
+    }
+  },
+  "minimal_safe_contract": {
+    "delegation_workspace_identity": "The parent/agent layer supplies a stable opaque logical workspace/project identity. Do not use a mutable checkout fingerprint and do not expose a local absolute path to provider-visible prompts.",
+    "qwen_persisted_signature": "Include only SHA-256(workspace identity) in the Qwen persisted execution signature. Reusing a batch id for a different workspace must fail with signature mismatch before any tool execution or prior-result resume.",
+    "runtime_isolation": "Long-term: bind a tool executor/workspace immutably to each delegated Qwen session instead of one process-global workspace. Safe interim adapter: serialize the whole initWorkspace + coding-subagent lifetime behind one cross-workspace process lock, never just the individual tool call.",
+    "concurrency_rule": "Concurrent Qwen delegated children are allowed only when their tool executors have independent immutable workspace bindings. Otherwise fail closed or serialize them.",
+    "restart_rule": "The stable workspace identity must survive restart and relocation of the same logical project; absolute filesystem path alone is not a sufficient identity."
+  },
+  "why_this_is_integration_specific": "Qwen's current single-workspace process can be valid in isolation, and Notion's provider-neutral delegation can be valid before a Qwen adapter exists. The cross-project isolation failure appears when Notion's parallel child lifecycle is connected to Qwen's process-global tool workspace and deterministic persisted subagent state.",
+  "limits": [
+    "No Qwen or Notion product source was rewritten.",
+    "No CircleCI, GitHub Actions, Cloudflare or other hosted CI was started.",
+    "No live Qwen/Notion/Codex/provider traffic.",
+    "No Windows claim.",
+    "No production, real account data or secrets touched."
+  ]
+}

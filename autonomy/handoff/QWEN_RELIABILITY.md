@@ -4,7 +4,7 @@
 
 Основная продуктовая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6.
 
-Свежий product head после этого прохода: `d605db5d8f8411f9054ffabf258616d5b9e0132d`.
+Свежий product head после этого прохода: `5c8fc5299f77a1c3502082da8827b6d3f20e7592`.
 
 ## Уже доказано и не переделывать
 
@@ -29,75 +29,80 @@
 - request-wide bounded retry закрыт: обычный/stream retry делят один `attemptedAccountIds`, distinct-account usage ограничен `MAX_ACCOUNTS_PER_OPERATION`, same-owner rebase не расходует новый distinct slot;
 - provider-wide circuit, найденный до реального provider path, не расходует request-wide slot;
 - истёкший provider circuit при неподтверждённой durable cleanup остаётся fail-closed через `state_cleanup_failed`;
-- четыре границы local/provider из предыдущего прохода закрыты: local preparation до provider I/O, durable `markSuccess`, durable CAPTCHA/rate-limit/account failure и durable provider-circuit trip. Product head той волны: `925682bc36338a249a26dae2c684380c21ba8db7`.
+- local preparation, durable `markSuccess`, durable CAPTCHA/rate-limit/account failure и durable provider-circuit trip отделены от provider transport;
+- accepted-stream observer persistence errors не проглатываются;
+- fsync-confirmed account/cooldown replacement не откатывается из-за cleanup-only удаления старого backup.
 
 ## Закрыто в этом проходе
 
-### 1. Ошибка записи состояния внутри accepted-stream error observer больше не проглатывается
+### Explicit global clear больше не снимает fail-closed память без durable подтверждения
 
-`stream-session-guard` раньше намеренно изолировал любые исключения из `opts.onError`. Это правильно для обычной ошибки observer-кода, но в реальном `server.js` этот callback записывает CAPTCHA/ошибку аккаунта. Если `account-store` бросал `EIO/ENOSPC/EDQUOT/EROFS/EACCES/EPERM`, ошибка записи состояния исчезала, клиент видел только upstream error, а маршрут завершался как будто запись cooldown/error состоялась.
+Найден крайний случай в `src/provider-circuit.js`.
 
-Теперь:
-- известные ошибки долговечности из observer преобразуются в `QWEN_LOCAL_PERSISTENCE`;
-- guard отвергает Promise обратно маршруту и пишет `server_error`, а не маскирует проблему как provider error;
-- обычные observer-ошибки без признака storage/persistence по-прежнему изолируются, чтобы не заменять исходную ошибку провайдера.
+После неудачного удаления истёкшего provider-circuit процесс правильно ставит `volatileFailClosed=state_cleanup_failed`. Возможна ситуация, когда canonical `provider-circuit.json` уже отсутствует в текущем namespace, но удаление каталога ранее не было подтверждено `fsync`. Старый `clear()` делал `removeState() -> false` и сразу обнулял `volatileFailClosed`, не подтверждая parent directory durability. После crash старый файл теоретически мог снова появиться, хотя текущий процесс уже открыл трафик.
 
-Коммиты:
-- `723174444b4c5240aa5350e7a32c094b1b2dc23a` — продуктовый guard;
-- `08a08d1bd62165c818fcb1558751ba051f57e5bd` — регрессия.
+Исправление:
+- global `clear()` теперь получает `statePath()` и результат `removeState()`;
+- если canonical file уже отсутствует, но `volatileFailClosed` всё ещё активен, перед снятием latch выполняется `syncParentDirectory(file)`;
+- если этот fsync падает, clear бросает ошибку, `volatileFailClosed` сохраняется и система остаётся provider-wide fail-closed;
+- обычный успешно durable clear не меняется.
 
-Hosted targeted marker: `STREAM_OBSERVER_PERSISTENCE_FAIL_CLOSED_MODEL_PASS`.
+Коммиты product branch:
+- `12f33ac80d46bb0d34bc3a89c166281073a2340c` — новый regression script;
+- `93b745435a59c76726a5b6306d63e20bc1ad5c15` — продуктовый fix;
+- `2626506c2883db349f438de5b97f4f1e72ad91b6` — подключение регрессии в `npm test`;
+- `5c8fc5299f77a1c3502082da8827b6d3f20e7592` — немедленное исправление собственной опечатки в `package.json`: существующая зависимость `cors` восстановлена обратно на `^2.8.5`; никаких продуктовых изменений dependency не осталось.
 
-### 2. Durable account/cooldown state больше не откатывается из-за cleanup-only ошибки
+Hosted targeted marker:
+- `PROVIDER_CIRCUIT_CLEAR_DURABILITY_PASS absent_file_requires_directory_fsync=1 failed_clear_stays_closed=1`.
 
-В `account-store.persist()` после `rename(temp -> canonical)` и успешного `fsync` родительского каталога новый JSON уже является подтверждённым каноническим состоянием. Но удаление старого `.txn-backup-*` было внутри общего `try`: если именно cleanup давал `EIO`, общий `catch` удалял уже подтверждённый новый файл и возвращал старый backup. Для CAPTCHA/rate-limit это могло откатить свежий cooldown к старому доступному состоянию.
+Изменённые product-файлы перечитаны после записи; `src/provider-circuit.js` на head содержит новый durable-clear guard.
 
-Теперь удаление transaction backup после подтверждённого canonical replacement — best-effort cleanup и не может откатить новый account/cooldown state. Ошибка до подтверждающего directory `fsync` по-прежнему откатывается и бросается наружу.
+## Следующий найденный дефект — patch уже подготовлен, но в product пока не применён
 
-Коммиты:
-- `c1112b4fa33dbe987cee2bbc430a1e0b8db5f6a0` — продуктовый фикс;
-- `d605db5d8f8411f9054ffabf258616d5b9e0132d` — регрессия на synthetic backup-cleanup `EIO`.
+В `src/session-store.js::writePrimaryAtomic()` остаётся тот же класс post-fsync cleanup rollback, который уже был закрыт в account/provider state.
 
-Hosted markers:
-- `ACCOUNT_DURABLE_REPLACEMENT_CLEANUP_REPRO_PASS` — старый rollback воспроизведён;
-- `ACCOUNT_DURABLE_REPLACEMENT_CLEANUP_PASS` — новый инвариант подтверждён моделью.
+Текущая последовательность:
+1. новый session primary записан во временный файл и fsync;
+2. старый primary переименован в `.txn-backup-*`;
+3. новый primary установлен;
+4. parent directory fsync успешно подтверждает новый canonical checkpoint;
+5. затем `fs.rmSync(rollback)` находится внутри общего `try`;
+6. если только cleanup старого rollback даёт `EIO`, общий `catch` удаляет уже подтверждённый новый primary и возвращает старый checkpoint.
+
+Это способно откатить более новый acknowledged session/tool checkpoint после того, как durable commit уже состоялся.
+
+Точный byte-small кандидат сохранён в каноническом control repo:
+`autonomy/v3/candidates/QWEN_RELIABILITY_SESSION_PRIMARY_CLEANUP_20260821.patch`.
+
+Кандидат делает удаление старого `.txn-backup-*` best-effort после успешного primary directory fsync и расширяет `session-store-primary-fsync-test.js`: cleanup-only `EIO` не должен отменять `store.set()`, а новый `chatId` должен пережить reload.
+
+Почему не применён сразу: `session-store.js` большой и общий; доступная запись GitHub Contents требует заменить весь файл. Exact source читается, но безопаснее применить уже подготовленный маленький diff byte-safe git/patch исполнителем, чем реконструировать общий файл вручную и рисковать свежими session изменениями.
 
 ## Проверки и ограничения этого прохода
 
-- изменённые файлы перечитаны после записи через GitHub;
-- внешний exact-tree `npm test` не заявлен: hosted контейнер не резолвит `github.com`, поэтому полный checkout недоступен;
-- выполнены только локальные целевые модели на hosted Node;
-- CircleCI/GitHub Actions/Cloudflare: 0 запусков;
+- стартовый PR #6 head был `d605db5d8f8411f9054ffabf258616d5b9e0132d`; до наших записей параллельного сдвига не было;
+- targeted provider-circuit test выполнен на ChatGPT hosted Node и PASS;
+- полный exact-tree `npm test` не заявлен: hosted container по-прежнему не резолвит `github.com` для git clone;
+- CircleCI/GitHub Actions/Cloudflare: 0 ручных запусков;
 - provider/live Qwen: 0 запросов;
 - реальные аккаунты, секреты и production не тронуты.
 
-## Постоянная память
+## Постоянная память — состояние на старте этого запуска
 
-В начале запуска прочитан `LATEST.json` и запомнен parent Git blob SHA `fd5bbad19679273346da3e46da8ebfeefc56f5a6`.
+В начале прочитан `autonomy/v3/workspaces/QWEN_RELIABILITY/LATEST.json`; parent Git blob SHA: `7c6b4cc41788564284bf5a425231eac0e3c5058e`.
 
-Стартовая capsule `20260821T170333Z-9e3802c8f0` была материализована из exact manifest + 2 parts и прошла нормативные `capsule_runtime_v4.py verify` и `restore`; archive SHA-256 `687dad1f2d54982eef042663705bfc33f8096846157154722d2513fefb58d263`.
-
-После работы выполнен `checkpoint -> pack v4`. Новая immutable capsule:
-- `20260821T180127Z-57d53429ab`;
-- source ref `Ai-b0ss/qwen-free-api@d605db5d8f8411f9054ffabf258616d5b9e0132d`;
-- archive SHA-256 `e26712f0911509a4258e3a2bae4884052bfe7e9a76c984e08b6d4850fddbb6f5`;
-- 1 part, 2048 символов, SHA-256 text `9732f6a325bceeeb5dbc1473fa0fe91c3cd362e7159e49562e1c8cdc64681a9a`;
-- uploaded part Git blob SHA `eea62fe0dfc4ea19fff0a16a8f085690fe64b9f4`;
-- uploaded manifest Git blob SHA `84ec7c51ddbbc21ac7ee45c3d932a14b444ceb8a`.
-
-После upload part и manifest перечитаны; их Git blob SHA совпали с локально вычисленными. Локальные `verify + restore` новой capsule дали PASS.
-
-Непосредственно перед CAS `LATEST` был перечитан и сохранил стартовый parent SHA `fd5bbad...`; конфликтов не было. Старый `LATEST` сохранён в `PREVIOUS`, затем новый `LATEST` опубликован exact CAS и перечитан.
-
-Текущий `LATEST`:
+LATEST указывал на:
 - capsule `20260821T180127Z-57d53429ab`;
-- Git blob SHA `7c6b4cc41788564284bf5a425231eac0e3c5058e`;
-- archive SHA-256 `e26712f0911509a4258e3a2bae4884052bfe7e9a76c984e08b6d4850fddbb6f5`.
+- archive SHA-256 `e26712f0911509a4258e3a2bae4884052bfe7e9a76c984e08b6d4850fddbb6f5`;
+- manifest Git blob SHA `84ec7c51ddbbc21ac7ee45c3d932a14b444ceb8a`;
+- part Git blob SHA `eea62fe0dfc4ea19fff0a16a8f085690fe64b9f4`.
+
+Manifest + exact part были материализованы локально; нормативный `capsule_runtime_v4.py restore` дал PASS и восстановил checkpoint/result без ручной реконструкции неизвестных bytes.
 
 ## Следующий безопасный кусок
 
-1. В начале следующего запуска восстановить новый `LATEST` через v4.
-2. Перечитать свежий PR #6: параллельный writer может сдвинуть head.
-3. Не переделывать два исправления выше.
-4. Проверить остальные post-fsync cleanup-пути в account/session state и stream route: после подтверждённой canonical записи cleanup-only ошибка не должна откатывать более новое safety state; локальная persistence-ошибка не должна теряться или превращаться в provider transport.
-5. Если станет доступен byte-safe exact-tree materialization на hosted машине, выполнить релевантные штатные regression scripts и `npm test` локально без CircleCI/GitHub Actions/provider traffic.
+1. Сначала завершить нормативный finish этого запуска: checkpoint -> pack v4 -> immutable upload -> read-back verify -> re-read LATEST -> CAS publish только если parent blob SHA всё ещё `7c6b4cc...`; при конфликте не force-write.
+2. На следующем product проходе перечитать свежий PR #6 head.
+3. Если `src/session-store.js` не был параллельно исправлен, применить `QWEN_RELIABILITY_SESSION_PRIMARY_CLEANUP_20260821.patch` byte-safe способом и прогнать `session-store-primary-fsync-test.js` на hosted Node.
+4. Затем продолжить аудит остальных post-fsync cleanup-путей и stream/local-persistence границ, не возвращаясь к уже закрытым дефектам.

@@ -1,0 +1,48 @@
+*** Candidate patch contract for Ai-b0ss/qwen-free-api/src/session-store.js
+*** Target source blob: a36fc19496e0fb146df11aa7ff1e477bd9fc095c
+*** Do not apply by blind whole-file replacement.
+
+@@ checkpointAcceptedToolProgress(messages, assistantMessage)
+   if (Array.isArray(accepted.tool_calls) && accepted.tool_calls.length > 0) {
+     const expectedIds = accepted.tool_calls.map((call) => (call && call.id ? String(call.id) : null));
+     if (expectedIds.some((id) => !id)) throw checkpointRejected('missing tool_call id');
++    if (new Set(expectedIds).size !== expectedIds.length) {
++      throw checkpointRejected('duplicate tool_call id');
++    }
+   }
+
+@@ findPendingToolCalls(messages)
+-  const pending = new Map();
++  // Count unresolved occurrences, not only unique ids. Malformed/reused ids must
++  // fail closed: one result can resolve only one outstanding occurrence.
++  const pending = new Map();
+   for (...) {
+     if (message.role === 'assistant' && Array.isArray(message.tool_calls)) {
+       for (const call of message.tool_calls) {
+         if (!call || !call.id) continue;
+-        pending.set(String(call.id), call);
++        const id = String(call.id);
++        const previous = pending.get(id);
++        pending.set(id, { call, count: (previous ? previous.count : 0) + 1 });
+       }
+       continue;
+     }
+     if (message.role === 'tool' && message.tool_call_id) {
+-      pending.delete(String(message.tool_call_id));
++      const id = String(message.tool_call_id);
++      const previous = pending.get(id);
++      if (!previous) continue;
++      if (previous.count <= 1) pending.delete(id);
++      else pending.set(id, { ...previous, count: previous.count - 1 });
+     }
+   }
+-  return [...pending.values()];
++  return [...pending.values()].map((entry) => entry.call);
+
+Required regression:
+1. assistant call-1(mutating)
+2. assistant call-1(mutating) again before any result
+3. one tool result for call-1
+4. findPendingToolCalls => one pending call, so short continue remains 409/provider call_count=0
+5. newly accepted assistant response with duplicate ids in one tool_calls array => QWEN_TOOL_CHECKPOINT_REJECTED
+6. call-1 -> result -> later new call-1 remains representable as one fresh pending occurrence

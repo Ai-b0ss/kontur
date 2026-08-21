@@ -2,17 +2,20 @@
 import json, os, sys, time, urllib.error, urllib.parse, urllib.request
 
 API = "https://circleci.com/api/v2"
+API_V1 = "https://circleci.com/api/v1.1"
 TARGET_ORG = "Ai-b0ss"
 TARGET_REPO = "kontur"
 TARGET_BRANCH = "ci/kontur-circle-vite-20260821"
 OUT = ".free-fabric/circle-control-result.json"
 
 
-def call(token, method, path, body=None, timeout=30):
-    url = API + path
+def request_json(token, method, url, body=None, timeout=30, auth="bearer"):
     data = None if body is None else json.dumps(body).encode()
     req = urllib.request.Request(url, data=data, method=method)
-    req.add_header("Authorization", f"Bearer {token}")
+    if auth == "bearer":
+        req.add_header("Authorization", f"Bearer {token}")
+    else:
+        req.add_header("Circle-Token", token)
     req.add_header("Accept", "application/json")
     if body is not None:
         req.add_header("Content-Type", "application/json")
@@ -27,6 +30,10 @@ def call(token, method, path, body=None, timeout=30):
         except Exception:
             payload = {"message": raw[:500]}
         return e.code, payload
+
+
+def call(token, method, path, body=None, timeout=30):
+    return request_json(token, method, API + path, body, timeout, "bearer")
 
 
 def safe_err(payload):
@@ -57,13 +64,26 @@ def probe(label, token):
     return result
 
 
+def ensure_project_v1(token, trace):
+    # Legacy OAuth projects can still be followed via v1.1. This is a bounded
+    # compatibility fallback only; it never mutates repository contents.
+    url = f"{API_V1}/project/github/{TARGET_ORG}/{TARGET_REPO}/follow"
+    st, payload = request_json(token, "POST", url, None, 30, "circle-token")
+    trace.append({"op": "follow_project_v1", "status": st, "error": None if st in (200, 201, 400) else safe_err(payload)})
+    # 400 is often "already followed"; caller re-probes v2 project state.
+    return st in (200, 201, 400)
+
+
 def try_oauth_project(token, trace):
     slug = f"gh/{TARGET_ORG}/{TARGET_REPO}"
-    st, proj = call(token, "GET", "/project/" + urllib.parse.quote(slug, safe="/"))
-    trace.append({"op": "get_project", "status": st, "slug": slug})
+    path = "/project/" + urllib.parse.quote(slug, safe="/")
+    st, proj = call(token, "GET", path)
+    trace.append({"op": "get_project", "status": st, "slug": slug, "error": None if st == 200 else safe_err(proj)})
     if st == 404:
-        st, proj = call(token, "POST", f"/organization/gh/{TARGET_ORG}/project", {"name": TARGET_REPO})
-        trace.append({"op": "create_project", "status": st, "slug": slug, "error": None if st == 200 else safe_err(proj)})
+        ensure_project_v1(token, trace)
+        time.sleep(2)
+        st, proj = call(token, "GET", path)
+        trace.append({"op": "get_project_after_follow", "status": st, "slug": slug, "error": None if st == 200 else safe_err(proj)})
     if st != 200:
         return None
     project_slug = proj.get("slug") or slug
@@ -117,9 +137,11 @@ def main():
             for c in p.get("collaborations", []):
                 if c.get("name") == TARGET_ORG or c.get("slug") in (f"gh/{TARGET_ORG}", f"github/{TARGET_ORG}"):
                     score += 10
-            valid.append((score, label, tok))
+            # Prefer A on ties because user identified B as the new account.
+            tie = 1 if label == "A" else 0
+            valid.append((score, tie, label, tok))
     valid.sort(reverse=True)
-    for score, label, tok in valid:
+    for score, tie, label, tok in valid:
         trace = []
         started = try_oauth_project(tok, trace)
         report["attempts"].append({"label": label, "score": score, "trace": trace})

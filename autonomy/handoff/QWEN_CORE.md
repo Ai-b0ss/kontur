@@ -1,6 +1,6 @@
 # Qwen — агентное ядро
 
-## 2026-08-21 03:56Z — checkpoint trimming больше не рвёт tool-call/result
+## 2026-08-21 04:04Z — tool-pair boundary закрыта; найден следующий char-limit fail-open
 
 `qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`; текущий наблюдавшийся head `5c7df532f747cdb103d02fdd0de26feb957b4ae8`. Core-изменение находится в его прямой истории; параллельные более поздние изменения затронули только `provider-circuit` и принадлежат reliability-worker.
 
@@ -9,28 +9,22 @@
 - `src/session-store.js` теперь режет обычную историю replay-safe группами. `assistant` с `tool_calls` объединяется с непосредственно следующими результатами этих call id и сохраняется/удаляется только целиком; standalone `role=tool` в checkpoint не сохраняется. Свежий незавершённый assistant tool-call остаётся допустимой одноэлементной группой, поэтому `findPendingToolCalls()` продолжает видеть pending-вызов после restart.
 - Продуктовый commit: `79c55dad2471cd0aa04baf4f08e67035005f5bc8`. Постоянный regression `scripts/session-checkpoint-tool-pair-test.js`: `b61c2a7deadfdc92aef9cc0aa4e0e022c0424023`. Включение теста в `npm test`: `3b817954aaefd838d70f03d418377a4bfc344a3c`.
 - Hosted-machine проверка без Qwen/CI: `QWEN_CHECKPOINT_TOOL_PAIR_AWARE_PASS orphan=0 pending=1 completed_pair=1 multi=1 bounded=24`. Проверены граница лимита сообщений, completed pair, pending call и два tool-call с двумя результатами.
-- Full exact-tree `npm test` всё ещё не заявлен: всё приватное дерево на hosted-машине не материализовано. GitHub Actions, CircleCI, Cloudflare, live Qwen, реальные аккаунты, секреты и production не использовались.
+- После этого воспроизведён следующий Core-дефект на символьной границе. При tool-call с аргументами около 70k `checkpointAcceptedToolProgress()` может вернуть историю без только что принятого вызова, если есть system-message; если system-message нет, `checkpointMessages()` способен превысить `CHECKPOINT_MAX_CHARS=60000`. Маркер: `QWEN_CHECKPOINT_TOOL_CHAR_LIMIT_REPRO_PASS accepted_dropped_with_system=1 char_limit_exceeded_without_system=1`.
+- Риск: streaming/non-stream путь может отдать клиенту принятый tool-call, который фактически не попал в durable checkpoint; после restart pending-вызов потеряется. Следующее исправление должно fail-closed проверять, что accepted assistant tool-call реально пережил checkpoint trimming, и не считать локальный `QWEN_TOOL_CHECKPOINT_REJECTED` ошибкой здорового Qwen-аккаунта. Общий character budget также должен стать настоящим жёстким пределом.
+- Полный exact-tree `npm test` всё ещё не заявлен: всё приватное дерево на hosted-машине не материализовано. GitHub Actions, CircleCI, Cloudflare, live Qwen, реальные аккаунты, секреты и production не использовались.
 
 ### Постоянная память
 
-- После изменения рабочий checkpoint упакован exact v4: capsule `20260821T035647Z-4d3a65379e`, source ref `5c7df532f747cdb103d02fdd0de26feb957b4ae8`, archive SHA-256 `5af3fcfa51e9c2cf8872f0a0b1378f856ed9402ba0f5b24a23981a8ac2488433`.
-- Локальные `verify + restore` прошли. Immutable upload перечитан: `part-0000` Git blob `1a317616ab42920b835f68f06aa48308a0aeb1d5`, `part-0001` `5e93d79746366a544231b21e62bf47539aae0754`, manifest `456f1a95f7ff73b0e709746a40df282ffe9ebce7`; они совпали с заранее рассчитанными локальными Git blob SHA/длинами.
-- Перед публикацией `LATEST` был перечитан и всё ещё имел точный run-start parent `4be671a4e1bce81dd8f2c443114301e5f3929d56`, поэтому CAS допустим. Старый LATEST сохранён в PREVIOUS, новый LATEST опубликован только с этим exact parent SHA; новый pointer blob `65ef8953522e2fea35ea7ed5d5fd6e19757397ca`.
+- Первый итоговый checkpoint после product-fix: `20260821T035647Z-4d3a65379e`, source ref `5c7df532f747cdb103d02fdd0de26feb957b4ae8`, archive SHA-256 `5af3fcfa51e9c2cf8872f0a0b1378f856ed9402ba0f5b24a23981a8ac2488433`. Локальные `verify + restore` прошли; immutable upload перечитан и совпал с локальными Git blob SHA. Старый LATEST сохранён в PREVIOUS, а новый LATEST опубликован через CAS только от exact run-start parent `4be671a4e1bce81dd8f2c443114301e5f3929d56`; новый pointer blob `65ef8953522e2fea35ea7ed5d5fd6e19757397ca`.
+- После дополнительного char-limit repro создан первый промежуточный immutable каталог `20260821T040229Z-5ae5fd09d6`, но readback обнаружил несовпадение `part-0001`: при ручной передаче потерян один завершающий `=`. Этот каталог считается **INVALID ORPHAN**, manifest/LATEST для восстановления использовать нельзя; байты не ремонтировались поверх immutable объекта.
+- Затем exact v4 повторно упаковал тот же обновлённый workspace с меньшими частями: валидный immutable checkpoint `20260821T040433Z-3859ba29b6`, archive SHA-256 `1abf61ffefd9fec1723f367f7563aad962577af9f599146c1f1c3f452d609f72`. Exact local `verify` прошёл. Все четыре загруженные части перечитаны и их Git blob SHA/размер совпали с локально рассчитанными: `edd253e5e81a1f55c43844d198a7a0e171bff804`/1024, `3c4433dcb775804e00e001a51d0cdab05d86cd7b`/1024, `c06cfa93ce3794e40b569c74e18ead662e9effbb`/1024, `c27473259907d34f5415e1aa7e60e2f75104f860`/84; manifest blob `255625cf15b97828ff7a1812a8ab01b39c0247e1` тоже совпал с локальным.
+- Второй раз `LATEST` не переписывался: после первой законной CAS-публикации его blob уже `65ef8953522e2fea35ea7ed5d5fd6e19757397ca`, то есть отличается от запомненного run-start parent `4be671...`. По протоколу новая capsule `20260821T040433Z-3859ba29b6` оставлена валидной immutable-контрольной точкой без force-write указателя.
 
 ### Следующее
 
-1. Материализовать достаточную часть exact PR-tree на hosted-машине и прогнать новый `session-checkpoint-tool-pair-test.js` вместе с соседними session/restart проверками; если удастся всё дерево — полный `npm test` без внешнего CI.
-2. Проверить тот же инвариант на символьной границе `CHECKPOINT_MAX_CHARS`: большой completed tool-turn должен удаляться целиком, а не превращаться в orphan/pending и не вытеснять обязательные system messages.
+1. Исправить char-limit fail-open: accepted tool-call должен либо надёжно присутствовать в bounded checkpoint, либо запрос завершается локальной `QWEN_TOOL_CHECKPOINT_REJECTED` до выдачи tool-call клиенту. Добавить regression с большим `function.arguments`, system-message и без него.
+2. Материализовать достаточную часть exact PR-tree на hosted-машине и прогнать `session-checkpoint-tool-pair-test.js`, новый char-limit regression и соседние session/restart проверки; если удастся всё дерево — полный `npm test` без внешнего CI.
 3. Затем продолжить ближайший воспроизводимый Core-дефект в session/restart/OpenCode/subagent слоях. Cooldown/account-selection не перехватывать у reliability-worker без пересечения.
-
-## 2026-08-21 — предыдущий свежий результат
-
-`qwen-free-api`: PR #6, ветка `autopilot/qwen-runtime-preflight-20260818`; head того прохода `ffd19b208da8be58f5de9d11c4240327b9e0ad81`. Core-изменения находятся в его прямой истории.
-
-- Найден backward-compatibility fail-open в persisted coding-subagent state. Старый predicate блокировал только `done+not-ok` и `non-done+ok=true`, поэтому malformed/partially migrated записи `failed` без нормального `result.ok=false`, `pending+stale result`, неизвестный `status` могли автоматически запустить задачу заново.
-- Исправлено: добавлен явный `hasPersistedStateConflict()`. Разрешённые согласованные состояния теперь проверяются по статусу: `done` требует `ok=true`; `failed` требует `ok=false`; `pending` не должен иметь result; неизвестный status конфликтный; `running/uncertain + ok=true` конфликтны. Конфликт остаётся fail-closed до явного `retryUncertain=true`.
-- Коммит продукта: `0842350db2e6bf7dc4bd03d13cc9c19a10d50410`; расширенный regression: `075602972f1b41ecaf61ed44319a2681760ffd3b`. Hosted-machine marker: `QWEN_SUBAGENT_PERSISTED_STATE_GAP_REPRO_PASS fail_open_cases=4 hardened_blocks=4 valid_states_preserved=5`.
-- Исправлен restart/system-prompt дефект: при истории >24 сообщений checkpoint терял второй и следующие system-блоки. Теперь ёмкость сначала резервируется для всех системных сообщений в порядке исходной истории, затем для свежих обычных ходов. Regression `scripts/session-checkpoint-system-retention-test.js` включён в `npm test`; marker `QWEN_CHECKPOINT_MULTI_SYSTEM_LONG_REPRO_PASS before_systems=1 after_systems=2 bounded_messages=24 newest_turn=1`.
 
 ## Предыдущий накопленный канон
 
@@ -38,10 +32,10 @@
 
 ### Уже доказанные инварианты Core
 
-- Non-stream и streaming accepted `assistant.tool_calls` сохраняются до выдачи клиенту; локальный persist failure fail-closed и не загрязняет provider/account health.
+- Non-stream и streaming accepted `assistant.tool_calls` сохраняются до выдачи клиенту; локальный persist failure fail-closed и не загрязняет provider/account health — кроме нового отдельно воспроизведённого char-budget края, описанного выше.
 - Подтверждённый `role=tool` сохраняется до следующего upstream-запроса; restart не теряет выполненный result.
 - Короткое продолжение при pending tool-call останавливается `409 QWEN_PENDING_TOOL_RESULT`; несколько tool calls отслеживаются независимо по id.
-- Checkpoint trimming сохраняет system messages и теперь не создаёт orphan `role=tool`: tool-call/result режутся согласованными replay-safe группами.
+- Checkpoint trimming сохраняет system messages и не создаёт orphan `role=tool` на message-count boundary: tool-call/result режутся согласованными replay-safe группами.
 - Persisted subagents после возможного side effect переходят в `uncertain`; legacy `failed + result.uncertain=true` также блокирует replay.
 - Противоречивые persisted status/result пары блокируются как `QWEN_SUBAGENT_PERSISTED_STATE_CONFLICT`, а чистый `done + ok=true` resume не запускает Qwen заново.
 - Read-only `final.incomplete` остаётся retryable; incomplete после потенциального side effect fail-closed.

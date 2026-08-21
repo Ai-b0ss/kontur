@@ -1,0 +1,26 @@
+--- a/src/session-store.js
++++ b/src/session-store.js
+@@
+   const historyTurns = record.history.filter((m) => m && m.role !== 'system');
+   const incomingTurns = messages.filter((m) => m && m.role !== 'system');
+   const freshIncomingTurns = trimCheckpointOverlap(historyTurns, incomingTurns);
+   const mergedMessages = [...systemMessages, ...historyTurns, ...freshIncomingTurns];
+-  const progressMessages = countNonSystem(messages) > 1 ? messages : mergedMessages;
+-  persistCompletedToolProgress(record, progressMessages);
++  // Durability must be based on the authoritative merged history. A caller may
++  // send a stale/truncated explicit transcript that contains a result for one
++  // accepted tool call while omitting a still-unresolved sibling. Persisting the
++  // caller transcript directly can erase that sibling (and stored system history)
++  // before the pending-tool safety guard gets a chance to observe it.
++  persistCompletedToolProgress(record, mergedMessages);
+ 
+   if (countNonSystem(messages) > 1) return messages;
+   if (countNonSystem(record.history) <= 1) return messages;
+   return mergedMessages;
+
+# Required regression:
+# 1. durable history has assistant tool_calls [call-A, call-B];
+# 2. explicit incoming transcript contains only assistant call-A + tool result A;
+# 3. after restoreCheckpoint + reload, call-B must remain pending and stored system
+#    prompt/history must still exist;
+# 4. full exact transcript + result A must not duplicate the assistant turn.

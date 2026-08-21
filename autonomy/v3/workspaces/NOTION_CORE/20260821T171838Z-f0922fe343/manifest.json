@@ -1,0 +1,118 @@
+{
+  "archive": {
+    "parts": 4,
+    "sha256": "57d432762b50dfd35a1abca854956a43643801c18764c3f08ad1a011a203f43a",
+    "size": 10896
+  },
+  "capsule_id": "20260821T171838Z-f0922fe343",
+  "created_at_utc": "2026-08-21T17:18:38Z",
+  "parts": [
+    {
+      "chars": 4096,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "6a80819f176ef79bd776ab1d03ad61a3baa4cee9640903026167121b0b236ba5"
+    },
+    {
+      "chars": 4096,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "69309da28754631f9db718e5f09c90eee054e1aa5bc8e2408f9402d43ec0dc21"
+    },
+    {
+      "chars": 4096,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "2a9cff29bdbf0c400ec254cd173b518227dd7b013b9bf4ab987bc239a1cfffaf"
+    },
+    {
+      "chars": 2240,
+      "index": 3,
+      "name": "part-0003.b64",
+      "sha256_text": "b432c148c1a1c6ee469b954d83a36888d6f15d4a4cf5d7a91b9e2d025b57bb3a"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "worker": "NOTION_CORE",
+  "workspace": {
+    "CHECKPOINT.json": {
+      "mode": "0o644",
+      "sha256": "f8c97f53946a9a93b882ff34d3483dbeb631afc45281fc3d9fa44040261504b3",
+      "size": 891,
+      "type": "file"
+    },
+    "CODEX_SHELL_ENV.json": {
+      "mode": "0o644",
+      "sha256": "7a2ea7b8ebee00d5936e49dccd7a344f40f47c201ea268394b60eaf5c5271f03",
+      "size": 604,
+      "type": "file"
+    },
+    "V10.json": {
+      "mode": "0o644",
+      "sha256": "ca4595a425200153ca9abc51dd5c4061a659fb832a36f9e73d7dda2b6265c8db",
+      "size": 867,
+      "type": "file"
+    },
+    "V10_NEXT.md": {
+      "mode": "0o644",
+      "sha256": "5126d53e2b3f55b7e2c12d9e8824d2c64ff9cdafaf8ee9118cfdd44fd93ad9a6",
+      "size": 408,
+      "type": "file"
+    },
+    "V11.json": {
+      "mode": "0o644",
+      "sha256": "08a57bc1b0efc0a898c23be665f8935d6b03797c0ec04afac82f7560f90ca86b",
+      "size": 843,
+      "type": "file"
+    },
+    "V11_NEXT.md": {
+      "mode": "0o644",
+      "sha256": "3308d7b07f6ee7a97e6db4a673396634eb4b2431c65bf3df0609c51da283add7",
+      "size": 438,
+      "type": "file"
+    },
+    "V12.json": {
+      "mode": "0o644",
+      "sha256": "59780a5147c86c8f9aeeba10dfa394f2f3d36e075365af06ecc1048dbaeb1024",
+      "size": 611,
+      "type": "file"
+    },
+    "V12_EXACT_PATCH_SPEC.json": {
+      "mode": "0o644",
+      "sha256": "6ac937e9e209d64105ee93d1d03cb8be69005209742f70f311bb327ec98faa1e",
+      "size": 3076,
+      "type": "file"
+    },
+    "V12_NEXT.md": {
+      "mode": "0o644",
+      "sha256": "d532179733c78740a83fa7374241baad5c71a6d4f2d2c7af7eb68cace7a6805c",
+      "size": 506,
+      "type": "file"
+    },
+    "V12_REPLAY_HARNESS.py": {
+      "mode": "0o644",
+      "sha256": "658061896f9fb6525d2f79f81b31d160a9a0de31ccf55e5dca0922cca315de00",
+      "size": 8140,
+      "type": "file"
+    },
+    "V12_RUN_EVIDENCE.json": {
+      "mode": "0o644",
+      "sha256": "3b3482f19fb25acfaf7fe2dc1e78e1b930d8d856a306f281c224094f13c1222a",
+      "size": 1888,
+      "type": "file"
+    },
+    "V12_STORE_CANDIDATE.py": {
+      "mode": "0o644",
+      "sha256": "9c75990b7569abf8e0f48dcf169daea98f4d47a11bc497cc094bcfa3edd98c33",
+      "size": 12191,
+      "type": "file"
+    },
+    "V12_STORE_HARNESS.py": {
+      "mode": "0o644",
+      "sha256": "67421276ade9e2f87acb72d7a87d2bbfe698f7eb8863441d3eea52e3047afe59",
+      "size": 4776,
+      "type": "file"
+    }
+  }
+}

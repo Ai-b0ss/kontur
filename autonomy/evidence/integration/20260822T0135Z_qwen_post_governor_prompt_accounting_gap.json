@@ -1,0 +1,45 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "QWEN_POST_GOVERNOR_PROMPT_ACCOUNTING_GAP",
+  "verdict": "REPRODUCED_AND_MINIMAL_CANDIDATE_PASS",
+  "fresh_source": {
+    "qwen_pr6_head": "c5e681ddff439e9f39bf3a13009a1eb226a4189a",
+    "server_js_blob": "4b2b4a9474093d48299868cbe805cc6ab1304384",
+    "qwen_v3_capabilities_blob": "d91782d8199f4fcd7a0f0eeb995831f4dd328321",
+    "request_governor_blob": "aca56575c799ca03b01b174a2b375807b32e8b4e",
+    "skills_blob": "378259c8eba2c7fdf0274b0243fb9700ec04a6d9"
+  },
+  "current_order": [
+    "qwenV3Capabilities.prepareInput detaches exact owner system prompt and removes skill selector fields from body",
+    "server measures JSON(body) and calls requestGovernor.before(meta.chars)",
+    "chatAdapter.preparePublicPayload builds the Qwen request",
+    "qwenV3Capabilities.applyPrepared then prepends selected skill context and owner/engineer application prompt"
+  ],
+  "risk": "Per-account inflight token reservation and request-size pressure are computed before up to 60000 owner-prompt characters and up to 32000 selected-skill characters are injected. This weakens the governor exactly when Qwen Core durable owner authority and Qwen Reliability pressure controls are combined.",
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_qwen_post_governor_prompt_accounting_probe.js",
+    "owner_prompt_chars": 60000,
+    "selected_skill_context_chars": 32000,
+    "current_measured_bytes": 97,
+    "approx_final_payload_bytes": 92132,
+    "omitted_bytes": 92035,
+    "current_inflight_token_estimate": 2000,
+    "size_bucket_after_deferred_injection": 8200,
+    "candidate_accounted_bytes": 92097,
+    "candidate_inflight_token_estimate": 8200,
+    "result": "PASS"
+  },
+  "candidate_contract": [
+    "Keep requestGovernor before chatAdapter.preparePublicPayload because preparePublicPayload may generate a remote Qwen chat id.",
+    "Before governor admission, add the exact UTF-8 byte count of text that applyPrepared will inject later.",
+    "Compute that count through existing skills.appendSkillContext + applySystemPromptMode on a synthetic empty message so wrapper bytes and engineer/owner mode stay exact.",
+    "Do not persist or log the private owner prompt; only its byte length participates in pressure accounting."
+  ],
+  "candidate_patch": "autonomy/v3/candidates/QWEN_POST_GOVERNOR_PROMPT_ACCOUNTING_20260822.patch",
+  "required_regression": "Owner mode with a 60000-char prompt plus 32000 chars of selected skills and a tiny user turn must enter the >=50000-char governor estimate bucket before any qwenClient/generateChatID provider work. Engineer/no-skill small requests must preserve current behavior.",
+  "scope_limits": [
+    "No qwen-free-api product file changed by INTEGRATION_HELPER.",
+    "No hosted CI, provider traffic, accounts, secrets, Windows, Cloudflare or production used."
+  ]
+}

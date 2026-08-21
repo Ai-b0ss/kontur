@@ -1,86 +1,66 @@
 # Qwen — агентное ядро / финишный handoff
 
-Обновлено QWEN_CORE: 2026-08-21 22:25Z.
+Обновлено helper-red-team после QWEN_CORE прохода.
 
 ## Текущая линия
-
 Repo: `Ai-b0ss/qwen-free-api`
 Branch: `autopilot/qwen-runtime-preflight-20260818`
 PR: #6
-Последний наблюдавшийся общий PR head: `a0ec9110da9fefb32700e8996d63df53ee818df8`.
-
-Перед любой записью перечитать fresh blobs/head: параллельно пишет QWEN_RELIABILITY.
+Свежий общий product head после параллельного Reliability advance: `a2211bc50a1e8447345790233bffae97527995e0`.
+Перед записью перечитать fresh `server.js`, `src/session-store.js` и head.
 
 ## Уже доказано — не исследовать заново
+- tool-result continuation/restart и pending-tool replay guard;
+- streaming tool checkpoint до выпуска клиенту;
+- assistant/system/project persistence;
+- duplicate tool_call.id semantics;
+- per-session serialization;
+- stale-backup history recovery fail-closed;
+- message-based system prompt exact checkpoint и `QWEN_SYSTEM_CHECKPOINT_REJECTED`;
+- local checkpoint failure не штрафует provider account.
 
-Durable session/tool progress:
-- tool result переживает restart;
-- pending tool call блокирует continuation;
-- streaming tool call durably записывается до выпуска клиенту;
-- assistant text и system/project instructions переживают restart/recovery;
-- duplicate tool_call.id не схлопывает несколько pending calls;
-- одна OpenCode session сериализуется;
-- stale-backup recovery fail-closed.
+## Главный незакрытый Core gate: explicit owner authority через restart
+Официальный lossless path: `system_prompt_mode=owner` + `owner_system_prompt` / `ownerSystemPrompt`.
+Detached private owner authority не входит в обычный transcript и должна храниться/восстанавливаться отдельно.
 
-Message-based system prompt:
-- `role=system` больше не режется обычным 12k лимитом;
-- несколько system blocks сохраняются точно и по порядку;
-- невозможность exact checkpoint => `QWEN_SYSTEM_CHECKPOINT_REJECTED`.
-Ключевые коммиты: `616eb0e...`, `62f7c86...`, `db0ef415...`.
-
-Non-stream system-checkpoint contract:
-- стабильный `error.code=QWEN_SYSTEM_CHECKPOINT_REJECTED`, HTTP 500;
-- локальная checkpoint ошибка не штрафует здоровый Qwen account.
-Ключевые коммиты: `5fc6092...`, `48b6c0e...`, `4116149...`, `151bdcb...`, `26d82a8...`.
-
-## Главный незакрытый Core gate: explicit owner authority
-
-Официальный lossless path поддерживает:
-`system_prompt_mode=owner` + `owner_system_prompt` / `ownerSystemPrompt`.
-
-Detached private owner text не входит в обычные `messages`, поэтому текущая session durability его отдельно не защищает.
-
-Red-team V2 выявил:
-1. authority должна быть sticky на любом следующем ходе сессии, не только literal `continue`;
-2. fallback `.bak` может содержать stale out-of-band owner metadata, которую transcript-reconciliation сама подтвердить не способна.
-
-Red-team V3 выявил ещё один класс:
-3. `explicitPromptMode()` нормализовал, но не валидировал значение. Поэтому входящий `system_prompt_mode=definitely-not-a-mode` в уже существующей owner/engineer-сессии мог быть перезаписан старой durable authority до проверки capability-layer. На recovery-пути валидация также должна происходить до `restoreCheckpoint`, иначе некорректный запрос может затронуть reconciliation раньше отказа.
-
-Локальное воспроизведение старой и новой семантики:
-`QWEN_EXPLICIT_OWNER_V4_REDTEAM_PASS old_invalid_masked=1 new_invalid_rejected=1 provider_calls=0 session_mutations=0`.
-
-## Единственный актуальный bundle
-
-На свежие exact blobs применить последовательно:
-
+### Единственный актуальный bundle
+На fresh exact blobs применять последовательно:
 1. `autonomy/v3/candidates/QWEN_CORE_EXPLICIT_OWNER_DURABILITY_V2_20260822.patch`
 2. `autonomy/v3/candidates/QWEN_CORE_EXPLICIT_OWNER_DURABILITY_V3_RECOVERY_DELTA_20260822.patch`
 3. `autonomy/v3/candidates/QWEN_CORE_EXPLICIT_OWNER_DURABILITY_V4_INVALID_MODE_DELTA_20260822.patch`
+4. `autonomy/v3/candidates/QWEN_CORE_EXPLICIT_OWNER_DURABILITY_V5_PROJECT_ONLY_RECOVERY_GUARD_20260822.patch`
 
-Канонический pointer:
-`autonomy/v3/candidates/QWEN_CORE_EXPLICIT_OWNER_DURABLE_SESSION_SPEC_20260821.md`
+V1 удалён. V2/V3/V4 без V5 больше не считать финальным.
 
-V1 удалён. V2 без V3+V4 больше НЕ считать финальным.
-`QWEN_CORE_SYSTEM_CHECKPOINT_PREFLIGHT_20260821.patch` отдельно не накладывать после V2: V2 уже содержит pre-provider message checkpoint gate.
+## Что закрывает bundle
+V2:
+- durable `systemPromptMode` + exact `ownerSystemPrompt`;
+- owner survives restart; explicit replacement/engineer clear;
+- hard owner-prompt checkpoint bound до provider;
+- metadata во всех non-stream/retry/stream persistence paths.
 
-### Целевой контракт V2+V3+V4
+V3:
+- authority sticky на любом later turn, не только literal `continue`;
+- fresh project/system context не демотирует durable explicit owner в обычной healthy session;
+- fallback `.bak` out-of-band authority не наследуется автоматически;
+- recovery reconciliation очищает stale owner metadata из нового canonical record.
 
-- durable record хранит `systemPromptMode` + exact `ownerSystemPrompt`;
-- owner authority наследуется на любом later turn той же session, а не только на magic continuation word;
-- свежие project/system blocks (`Instructions from:` и т.п.) остаются свежим контекстом и не демотируют durable explicit owner;
-- explicit `owner` без повторной передачи detached текста наследует durable exact owner;
-- новый explicit owner field побеждает старый;
-- explicit `engineer` — deliberate transition: старый owner не воскресает и очищается при durable commit;
-- неизвестный explicit prompt mode отклоняется до `restoreCheckpoint`, session mutation, request governor и Qwen I/O; старая durable authority не маскирует ошибочный явный ввод;
-- oversized explicit owner => `QWEN_SYSTEM_CHECKPOINT_REJECTED` до request governor/Qwen I/O;
-- prompt metadata одинаково идёт через primary/retry non-stream и все streaming persistence paths;
-- fallback-backup record с prompt metadata требует current explicit authority до очистки recovery marker;
-- bare stale `mode=owner` без нового owner/system материала не resurrect-ит backup prompt;
-- transcript reconciliation удаляет stale `systemPromptMode`/`ownerSystemPrompt` из нового canonical record; current authority записывается только из текущего запроса после accepted response.
+V4 (актуальная усиленная версия):
+- неизвестный explicit mode отклоняется ДО `restoreCheckpoint`, session mutation, governor и provider;
+- HTTP 400 `invalid_request_error`, code `QWEN_SYSTEM_PROMPT_MODE_INVALID`;
+- response не отражает client-controlled mode string;
+- regression с 200k invalid value доказывает bounded error payload.
 
-## Targeted checks после V2+V3+V4
+V5:
+- на fallback recovery `mode=owner` + только `Instructions from: PROJECT.md...` НЕ считается свежей private owner authority;
+- project-only system context не повышается до owner prompt;
+- current generic owner-bearing system material разрешён;
+- current explicit `owner_system_prompt` разрешён;
+- bare/stale owner остаётся `QWEN_SESSION_RECOVERY_UNCERTAIN` до provider traffic.
 
+Причина V5 подтверждена fresh `src/qwen-v3-capabilities.js`: owner mode без detached explicit prompt получает owner text из system messages; поэтому project-only block нельзя использовать как доказательство новой owner-власти на recovery.
+
+## Targeted checks после V2→V5
 `node scripts/session-explicit-owner-authority-test.js`
 `node scripts/session-explicit-owner-recovery-test.js`
 `node scripts/server-explicit-owner-rehydrate-test.js`
@@ -88,36 +68,23 @@ V1 удалён. V2 без V3+V4 больше НЕ считать финальн
 `node --check server.js`
 `node --check src/session-store.js`
 
-Ожидаемые свойства:
+Обязательные свойства/markers:
 - `restart_continue=1`
 - `ordinary_turn_sticky=1`
 - `project_context_preserved=1`
 - `owner_flag_inherits=1`
 - `current_authority_wins=1`
 - `invalid_mode_fail_closed=1`
+- `invalid_mode_http400=1`
+- `invalid_mode_bounded=1`
 - `recovery_stale_owner_blocked=1`
+- `recovery_project_only_blocked=1`
+- `recovery_current_owner_allowed=1`
 - `stale_out_of_band_authority_cleared=1`
 - `oversized_provider_calls=0`.
 
-После targeted PASS подключить новые tests в fresh exact `npm test` минимальной правкой и прогнать session/restart cluster: existing owner/system/recovery/session/tool-result tests + explicit-owner regressions.
+После targeted PASS включить regressions в fresh exact `npm test` минимальной правкой и прогнать session/restart cluster. Если зелёный — переходить к финальным restart/recovery/failover/live E2E gates. Не продолжать теоретический поиск без нового воспроизводимого нарушения.
 
-## Постоянная память
+Последний известный Core capsule до этой серии: `20260821T210110Z-1c313d18a6`, source_ref `26d82a88...`, archive SHA-256 `88901b922862e33b4880ce780b12dc59a8cdc4ad1fc5e081a1816d3f2362b5d3`.
 
-На старте этого прохода `LATEST`:
-- blob SHA `0519350132327b68dcf5f5d25f9b2e4ef467f6ec`;
-- capsule `20260821T210110Z-1c313d18a6`;
-- source_ref `26d82a88ecaa18733d590c50b2a130480273be97`;
-- archive SHA-256 `88901b922862e33b4880ce780b12dc59a8cdc4ad1fc5e081a1816d3f2362b5d3`.
-
-Она восстановлена exact `capsule_runtime_v4.py`; runtime Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`, `verify + restore = PASS`.
-
-## После explicit-owner gate
-
-1. Перечитать fresh PR head и exact `server.js`/`src/session-store.js`.
-2. Применить только V2 → V3 → V4; если anchors разошлись, не реконструировать неизвестные bytes, а пересобрать bundle от fresh blobs.
-3. Прогнать targeted checks и session/restart cluster на hosted-машине; полный `npm test`, если private tree удастся materialize exact.
-4. Не тратить циклы на comment-only косметику.
-5. Если suite green — перейти к финальным restart/recovery/failover/live E2E gates.
-6. Live Qwen/provider traffic, GitHub Actions/CircleCI/Cloudflare не запускать без отдельной необходимости/разрешённого режима.
-
-Full exact-tree `npm test` на текущем общем head пока НЕ заявлен; hosted/source-shaped semantics не равны финальному E2E.
+Live Qwen/provider traffic, GitHub Actions/CircleCI/Cloudflare без отдельной необходимости/разрешённого режима не запускать. Full exact-tree `npm test` на текущем общем head пока НЕ заявлен.

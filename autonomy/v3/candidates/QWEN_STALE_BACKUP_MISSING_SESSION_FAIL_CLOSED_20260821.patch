@@ -1,0 +1,97 @@
+--- a/src/session-store.js
++++ b/src/session-store.js
+@@
+ let sessions = new Map();
+ let recoveredFromBackupKeys = new Set();
++let fallbackRecoveryActive = false;
++let recoveryResetKeys = new Set();
+ let persistSequence = 0;
+@@
+ function load() {
+   try {
+     sessions = readSessionsFile(FILE);
+     recoveredFromBackupKeys = new Set();
++    fallbackRecoveryActive = false;
++    recoveryResetKeys = new Set();
+     return;
+   } catch (_) {}
+ 
+   try {
+     sessions = readSessionsFile(BACKUP_FILE);
+@@
+     // whose backup refresh failed before a later primary corruption.
+     recoveredFromBackupKeys = new Set(sessions.keys());
++    // The fallback can also be missing whole sessions that existed only in a
++    // newer primary. Unknown explicit keys are therefore ambiguous, not fresh.
++    fallbackRecoveryActive = true;
++    recoveryResetKeys = new Set();
+   } catch (_) {
+     sessions = new Map();
+     recoveredFromBackupKeys = new Set();
++    fallbackRecoveryActive = false;
++    recoveryResetKeys = new Set();
+   }
+ }
+ 
+ function recoveryState(key) {
+   if (!key) return { source: 'primary-or-empty', uncertain: false };
+-  const uncertain = recoveredFromBackupKeys.has(String(key));
++  const normalizedKey = String(key);
++  const recoveredExisting = recoveredFromBackupKeys.has(normalizedKey);
++  const recoveredMissing = Boolean(
++    fallbackRecoveryActive &&
++    !sessions.has(normalizedKey) &&
++    !recoveryResetKeys.has(normalizedKey)
++  );
++  const uncertain = recoveredExisting || recoveredMissing;
+   return {
+-    source: uncertain ? 'backup' : 'primary-or-empty',
++    source: recoveredExisting
++      ? 'backup'
++      : (recoveredMissing ? 'backup-missing-key' : 'primary-or-empty'),
+     uncertain,
+   };
+ }
+@@
+ function getRecord(key) {
+   if (!key) return null;
+   const normalizedKey = String(key);
+   const value = sessions.get(normalizedKey);
+-  if (!value) return null;
++  if (!value) {
++    if (recoveryState(normalizedKey).uncertain) {
++      return {
++        chatId: null,
++        history: [],
++        recoveryUncertain: true,
++        recoveryMissingKey: true,
++        recoveryKey: normalizedKey,
++      };
++    }
++    return null;
++  }
+@@
+ function set(key, chatId, metadata = {}) {
+   if (!key || !chatId) return false;
+   const normalizedKey = String(key);
+-  if (recoveredFromBackupKeys.has(normalizedKey)) throw recoveryUncertainError();
++  if (recoveryState(normalizedKey).uncertain) throw recoveryUncertainError();
+@@
+ function clear(key) {
+   if (!key) return;
+-  if (!sessions.has(String(key))) return;
++  const normalizedKey = String(key);
++  if (!sessions.has(normalizedKey)) {
++    // An explicit reset is the only safe declaration that a key absent from a
++    // stale fallback snapshot should now be treated as a new local session.
++    if (fallbackRecoveryActive) recoveryResetKeys.add(normalizedKey);
++    return;
++  }
+   commitMutation((nextSessions) => {
+-    nextSessions.delete(String(key));
++    nextSessions.delete(normalizedKey);
+   });
+-  recoveredFromBackupKeys.delete(String(key));
++  recoveredFromBackupKeys.delete(normalizedKey);
++  recoveryResetKeys.add(normalizedKey);
+ }

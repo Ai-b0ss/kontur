@@ -3,9 +3,13 @@
 @@
 -  const __w2INFLIGHT_STALE_MS = 2 * 60 * 60 * 1000;
 +  // A recovered unknown-outcome marker must never be cleared merely because
-+  // wall-clock time jumped forward. Always require two hours of this process's
-+  // own monotonic uptime while provider traffic remains fail-closed.
-+  const __w2RECOVERY_QUARANTINE_MS = 2 * 60 * 60 * 1000;
++  // wall-clock time jumped forward. The marker spans the whole provider/account
++  // outcome pipeline, not just the global WAF layer: a provider RateLimited
++  // response can require a durable six-hour account cooldown, and a crash may
++  // happen after provider bytes arrived but before accountStore persisted it.
++  // Therefore require the longest known automatic safety horizon: six hours of
++  // this process's own monotonic uptime while provider traffic stays fail-closed.
++  const __w2RECOVERY_QUARANTINE_MS = 6 * 60 * 60 * 1000;
 +  const __w2RECOVERY_MONO_START = process.hrtime.bigint();
    const __w2inflightByAccount = new Map();
 +
@@ -32,9 +36,9 @@
 -        // The global layer's longest WAF penalty is one hour and strikes reset
 -        // after 45m. Two hours without provider traffic is therefore a bounded
 -        // conservative recovery horizon for an orphaned unknown-outcome marker.
-+        // Reachable only after two hours of monotonic process uptime in
++        // Reachable only after six hours of monotonic process uptime in
 +        // __w2tryReleaseInflightRecovery(). No provider traffic was admitted
-+        // during that interval.
++        // during that interval, covering global/provider/account safety horizons.
          try{__w2fs.rmSync(artifact,{force:true});__w2syncParent(artifact)}
          catch(_){return {ambiguousTxn,recentInflight:true,inspectionFailed:false};}
 @@
@@ -84,8 +88,9 @@
 +    )return;
 +
 +    // Marker cleanup has been directory-fsync'd. No provider traffic occurred
-+    // during the monotonic quarantine, so the unknown global pressure window is
-+    // conservatively expired even if the old canonical was absent.
++    // during the monotonic quarantine, so every known automatic safety window
++    // that could have been lost between provider bytes and durable outcome state
++    // is conservatively expired even if the old canonical was absent.
 +    __w2g.recoveryUncertain=false;
 +    __w2g.recoveryInflightOnly=false;
 +  }
@@ -145,26 +150,36 @@
 +    );
 +    assert.strictEqual(fs.existsSync(oldMarker),true);
 +
-+    // Advance only the monotonic clock past the fixed two-hour quarantine.
++    // Two hours was the old global-only recovery idea, but it does not cover a
++    // possible lost six-hour account RateLimited cooldown. Stay closed here.
 +    monoNs += BigInt(2*60*60*1000+1)*1_000_000n;
++    await assert.rejects(
++      ()=>governor.before('account-b',{chars:100}),
++      error=>error&&error.code==='QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN',
++      'two hours must not reopen traffic while a lost RateLimited outcome is possible',
++    );
++    assert.strictEqual(fs.existsSync(oldMarker),true);
++
++    // Advance the remaining monotonic time past the fixed six-hour horizon.
++    monoNs += BigInt(4*60*60*1000+2)*1_000_000n;
 +    await governor.before('account-b',{chars:100});
-+    assert.strictEqual(fs.existsSync(oldMarker),false,'marker may clear only after monotonic quarantine');
++    assert.strictEqual(fs.existsSync(oldMarker),false,'marker may clear only after six-hour monotonic quarantine');
 +    governor.success('account-b',{total_tokens:1});
 +
 +    // Corrupt canonical is a different recovery reason and must not be healed by
-+    // the inflight quarantine, even with monotonic time far beyond two hours.
++    // the inflight quarantine, even with monotonic time far beyond six hours.
 +    fs.writeFileSync(stateFile,'{corrupt canonical','utf8');
 +    const marker2=`${stateFile}.inflight-with-corrupt-canonical`;
 +    fs.writeFileSync(marker2,JSON.stringify(marker(Date.now()-24*60*60*1000)),'utf8');
 +    governor=loadGovernor();
-+    monoNs += BigInt(2*60*60*1000+1)*1_000_000n;
++    monoNs += BigInt(6*60*60*1000+1)*1_000_000n;
 +    await assert.rejects(
 +      ()=>governor.before('account-c',{chars:100}),
 +      error=>error&&error.code==='QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN',
 +      'monotonic quarantine must not heal unrelated canonical corruption',
 +    );
 +
-+    console.log('REQUEST_GOVERNOR_MONOTONIC_RECOVERY_PASS wall_clock_only_blocked=1 monotonic_quarantine_release=1 corrupt_state_not_healed=1');
++    console.log('REQUEST_GOVERNOR_MONOTONIC_RECOVERY_PASS wall_clock_only_blocked=1 two_hour_reopen_blocked=1 six_hour_rate_limit_horizon=1 corrupt_state_not_healed=1');
 +  }finally{
 +    process.hrtime.bigint=originalHrtimeBigint;
 +    if(oldStateFile===undefined)delete process.env.QWEN_WAFMIN2_STATE_FILE;else process.env.QWEN_WAFMIN2_STATE_FILE=oldStateFile;

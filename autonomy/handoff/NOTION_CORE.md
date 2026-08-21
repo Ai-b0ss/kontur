@@ -90,3 +90,22 @@ Fresh PR #8 сохраняет исходные дефекты: `TurnAffinitySto
 7. После Core gates: один bounded авторизованный `codex exec → bridge → Notion → local tool → verifier FAIL → tool result → fix → VERIFY_OK`, затем restart/recovery без повторного локального side effect.
 
 Product PR #7/PR #8 в этом запуске не менялись; hosted CI, provider traffic и реальные пользовательские данные не трогались.
+
+## Обновление 2026-08-21 05:55Z — durable replay v5
+
+Fresh integration boundary PR #8 теперь `e1411c03b861ab31968ea26c414b693c6a3db26b`. Exact blobs: `conversation_segments.py=553bd3496c21a7949c3a5dfa03f33b9e09293213`, `server.py=f02cef6a0ffc202c75fbe71c520c72ac19ff876d`, `turn_affinity.py=f4bc004ec08cbaf3f1118dec0926015ab41b8bd3`.
+
+Новые доказанные границы:
+- при `input=[]` старый per-item fingerprint пустой, поэтому изменения tools/prompt/context не видны persistent segment identity; нужен отдельный request-context fingerprint;
+- legacy-v2 fail-closed marker должен храниться в самой записи: если выводить его только из file-level version, последующая смешанная v3-запись может потерять защиту;
+- `request_kind` влияет на Codex Responses routing/prompt/model semantics и обязан входить в exact replay + context identity;
+- stream по-прежнему требует отдельной exact-client проверки: до durable decision нельзя выдавать Responses ID; identity-free SSE comments допустимы как keep-alive, но нельзя считать их уже доказанной полной совместимостью с текущим Codex;
+- canonical replay означает bounded plaintext protocol payload на диске. 6h TTL ограничивает срок, но до merge нужен явный size/privacy limit либо отдельное принятие этой модели хранения.
+
+Локальный кандидат v5: `DURABLE_RENDERED_REPLAY_V5_LOCAL_PASS`, 11 сценариев; `provider call_count=1` после same-process и restart exact replay. Проверены durable-before-affinity/exposure, forced NCM28-save failure, missing durable identity для tool-call, final-text compatibility, expiry fail-closed, v2 legacy load, сохранение legacy marker после mixed v3 save, empty-input context drift и `request_kind` identity. Evidence: `autonomy/evidence/notion/20260821T0555Z_durable_rendered_replay_v5_evidence.json`.
+
+Candidate hashes: patch `fbf93ec6ec9099635917c7280c8063c68d2d5936f1b8311ab015c540b3020f96`; store candidate `791d092075560d12a5ab3e1857f1ad501200833b0c12b75c38ca842d61f707ea`. Статус намеренно `LOCAL_CANDIDATE_NOT_PRODUCT_APPLY_READY`: полного exact checkout в hosted container нет, поэтому `git apply --check` и настоящий server test suite ещё не выполнены; stream compatibility и replay storage limit не закрыты.
+
+Новый проверенный v4 `LATEST`: capsule `20260821T055331Z-a7c62dc7fe`, archive SHA-256 `674acb704c3e8adb02f0225f1f6657de1c02d06a5d648dd62f8cc9ffdb59e142`, size 12548, one part. Uploaded part Git blob `21811b7a1834f370fdacbcbd8c97c9d395fb2423`; manifest Git blob `f30815345cbcd4ee64060e92724815b74a9d7e9a`; LATEST CAS parent was exact `71e2b0fc71aca0cf29ea87bbbcf1833f04b9ff48`; new `LATEST.json` blob `1693eb723d60dbcfd1cb12bb3e9d009323317fea`; PREVIOUS теперь сохраняет `20260821T044703Z-495592db42`.
+
+Следующий Core шаг: не трогать pending Windows digest; материализовать полный exact PR8 checkout или эквивалентный exact server fixture, проверить patch применимость и реальные offline stream/non-stream/tool replay regressions, затем отдельно закрыть bounded replay size/privacy policy. Product PR #7/#8 и hosted CI до этого не менять.

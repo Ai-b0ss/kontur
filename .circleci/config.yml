@@ -1,34 +1,24 @@
 version: 2.1
 
+orbs:
+  browser-tools: circleci/browser-tools@1.4.8
+
 jobs:
-  kontur-finalize-and-verify:
+  kontur-final-chromium-proof:
     docker:
-      - image: cimg/node:22.18
+      - image: cimg/node:22.18-browsers
     resource_class: small
     steps:
       - checkout
 
       - run:
-          name: Integrate the already-proven bounded candidate into PR12
+          name: Checkout exact integrated PR12 head
           command: |
             set -euo pipefail
-            SOURCE_HEAD=32034e8af92923a2abe09ad00e3220f6da1ed21c
-            TARGET_BRANCH=fix/kontur-core-visual-continuity-20260818
-            cp .circleci/kontur-candidate.patch /tmp/kontur-candidate.patch
-            cp .circleci/apply_candidate_patch.py /tmp/apply_candidate_patch.py
-            git fetch origin "$TARGET_BRANCH"
-            git checkout -B kontur-final "origin/$TARGET_BRANCH"
-            test "$(git rev-parse HEAD)" = "$SOURCE_HEAD"
-            python3 /tmp/apply_candidate_patch.py /tmp/kontur-candidate.patch
-            git diff --check
-            git config user.name "FREE FABRIC Kontur Finalizer"
-            git config user.email "free-fabric@users.noreply.github.com"
-            git add apps/miniapp/src/screens/LocalKontur.tsx apps/miniapp/test/local-kontur.test.ts apps/miniapp/test/hatch-reveal-persistence.test.ts
-            test -n "$(git status --porcelain)"
-            git commit -m "fix: finalize canonical hatch and bird continuity"
-            FINAL_HEAD="$(git rev-parse HEAD)"
-            echo "$FINAL_HEAD" | tee /tmp/kontur-final-head.txt
-            git push origin HEAD:"$TARGET_BRANCH"
+            TARGET_HEAD=5ec223a539f2e3f97eef549fbe8306361281187b
+            git fetch origin fix/kontur-core-visual-continuity-20260818
+            git checkout --detach "$TARGET_HEAD"
+            test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
 
       - restore_cache:
           keys:
@@ -36,91 +26,75 @@ jobs:
             - kontur-pnpm-v1-
 
       - run:
-          name: Install exact locked Linux dependencies
+          name: Install exact locked dependencies
           command: |
             set -euo pipefail
             corepack enable
             corepack prepare pnpm@11 --activate
-            node --version
-            pnpm --version
             pnpm install --frozen-lockfile
             test -d node_modules/.pnpm/@rollup+rollup-linux-x64-gnu@4.62.3
             test -d node_modules/.pnpm/@esbuild+linux-x64@0.25.12
-            echo LINUX_NATIVE_DEPS_PASS
 
-      - save_cache:
-          key: kontur-pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
-          paths:
-            - ~/.local/share/pnpm/store
+      - browser-tools/install-chrome
 
       - run:
-          name: Full Mini App regression tests
+          name: Re-run tests and production build on exact integrated head
           command: |
             set -euo pipefail
-            pnpm -F @kontur/miniapp test | tee /tmp/kontur-miniapp-tests.log
-
-      - run:
-          name: TypeScript verification
-          command: |
-            set -euo pipefail
+            pnpm -F @kontur/miniapp test | tee /tmp/kontur-tests.log
             pnpm -F @kontur/miniapp typecheck | tee /tmp/kontur-typecheck.log
-
-      - run:
-          name: Production Vite build from integrated PR12 code
-          command: |
-            set -euo pipefail
-            pnpm -F @kontur/miniapp build | tee /tmp/kontur-vite-build.log
+            pnpm -F @kontur/miniapp build | tee /tmp/kontur-build.log
             test -f apps/miniapp/dist/index.html
-            find apps/miniapp/dist -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/kontur-dist.sha256
-            echo KONTUR_INTEGRATED_VITE_PASS
 
       - run:
-          name: Static served-build smoke
+          name: Render production build in real Chromium at two phone sizes
           command: |
             set -euo pipefail
-            (pnpm -F @kontur/miniapp exec vite preview --host 127.0.0.1 --port 4173 > /tmp/kontur-preview.log 2>&1 & echo $! > /tmp/kontur-preview.pid)
+            mkdir -p /tmp/kontur-browser-proof
+            (pnpm -F @kontur/miniapp exec vite preview --host 127.0.0.1 --port 4173 > /tmp/kontur-browser-proof/preview.log 2>&1 & echo $! > /tmp/kontur-browser-proof/preview.pid)
             for i in $(seq 1 30); do
-              if curl -fsS http://127.0.0.1:4173/ -o /tmp/kontur-index.html; then break; fi
+              if curl -fsS http://127.0.0.1:4173/ >/dev/null; then break; fi
               sleep 1
             done
-            test -s /tmp/kontur-index.html
-            grep -q '<div id="root"' /tmp/kontur-index.html
-            kill "$(cat /tmp/kontur-preview.pid)" 2>/dev/null || true
-            echo KONTUR_SERVED_BUILD_PASS
+            google-chrome --version | tee /tmp/kontur-browser-proof/chrome-version.txt
+            google-chrome --headless=new --no-sandbox --disable-gpu --hide-scrollbars --virtual-time-budget=5000 --window-size=320,568 --dump-dom http://127.0.0.1:4173/ > /tmp/kontur-browser-proof/dom-320x568.html
+            google-chrome --headless=new --no-sandbox --disable-gpu --hide-scrollbars --virtual-time-budget=5000 --window-size=320,568 --screenshot=/tmp/kontur-browser-proof/render-320x568.png http://127.0.0.1:4173/
+            google-chrome --headless=new --no-sandbox --disable-gpu --hide-scrollbars --virtual-time-budget=5000 --window-size=430,1000 --dump-dom http://127.0.0.1:4173/ > /tmp/kontur-browser-proof/dom-430x1000.html
+            google-chrome --headless=new --no-sandbox --disable-gpu --hide-scrollbars --virtual-time-budget=5000 --window-size=430,1000 --screenshot=/tmp/kontur-browser-proof/render-430x1000.png http://127.0.0.1:4173/
+            python3 - <<'PY'
+            from pathlib import Path
+            for name in ('dom-320x568.html','dom-430x1000.html'):
+                text=(Path('/tmp/kontur-browser-proof')/name).read_text(errors='replace')
+                if 'id="root"' not in text:
+                    raise SystemExit(f'{name}: missing root')
+                compact=''.join(text.split())
+                if '<divid="root"></div>' in compact:
+                    raise SystemExit(f'{name}: React root stayed empty')
+            print('KONTUR_REAL_CHROMIUM_RENDER_PASS')
+            PY
+            kill "$(cat /tmp/kontur-browser-proof/preview.pid)" 2>/dev/null || true
 
       - run:
-          name: Write final evidence
+          name: Write final DONE evidence
           when: always
           command: |
             set -euo pipefail
-            mkdir -p /tmp/kontur-final-evidence
+            mkdir -p /tmp/kontur-browser-proof
             {
-              echo "circle_sha=$CIRCLE_SHA1"
-              echo "circle_branch=$CIRCLE_BRANCH"
+              echo "integrated_head=5ec223a539f2e3f97eef549fbe8306361281187b"
               echo "source_head=32034e8af92923a2abe09ad00e3220f6da1ed21c"
-              echo "integrated_head=$(cat /tmp/kontur-final-head.txt 2>/dev/null || true)"
-              echo "node=$(node --version 2>/dev/null || true)"
-              echo "pnpm=$(pnpm --version 2>/dev/null || true)"
+              echo "circle_sha=$CIRCLE_SHA1"
               echo "utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            } > /tmp/kontur-final-evidence/FINAL_EVIDENCE.txt
-            cp /tmp/kontur-miniapp-tests.log /tmp/kontur-final-evidence/ 2>/dev/null || true
-            cp /tmp/kontur-typecheck.log /tmp/kontur-final-evidence/ 2>/dev/null || true
-            cp /tmp/kontur-vite-build.log /tmp/kontur-final-evidence/ 2>/dev/null || true
-            cp /tmp/kontur-dist.sha256 /tmp/kontur-final-evidence/ 2>/dev/null || true
-            cp /tmp/kontur-preview.log /tmp/kontur-final-evidence/ 2>/dev/null || true
+            } > /tmp/kontur-browser-proof/DONE_EVIDENCE.txt
 
       - store_artifacts:
-          path: apps/miniapp/dist
-          destination: kontur-miniapp-dist-integrated
-
-      - store_artifacts:
-          path: /tmp/kontur-final-evidence
-          destination: kontur-final-evidence
+          path: /tmp/kontur-browser-proof
+          destination: kontur-final-browser-proof
 
 workflows:
-  kontur-finalize:
+  kontur-final-browser-gate:
     jobs:
-      - kontur-finalize-and-verify:
+      - kontur-final-chromium-proof:
           filters:
             branches:
               only: ci/kontur-circle-vite-20260821

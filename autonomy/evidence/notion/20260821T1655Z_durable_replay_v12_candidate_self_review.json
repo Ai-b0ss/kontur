@@ -1,0 +1,33 @@
+{
+  "schema": "notion_core_candidate_self_review_v1",
+  "created_at_utc": "2026-08-21T16:55:00Z",
+  "candidate": "autonomy/evidence/notion/20260821T1640Z_durable_replay_v12_exact_candidate.patch",
+  "product_applied": false,
+  "verdict": "NOT_YET_APPLY_READY",
+  "confirmed_good": [
+    "canonical Responses payload is constructed before strict durable publication",
+    "strict publication precedes TurnAffinity cache and foreground reservation",
+    "persistence_blocked is checked before provider entry",
+    "stream route is redirected toward post-commit deterministic responses_sse projection",
+    "persisted tool owner is validated against current account_pool status before reservation rehydration",
+    "tool-call without durable conversation identity fails closed"
+  ],
+  "required_corrections": [
+    {
+      "id": "V12-SR-1",
+      "problem": "legacy STATE_VERSION=2 segment with identical input and no replay_schema_version can still fall through to a fresh provider call after restart",
+      "required_fix": "before provider, if segment replay_schema_version==0 and segment.input_fingerprints exactly equal current_fingerprints, return restart_replay_unavailable instead of planning again; appended/new history may proceed and upgrade the record"
+    },
+    {
+      "id": "V12-SR-2",
+      "problem": "candidate _cleanup_locked performs persistence internally while existing get/status still call _save_locked again when changed",
+      "required_fix": "remove the second save from get/status or refactor cleanup into one staged-save-commit operation"
+    },
+    {
+      "id": "V12-SR-3",
+      "problem": "candidate _cleanup_items_locked prunes _locks before strict disk commit, so strict write failure can still mutate ephemeral lock bookkeeping",
+      "required_fix": "make _cleanup_items_locked pure with respect to self._locks; prune locks only after staged items successfully become self._items"
+    }
+  ],
+  "safety": "Do not apply this candidate to product until V12-SR-1..3 are corrected and the exact-source local harness is run."
+}

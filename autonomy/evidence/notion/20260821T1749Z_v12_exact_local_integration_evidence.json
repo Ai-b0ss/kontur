@@ -1,0 +1,61 @@
+{
+  "schema": "notion_core_v12_exact_local_integration_evidence_v1",
+  "timestamp_utc": "2026-08-21T17:49:24Z",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "integration_head": "ce610b78f38a6f33dbdc5d0b6a46a25bbae907d9",
+  "source_blobs": {
+    "payload/conversation_segments.py": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "payload/server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "payload/turn_affinity.py": "f4bc004ec08cbaf3f1118dec0926015ab41b8bd3",
+    "payload/account_pool.py": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f"
+  },
+  "capsule_restore": {
+    "capsule_id": "20260821T171838Z-f0922fe343",
+    "archive_sha256": "57d432762b50dfd35a1abca854956a43643801c18764c3f08ad1a011a203f43a",
+    "verdict": "PASS",
+    "method": "capsule_runtime_v4.py restore/verify semantics"
+  },
+  "windows_digest": {
+    "workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "auth": "pending",
+    "codex": "pending",
+    "migration": "pending",
+    "runtime": "pending",
+    "outside_digest": "pending",
+    "rerun": false
+  },
+  "exact_store_candidate": {
+    "verdict": "DURABLE_REPLAY_V12_EXACT_NCM_STORE_PASS",
+    "state_version": 2,
+    "restart_same_ids": true,
+    "detached_get": true,
+    "strict_write_rollback": true,
+    "blocked_retry_pre_provider_ready": true,
+    "stream_identity_equal": true,
+    "owner_instruction_identity_neutral": true,
+    "size_cap_bytes": 524288
+  },
+  "server_lifecycle_candidate": {
+    "verdict": "DURABLE_REPLAY_V12_EXACT_SERVER_LIFECYCLE_PASS",
+    "provider_call_count_after_replay": 1,
+    "restart_same_response": true,
+    "stream_same_ids": true,
+    "write_failure_zero_ephemeral": true,
+    "blocked_retry_pre_provider": true,
+    "post_commit_reservation_retry": true,
+    "removed_account_fail_closed": true,
+    "final_clears_reservation": true,
+    "provider_thinking_buffered_until_commit": true
+  },
+  "new_integration_boundary": {
+    "finding": "Current stream_openai_responses forwards provider thinking deltas before durable publication. V12 deterministic stream projection must buffer provider-derived thinking until commit; before commit only neutral identity-free heartbeat/comment output is safe.",
+    "current_source_evidence": "stream_openai_responses creates resp_/rs_ before handle_openai_responses completes and on_thinking_delta_async pushes provider deltas into the client queue",
+    "required_fix": "Do not expose provider-derived reasoning or identity-bearing events before strict durable commit. Build/persist one canonical response first, then project JSON/SSE deterministically from it."
+  },
+  "non_claims": [
+    "No native Windows semantics were inferred from Linux.",
+    "No product PR was modified.",
+    "No hosted CI or provider traffic was started.",
+    "This is a local apply-ready candidate and lifecycle proof, not a merged product fix."
+  ]
+}

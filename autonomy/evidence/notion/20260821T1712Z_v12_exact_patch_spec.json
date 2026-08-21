@@ -1,0 +1,35 @@
+{
+  "schema": "notion_core_v12_exact_patch_spec_v1",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "integration_head": "ce610b78f38a6f33dbdc5d0b6a46a25bbae907d9",
+  "source_blobs": {
+    "payload/conversation_segments.py": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "payload/server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "payload/turn_affinity.py": "f4bc004ec08cbaf3f1118dec0926015ab41b8bd3",
+    "payload/account_pool.py": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f"
+  },
+  "conversation_segments_changes": [
+    "Keep outer state version=2; add replay_schema_version=1 inside each conversation record.",
+    "Return detached deep-copy records from get() so precommit server preparation cannot mutate the live durable state object.",
+    "Add request replay fingerprint bound to turn_id + request_kind + existing Responses identity fields, excluding stream and volatile transport metadata.",
+    "Persist exact canonical Responses payload with 6h TTL, <=512KiB per response, <=8MiB aggregate and <=32 stale fingerprints.",
+    "Expired or evicted payload retains its request fingerprint as a fail-closed tombstone.",
+    "Strict put surfaces NCM28/OSError, rolls back all in-memory mutations with deepcopy and marks persistence_blocked.",
+    "Once persistence_blocked, strict work fails before provider invocation."
+  ],
+  "server_changes": [
+    "Compute replay fingerprint and consult durable state before the TurnAffinity completion-text cache.",
+    "Exact durable hit returns persisted canonical payload; stale/expired/legacy exact retry fails closed without provider.",
+    "For durable Codex conversation requests, never regenerate response/call/item IDs from completion_text cache.",
+    "After provider, build one canonical responses_payload once before any cache or reservation mutation.",
+    "Strictly persist progress + canonical payload; on failure return 503 with zero TurnAffinity mutation, zero reservation and zero identity-bearing client output.",
+    "Only after commit update TurnAffinity, then rehydrate or clear reservation.",
+    "Replay tool-call rehydrates only a persisted account that still exists in current pool; removed owner clears ghost reservation and fails closed without silently rebasing account/thread.",
+    "Replay final response clears stale reservation.",
+    "Stream and non-stream project the same persisted canonical payload; no resp_/rs_/call_/fc_/msg_ identifiers before commit."
+  ],
+  "non_goals": [
+    "No change to NOTION_AGENT rotation, prompt modes, delegation or thread failover policy.",
+    "No hosted CI, live Notion traffic, production mutation or secret access."
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "schema": "notion_core_durable_replay_v10_evidence",
+  "created_at_utc": "2026-08-21T12:45:00Z",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "integration_head": "bdb6c24d9693d1347fb01f616ffb5826a916f297",
+  "exact_blobs": {
+    "payload/conversation_segments.py": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "payload/server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "payload/turn_affinity.py": "f4bc004ec08cbaf3f1118dec0926015ab41b8bd3"
+  },
+  "windows_digest": {
+    "workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "status": "all-five-pending",
+    "rerun": false
+  },
+  "reproduced_defect": "V8/V9 ordering correctly makes the durable response the source of truth before memory-only state, but a restart loses ForegroundAccountReservations. Replaying a persisted tool call without rebuilding its reservation can expose the call to Codex while the persisted owner account is no longer protected across the local tool gap. The inverse also matters: a persisted final response must clear any stale reservation before output.",
+  "required_invariant": "On durable replay hit, derive post-commit ephemeral state from the persisted record before any identity-bearing HTTP/SSE output: tool-call response => reserve persisted account for the turn; final response => clear stale reservation. Then rebuild optional memory cache. If ephemeral reconstruction fails, return an error without another provider call; retry may reconstruct again from durable state.",
+  "required_order": [
+    "provider completion/correction",
+    "one canonical Responses payload with all client-visible ids",
+    "strict atomic durable publication of conversation progress + exact rendered replay",
+    "post-commit reconstruction/update of memory-only cache",
+    "post-commit reserve/clear foreground account from durable replay semantics",
+    "identity-bearing HTTP/SSE output"
+  ],
+  "local_verdict": "DURABLE_REPLAY_V10_EPHEMERAL_REHYDRATION_PASS",
+  "local_cases": [
+    "same-turn exact retry keeps provider call_count=1",
+    "stream/non-stream are projections of same request identity",
+    "restart exact replay returns identical response/call ids",
+    "restart replay of tool call recreates persisted-account reservation before output",
+    "distinct turn_id with identical body invokes provider again and tombstones prior fingerprint",
+    "late stale retry is blocked without provider call",
+    "forced durable write failure leaves zero cache, zero reservation and zero client response",
+    "after durable commit but forced reservation failure, retry reconstructs reservation and returns same call without another provider call",
+    "final-response replay clears a stale reservation before output",
+    "rendered replay over 512 KiB fails before durable publication"
+  ],
+  "limits": {
+    "replay_ttl_seconds": 21600,
+    "max_rendered_response_bytes": 524288,
+    "max_total_replay_bytes": 8388608,
+    "max_stale_fingerprints": 32
+  },
+  "not_proven": [
+    "native Windows semantics",
+    "full exact FastAPI server integration",
+    "live Codex/Notion"
+  ],
+  "product_mutation": false,
+  "hosted_ci_started": false,
+  "provider_traffic": false
+}

@@ -1,0 +1,38 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "QWEN_TRUNCATED_TOOL_RESULT_FAILOVER_REBASE_GAP",
+  "verdict": "REPRODUCED_AND_CANDIDATE_PASS",
+  "qwen_head": "861a8f176a6037acaec5721b2f6bbad3041d7dd9",
+  "server_semantics": "when saved owner account is unavailable, existingChatId is null and the replacement account must receive full local history on a fresh upstream thread",
+  "session_store_blob": "d13f79a1c999ca5221cac190ad7b155f4854ae9b",
+  "reproduction": {
+    "durable_history": "system owner prompt + prior user context + assistant tool_calls [call-A, call-B]",
+    "incoming": "truncated explicit transcript containing only call-A plus tool result A",
+    "saved_owner": "unavailable, so fresh sibling route is required",
+    "current_fresh_sibling_payload_roles": ["assistant", "tool"],
+    "current_pending_in_payload": [],
+    "owner_prompt_lost": true,
+    "prior_user_context_lost": true
+  },
+  "risk": "The account/thread failover path promises a fresh sibling thread with complete local history, but restoreCheckpoint returns an explicit multi-message caller transcript unchanged. A truncated/stale transcript therefore seeds the new account with incomplete context and can hide an unresolved sibling mutating call.",
+  "candidate_contract": {
+    "rule": "when server is creating or rebasing onto a fresh upstream thread, provider payload must use authoritative merged checkpoint history, not merely the caller transcript",
+    "same_owner_compatibility": "an existing healthy owner thread may retain the incremental caller-message behavior",
+    "expected_fresh_payload": "stored system + prior turns + fresh incoming progress; unresolved call-B remains visible"
+  },
+  "offline_probe": "autonomy/v3/tools/integration_qwen_truncated_tool_result_failover_rebase_probe.js",
+  "probe_output": {
+    "candidate_pending_in_payload": ["call-B"],
+    "candidate_owner_prompt_preserved": true,
+    "candidate_prior_user_context_preserved": true,
+    "same_owner_incremental_messages": 2
+  },
+  "relationship_to_previous_finding": "The previous durable-obligation patch protects stored state. This separate seam protects what a fresh replacement account actually receives after account/thread failover.",
+  "limits": [
+    "No product source rewritten",
+    "No hosted CI or trigger push",
+    "No live provider/Notion/Codex traffic",
+    "No production, real accounts, user data or secrets"
+  ]
+}

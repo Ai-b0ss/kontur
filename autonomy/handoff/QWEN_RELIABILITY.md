@@ -4,7 +4,7 @@
 
 Основная продуктовая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6.
 
-Свежий product head, прочитанный в этом запуске: `a8a81c4b2dcbc97eedf24644a0b92dab97a1da29`. Между прежним `5c7df532...` и ним изменились только `src/session-store.js` и новый session-test; account-pool файлы не пересекались.
+Свежий product head после этого запуска: `59c3cf7f56951cee3693c43453c2ae2d6e2ef903`.
 
 ## Уже доказано и не переделывать
 
@@ -23,48 +23,46 @@
 - unconfirmed initial release, позднее доказанный пустым, охлаждает фактический аккаунт один раз и выбирает свежего sibling;
 - `reset(account)` не снимает provider-wide circuit.
 
-## Этот запуск — stale preferred object может обойти свежий cooldown
+## Этот запуск — stale preferred/account object закрыт на границе account-store
 
-Найден независимый fail-open в выборе preferred account.
+Исходный fail-open из прошлого handoff воспроизведён и исправлен без provider/live.
 
-`account-store.candidates(preferredAccount)` при переданном объекте доверяет самому объекту, а не каноническому экземпляру из `accounts`. Затем `qwen-client.operationCandidates()` ещё раз вручную вставляет переданный `preferredAccount`, если `isAvailable(preferredAccount)` вернул true.
+Проблема: вызывающая часть могла держать detached/stale object A, пока канонический A в пуле уже получил свежий cooldown. `candidates(preferredAccount)` и `qwen-client.operationCandidates()` могли снова предпочесть старый объект.
 
-Если вызывающий код держит старый объект A, а каноническое состояние A в пуле уже получило новый cooldown, старый объект всё ещё может выглядеть доступным и снова попасть первым кандидатом. Это нарушает инвариант «последнее каноническое состояние пула определяет доступность аккаунта».
+Исправления в продуктовой ветке:
 
-Hosted Node воспроизведение без provider/live:
+- `f36a05f133afc8ab3f01360bb31712a99e2bafd4` — `candidates(preferredAccount)` теперь разрешает preferred только по id через канонический объект; `isAvailable()` для известного id смотрит на каноническое состояние, поэтому stale object не обходит cooldown даже при старой ручной вставке в `qwen-client`;
+- `db12853e8dc882aeb6eaaf8b1fced30b279afff9` — regression в уже штатном `scripts/account-selection-policy-test.js`: stale object и строковый preferred id не могут вернуть охлаждённый A;
+- `8a1b251ce4d2e5dd52298861ad7f1f82f43dfc9e` — все чувствительные границы account-store (`reset`, `markSuccess`, `markFailure`, CAPTCHA/restriction и cookie header) заново разрешают известный object по каноническому id. Это не даёт detached snapshot протащить старые credentials или перезаписать новое состояние пула;
+- `59c3cf7f56951cee3693c43453c2ae2d6e2ef903` — regression дополнен проверкой canonical cookie/state mutation.
 
-- канонический A: cooldown активен;
-- stale preferred A: cooldown=0;
-- B: доступен;
-- старая логика => `A, B`;
-- исправленная логика => `B`;
-- результат: `CANONICAL_PREFERRED_ACCOUNT_FAILOVER_PASS`.
+Hosted Node без сети/provider прошёл:
 
-Подготовлен точный patch-кандидат: `autonomy/v3/candidates/QWEN_RELIABILITY_CANONICAL_PREFERRED_ACCOUNT_20260821.patch`, commit control-repo `a6f3fbeb6ba331de64ebd3aaff0e1b2c45ea3be1`.
+- `CANONICAL_PREFERRED_ACCOUNT_FAILOVER_PASS`;
+- `CANONICAL_PREFERRED_AND_STATE_BOUNDARY_PASS`.
 
-Патч делает две вещи:
+Важно: `qwen-client.operationCandidates()` пока всё ещё содержит старую ручную вставку `preferredAccount`. Текущий account-store уже не даёт ей обойти cooldown и использует канонические credentials/state на своих границах, но сам `qwen-client` желательно позже упростить до `accountStore.candidates(preferredAccount)` нормальным byte-safe patch способом.
 
-1. `account-store.candidates()` извлекает только id из preferred и затем обязательно заново получает канонический объект через `get(id)` перед `isAvailable()`.
-2. `qwen-client.operationCandidates()` больше не вставляет caller-owned object вручную, а делегирует preferred ordering в `accountStore.candidates(preferredAccount)`.
+## Следующий найденный крайний случай
 
-В product PR патч пока не применён: оба файла большие и общий write через Contents API требует полной замены; при активном соседнем writer безопаснее оставить exact patch, чем затереть свежие изменения. Нужен byte-safe git/patch исполнитель или повторный проход после проверки свежего head.
+После усиления канонизации обнаружен следующий риск, который надо проверить первым в следующем проходе: `canonicalAccount()` пока делает `get(id) || account`. Значит detached object аккаунта, который уже удалён из канонического пула, теоретически остаётся пригодным как fallback-объект. Если такой stale object ещё держит `token`, старый `qwen-client` может попытаться воскресить удалённый аккаунт.
+
+Следующая проверка должна быть полностью офлайн:
+
+1. создать A и B;
+2. сохранить detached snapshot A;
+3. удалить канонический A через `remove()`;
+4. проверить `isAvailable(staleA)`, `candidates(staleA)` и эмуляцию старого `operationCandidates`;
+5. если A оживает — fail closed для managed-id, отсутствующего в `accounts`, не ломая обычный `save/load/current` и thread affinity канонических аккаунтов.
 
 ## Проверки и ограничения
 
-- v4 LATEST на старте: `20260821T035831Z-5cb774203d`;
-- стартовый Git blob SHA LATEST: `5d03f31813b6080bfd66a7bf327316ad1630b3c8`;
+- v4 LATEST на старте: `20260821T045302Z-bfdec3c64a`;
+- стартовый Git blob SHA LATEST: `1f41272666f813674c994b730cc3f119912cf9be`;
 - `capsule_runtime_v4.py verify` = PASS;
 - `capsule_runtime_v4.py restore` = PASS;
-- archive SHA: `e6c958ce38ac2ee3ec224f433284ce924bcf63a0dd99c5a713a8348b979d1255`;
+- archive SHA старта: `33e861113f659c9800281e366cfa0a2a58570854b6be030af989376caffefdcc`;
 - CircleCI/GitHub Actions/Cloudflare не запускались;
 - provider/live запросов к Qwen: 0;
 - реальные аккаунты, секреты и production не тронуты;
-- полный `npm test` exact-tree не заявлять: hosted container по-прежнему не имеет DNS до GitHub.
-
-## Следующий приоритет
-
-1. Перед product write снова прочитать свежий PR #6 head и убедиться, что `src/account-store.js` / `src/qwen-client.js` не изменились параллельно.
-2. Применить `QWEN_RELIABILITY_CANONICAL_PREFERRED_ACCOUNT_20260821.patch` byte-safe способом.
-3. Добавить regression: detached preferred A со старым `unavailableUntil=0`, канонический A уже cooled, B healthy => кандидатом первым должен быть B; строковый preferred id A тоже не должен обходить cooldown.
-4. Включить regression в обычный `npm test`; выполнить hosted проверку без provider/live.
-5. После этого искать следующий независимый дефект только в pool/cooldown/provider circuit/preferred-current/failover/thread affinity/side-effect replay.
+- полный `npm test` exact-tree не заявлять: hosted container не имеет DNS до GitHub; выполнены целевые hosted Node проверки и read-back продуктовых файлов.

@@ -1,0 +1,60 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "timestamp_utc": "2026-08-21T11:33:00Z",
+  "finding": "QWEN_SAME_SESSION_CONCURRENT_CONTINUE_RACE",
+  "verdict": "REPRODUCED_OFFLINE",
+  "fresh_source": {
+    "qwen_pr": 6,
+    "qwen_head": "fe22f6f3b76c92cb28dd5145356e193010a1ccfb",
+    "notion_pr": 8,
+    "notion_head": "c97c4c1d7432d7ce3e003599ad9a46850045261e"
+  },
+  "coordination_scope": {
+    "qwen_core_current_work": "mixed streaming preamble + tool-call durable restart checkpoint",
+    "qwen_reliability_current_work": "request-wide bounded failover budget and local provider-preparation accounting",
+    "why_this_is_independent": "This finding is request concurrency for one logical OpenAI session across Core durability and Reliability admission; it does not alter current mixed-turn serialization or account candidate ordering."
+  },
+  "product_observations": [
+    "server.js reads sessionStore.getRecord(sessionKey), computes restoredMessages and checks pending tool calls before an asynchronous provider request.",
+    "There is no per-session admission/serialization gate around /v1/chat/completions; request-governor allows bounded concurrent upstream work per account rather than serializing a logical conversation.",
+    "sessionStore.set() rejects only the narrow same-chat-id/different-account mismatch. Two same-account writers with different fresh chat ids are both accepted and each can replace durable history.",
+    "For two simultaneous short continuation requests, both can observe zero pending tool calls before either accepted tool-call is checkpointed. Both can therefore reach Qwen and both accepted tool calls can be released to clients.",
+    "The later sessionStore.set() replaces history from the earlier writer. One already-released mutating tool call can disappear from durable pending-call state."
+  ],
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_qwen_same_session_concurrent_continue_probe.py",
+    "result": {
+      "current": {
+        "provider_call_count": 2,
+        "released_mutating_call_count": 2,
+        "durable_pending_count_after_both": 1,
+        "lost_accepted_call": true
+      },
+      "candidate": {
+        "provider_call_count": 1,
+        "released_mutating_call_count": 1,
+        "second_same_session_request": "409_PENDING",
+        "different_sessions_remain_parallel": true
+      }
+    }
+  },
+  "risk": [
+    "Two concurrent retries/continue deliveries for one OpenCode/OpenAI session can create two model turns and two mutating tool calls from the same pre-state.",
+    "One accepted call can be forgotten by the durable checkpoint even though it was already returned to a client and may have executed locally.",
+    "After restart, the pending-tool guard can only protect the surviving checkpoint and cannot reconcile the forgotten accepted call.",
+    "Fresh upstream chat/account affinity for the same logical session becomes last-writer-wins."
+  ],
+  "minimal_product_contract": [
+    "Serialize admission/execution by canonical sessionKey for /v1/chat/completions; unrelated session keys must remain concurrent.",
+    "A queued same-session continuation must re-read durable state after acquiring the gate. If an accepted tool-call is pending, it must fail before provider work with QWEN_PENDING_TOOL_RESULT.",
+    "The gate must cover the interval from durable pre-state read through accepted assistant-turn checkpoint/client release boundary. Holding it for the full request is the simplest safe first implementation.",
+    "Release must be guaranteed on response finish/close/error/cancellation.",
+    "Add a regression with two simultaneous same-session continue requests proving provider_calls=1 and released_mutating_calls=1; add a control proving different sessions remain concurrent."
+  ],
+  "limits": [
+    "Semantic offline harness models the exact relevant server/session-store ordering; full private repository tree was not executed locally.",
+    "No product files changed.",
+    "No hosted CI, Cloudflare, live Qwen/Notion/Codex, Windows, production, real user data or secrets used."
+  ]
+}

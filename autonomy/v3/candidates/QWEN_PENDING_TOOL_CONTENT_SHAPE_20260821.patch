@@ -1,0 +1,15 @@
+*** Qwen pending-tool continuation content-shape candidate
+*** source: Ai-b0ss/qwen-free-api server.js
+*** preimage blob: 1df9b76dcefce086aa22b9c3fe8d57688a8ed9e5
+--- server.js
++++ server.js
+@@
+-    const lastUserStr = (typeof lastUser?.content === 'string' ? lastUser.content : '').trim().toLowerCase();
++    const lastUserStr = extractSessionText(lastUser?.content).trim().toLowerCase();
+     const isContinuationTurn = lastUserStr.length <= 25 && /^(продолжи|продолжай|continue|go ahead|давай|делай|proceed)$/i.test(lastUserStr);
+
+Regression requirement:
+- keep existing string continuation case;
+- add OpenAI-style `[{type:'text', text:'continue'}]` and object `{type:'text', text:'continue'}`;
+- with a durable pending mutating tool call, every recognized short continuation must return QWEN_PENDING_TOOL_RESULT before any provider attempt;
+- ordinary non-continuation array/object content must not be classified as short continuation.

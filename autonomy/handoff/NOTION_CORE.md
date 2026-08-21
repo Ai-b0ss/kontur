@@ -10,21 +10,18 @@ ZERO-MINUTE: CircleCI/GitHub Actions/Cloudflare/другой hosted CI не за
 
 ## Постоянная память
 
-Новый проверенный v4 `LATEST`:
+Канонический проверенный v4 `LATEST` на конец этого запуска **не менялся**:
 - capsule `20260821T064849Z-7b43475e0e`;
-- archive SHA-256 `dfb7f2bd1bbbc8e0247a1f513f9e806bd8bb20c1b4715501ca91cabaadf82d83`, size 7685, 2 parts;
-- part Git blobs: `ece8fc19f59aeca4ddf52424cdbf3d832591feca`, `b4ef864681dbac56bff5b5d6c0110f64734a0d2d`;
-- manifest Git blob `75b7308a6f108626f755ea69e68cf9f7f961a41b`;
-- `LATEST.json` Git blob after CAS `0f26decace9e2bf2b3a3d688f803b24582066523`;
-- `PREVIOUS.json` preserves capsule `20260821T055331Z-a7c62dc7fe`.
+- archive SHA-256 `dfb7f2bd1bbbc8e0247a1f513f9e806bd8bb20c1b4715501ca91cabaadf82d83`;
+- `LATEST.json` Git blob `0f26decace9e2bf2b3a3d688f803b24582066523`.
 
-Перед CAS старый `LATEST` был перечитан и всё ещё имел ожидаемый blob `1693eb723d60dbcfd1cb12bb3e9d009323317fea`. Новый immutable manifest и обе parts перечитаны; их Git blob SHA совпали с локальными `git hash-object`.
+На старте эта capsule была заново восстановлена через v4 и прошла проверку архива/workspace. После новой работы был собран новый локальный v4 checkpoint, но первая immutable-публикация дала несовпадение Git blob одного part при обязательном read-back. Проверка поймала это до CAS, поэтому новый `LATEST` намеренно **не публиковался** и старый валидный указатель сохранён. Незавершённый immutable каталог не считать текущей capsule.
+
+Новые долговечные доказательства при этом сохранены отдельно в control-ветке: `autonomy/evidence/notion/20260821T0755Z_durable_rendered_replay_v7_evidence.json`.
 
 ## NCM28 / Windows
 
-Последняя доказанная хорошая файловая основа остаётся прежней. Native Windows write primitive без нового точного Windows evidence не менять.
-
-Существующий digest-разрез workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3` НЕ перезапускать. В начале этого запуска все пять задач (`auth`, `codex`, `migration`, `runtime`, `outside-digest`) снова `pending`. Hosted Windows/CI не запускался.
+Существующий digest-разрез workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3` НЕ перезапускать. В этом запуске все пять задач (`auth`, `codex`, `migration`, `runtime`, `outside-digest`) снова `pending`. Hosted Windows/CI не запускался.
 
 При одном будущем разрешённом native-Windows Core gate совместить точный `auth-rollback` callsite, PowerShell runtime-restore replace proof и затем полный NCM28 gate; не создавать новый диагностический fanout.
 
@@ -32,42 +29,46 @@ ZERO-MINUTE: CircleCI/GitHub Actions/Cloudflare/другой hosted CI не за
 
 Кандидат v3 остаётся актуален: decrypt во временный sibling-файл, fail-closed destination checks, cleanup temp при decrypt/promotion failure, секрет только через stdin. Linux verdict `RUNTIME_RESTORE_ATOMICITY_V3_LINUX_PASS`; нативная PowerShell replace-семантика не заявлена.
 
-## Durable Responses replay — v6
+## Durable Responses replay — V7
 
-V5 правильно выявил, что точный Responses-ответ (`response_id`, `item_id`, `call_id`) должен быть сформирован и сохранён долговечно до выдачи Codex. Но при сверке со свежим exact source найден новый blocking integration bug: v5 повышал top-level `conversation-state.json` до `version=3`, тогда как `payload/stable_runtime_state.py` по-прежнему жёстко задаёт `CONVERSATION_STATE_VERSION = 2` и отвергает любую другую версию как `STABLE_CONVERSATION_STATE_INVALID`.
+V6 нельзя применять как финальный вариант: в локальном точном кандидате найдены ещё две blocking-проблемы.
 
-Поэтому v5 в таком виде НЕ применять.
+1. `response_request_fingerprint()` не связывал повтор с `client_metadata.turn_id`. Два намеренно разных Codex-turn с одинаковым текстом, моделью, tools и `request_kind` давали одинаковый fingerprint. Значит новый turn мог получить старый сохранённый ответ вместо нового обращения к модели.
+2. Один слот `latest replay` на conversation недостаточен. После того как turn B заменил replay turn A, запоздалый retry A мог промахнуться по replay и снова запустить планирование старого tool-call.
 
-V6 исправляет формат без изменения Windows/NCM28-контракта:
-- top-level `conversation-state.json` остаётся `version=2`;
-- replay-семантика маркируется внутри записи `replay_schema_version=1`;
-- старые v2-записи без маркера считаются `legacy_without_replay` и точный restart-retry fail-closed;
-- дополнительные replay-поля проходят существующие stable-runtime migration transforms без потерь, потому что обе стороны копируют conversation entry через `dict(raw)`;
-- replay TTL = 6 часов;
-- максимум одного replay = 512 KiB;
-- суммарный replay budget = 8 MiB;
-- при aggregate overflow удаляется самый старый replay payload, но request fingerprint сохраняется, поэтому поздний точный retry не вызывает модель повторно.
+V7-кандидат исправляет границу:
+- request fingerprint включает `turn_id` и `request_kind` вместе с полями, влияющими на ответ;
+- retry того же turn сохраняет fingerprint;
+- предыдущие уже опубликованные fingerprints сохраняются как ограниченные tombstones (только хэши, максимум 64), чтобы поздний старый retry закрывался ошибкой, а не повторным планированием;
+- durable tool replay требует устойчивый conversation id и реальное persistent store;
+- при ошибке NCM28-публикации новое состояние не остаётся доступным даже в памяти;
+- legacy v2 exact retry остаётся fail-closed.
 
-Локальные verdicts:
-- `DURABLE_RENDERED_REPLAY_V6_STORE_COMPAT_PASS`;
-- `DURABLE_RENDERED_REPLAY_V6_SSE_SHAPE_PASS`.
+Локальный store verdict: `DURABLE_RENDERED_REPLAY_V7_IDENTITY_AND_STALE_RETRY_PASS`.
 
-Доказано: top-level v3 действительно ломает exact stable-runtime v2; nested replay v1 в top-level v2 переживает restart/migration-copy с тем же `call_id`; oversized replay отклоняется до публикации; aggregate eviction сохраняет fingerprint; до durable commit SSE может содержать только identity-free comment keepalive, а после commit fresh/replay строятся из одного канонического response и имеют одинаковые IDs.
+Отдельная server-ordering модель на реальном V7 store прошла `DURABLE_RENDERED_REPLAY_V7_SERVER_ORDERING_MODEL_PASS`: fresh tool response + exact retry вызывает provider один раз и сохраняет `response_id/item_id/call_id`; отдельный same-text turn вызывает provider снова; delayed old retry tombstoned; forced disk failure не публикует tool response/cache; stream до durable commit выдаёт только identity-free comment, после commit использует один канонический response.
 
-Evidence: `autonomy/evidence/notion/20260821T0649Z_durable_rendered_replay_v6_evidence.json`.
+Граница доказательства: это пока локальная интеграционная модель, а не применённый полный `payload/server.py`. Настоящая совместимость текущего Codex CLI с ранними identity-free SSE comments тоже не доказана — `codex` binary в hosted машине отсутствует.
 
-Граница: настоящий текущий Codex CLI ещё не доказал принятие identity-free SSE comments до `response.created`, потому что локального `codex` binary в hosted машине нет. Не объявлять это PASS по модельному harness.
+Evidence: `autonomy/evidence/notion/20260821T0755Z_durable_rendered_replay_v7_evidence.json`.
 
 ## Codex shell-env safety
 
-Свежий `tools/run_real_codex_cli_project_probe.py` на PR #8 всё ещё blob `2f6d5873606975771b5ab418d5f9d45cd602304c` и пока не содержит подготовленной защиты `[shell_environment_policy] inherit="core"` + `ignore_default_excludes=false`. Живой probe до включения этой защиты не запускать: локальные shell tools иначе потенциально наследуют `NOTION_BRIDGE_API_KEY`.
+Fresh exact `tools/run_real_codex_cli_project_probe.py` всё ещё blob `2f6d5873606975771b5ab418d5f9d45cd602304c` и не ограничивает окружение локальных shell-команд Codex.
+
+Подготовлен локальный кандидат:
+- `[shell_environment_policy] inherit="core"`;
+- `ignore_default_excludes=false`;
+- явные excludes `NOTION_BRIDGE_API_KEY`, `RUNTIME_STATE_KEY`.
+
+Offline contract verdict `CODEX_PROBE_SHELL_ENV_V2_OFFLINE_PASS`: ключи не попадают в моделируемое окружение child shell и значения секретов не записываются в `config.toml`. Живой Codex до фактического включения этой защиты не запускать.
 
 ## Следующий порядок
 
-1. На старте восстановить новый v4 `LATEST` и read-only проверить существующий Windows digest; не перезапускать.
-2. Материализовать exact минимальный server fixture свежего PR #8 и интегрировать v6 с порядком `provider result -> canonical Responses IDs -> durable conversation-state write -> transient affinity/cache -> client`.
-3. На настоящих классах локально проверить same-process retry, restart, tool call, forced disk-write failure, stream/non-stream presentation и size/eviction. Для tool replay обязательны `provider call_count=1` и неизменные IDs.
-4. Локально добавить shell-environment safety в exact Codex probe fixture и contract test; product-push не делать под ZERO-MINUTE.
+1. На старте восстановить текущий валидный v4 `LATEST` и read-only проверить существующий Windows digest; не перезапускать.
+2. Собрать apply-ready exact patch `payload/conversation_segments.py + payload/server.py` из V7 и прогнать максимально полный локальный fixture: same-process retry, restart, distinct same-text turn, delayed stale retry, tool call, forced NCM28 write failure, stream/non-stream, size/eviction. Обязательное условие для tool replay: `provider call_count=1` и неизменные IDs.
+3. Встроить shell-environment safety в exact локальный Codex probe fixture и проверить config/child-env; product-push под ZERO-MINUTE не делать.
+4. Отдельно исправить процесс публикации новой v4 capsule: новый immutable каталог, обязательный byte/blob read-back каждого part; CAS только после полного совпадения. Не продвигать каталог с несовпавшим part.
 5. После Core safety gates — один bounded уже-авторизованный `codex exec -> bridge -> Notion -> local tool -> verifier FAIL -> correction -> VERIFY_OK`, затем restart/recovery proof.
 
-В этом запуске product PR #7/#8 не менялись, hosted CI и provider traffic не запускались.
+В этом запуске PR #7/#8 не менялись, hosted CI и provider traffic не запускались.

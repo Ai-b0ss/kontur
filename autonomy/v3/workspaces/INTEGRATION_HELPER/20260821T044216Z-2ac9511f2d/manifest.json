@@ -1,0 +1,70 @@
+{
+  "archive": {
+    "parts": 4,
+    "sha256": "b2647ff584e111d85ef6562680f6cf940f29f80584a15b148ca4cabe2a2bc0e1",
+    "size": 4991
+  },
+  "capsule_id": "20260821T044216Z-2ac9511f2d",
+  "created_at_utc": "2026-08-21T04:42:16Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "c7c85282e6f6e56a91891dbba8259517bc41ed5f784b0032c34a388a570a7a7a"
+    },
+    {
+      "chars": 2048,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "c79222378880b241dec7178f9f98b17845e1af2154aeb7af833d7c653c5d4a68"
+    },
+    {
+      "chars": 2048,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "b99f5ec0ea8991f16253fbfa5f8a43705191e6cd04326fb1d743cec0d070e265"
+    },
+    {
+      "chars": 512,
+      "index": 3,
+      "name": "part-0003.b64",
+      "sha256_text": "0d5a55ebafd5c582c5b1b19581f5dc8ee107e00ba99bc2a01d81e3f81765ab2c"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@5c7df532f747cdb103d02fdd0de26feb957b4ae8 + Ai-b0ss/notion-agent-bridge@23a52f88b065a9d03b93b94e2f2ea0044c167ece",
+  "worker": "INTEGRATION_HELPER",
+  "workspace": {
+    "CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "46c080c6f17f23c19a18324c8020ed987adea1e889b74bb40d5fb1198cd8ae32",
+      "size": 1774,
+      "type": "file"
+    },
+    "STATE.json": {
+      "mode": "0o644",
+      "sha256": "736579bc37084300a5fd44cfd702b3b6086ee706ec3984fa3afcaf3cc7afbe87",
+      "size": 358,
+      "type": "file"
+    },
+    "integration_delegated_tool_capability_policy_probe.py": {
+      "mode": "0o755",
+      "sha256": "1c132807a4c23dd4f89efe5c935c1bd126dffde1523e4d4953dbafc94fa80cda",
+      "size": 2983,
+      "type": "file"
+    },
+    "integration_qwen_batch_claim_race_probe.js": {
+      "mode": "0o644",
+      "sha256": "675a8c28ede21b86e020f868b84e69209d20a03bdd8ecf138a90a2df63248170",
+      "size": 3594,
+      "type": "file"
+    },
+    "integration_qwen_workspace_generation_resume_probe.js": {
+      "mode": "0o644",
+      "sha256": "abd6ddb7d0770722d746eed0ebb206bbf1726a13c8d1dc1536f8d532ef1090bf",
+      "size": 3402,
+      "type": "file"
+    }
+  }
+}

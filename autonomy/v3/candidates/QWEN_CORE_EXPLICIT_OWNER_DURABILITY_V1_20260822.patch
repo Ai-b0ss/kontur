@@ -1,0 +1,360 @@
+*** Begin Patch
+*** Update File: src/session-store.js
+@@
+ function set(key, chatId, metadata = {}) {
+@@
+-  const record = {
++  const authority = checkpointOwnerAuthority(
++    metadata.systemPromptMode !== undefined
++      ? metadata.systemPromptMode
++      : (previous ? previous.systemPromptMode : undefined),
++    metadata.ownerSystemPrompt !== undefined
++      ? metadata.ownerSystemPrompt
++      : (previous ? previous.ownerSystemPrompt : undefined),
++  );
++  const record = {
+     chatId: nextChatId,
+     accountId: requestedAccountId || (previous ? previous.accountId : undefined),
+@@
+     history: Array.isArray(metadata.history) && metadata.history.length > 0
+       ? metadata.history
+       : (previous && Array.isArray(previous.history) ? previous.history : undefined),
++    systemPromptMode: authority.systemPromptMode,
++    ownerSystemPrompt: authority.ownerSystemPrompt,
+     updatedAt: Date.now(),
+   };
+@@
+ const CHECKPOINT_MAX_MESSAGES = 24;
+ const CHECKPOINT_MAX_CHARS = 60000;
+ const CHECKPOINT_MESSAGE_MAX_CHARS = 12000;
++
++function checkpointOwnerAuthority(mode, ownerSystemPrompt) {
++  if (mode == null && ownerSystemPrompt == null) {
++    return { systemPromptMode: undefined, ownerSystemPrompt: undefined };
++  }
++  const normalizedMode = String(mode || 'engineer').trim().toLowerCase();
++  if (normalizedMode !== 'engineer' && normalizedMode !== 'owner') {
++    throw systemCheckpointRejected(`unsupported durable system prompt mode: ${normalizedMode}`);
++  }
++  if (normalizedMode !== 'owner') {
++    return { systemPromptMode: 'engineer', ownerSystemPrompt: null };
++  }
++  if (ownerSystemPrompt == null) {
++    return { systemPromptMode: 'owner', ownerSystemPrompt: null };
++  }
++  const exact = String(ownerSystemPrompt);
++  if (exact.length > CHECKPOINT_MAX_CHARS) {
++    throw systemCheckpointRejected('explicit owner system prompt exceeds checkpoint character budget');
++  }
++  return { systemPromptMode: 'owner', ownerSystemPrompt: exact };
++}
+@@
+ module.exports = {
+@@
+   checkpointMessages,
++  checkpointOwnerAuthority,
+*** Update File: server.js
+@@
+ app.get('/v1/models', (req, res) => {
+@@
+ });
++
++function explicitOwnerSystemPrompt(body = {}) {
++  if (typeof body.owner_system_prompt === 'string') return body.owner_system_prompt;
++  if (typeof body.ownerSystemPrompt === 'string') return body.ownerSystemPrompt;
++  return null;
++}
++
++function hasExplicitPromptMode(body = {}, headers = {}) {
++  return body.system_prompt_mode !== undefined ||
++    body.systemPromptMode !== undefined ||
++    headers['x-qwen-system-prompt-mode'] !== undefined ||
++    headers['X-Qwen-System-Prompt-Mode'] !== undefined;
++}
++
++function hasIncomingSystemAuthority(body = {}) {
++  return Array.isArray(body.messages) && body.messages.some((message) => message && message.role === 'system');
++}
++
++function restoreDurablePromptAuthority(originalBody, effectiveBody, record, isContinuationTurn, headers = {}) {
++  if (!isContinuationTurn || !record) return effectiveBody;
++  if (hasExplicitPromptMode(originalBody, headers)) return effectiveBody;
++  if (explicitOwnerSystemPrompt(originalBody) !== null) return effectiveBody;
++  if (hasIncomingSystemAuthority(originalBody)) return effectiveBody;
++  if (record.systemPromptMode !== 'owner' && record.systemPromptMode !== 'engineer') return effectiveBody;
++
++  const restored = { ...effectiveBody, system_prompt_mode: record.systemPromptMode };
++  if (record.systemPromptMode === 'owner' && typeof record.ownerSystemPrompt === 'string') {
++    restored.owner_system_prompt = record.ownerSystemPrompt;
++  }
++  return restored;
++}
+@@
+-      const effectiveBody = restoredMessages === publicBody.messages
++      const restoredBody = restoredMessages === publicBody.messages
+         ? publicBody
+         : { ...publicBody, messages: restoredMessages };
++      const effectiveBody = restoreDurablePromptAuthority(
++        publicBody,
++        restoredBody,
++        record,
++        isContinuationTurn,
++        req.headers,
++      );
++
++      const resolvedSystemPromptMode = qwenV3Capabilities.resolveSystemPromptMode(
++        effectiveBody,
++        { headers: req.headers },
++      );
++      const promptAuthority = sessionStore.checkpointOwnerAuthority(
++        resolvedSystemPromptMode,
++        explicitOwnerSystemPrompt(effectiveBody),
++      );
++      // Reject any request whose exact authority cannot be represented before
++      // provider traffic. Message-based system instructions and the detached
++      // explicit owner field are checked independently because owner mode
++      // deliberately removes the latter from the adapter body.
++      sessionStore.checkpointMessages(effectiveBody.messages);
++      const promptSessionMetadata = {
++        systemPromptMode: promptAuthority.systemPromptMode,
++        ownerSystemPrompt: promptAuthority.ownerSystemPrompt,
++      };
+ 
+       let prepared = await preparePublicPayloadGoverned(effectiveBody, {
+@@
+             const saved = sessionStore.set(sessionKey, response.chatId || prepared.chatId, {
++              ...promptSessionMetadata,
+               accountId: response.account.id,
+@@
+                 const saved = sessionStore.set(sessionKey, retry.chatId || retryPrepared.chatId, {
++                  ...promptSessionMetadata,
+                   accountId: retry.account ? retry.account.id : retryPreferred.id,
+@@
+         const saved = sessionStore.set(sessionKey, streamRouteResponse.chatId || streamRoutePrepared.chatId, {
++          ...promptSessionMetadata,
+           accountId: streamRouteResponse.account.id,
+@@
+         const saved = sessionStore.set(sessionKey, streamRouteResponse.chatId || streamRoutePrepared.chatId, {
++          ...promptSessionMetadata,
+           accountId: streamRouteResponse.account.id,
+@@
+         sessionStore.set(sessionKey, streamRouteResponse.chatId || streamRoutePrepared.chatId, {
++          ...promptSessionMetadata,
+           accountId: streamRouteResponse.account.id,
+*** Add File: scripts/session-explicit-owner-authority-test.js
++'use strict';
++
++const assert = require('assert');
++const fs = require('fs');
++const os = require('os');
++const path = require('path');
++
++const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'qwen-explicit-owner-authority-'));
++const configPath = require.resolve('../src/config');
++const sessionPath = require.resolve('../src/session-store');
++const originalConfig = require(configPath);
++
++function loadStore() {
++  delete require.cache[sessionPath];
++  require.cache[configPath] = {
++    id: configPath,
++    filename: configPath,
++    loaded: true,
++    exports: { ...originalConfig, CONFIG_DIR: tmp },
++  };
++  return require('../src/session-store');
++}
++
++try {
++  let store = loadStore();
++  const ownerA = `OWNER_A:${'x'.repeat(20000)}`;
++  const ownerB = 'OWNER_B_REPLACEMENT';
++
++  store.set('owner-explicit', 'chat-a', {
++    accountId: 'account-a',
++    history: [{ role: 'user', content: 'first' }, { role: 'assistant', content: 'done' }],
++    systemPromptMode: 'owner',
++    ownerSystemPrompt: ownerA,
++  });
++
++  store = loadStore();
++  let record = store.getRecord('owner-explicit');
++  assert.strictEqual(record.systemPromptMode, 'owner');
++  assert.strictEqual(record.ownerSystemPrompt, ownerA, 'explicit owner prompt must survive restart byte-for-byte');
++
++  store.set('owner-explicit', 'chat-a', {
++    accountId: 'account-a',
++    systemPromptMode: 'owner',
++    ownerSystemPrompt: ownerB,
++  });
++  store = loadStore();
++  record = store.getRecord('owner-explicit');
++  assert.strictEqual(record.ownerSystemPrompt, ownerB, 'new explicit owner prompt must replace stale owner authority');
++
++  store.set('owner-explicit', 'chat-a', {
++    accountId: 'account-a',
++    systemPromptMode: 'engineer',
++    ownerSystemPrompt: null,
++  });
++  store = loadStore();
++  record = store.getRecord('owner-explicit');
++  assert.strictEqual(record.systemPromptMode, 'engineer');
++  assert.strictEqual(record.ownerSystemPrompt, null, 'explicit engineer transition must clear prior owner authority');
++
++  assert.throws(
++    () => store.checkpointOwnerAuthority('owner', 'z'.repeat(60001)),
++    (error) => error && error.code === 'QWEN_SYSTEM_CHECKPOINT_REJECTED',
++    'oversized explicit owner authority must fail closed',
++  );
++
++  console.log('SESSION_EXPLICIT_OWNER_AUTHORITY_PASS restart=1 replacement=1 engineer_clear=1 oversized_fail_closed=1');
++} finally {
++  delete require.cache[sessionPath];
++  require.cache[configPath] = {
++    id: configPath,
++    filename: configPath,
++    loaded: true,
++    exports: originalConfig,
++  };
++  fs.rmSync(tmp, { recursive: true, force: true });
++}
+*** Add File: scripts/server-explicit-owner-rehydrate-test.js
++'use strict';
++
++const assert = require('assert');
++const Module = require('module');
++
++const originalLoad = Module._load;
++let chatHandler = null;
++let providerBodies = [];
++let persistedMetadata = [];
++
++const account = { id: 'account-a', token: 'token-a' };
++const record = {
++  accountId: 'account-a',
++  chatId: 'chat-a',
++  systemPromptMode: 'owner',
++  ownerSystemPrompt: 'DURABLE_PRIVATE_OWNER',
++  history: [{ role: 'user', content: 'old request' }, { role: 'assistant', content: 'old answer' }],
++};
++
++const fakeApp = {
++  use() {}, get() {},
++  post(path, handler) { if (path === '/v1/chat/completions') chatHandler = handler; },
++  listen() {},
++};
++function fakeExpress() { return fakeApp; }
++fakeExpress.json = () => (_req, _res, next) => next && next();
++
++const sessionStore = {
++  clear() {}, latestSessionKey() { return null; }, getRecord() { return record; },
++  restoreCheckpoint(messages) { return messages; }, findPendingToolCalls() { return []; },
++  checkpointMessages(messages) { return messages; },
++  checkpointOwnerAuthority(mode, prompt) {
++    if (mode === 'owner' && typeof prompt === 'string' && prompt.length > 60000) {
++      const error = new Error('explicit owner too large');
++      error.code = 'QWEN_SYSTEM_CHECKPOINT_REJECTED';
++      throw error;
++    }
++    return { systemPromptMode: mode, ownerSystemPrompt: mode === 'owner' ? prompt : null };
++  },
++  checkpointAcceptedToolProgress(messages, assistant) { return [...messages, assistant]; },
++  set(_key, _chatId, metadata) { persistedMetadata.push(metadata); return true; },
++};
++
++const mocks = {
++  dotenv: { config() {} }, express: fakeExpress,
++  cors: () => (_req, _res, next) => next && next(),
++  './src/config': { PORT: 0, MAX_PAYLOAD_BYTES: '1mb', MODELS: [], MODEL_LIMITS: {} },
++  './src/account-store': {
++    load() {}, get() { return account; }, list() { return [account]; }, isAccount() { return true; },
++    isAvailable() { return true; }, candidates() { return [account]; }, markFailure() {}, markCaptchaChallenge() {},
++  },
++  './src/ssxmod-manager': { init() {}, isReady() { return true; } },
++  './src/qwen-client': {
++    MAX_ACCOUNTS_PER_OPERATION: 4,
++    async sendChatRequest(payload) {
++      providerBodies.push(payload);
++      return { status: true, chatId: 'chat-a', account, response: {} };
++    },
++  },
++  './src/chat-adapter': {
++    async preparePublicPayload(body) { return { qwenPayload: { body }, chatId: 'chat-a', hasTools: false, isContinuation: false }; },
++    async collectNonStream() { return { choices: [{ message: { role: 'assistant', content: 'ok' } }] }; },
++  },
++  './src/stream-session-guard': {}, './src/captcha-resolver': { solveCaptcha() {} },
++  './src/tools': { createToolCallStreamParser() { return null; } },
++  './src/tool-memo': { clear() {}, recall() { return ''; }, stats() { return {}; } },
++  './src/web': { attachWeb() {} }, './src/tool-executor': { initWorkspace() {} },
++  './src/session-store': sessionStore,
++  './src/session-request-gate': { SessionRequestGate: class { async acquire() { return () => {}; } } },
++  './src/command-handler': { incrementRequestCount() {}, isCommandMessage() { return false; }, isCompressorDisabled() { return false; } },
++  './src/quota-telemetry': { instrument() { return {}; }, setAccount() {}, getSummary() { return {}; } },
++  './src/request-governor': { async before() {} },
++  './src/qwen-v3-capabilities': {
++    resolveSystemPromptMode(body, ctx = {}) {
++      return String(body.system_prompt_mode || body.systemPromptMode || ctx.headers?.['x-qwen-system-prompt-mode'] || 'engineer').toLowerCase();
++    },
++    async prepareInput(body) { return { body, mode: { systemPromptMode: String(body.system_prompt_mode || 'engineer') } }; },
++    applyPrepared(prepared) { return prepared; },
++  },
++  './src/util': { logger: { info() {}, warn() {}, error() {} } },
++};
++
++Module._load = function patchedLoad(request, parent, isMain) {
++  if (Object.prototype.hasOwnProperty.call(mocks, request)) return mocks[request];
++  return originalLoad.call(this, request, parent, isMain);
++};
++
++async function invoke(body) {
++  let statusCode = 200;
++  let jsonBody = null;
++  const req = { body, headers: { 'x-opencode-session': 'owner-rehydrate' } };
++  const res = {
++    destroyed: false, writableEnded: false, headersSent: false,
++    setHeader() {}, status(code) { statusCode = code; return this; },
++    json(value) { jsonBody = value; this.headersSent = true; return this; }, end() { this.writableEnded = true; },
++  };
++  await chatHandler(req, res);
++  return { statusCode, jsonBody };
++}
++
++(async () => {
++  try {
++    require('../server');
++    assert.strictEqual(typeof chatHandler, 'function');
++
++    await invoke({ model: 'qwen-test', stream: false, messages: [{ role: 'user', content: 'continue' }] });
++    assert.strictEqual(providerBodies[0].body.system_prompt_mode, 'owner');
++    assert.strictEqual(providerBodies[0].body.owner_system_prompt, 'DURABLE_PRIVATE_OWNER', 'short continuation must restore durable explicit owner authority');
++    assert.strictEqual(persistedMetadata[0].systemPromptMode, 'owner');
++    assert.strictEqual(persistedMetadata[0].ownerSystemPrompt, 'DURABLE_PRIVATE_OWNER');
++
++    providerBodies = [];
++    persistedMetadata = [];
++    await invoke({
++      model: 'qwen-test', stream: false, system_prompt_mode: 'engineer',
++      messages: [{ role: 'system', content: 'NEW_ENGINEER_AUTHORITY' }, { role: 'user', content: 'continue' }],
++    });
++    assert.strictEqual(providerBodies[0].body.system_prompt_mode, 'engineer', 'new explicit mode must beat stale durable owner mode');
++    assert.strictEqual(providerBodies[0].body.owner_system_prompt, undefined, 'stale owner prompt must not leak into explicit engineer request');
++    assert.strictEqual(persistedMetadata[0].systemPromptMode, 'engineer');
++    assert.strictEqual(persistedMetadata[0].ownerSystemPrompt, null);
++
++    providerBodies = [];
++    await invoke({
++      model: 'qwen-test', stream: false, system_prompt_mode: 'owner', owner_system_prompt: 'z'.repeat(60001),
++      messages: [{ role: 'user', content: 'continue' }],
++    });
++    assert.strictEqual(providerBodies.length, 0, 'oversized explicit owner prompt must fail before provider traffic');
++
++    console.log('SERVER_EXPLICIT_OWNER_REHYDRATE_PASS restart_continue=1 current_authority_wins=1 oversized_provider_calls=0');
++  } finally {
++    Module._load = originalLoad;
++  }
++})().catch((error) => {
++  Module._load = originalLoad;
++  console.error(error && error.stack ? error.stack : error);
++  process.exitCode = 1;
++});
+*** End Patch

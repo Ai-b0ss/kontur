@@ -1,0 +1,70 @@
+{
+  "archive": {
+    "parts": 3,
+    "sha256": "4014b0ddb0a2386ce418a7777fe8b878ebbd54327b7a65717b2203bd8244b9ee",
+    "size": 4523
+  },
+  "capsule_id": "20260821T084512Z-9255ab65d7",
+  "created_at_utc": "2026-08-21T08:45:12Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "897f50863e299adc9c833824395fa3344cb623e9bf404c7b46079365d79751fb"
+    },
+    {
+      "chars": 2048,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "969fb5d60b1f526c3c90564febbea71fad3dfdd862187d2672281d615014d2d3"
+    },
+    {
+      "chars": 1936,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "66cafca17a6e492e6ea18943eed25d2560a0bb19f88425cb76f2742dfc5541a3"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@51a54afdb39fac3198a33d8809a57a474b20eca9 + Ai-b0ss/notion-agent-bridge@f89d85b0b67faf3188c444d1ea52268783a722cd",
+  "worker": "INTEGRATION_HELPER",
+  "workspace": {
+    "CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "01b22f8d73ae0611af9ee0f8598ebd21592da3442a041e4ef8806d83992e6b2d",
+      "size": 1711,
+      "type": "file"
+    },
+    "EVIDENCE.json": {
+      "mode": "0o644",
+      "sha256": "3f6051f299a27e9439328dfbfe64fcadd79f7f8c12e1bdfb88bf0a2e3b2b290c",
+      "size": 2408,
+      "type": "file"
+    },
+    "QWEN_PENDING_TOOL_CONTENT_SHAPE_CANDIDATE.patch": {
+      "mode": "0o644",
+      "sha256": "41fb6e403ad00b82f35f837a8636b77bdd1fc2c2962b8f712813b4d19080b085",
+      "size": 968,
+      "type": "file"
+    },
+    "STATE.json": {
+      "mode": "0o644",
+      "sha256": "ff53c3dac91fbc6437a42901cc038f38ae332cfd7460c5d525d641ad5b78ea9f",
+      "size": 371,
+      "type": "file"
+    },
+    "integration_notion_partial_batch_retry_probe.py": {
+      "mode": "0o755",
+      "sha256": "e6360be1c03ca4410657297ea7b174c940472cabd98f1a87a743ee385fe78fa7",
+      "size": 3454,
+      "type": "file"
+    },
+    "integration_qwen_pending_tool_content_shape_probe.js": {
+      "mode": "0o644",
+      "sha256": "2e15cebf6e80bd8c3c76d997c21ba2aff15b104dfa6e9dd4ebdaa39d5d8c6e92",
+      "size": 3533,
+      "type": "file"
+    }
+  }
+}

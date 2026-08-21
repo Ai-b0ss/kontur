@@ -1,0 +1,106 @@
+{
+  "archive": {
+    "parts": 5,
+    "sha256": "3d030cd0bf4780a006e7d4c6ab85808f8e31166a536c49e25a00c56ab2109ce2",
+    "size": 6600
+  },
+  "capsule_id": "20260821T124500Z-62bd5739b4",
+  "created_at_utc": "2026-08-21T12:45:00Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "5104489268aae1e162baea21aa342adb04295bdb3b07ff6eff05400d19ef12fd"
+    },
+    {
+      "chars": 2048,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "cfdb692efbc114076dd5bdbc88f53eaaab312d5ea3b8f01358438432e6fe6440"
+    },
+    {
+      "chars": 2048,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "25991e1d68e4592980dbc736f526c89734e4bbd2b548452e70ad66b3eb6ab2ee"
+    },
+    {
+      "chars": 2048,
+      "index": 3,
+      "name": "part-0003.b64",
+      "sha256_text": "85cf0874478059e5c6a29e84b654a04b23cc6d1ea8a05f6427924950a14ec95e"
+    },
+    {
+      "chars": 608,
+      "index": 4,
+      "name": "part-0004.b64",
+      "sha256_text": "f7273b9277db2cadf9503b759a0ebee172aef38ed68098d23901f76d30a988d5"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@75c0d793dbbc50b34f3409a90d4737095f58e7c7 + Ai-b0ss/notion-agent-bridge@bdb6c24d9693d1347fb01f616ffb5826a916f297",
+  "worker": "INTEGRATION_HELPER",
+  "workspace": {
+    "CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "65c5430552f2759fcc2246636ad777683c298ea0b3d26dca60fb0604f8ee433d",
+      "size": 2367,
+      "type": "file"
+    },
+    "EVIDENCE.json": {
+      "mode": "0o644",
+      "sha256": "f77145224d8f2c51850a9df56c2b55f86a38ea7007128975b68547ae82e51e93",
+      "size": 2830,
+      "type": "file"
+    },
+    "EVIDENCE_COMMAND_SHAPE.json": {
+      "mode": "0o644",
+      "sha256": "4c213a235faa874a1400874b71a563545656f24076c3e2c2e91d548b2b30773e",
+      "size": 2496,
+      "type": "file"
+    },
+    "QWEN_COMMAND_CONTENT_SHAPE_20260821.patch": {
+      "mode": "0o644",
+      "sha256": "8c3c783aecada2d3ffc30d8bb220e2763721f194f753838ef6ec0a1b086651ae",
+      "size": 1674,
+      "type": "file"
+    },
+    "QWEN_SESSION_COMMAND_GATE_20260821.patch": {
+      "mode": "0o644",
+      "sha256": "fc5c613e48b65caa2b7d6c9affabdd0552445deea51ed42e32fb04490ea6b41c",
+      "size": 1131,
+      "type": "file"
+    },
+    "STATE.json": {
+      "mode": "0o644",
+      "sha256": "ec518d9c06bbf1a0777f20728073ccced6aa4f4d13de3ab116cb70e5372ca786",
+      "size": 385,
+      "type": "file"
+    },
+    "command-shape-output.json": {
+      "mode": "0o644",
+      "sha256": "fff039aa59635d6497836e18f058cd51273ac6882dbe17d69c208c4ff135a3ae",
+      "size": 1353,
+      "type": "file"
+    },
+    "integration_qwen_command_content_shape_probe.js": {
+      "mode": "0o644",
+      "sha256": "3b334efd0539093e7ef08dae5fd5327e3574f033b01e4c2cef48d755316bfa69",
+      "size": 3451,
+      "type": "file"
+    },
+    "integration_qwen_session_reset_gate_probe.js": {
+      "mode": "0o644",
+      "sha256": "4f163b818631054d5b8f4af9f14e49d2affb95715782514398d9020be9be6c41",
+      "size": 4675,
+      "type": "file"
+    },
+    "probe-output.json": {
+      "mode": "0o644",
+      "sha256": "331642f9630139d5e027ac9e731f8c27b0f9fb1d0e932e3c2a4566b3c048fdf5",
+      "size": 831,
+      "type": "file"
+    }
+  }
+}

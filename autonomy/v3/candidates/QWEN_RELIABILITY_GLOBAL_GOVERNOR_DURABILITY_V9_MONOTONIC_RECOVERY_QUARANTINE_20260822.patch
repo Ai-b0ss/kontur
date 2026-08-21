@@ -3,11 +3,9 @@
 @@
 -  const __w2INFLIGHT_STALE_MS = 2 * 60 * 60 * 1000;
 +  // A recovered unknown-outcome marker must never be cleared merely because
-+  // wall-clock time jumped forward. Production always waits two hours of this
-+  // process's own monotonic uptime while provider traffic remains fail-closed.
-+  const __w2RECOVERY_QUARANTINE_MS = process.env.NODE_ENV === 'test'
-+    ? Math.max(10, Number(process.env.QWEN_GOVERNOR_TEST_RECOVERY_QUARANTINE_MS || 2 * 60 * 60 * 1000))
-+    : 2 * 60 * 60 * 1000;
++  // wall-clock time jumped forward. Always require two hours of this process's
++  // own monotonic uptime while provider traffic remains fail-closed.
++  const __w2RECOVERY_QUARANTINE_MS = 2 * 60 * 60 * 1000;
 +  const __w2RECOVERY_MONO_START = process.hrtime.bigint();
    const __w2inflightByAccount = new Map();
 +
@@ -25,8 +23,8 @@
            !Number.isFinite(Number(parsed.createdAt))||Number(parsed.createdAt)<0
          )return {ambiguousTxn,recentInflight:true,inspectionFailed:false};
 -        if((now-Number(parsed.createdAt))<__w2INFLIGHT_STALE_MS){
-+        // createdAt is diagnostic only. It is wall-clock time and therefore
-+        // cannot prove that a recovery quarantine has elapsed after restart.
++        // createdAt is diagnostic only. Wall-clock age cannot prove that a
++        // recovery quarantine elapsed after an NTP/VM clock jump.
 +        if(!allowInflightCleanup){
            recentInflight=true;
            continue;
@@ -34,10 +32,9 @@
 -        // The global layer's longest WAF penalty is one hour and strikes reset
 -        // after 45m. Two hours without provider traffic is therefore a bounded
 -        // conservative recovery horizon for an orphaned unknown-outcome marker.
-+        // This branch is reachable only after two hours of monotonic process
-+        // uptime in __w2tryReleaseInflightRecovery(). During that interval the
-+        // governor stayed fail-closed, so the recovery horizon does not depend
-+        // on NTP/VM wall-clock changes.
++        // Reachable only after two hours of monotonic process uptime in
++        // __w2tryReleaseInflightRecovery(). No provider traffic was admitted
++        // during that interval.
          try{__w2fs.rmSync(artifact,{force:true});__w2syncParent(artifact)}
          catch(_){return {ambiguousTxn,recentInflight:true,inspectionFailed:false};}
 @@
@@ -88,7 +85,7 @@
 +
 +    // Marker cleanup has been directory-fsync'd. No provider traffic occurred
 +    // during the monotonic quarantine, so the unknown global pressure window is
-+    // now conservatively expired even if the old canonical was absent.
++    // conservatively expired even if the old canonical was absent.
 +    __w2g.recoveryUncertain=false;
 +    __w2g.recoveryInflightOnly=false;
 +  }
@@ -110,8 +107,8 @@
 +const stateFile = path.join(root, 'global-pressure.json');
 +const modulePath = require.resolve('../src/request-governor');
 +const oldStateFile = process.env.QWEN_WAFMIN2_STATE_FILE;
-+const oldNodeEnv = process.env.NODE_ENV;
-+const oldQuarantine = process.env.QWEN_GOVERNOR_TEST_RECOVERY_QUARANTINE_MS;
++const originalHrtimeBigint = process.hrtime.bigint;
++let monoNs = 1_000_000_000n;
 +
 +function canonical(){
 +  return {
@@ -132,14 +129,13 @@
 +
 +(async()=>{
 +  try{
-+    process.env.NODE_ENV='test';
-+    process.env.QWEN_GOVERNOR_TEST_RECOVERY_QUARANTINE_MS='30';
 +    process.env.QWEN_WAFMIN2_STATE_FILE=stateFile;
++    process.hrtime.bigint=()=>monoNs;
 +
 +    fs.writeFileSync(stateFile,JSON.stringify(canonical()),'utf8');
 +    const oldMarker=`${stateFile}.inflight-wall-clock-old`;
-+    // Pretend wall clock says this unknown provider outcome is a day old.
-+    // It still must not be deleted immediately after process/module restart.
++    // Wall clock says the unknown provider outcome is a day old. Immediately
++    // after restart it still must remain fail-closed.
 +    fs.writeFileSync(oldMarker,JSON.stringify(marker(Date.now()-24*60*60*1000)),'utf8');
 +    let governor=loadGovernor();
 +    await assert.rejects(
@@ -149,18 +145,19 @@
 +    );
 +    assert.strictEqual(fs.existsSync(oldMarker),true);
 +
-+    await new Promise(resolve=>setTimeout(resolve,45));
++    // Advance only the monotonic clock past the fixed two-hour quarantine.
++    monoNs += BigInt(2*60*60*1000+1)*1_000_000n;
 +    await governor.before('account-b',{chars:100});
 +    assert.strictEqual(fs.existsSync(oldMarker),false,'marker may clear only after monotonic quarantine');
 +    governor.success('account-b',{total_tokens:1});
 +
-+    // A corrupt canonical is a different recovery reason and must remain
-+    // blocked even after the inflight quarantine duration has elapsed.
++    // Corrupt canonical is a different recovery reason and must not be healed by
++    // the inflight quarantine, even with monotonic time far beyond two hours.
 +    fs.writeFileSync(stateFile,'{corrupt canonical','utf8');
 +    const marker2=`${stateFile}.inflight-with-corrupt-canonical`;
 +    fs.writeFileSync(marker2,JSON.stringify(marker(Date.now()-24*60*60*1000)),'utf8');
 +    governor=loadGovernor();
-+    await new Promise(resolve=>setTimeout(resolve,45));
++    monoNs += BigInt(2*60*60*1000+1)*1_000_000n;
 +    await assert.rejects(
 +      ()=>governor.before('account-c',{chars:100}),
 +      error=>error&&error.code==='QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN',
@@ -169,9 +166,8 @@
 +
 +    console.log('REQUEST_GOVERNOR_MONOTONIC_RECOVERY_PASS wall_clock_only_blocked=1 monotonic_quarantine_release=1 corrupt_state_not_healed=1');
 +  }finally{
++    process.hrtime.bigint=originalHrtimeBigint;
 +    if(oldStateFile===undefined)delete process.env.QWEN_WAFMIN2_STATE_FILE;else process.env.QWEN_WAFMIN2_STATE_FILE=oldStateFile;
-+    if(oldNodeEnv===undefined)delete process.env.NODE_ENV;else process.env.NODE_ENV=oldNodeEnv;
-+    if(oldQuarantine===undefined)delete process.env.QWEN_GOVERNOR_TEST_RECOVERY_QUARANTINE_MS;else process.env.QWEN_GOVERNOR_TEST_RECOVERY_QUARANTINE_MS=oldQuarantine;
 +    delete require.cache[modulePath];
 +    fs.rmSync(root,{recursive:true,force:true});
 +  }

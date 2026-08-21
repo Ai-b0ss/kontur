@@ -12,6 +12,58 @@
 +      try { fs.rmSync(rollback, { force: true }); } catch (_) {}
        try { syncParentDirectory(FILE); } catch (_) {}
      }
+@@
+ const CHECKPOINT_MAX_MESSAGES = 24;
+ const CHECKPOINT_MAX_CHARS = 60000;
+ const CHECKPOINT_MESSAGE_MAX_CHARS = 12000;
++
++function checkpointSystemRejected(reason) {
++  const error = new Error(`System prompt cannot be durably checkpointed: ${reason}`);
++  error.code = 'QWEN_SYSTEM_CHECKPOINT_REJECTED';
++  return error;
++}
+ 
+ function boundCheckpointContent(content) {
+@@
+   const normalized = messages
+     .filter((m) => m && typeof m === 'object' && m.role)
+     .map((m) => {
+-      const entry = { role: m.role, content: boundCheckpointContent(m.content) };
++      // System instructions are an authority boundary. Never silently rewrite
++      // them to satisfy the rolling history budget. Ordinary conversation may
++      // still be bounded exactly as before.
++      const entry = {
++        role: m.role,
++        content: m.role === 'system' ? m.content : boundCheckpointContent(m.content),
++      };
+       if (Array.isArray(m.tool_calls) && m.tool_calls.length > 0) entry.tool_calls = m.tool_calls;
+       if (m.tool_call_id) {
+         entry.tool_call_id = m.tool_call_id;
+@@
+   const systemMessages = normalized.filter((m) => m.role === 'system');
+   const turnMessages = normalized.filter((m) => m.role !== 'system');
+   const keptSystems = [];
+   let total = 0;
++  if (systemMessages.length > CHECKPOINT_MAX_MESSAGES) {
++    throw checkpointSystemRejected('system message count exceeds checkpoint budget');
++  }
+   for (const message of systemMessages) {
+     const size = JSON.stringify(message).length;
+-    if (total + size > CHECKPOINT_MAX_CHARS) break;
++    if (total + size > CHECKPOINT_MAX_CHARS) {
++      throw checkpointSystemRejected('system messages exceed checkpoint character budget');
++    }
+     total += size;
+     keptSystems.push(message);
+   }
+@@
+ function checkpointMessageKey(message) {
+   if (!message || typeof message !== 'object') return '';
+   const normalized = {
+     role: message.role || null,
+-    content: boundCheckpointContent(message.content),
++    content: message.role === 'system' ? message.content : boundCheckpointContent(message.content),
+   };
 *** Update File: scripts/session-store-primary-fsync-test.js
 @@
    assert.strictEqual(
@@ -56,4 +108,77 @@
 -  console.log('SESSION_STORE_PRIMARY_FSYNC_PASS rollback_after_visible_rename=1 backup_acknowledged_only=1');
 +  console.log('SESSION_STORE_PRIMARY_FSYNC_PASS rollback_after_visible_rename=1 backup_acknowledged_only=1 cleanup_only_no_rollback=1');
  } finally {
+*** Add File: scripts/session-system-prompt-exact-checkpoint-test.js
++'use strict';
++
++const assert = require('assert');
++const fs = require('fs');
++const os = require('os');
++const path = require('path');
++
++const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'qwen-system-checkpoint-test-'));
++const configPath = require.resolve('../src/config');
++const sessionPath = require.resolve('../src/session-store');
++const originalConfig = require(configPath);
++
++function loadStore() {
++  delete require.cache[sessionPath];
++  require.cache[configPath] = {
++    id: configPath,
++    filename: configPath,
++    loaded: true,
++    exports: { ...originalConfig, CONFIG_DIR: tmp },
++  };
++  return require('../src/session-store');
++}
++
++try {
++  let store = loadStore();
++  const ownerPrompt = `PRIVATE_OWNER_PROMPT:${'x'.repeat(20000)}`;
++  const projectRules = `Instructions from: PROJECT.md\nPROJECT_RULES:${'y'.repeat(1200)}`;
++  const history = [
++    { role: 'system', content: ownerPrompt },
++    { role: 'system', content: projectRules },
++    { role: 'user', content: 'inspect auth' },
++    { role: 'assistant', content: 'working on auth' },
++  ];
++
++  const checkpoint = store.checkpointMessages(history);
++  assert.strictEqual(checkpoint[0].role, 'system');
++  assert.strictEqual(checkpoint[0].content, ownerPrompt, 'large owner system prompt must remain byte-exact');
++  assert.strictEqual(checkpoint[1].role, 'system');
++  assert.strictEqual(checkpoint[1].content, projectRules, 'multiple system blocks must preserve exact order and content');
++  assert.ok(!checkpoint[0].content.includes('[checkpoint truncated]'));
++
++  assert.strictEqual(
++    store.set('large-owner-session', 'chat-a', { accountId: 'account-a', history: checkpoint }),
++    true,
++  );
++  store = loadStore();
++  const record = store.getRecord('large-owner-session');
++  const restored = store.restoreCheckpoint([{ role: 'user', content: 'continue' }], record, true);
++  assert.deepStrictEqual(
++    restored.filter((message) => message.role === 'system').map((message) => message.content),
++    [ownerPrompt, projectRules],
++    'restart + short continuation must restore the exact owner/project system instructions',
++  );
++
++  const oversized = `OVERSIZED_OWNER:${'z'.repeat(61000)}`;
++  assert.throws(
++    () => store.checkpointMessages([{ role: 'system', content: oversized }]),
++    (error) => error && error.code === 'QWEN_SYSTEM_CHECKPOINT_REJECTED',
++    'system instructions beyond the hard checkpoint budget must fail explicitly instead of being rewritten',
++  );
++
++  console.log('SESSION_SYSTEM_PROMPT_EXACT_CHECKPOINT_PASS owner_exact=1 restart_exact=1 oversize_fail_closed=1');
++} finally {
++  delete require.cache[sessionPath];
++  require.cache[configPath] = {
++    id: configPath,
++    filename: configPath,
++    loaded: true,
++    exports: originalConfig,
++  };
++  fs.rmSync(tmp, { recursive: true, force: true });
++}
 *** End Patch

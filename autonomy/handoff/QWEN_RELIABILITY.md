@@ -88,21 +88,34 @@ Hosted targeted marker:
 - provider/live Qwen: 0 запросов;
 - реальные аккаунты, секреты и production не тронуты.
 
-## Постоянная память — состояние на старте этого запуска
+## Постоянная память
 
-В начале прочитан `autonomy/v3/workspaces/QWEN_RELIABILITY/LATEST.json`; parent Git blob SHA: `7c6b4cc41788564284bf5a425231eac0e3c5058e`.
+В начале запуска прочитан `LATEST.json` и запомнен parent Git blob SHA `7c6b4cc41788564284bf5a425231eac0e3c5058e`.
 
-LATEST указывал на:
-- capsule `20260821T180127Z-57d53429ab`;
-- archive SHA-256 `e26712f0911509a4258e3a2bae4884052bfe7e9a76c984e08b6d4850fddbb6f5`;
-- manifest Git blob SHA `84ec7c51ddbbc21ac7ee45c3d932a14b444ceb8a`;
-- part Git blob SHA `eea62fe0dfc4ea19fff0a16a8f085690fe64b9f4`.
+Стартовая capsule `20260821T180127Z-57d53429ab` была материализована из exact manifest + part и прошла нормативный `capsule_runtime_v4.py restore`; archive SHA-256 `e26712f0911509a4258e3a2bae4884052bfe7e9a76c984e08b6d4850fddbb6f5`.
 
-Manifest + exact part были материализованы локально; нормативный `capsule_runtime_v4.py restore` дал PASS и восстановил checkpoint/result без ручной реконструкции неизвестных bytes.
+После работы выполнен нормативный `checkpoint -> pack v4 -> verify -> restore`.
+
+Новая immutable capsule:
+- `20260821T185621Z-d4f0f4eead`;
+- source ref `Ai-b0ss/qwen-free-api@5c8fc5299f77a1c3502082da8827b6d3f20e7592`;
+- archive SHA-256 `da6dc69b691b928d09fac2628e5da304be9fa331bc178b61ef44940dd97b4848`;
+- 1 part, 1876 символов, SHA-256 text `e9bd472e540b891c391c9080040e0169f4ca56193d7cbf6c3c28cf327f0705e9`;
+- uploaded part Git blob SHA `3a577386157357add088f187d837fc7e9173d5c2`;
+- uploaded manifest Git blob SHA `c8ae8158d264ce32a8a81588551935bd8ccddef9`.
+
+После upload part и manifest перечитаны; Git blob SHA точно совпали с локально вычисленными. Локальные `verify + restore` новой capsule дали PASS.
+
+Непосредственно перед CAS `LATEST` был перечитан и сохранил стартовый parent SHA `7c6b4cc...`; конфликтов не было. Старый `LATEST` сохранён в `PREVIOUS`, затем новый `LATEST` опубликован exact CAS и перечитан.
+
+Текущий `LATEST`:
+- capsule `20260821T185621Z-d4f0f4eead`;
+- Git blob SHA `660e310c7aca0045e59b56f4d0a28cb3cc53da53`;
+- archive SHA-256 `da6dc69b691b928d09fac2628e5da304be9fa331bc178b61ef44940dd97b4848`.
 
 ## Следующий безопасный кусок
 
-1. Сначала завершить нормативный finish этого запуска: checkpoint -> pack v4 -> immutable upload -> read-back verify -> re-read LATEST -> CAS publish только если parent blob SHA всё ещё `7c6b4cc...`; при конфликте не force-write.
-2. На следующем product проходе перечитать свежий PR #6 head.
+1. В начале следующего запуска восстановить новый `LATEST` через v4.
+2. Перечитать свежий PR #6: параллельный writer может сдвинуть head.
 3. Если `src/session-store.js` не был параллельно исправлен, применить `QWEN_RELIABILITY_SESSION_PRIMARY_CLEANUP_20260821.patch` byte-safe способом и прогнать `session-store-primary-fsync-test.js` на hosted Node.
 4. Затем продолжить аудит остальных post-fsync cleanup-путей и stream/local-persistence границ, не возвращаясь к уже закрытым дефектам.

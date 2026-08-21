@@ -1,0 +1,70 @@
+{
+  "archive": {
+    "parts": 2,
+    "sha256": "2e5b849d94af4a7ddb5615ec61e78268cd92a77b213da71e943365392787fdc0",
+    "size": 4236
+  },
+  "capsule_id": "20260821T014821Z-b313e12017",
+  "created_at_utc": "2026-08-21T01:48:21Z",
+  "parts": [
+    {
+      "chars": 4096,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "4109eeb7d6ebfb03a8e0a40d37e2093b015a890f7b73dec0e33c331a3ef901e3"
+    },
+    {
+      "chars": 1552,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "1fb7c6c091fa4fcb3967f256f372d759bfbb2a73b1980809c4dc3f1de46e8892"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "worker": "NOTION_CORE",
+  "workspace": {
+    "CHECKPOINT.json": {
+      "mode": "0o644",
+      "sha256": "82e0719bfda478b965c68c2d08ed1380015251a7d9f39164292df7aa80ea9f5e",
+      "size": 1307,
+      "type": "file"
+    },
+    "codex_probe_exact_head_offline_contract.json": {
+      "mode": "0o644",
+      "sha256": "0f524827bdf0e03ac68cbf876a66fdf4e3cd6a37a746326900e27c2e4d4a44d0",
+      "size": 253,
+      "type": "file"
+    },
+    "restart_exact_replay_evidence.json": {
+      "mode": "0o644",
+      "sha256": "dd6bc87c4d05e872037e834dd32e26c197b4ce59d029cef6c03c38b9f4b7482c",
+      "size": 1916,
+      "type": "file"
+    },
+    "restart_exact_replay_failclosed_candidate.patch": {
+      "mode": "0o644",
+      "sha256": "3cccf270d80c2e41e89b314680f764cb5904c3745c08e36a94e0d24ef2f2770d",
+      "size": 1708,
+      "type": "file"
+    },
+    "restart_exact_replay_failclosed_candidate.py": {
+      "mode": "0o644",
+      "sha256": "db061de4fce62c85cf582cd10b7e02dbe7403019f8f04305f673c1c4277d5563",
+      "size": 1885,
+      "type": "file"
+    },
+    "restart_exact_replay_harness.py": {
+      "mode": "0o644",
+      "sha256": "491007bea407af0f3e35a9e5fd48f584af0b09c32ed66137d10ea420fa73f424",
+      "size": 3118,
+      "type": "file"
+    },
+    "restart_exact_replay_output.txt": {
+      "mode": "0o644",
+      "sha256": "2834d25fa45030ce4fa0701a7ba3c479e73f613b1cbadb60a7b24c7c1009607b",
+      "size": 344,
+      "type": "file"
+    }
+  }
+}

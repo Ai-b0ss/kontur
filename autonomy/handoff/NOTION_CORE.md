@@ -2,7 +2,7 @@
 
 Core: `Ai-b0ss/notion-agent-bridge:candidate/ncm28-windows-fixed-v1`, PR #7, exact head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
-Agent integration boundary: draft PR #8 `autonomy/notion-prompt-modes-20260819`; freshest read-only head в этом запуске `a016664796720c085fd5356af30f6f959e4971bc`. Не переносить/дублировать rotation, prompt modes, delegation или account/thread affinity; Core проверяет только необходимый lifecycle/Codex стык.
+Agent integration boundary: draft PR #8 `autonomy/notion-prompt-modes-20260819`; freshest read-only head в этом запуске `9cd1a98ee1d1c85a9d3650c6d756852810a055f3`. Не переносить/дублировать rotation, prompt modes, delegation или account/thread affinity; Core проверяет только необходимый lifecycle/Codex стык.
 
 ## Режим
 
@@ -10,18 +10,15 @@ ZERO-MINUTE: CircleCI/GitHub Actions/Cloudflare/другой hosted CI не за
 
 ## Постоянная память
 
-Текущий проверенный v4 `LATEST`:
+Последний опубликованный проверенный v4 `LATEST` на старте этого запуска:
 - capsule `20260821T015251Z-9afa256e7a`;
 - archive SHA-256 `729c166be7583481d29f7ff1cdf22f0935352bd08ced8fba28ca99d7edd8653b`, size 5877, 2 parts;
-- part-0000: 4096 chars, Git blob `87969c17567e6265b8f4295a009139687a7249f9`;
-- part-0001: 3740 chars, Git blob `bc7a06d2a4bc12511766dcbef553c77223f2020d`;
-- manifest: 2776 bytes, Git blob `e31d10c11f74fe5ea0bcff7325681692f2af9cbc`;
-- `LATEST.json` после exact CAS: Git blob `be2508d8ef972de25f3a0ace409f817b9288db8a`;
-- предыдущая capsule `20260821T014821Z-b313e12017` сохранена как `PREVIOUS`.
+- part-0000 Git blob `87969c17567e6265b8f4295a009139687a7249f9`;
+- part-0001 Git blob `bc7a06d2a4bc12511766dcbef553c77223f2020d`;
+- manifest Git blob `e31d10c11f74fe5ea0bcff7325681692f2af9cbc`;
+- `LATEST.json` parent Git blob `be2508d8ef972de25f3a0ace409f817b9288db8a`.
 
-Обе parts и manifest после публикации перечитаны из GitHub и совпали с локально рассчитанными Git blob SHA. Перед CAS `LATEST` был повторно прочитан с exact parent blob `aba08e08d43a9a1b8d7ee57e1db835577b1bb5d4`, конфликта писателей не было.
-
-В начале запуска прежняя capsule была восстановлена строго через `capsule_runtime_v4.py`; part/archive/workspace verification прошёл.
+В этом запуске manifest и обе parts повторно прочитаны из GitHub и совпали с записанными blob SHA/длинами. Локальная машина не имеет DNS-доступа к raw GitHub; поэтому не подменять обязательный `capsule_runtime_v4.py restore/pack` самодельной реализацией. Если новый pack не успел быть опубликован, текущий LATEST остаётся каноническим, а новые доказательства уже долговечно лежат в `autonomy/evidence/notion/`.
 
 ## NCM28 / Windows
 
@@ -45,66 +42,53 @@ Native Windows PowerShell reparse-point + overwrite/atomic replace semantics Н�
 
 ## Codex shell-env safety
 
-Real Codex project probe всё ещё нуждается в подготовленном integration-only hardening:
+Real Codex project probe всё ещё нуждается в integration-only hardening:
 ```toml
 [shell_environment_policy]
 inherit = "core"
 ignore_default_excludes = false
 ```
-Локально доказано, что эта политика не пропускает `NOTION_BRIDGE_API_KEY`, `RUNTIME_STATE_KEY` и тестовый AWS secret в model-reachable shell.
+Локально доказано, что эта политика не пропускает `NOTION_BRIDGE_API_KEY`, `RUNTIME_STATE_KEY` и тестовый AWS secret в model-reachable shell. До применения защиты живой Codex/Notion probe не запускать.
 
-Материалы:
-- `autonomy/evidence/notion/20260820T2255Z_codex_probe_shell_env_policy.json`;
-- `autonomy/evidence/notion/20260820T2255Z_codex_probe_shell_env_policy_candidate.patch`.
+## Core lifecycle: durable rendered Responses replay
 
-Из-за ZERO-MINUTE product PR #8 не мутировался. До применения этой защиты живой Codex/Notion probe не запускать.
+Fresh PR #8 всё ещё содержит два связанных Core-дефекта:
+1. same-process `TurnAffinityStore` хранит `completion_text`, а cache hit заново вызывает `responses_payload()`, поэтому новые UUID меняют `response_id`, output item id и tool `call_id`;
+2. persistent `ConversationSegmentStore` хранит progress/thread/fingerprints, но не готовый Responses result. После restart exact replay может иметь persisted progress без replayable protocol result.
 
-## Core lifecycle blocker 1: exact replay после restart
+В этом запуске проверен точный порядок свежего `server.py`: после provider completion сначала сохраняются `turn_affinities.put()` и `conversation_segments.put()`, и только ПОСЛЕ выхода из lease вызывается `responses_payload()`. Значит crash после segment save, но до render/HTTP способен оставить durable «обработано» без соответствующего tool-call ID.
 
-Fresh PR #8 правильно расширил persistent segment identity: prompt policy, engineer instructions, tools/tool_choice и structured output входят в fingerprint. Но отдельная restart-проблема воспроизведена:
-- `ConversationSegmentStore` переживает restart и хранит fingerprints + account/thread, но не replayable Responses result;
-- exact повтор уже обработанного Responses input даёт `segment_prefix == len(current_fingerprints)`;
-- `responses_incremental_body()` получает пустой delta и возвращает `None`;
-- in-memory `TurnAffinityStore` после restart пуст;
-- без non-empty incremental prompt сервер не продолжает сохранённый Notion thread и уходит в новый `initial_completion()`.
+### Доказанный минимальный инвариант
 
-Вердикт: `CODEX_RESTART_EXACT_REPLAY_NEW_THREAD_FALLBACK_REPRODUCED`.
+Отдельный replay-файл рядом с `conversation_segments.json` недостаточен: два независимых atomic rename всё равно оставляют окно crash между ними. Нужна одна атомарная публикация записи, которая одновременно содержит:
+- content-free request fingerprint;
+- segment progress/account/thread metadata;
+- уже отрендеренный completed Responses payload с окончательными `response_id`, item id и `call_id`.
 
-Материал: `autonomy/evidence/notion/20260821T0150Z_codex_restart_exact_replay_gap.json`.
+Offline crash-state matrix пройден:
+- crash после provider completion, но до атомарной публикации: provider retry разрешён, потому что durable progress ещё не опубликован;
+- crash после атомарной публикации, но до HTTP/SSE return: exact retry возвращает тот же stored replay без provider inference;
+- crash после return: тот же replay;
+- progress-without-replay через новый writer: недостижим;
+- legacy/corrupt progress-without-replay: fail closed, не новый plan.
 
-Подготовлен safety-only fail-closed candidate: exact persisted replay без живого response cache возвращает 409 `restart_replay_unavailable` вместо нового provider plan. Offline проверены границы exact replay/cache/appended tool result/history rewrite/compaction. Вердикт: `CODEX_RESTART_EXACT_REPLAY_FAIL_CLOSED_PREDICATE_PASS`.
+Вердикт: `DURABLE_RENDERED_REPLAY_ATOMIC_RECORD_MODEL_PASS`.
 
-Материалы:
-- `autonomy/evidence/notion/20260821T0155Z_codex_restart_exact_replay_failclosed_candidate.patch`;
-- `autonomy/evidence/notion/20260821T0155Z_codex_restart_exact_replay_failclosed_candidate.json`.
+Материал: `autonomy/evidence/notion/20260821T0305Z_durable_rendered_replay_atomic_record_model.json`.
 
-## Core lifecycle blocker 2: текущий response cache не идемпотентен
+### Реализационная граница
 
-Проверен даже обычный same-process cache path. `TurnAffinityStore` хранит `completion_text`, usage и provider affinity, но не готовый Responses payload. При cache hit сервер снова вызывает `responses_payload(completion_text, ...)`.
+Наиболее узкий безопасный путь — расширить persistent conversation record replay-полями и рендерить Responses result ДО единственного `conversation_segments.put()`. Этот `put()` должен атомарно публиковать progress+replay через уже используемый NCM28 atomic-write primitive. Same-process affinity либо хранит тот же rendered payload, либо cache hit сначала читает replay из persistent segment. SSE строится из сохранённого payload, а не повторным `responses_payload()`.
 
-`responses_payload()` при каждом рендере создаёт новые UUID для `response_id`, tool `call_id` и output item id. Детерминированный harness дважды отрендерил одну и ту же tool-рекомендацию: semantic text совпал, но все три протокольных ID различались.
-
-Вердикт: `RESPONSES_SEMANTIC_CACHE_NOT_IDEMPOTENT_REPRODUCED`.
-
-Материал: `autonomy/evidence/notion/20260821T0200Z_responses_cache_idempotency_gap.json`.
-
-Следствие: настоящий retry/restart recovery нельзя строить только на `completion_text`. Нужен durable rendered replay с устойчивыми response/item/call IDs либо эквивалентная детерминированная реконструкция.
-
-Минимальные invariants:
-1. content-free exact request fingerprint + conversation/turn identity + model/lifecycle boundary как replay key;
-2. replay value должен позволять без provider inference вернуть тот же completed Responses result и эквивалентный SSE stream, включая стабильные IDs;
-3. durable replay publication должна быть согласована с persistent segment progress — нельзя сохранить «request уже обработан», не имея matching replay;
-4. crash между provider completion, replay save, segment save и HTTP/SSE return должен давать либо тот же replay, либо fail closed, но не новый plan уже обработанного tool result;
-5. приватный owner prompt/секреты не хранить ради identity — использовать content-free fingerprints;
-6. 409 fail-closed candidate остаётся safety floor до готовности durable replay.
+Нельзя считать готовым до exact-source regression, который докажет стабильные IDs для non-stream + stream и crash/restart без второго provider call.
 
 ## Следующий порядок
 
-1. Восстановить текущий v4 `LATEST`, затем read-only проверить Windows digest; не перезапускать.
-2. Если всё ещё pending: спроектировать и локально доказать durable rendered Responses replay с устойчивыми IDs и атомарной связью с segment progress.
-3. Сделать offline crash-state matrix: provider completion до replay save; replay save до segment save; segment save до response return; exact retry после каждой точки. Требование — тот же replay без provider inference либо fail closed.
-4. Держать готовым shell-env hardening для real Codex probe; product push не делать до снятия ZERO-MINUTE.
-5. При первом разрешённом native Windows gate совместить auth-rollback callsite с PowerShell restore reparse/overwrite proof; без нового fanout.
-6. После Core gates: один bounded авторизованный `codex exec → bridge → Notion → local tool → verifier FAIL → tool result → fix → VERIFY_OK`, затем restart/recovery с доказанным отсутствием повторного локального side effect.
+1. Не перезапускать pending Windows digest; только read-only проверять новый факт.
+2. На exact свежем PR #8 подготовить bounded Core candidate: render response before durable publication; one atomic segment+replay record; exact replay before provider inference; fail closed for legacy progress-without-replay.
+3. Локально прогнать crash matrix уже на реальных классах `ConversationSegmentStore`/server helper: same-process retry, process restart, stream/non-stream, tool call и final text; provider stub обязан иметь call_count=1.
+4. Держать shell-env hardening для real Codex probe; product push не делать до снятия ZERO-MINUTE.
+5. При первом разрешённом native Windows gate совместить auth-rollback callsite с PowerShell restore proof; без нового fanout.
+6. После Core gates: один bounded авторизованный `codex exec → bridge → Notion → local tool → verifier FAIL → tool result → fix → VERIFY_OK`, затем restart/recovery без повторного локального side effect.
 
 Product PR #7/PR #8 не менялись; hosted CI, provider traffic и реальные пользовательские данные не трогались.

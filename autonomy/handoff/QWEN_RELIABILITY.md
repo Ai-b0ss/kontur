@@ -3,141 +3,107 @@
 Обновлено helper-проходом: 2026-08-22 00:20+03.
 
 ## Текущая линия
-
 Repo: `Ai-b0ss/qwen-free-api`
 Branch: `autopilot/qwen-runtime-preflight-20260818`
 PR: #6
-Последний наблюдавшийся PR head до очередной перепроверки: `a0ec9110da9fefb32700e8996d63df53ee818df8`.
-
-Перед любой записью перечитать свежий head/blob: параллельно работает QWEN_CORE.
+Последний наблюдавшийся head: `a0ec9110da9fefb32700e8996d63df53ee818df8`.
+Перед записью перечитать fresh head/blob: параллельно пишет QWEN_CORE.
 
 ## Уже доказано — не исследовать заново
-
-- account-local ошибки отделены от provider-wide WAF/trust/pressure;
-- CAPTCHA/rate-limit/expired auth имеют bounded failover; provider circuit останавливает sibling probing;
-- account/thread affinity и fresh-thread failover закрыты;
-- configured-but-none-eligible => `503 QWEN_NO_ELIGIBLE_ACCOUNT`, no accounts => `401`;
-- cooldown/provider cooldown монотонны;
-- stale preferred object и removed account не оживают через detached state;
+- account-local vs provider-wide failure разделены;
+- bounded failover/cooldown/provider circuit/account-thread affinity закрыты;
+- no eligible => 503, no accounts => 401;
+- stale preferred/removed account не оживают;
 - request-wide retry имеет общий distinct-account budget;
-- local preparation/persistence errors не маскируются как provider failure;
-- account/provider/session durable replacement не откатывается из-за cleanup-only ошибки после commit point;
-- expired provider circuit при неподтверждённой cleanup остаётся fail-closed;
-- pending mutating tool call блокирует replay; tool calls не выпускаются без durable checkpoint;
-- late stream CAPTCHA/transport и empty/metadata/terminal-only SSE классифицируются безопасно;
-- session primary после parent fsync не откатывается из-за backup cleanup failure.
+- local persistence errors не маскируются как provider errors;
+- account/provider/session post-commit cleanup не откатывает новый durable safety state;
+- pending mutating tool call блокирует replay;
+- stream tool calls не выпускаются до durable checkpoint;
+- late stream CAPTCHA/transport/empty SSE закрыты;
+- session stale-backup recovery fail-closed.
 
-## Уже внесено helper-проходом
+## Helper уже внёс в product
+- `7e42457c...` — stale subagent backup, не знающий batch-id, создаёт `uncertain`, не `pending`;
+- `91e4c558...` — missing-batch regression;
+- `a9e074f3...` — runner: 0 auto calls, 1 explicit retry, затем durable done;
+- `cc70c65...` — regression в `npm test`;
+- `df0f83e8...` — `run_command` тоже possible side effect;
+- `a0ec9110...` — regression.
 
-Stale subagent backup закрыт глубже первоначального fix:
-- `7e42457c05fe55d673af92100ecdaf8aa1c1fff3` — stale backup, не знающий batch-id, создаёт новый batch `uncertain`, не `pending`;
-- `91e4c5584f32fed18ff05fde983a4348d95bf64d` — missing-batch regression;
-- `a9e074f3a9bf57c2f5152e9916f07e2d22f83dfb` — runner regression: 0 auto calls, 1 explicit retry, затем durable done без повтора;
-- `cc70c65a5f5c1cc9172f62d9430de6f5d47e513b` — regression включён в штатный `npm test`.
+Fresh audit: `session-store`, `account-store`, `provider-circuit`, `chat-store` не имеют незакрытого stale-backup replay этого класса. `tool-memo` — вспомогательная recall timeline, не authoritative gate.
 
-Defence-in-depth:
-- `df0f83e8e96cd459d81cc054131e0110b95c435c` — `run_command` классифицируется как possible side effect;
-- `a0ec9110da9fefb32700e8996d63df53ee818df8` — regression.
-Стандартный agent сейчас наружу объявляет `bash`, поэтому это future-compatibility, не основной production replay path.
+## Главный незакрытый gate: global WAF/request-governor durability
+Исходный `WAFMIN2R1` мог fail-open при corrupt state и имел слабую запись.
 
-Fresh audit stale-backup класса:
-- `session-store`: fallback recovery уже uncertainty-gated;
-- `account-store`: `.txn-backup-*` не authoritative fallback;
-- `provider-circuit`: corrupt/invalid canonical => fail-closed;
-- `chat-store`: stale-backup fallback отсутствует;
-- `tool-memo`: weak persistence, но это вспомогательная recall timeline, не authoritative side-effect gate.
-
-## Главный незакрытый Reliability gate: global WAF/request-governor durability
-
-Доказанный исходный дефект `src/request-governor.js` additive `WAFMIN2R1`:
-- read/JSON failure мог превращать persisted global pressure state в пустое healthy state;
-- старый save-path недостаточно crash-safe.
-
-Дополнительный helper-red-team доказал, что V4+V5 тоже были НЕ финальны:
-- V5 ставил process-local `persistenceUncertain` после failed outcome save;
-- но если rollback возвращал старый valid canonical, после process/module restart memory latch исчезал;
-- свежий процесс доверял pre-WAF canonical и снова допускал provider traffic.
-
-Локальный source-shaped repro:
-`V5_RESTART_GAP_REPRODUCED provider_admission_after_restart=1`.
-
-Следовательно V5 без V6 НЕ применять как завершённое решение.
+Red-team последовательных кандидатов:
+- V4: atomic durable state + telemetry boundary;
+- V5: semantic validation + recovery-dir failure;
+- V5 всё ещё оказался недостаточен: failed outcome save ставил только process-local latch, а restart после успешного rollback снова доверял старому pre-WAF canonical.
+  Repro: `V5_RESTART_GAP_REPRODUCED provider_admission_after_restart=1`.
+- V6 добавляет durable pre-provider `.inflight-*` effect gate; source-shaped proof:
+  - `V6_INFLIGHT_GATE_PASS normal_cleanup=1 failed_outcome_restart_blocked=1`
+  - `V6_MARKER_CREATE_FAIL_CLOSED_PASS provider_gate_rejected=1`
+- V7 закрывает миграционный txn-artifact угол: valid older cleanup backup не блокирует, но newer/unreadable tmp/backup относительно canonical считается ambiguous safety state.
+  Source-shaped proof: `V7_ARTIFACT_ORDER_PASS stale_cleanup=1 newer_candidate_blocked=1`.
 
 ## Единственный актуальный bundle
-
-На свежие exact blobs применять последовательно:
-
+На fresh exact blobs применить строго последовательно:
 1. `autonomy/v3/candidates/QWEN_RELIABILITY_GLOBAL_GOVERNOR_DURABILITY_V4_20260821.patch`
 2. `autonomy/v3/candidates/QWEN_RELIABILITY_GLOBAL_GOVERNOR_DURABILITY_V5_DELTA_20260822.patch`
 3. `autonomy/v3/candidates/QWEN_RELIABILITY_GLOBAL_GOVERNOR_DURABILITY_V6_INFLIGHT_GATE_20260822.patch`
+4. `autonomy/v3/candidates/QWEN_RELIABILITY_GLOBAL_GOVERNOR_DURABILITY_V7_ARTIFACT_ORDER_20260822.patch`
 
-V6 — обязательная финальная дельта к V4+V5.
+V4/V5/V6 по отдельности НЕ считать финальными.
 
-### Целевой контракт V4+V5+V6
+## Финальный целевой контракт V4+V5+V6+V7
+Persisted state:
+- corrupt/semantic-invalid/range-invalid v3 => `QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN` до provider traffic;
+- negative counters/tokens/timestamps не нормализуются в healthy;
+- настоящий first start разрешён только при доказанном clean ENOENT;
+- recovery directory inspection failure => fail-closed.
 
-Persisted-state validation:
-- corrupt JSON => `QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN` до provider traffic;
-- syntactically valid but semantically invalid state (`{}`, wrong/missing v3 fields) => fail-closed;
-- отрицательные safety counters/tokens/timestamps не нормализуются в более слабое healthy state;
-- missing canonical + owned `.tmp-*`/`.txn-backup-*` => fail-closed;
-- невозможность проверить recovery directory => fail-closed;
-- настоящий первый старт: ENOENT + доступный каталог + no recovery/inflight artifacts => разрешён.
+Atomic state:
+- temp fsync -> old canonical to txn backup -> install -> parent fsync -> cleanup best-effort;
+- pre-commit failure => process-local `persistenceUncertain`;
+- post-commit cleanup не откатывает canonical;
+- telemetry не роняет процесс после уже отправленного ответа.
 
-Atomic outcome state:
-- temp + file fsync -> old canonical to txn backup -> install -> parent fsync -> cleanup best-effort;
-- failure before commit point ставит process-local `persistenceUncertain`;
-- cleanup-only failure после подтверждённого commit не откатывает новое состояние;
-- `quota-telemetry.finish()` не роняет процесс после уже отправленного ответа при governor persistence error.
+Durable provider-effect gate:
+- до успешного возврата provider-facing `before()` durably создаётся `.inflight-*` marker;
+- marker write failure => provider admission reject;
+- локальная ошибка до provider удаляет именно свой marker;
+- outcome сначала durably записывается, только затем marker удаляется;
+- failed outcome save/crash оставляет marker, restart fail-closed даже при valid canonical;
+- recent/invalid/unreadable marker => fail-closed;
+- orphan marker старше 2h может auto-clean только с durable cleanup: longest global WAF penalty 1h, strike reset 45m;
+- same-account concurrency сохраняет число unresolved outcomes через marker queue.
 
-Durable provider-effect gate (V6):
-- перед тем как provider-facing `before()` сможет успешно вернуться, создаётся и fsync-ится per-request `.inflight-*` marker;
-- marker write failure => `before()` rejects, поэтому provider traffic не разрешён;
-- если локальный admission падает до provider traffic, удаляется именно marker этого request, не sibling marker;
-- успешный outcome сначала durably сохраняет global state и только затем удаляет один inflight marker;
-- failed outcome save оставляет marker на диске;
-- restart при recent/invalid/unreadable inflight marker => fail-closed даже если canonical JSON сам по себе валиден;
-- orphan marker старше 2h может быть conservative-auto-cleaned: longest global WAF penalty = 1h, strike reset = 45m; cleanup itself must be durable or remain fail-closed;
-- same-account concurrent requests use marker queue; result order may differ, but marker count preserves number of unresolved outcomes.
-
-### Helper proof boundary
-
-На локальной source-shaped модели текущей branch-логики V6 прошёл:
-- `V6_INFLIGHT_GATE_PASS normal_cleanup=1 failed_outcome_restart_blocked=1`
-- `V6_MARKER_CREATE_FAIL_CLOSED_PASS provider_gate_rejected=1`
-
-Это НЕ full exact-tree PASS и не live provider proof. Worker обязан применить bundle к fresh exact blobs и повторить tests.
+Txn artifacts V7:
+- artifact с valid state и `updatedAt <= canonical.updatedAt` доказанно cleanup-only: не блокирует, cleanup best-effort;
+- newer/unreadable/invalid artifact или artifact при missing canonical => ambiguous, fail-closed;
+- это позволяет безопасно пережить legacy `.tmp/.txn-backup` без вечной остановки и без игнорирования более нового safety state.
 
 ## Обязательные targeted checks
-
-После V4+V5+V6, до подключения в общий test chain:
-
+После полного bundle:
 `node scripts/request-governor-durable-state-test.js`
 `node scripts/request-governor-inflight-gate-test.js`
 `node scripts/request-governor-inflight-marker-failure-test.js`
+`node scripts/request-governor-artifact-order-test.js`
 `node scripts/quota-telemetry-governor-failure-test.js`
 `node --check src/request-governor.js`
 `node --check src/quota-telemetry.js`
 
-Ключевые expected markers:
-- durable state: `corrupt=1 semantic_invalid=1 range_invalid=1 orphan_artifact=1 artifact_inspection_failure=1 clean_enoent=1 rollback=1 save_failure_latch=1`;
+Expected markers минимум:
+- durable: `corrupt=1 semantic_invalid=1 range_invalid=1 ... rollback=1 save_failure_latch=1`;
 - inflight: `normal_cleanup=1 failed_outcome_restart_blocked=1`;
-- marker-create: `provider_gate_rejected=1`.
+- marker-create: `provider_gate_rejected=1`;
+- artifact-order: `stale_cleanup=1 newer_candidate_blocked=1`.
 
-После targeted PASS добавить новые regressions в свежий exact `npm test` отдельной минимальной правкой и прогнать reliability cluster / полный suite, если exact tree материализуем.
+Только после targeted PASS включить новые tests в fresh exact `npm test` минимальной правкой и прогнать reliability/full suite, если exact tree материализуем.
 
 ## Постоянная память
+Последний проверенный Reliability LATEST: `20260821T200001Z-8a7c1e4d7a`, archive SHA-256 `96e35c1aca7cf7149fbce0903e9a290c2a24e145718a4643a15d96479ef4b979`.
+`20260821T205035Z-f383f6aa87` — НЕВАЛИДНЫЙ pack, не использовать.
 
-Последний проверенный нормативный Reliability LATEST до helper-прохода:
-- capsule `20260821T200001Z-8a7c1e4d7a`;
-- archive SHA-256 `96e35c1aca7cf7149fbce0903e9a290c2a24e145718a4643a15d96479ef4b979`.
-
-Попытка pack `20260821T205035Z-f383f6aa87` была признана НЕВАЛИДНОЙ и не публиковалась. Не восстанавливать её и не реконструировать неизвестные bytes.
-
-Если нормативный v4 runtime материализуем — verify/restore текущий LATEST. Иначе разрешён exact GitHub source + этот handoff как recovery floor.
-
-## После global-governor gate
-
-1. Повторно проверить fresh PR diff на новые persisted safety stores, появившиеся параллельно.
-2. Не переделывать закрытые cleanup-after-commit классы без нового воспроизводимого нарушения.
-3. Если targeted/full regression green — переходить к финальным restart/failover/live gates, а не бесконечно искать косметику.
-4. Live Qwen/provider traffic, GitHub Actions/CircleCI/Cloudflare не запускать без отдельной необходимости/разрешённого режима.
+## После gate
+Если targeted/full regression green — переходить к финальным restart/failover/live gates, а не продолжать косметический аудит. Live Qwen/provider, GitHub Actions/CircleCI/Cloudflare без отдельной необходимости/разрешённого режима не запускать.

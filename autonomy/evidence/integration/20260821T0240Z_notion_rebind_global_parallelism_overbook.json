@@ -1,0 +1,37 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "NOTION_REBIND_PER_GENERATION_PARALLELISM_OVERBOOKS_SERVER_LIMIT",
+  "verdict": "REPRODUCED_AND_MINIMAL_GLOBAL_GATE_CONTRACT_PASS",
+  "source": {
+    "repo": "Ai-b0ss/notion-agent-bridge",
+    "pr": 8,
+    "head": "9cd1a98ee1d1c85a9d3650c6d756852810a055f3",
+    "server_subagent_lifecycle_blob": "271e4f58c6239852b32bafac855534aadda1b830",
+    "lifecycle_drain_test_blob": "b907a93b6ef799095a059aa6574e598a30ac9895"
+  },
+  "observed_contract": [
+    "Every rebound entrypoint owns a separate SubagentLifecycle maximum_parallel semaphore.",
+    "rebind_pool_and_drain publishes the replacement before the retired generation drains.",
+    "Existing tests intentionally allow a new child to run on the replacement while an old child remains active."
+  ],
+  "reproduction": {
+    "configured_maximum_parallel": 2,
+    "old_generation_active": 2,
+    "new_generation_active_before_old_drain": 2,
+    "peak_provider_concurrency": 4,
+    "expected_server_wide_peak": 2
+  },
+  "risk": "During auth/runtime pool refresh the configured server-wide child parallelism can multiply by the number of overlapping generations. This can overbook legitimate provider slots, amplify rate-limit pressure and make the advertised maximum_parallel no longer bound actual provider work.",
+  "candidate_contract": {
+    "rule": "One ServerSubagentLifecycle-wide semaphore must span all entrypoint generations.",
+    "ordering": "Capture and account the entrypoint before waiting for the global permit so drain still protects an old pool from queued launches that already captured it.",
+    "provider_concurrency_peak_in_probe": 2,
+    "rebind_remains_nonblocking_for_publication": true
+  },
+  "probe": "autonomy/v3/tools/integration_notion_rebind_global_parallelism_probe.py",
+  "limits": [
+    "No product file changed.",
+    "No hosted CI/provider/live/Windows/production/secrets."
+  ]
+}

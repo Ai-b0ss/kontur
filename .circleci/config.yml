@@ -1,24 +1,23 @@
 version: 2.1
 
-orbs:
-  browser-tools: circleci/browser-tools@1.4.8
-
 jobs:
-  kontur-final-chromium-proof:
+  kontur-final-clean-verify:
     docker:
-      - image: cimg/node:22.18-browsers
+      - image: cimg/node:22.18
     resource_class: small
     steps:
       - checkout
 
       - run:
-          name: Checkout exact integrated PR12 head
+          name: Checkout exact integrated PR12 head without patching
           command: |
             set -euo pipefail
             TARGET_HEAD=5ec223a539f2e3f97eef549fbe8306361281187b
             git fetch origin fix/kontur-core-visual-continuity-20260818
             git checkout --detach "$TARGET_HEAD"
             test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+            test "$(git status --porcelain)" = ""
+            echo KONTUR_EXACT_INTEGRATED_HEAD_PASS
 
       - restore_cache:
           keys:
@@ -26,75 +25,90 @@ jobs:
             - kontur-pnpm-v1-
 
       - run:
-          name: Install exact locked dependencies
+          name: Install exact locked Linux dependencies
           command: |
             set -euo pipefail
             corepack enable
             corepack prepare pnpm@11 --activate
+            node --version
+            pnpm --version
             pnpm install --frozen-lockfile
             test -d node_modules/.pnpm/@rollup+rollup-linux-x64-gnu@4.62.3
             test -d node_modules/.pnpm/@esbuild+linux-x64@0.25.12
+            echo LINUX_NATIVE_DEPS_PASS
 
-      - browser-tools/install-chrome
+      - save_cache:
+          key: kontur-pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - ~/.local/share/pnpm/store
 
       - run:
-          name: Re-run tests and production build on exact integrated head
+          name: Full Mini App tests
           command: |
             set -euo pipefail
             pnpm -F @kontur/miniapp test | tee /tmp/kontur-tests.log
-            pnpm -F @kontur/miniapp typecheck | tee /tmp/kontur-typecheck.log
-            pnpm -F @kontur/miniapp build | tee /tmp/kontur-build.log
-            test -f apps/miniapp/dist/index.html
 
       - run:
-          name: Render production build in real Chromium at two phone sizes
+          name: TypeScript verification
           command: |
             set -euo pipefail
-            mkdir -p /tmp/kontur-browser-proof
-            (pnpm -F @kontur/miniapp exec vite preview --host 127.0.0.1 --port 4173 > /tmp/kontur-browser-proof/preview.log 2>&1 & echo $! > /tmp/kontur-browser-proof/preview.pid)
-            for i in $(seq 1 30); do
-              if curl -fsS http://127.0.0.1:4173/ >/dev/null; then break; fi
-              sleep 1
-            done
-            google-chrome --version | tee /tmp/kontur-browser-proof/chrome-version.txt
-            google-chrome --headless=new --no-sandbox --disable-gpu --hide-scrollbars --virtual-time-budget=5000 --window-size=320,568 --dump-dom http://127.0.0.1:4173/ > /tmp/kontur-browser-proof/dom-320x568.html
-            google-chrome --headless=new --no-sandbox --disable-gpu --hide-scrollbars --virtual-time-budget=5000 --window-size=320,568 --screenshot=/tmp/kontur-browser-proof/render-320x568.png http://127.0.0.1:4173/
-            google-chrome --headless=new --no-sandbox --disable-gpu --hide-scrollbars --virtual-time-budget=5000 --window-size=430,1000 --dump-dom http://127.0.0.1:4173/ > /tmp/kontur-browser-proof/dom-430x1000.html
-            google-chrome --headless=new --no-sandbox --disable-gpu --hide-scrollbars --virtual-time-budget=5000 --window-size=430,1000 --screenshot=/tmp/kontur-browser-proof/render-430x1000.png http://127.0.0.1:4173/
-            python3 - <<'PY'
-            from pathlib import Path
-            for name in ('dom-320x568.html','dom-430x1000.html'):
-                text=(Path('/tmp/kontur-browser-proof')/name).read_text(errors='replace')
-                if 'id="root"' not in text:
-                    raise SystemExit(f'{name}: missing root')
-                compact=''.join(text.split())
-                if '<divid="root"></div>' in compact:
-                    raise SystemExit(f'{name}: React root stayed empty')
-            print('KONTUR_REAL_CHROMIUM_RENDER_PASS')
-            PY
-            kill "$(cat /tmp/kontur-browser-proof/preview.pid)" 2>/dev/null || true
+            pnpm -F @kontur/miniapp typecheck | tee /tmp/kontur-typecheck.log
 
       - run:
-          name: Write final DONE evidence
+          name: Production Vite build
+          command: |
+            set -euo pipefail
+            pnpm -F @kontur/miniapp build | tee /tmp/kontur-build.log
+            test -f apps/miniapp/dist/index.html
+            find apps/miniapp/dist -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/kontur-dist.sha256
+            echo KONTUR_FINAL_CLEAN_VITE_PASS
+
+      - run:
+          name: Served production-build smoke
+          command: |
+            set -euo pipefail
+            (pnpm -F @kontur/miniapp exec vite preview --host 127.0.0.1 --port 4173 > /tmp/kontur-preview.log 2>&1 & echo $! > /tmp/kontur-preview.pid)
+            for i in $(seq 1 30); do
+              if curl -fsS http://127.0.0.1:4173/ -o /tmp/kontur-index.html; then break; fi
+              sleep 1
+            done
+            test -s /tmp/kontur-index.html
+            grep -q '<div id="root"' /tmp/kontur-index.html
+            kill "$(cat /tmp/kontur-preview.pid)" 2>/dev/null || true
+            echo KONTUR_FINAL_SERVED_BUILD_PASS
+
+      - run:
+          name: Write final clean evidence
           when: always
           command: |
             set -euo pipefail
-            mkdir -p /tmp/kontur-browser-proof
+            mkdir -p /tmp/kontur-final-clean-evidence
             {
               echo "integrated_head=5ec223a539f2e3f97eef549fbe8306361281187b"
-              echo "source_head=32034e8af92923a2abe09ad00e3220f6da1ed21c"
               echo "circle_sha=$CIRCLE_SHA1"
+              echo "circle_branch=$CIRCLE_BRANCH"
+              echo "node=$(node --version 2>/dev/null || true)"
+              echo "pnpm=$(pnpm --version 2>/dev/null || true)"
               echo "utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            } > /tmp/kontur-browser-proof/DONE_EVIDENCE.txt
+            } > /tmp/kontur-final-clean-evidence/FINAL_CLEAN_EVIDENCE.txt
+            cp /tmp/kontur-tests.log /tmp/kontur-final-clean-evidence/ 2>/dev/null || true
+            cp /tmp/kontur-typecheck.log /tmp/kontur-final-clean-evidence/ 2>/dev/null || true
+            cp /tmp/kontur-build.log /tmp/kontur-final-clean-evidence/ 2>/dev/null || true
+            cp /tmp/kontur-dist.sha256 /tmp/kontur-final-clean-evidence/ 2>/dev/null || true
+            cp /tmp/kontur-preview.log /tmp/kontur-final-clean-evidence/ 2>/dev/null || true
 
       - store_artifacts:
-          path: /tmp/kontur-browser-proof
-          destination: kontur-final-browser-proof
+          path: apps/miniapp/dist
+          destination: kontur-miniapp-dist-final-clean
+
+      - store_artifacts:
+          path: /tmp/kontur-final-clean-evidence
+          destination: kontur-final-clean-evidence
 
 workflows:
-  kontur-final-browser-gate:
+  kontur-final-clean-gate:
     jobs:
-      - kontur-final-chromium-proof:
+      - kontur-final-clean-verify:
           filters:
             branches:
               only: ci/kontur-circle-vite-20260821

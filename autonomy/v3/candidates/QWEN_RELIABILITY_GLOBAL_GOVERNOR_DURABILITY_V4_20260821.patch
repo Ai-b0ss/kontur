@@ -1,0 +1,287 @@
+*** Begin Patch
+*** Update File: src/request-governor.js
+@@
+   const __w2WAF_PENALTIES = [120_000,300_000,600_000,900_000,1_800_000,3_600_000];
+ 
+   function __w2sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
++  function __w2syncParent(target){
++    if(process.platform==='win32')return;
++    let fd=null;
++    try{
++      fd=__w2fs.openSync(__w2path.dirname(target),'r');
++      __w2fs.fsyncSync(fd);
++    }catch(error){
++      if(!error||!['EINVAL','ENOTSUP','EOPNOTSUPP'].includes(error.code))throw error;
++    }finally{
++      if(fd!==null){try{__w2fs.closeSync(fd)}catch(_){}}
++    }
++  }
++  function __w2uncertainError(reason){
++    const error=new Error('Global request-governor state is uncertain: '+String(reason||'unreadable state'));
++    error.code='QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN';
++    return error;
++  }
++  function __w2hasRecoveryArtifacts(){
++    const dir=__w2path.dirname(__w2STATE),base=__w2path.basename(__w2STATE);
++    try{
++      return __w2fs.readdirSync(dir).some(name=>
++        name.startsWith(base+'.txn-backup-')||name.startsWith(base+'.tmp-')
++      );
++    }catch(_){return false;}
++  }
+   function __w2load(){
+-    let x={};
+-    try{x=JSON.parse(__w2fs.readFileSync(__w2STATE,'utf8'))}catch(_){}
++    let x={};
++    let recoveryUncertain=false;
++    try{
++      x=JSON.parse(__w2fs.readFileSync(__w2STATE,'utf8'));
++      if(!x||typeof x!=='object'||Array.isArray(x))throw new Error('invalid global governor state');
++    }catch(error){
++      // ENOENT is a clean first start only when there is no evidence of an
++      // interrupted transaction. A missing canonical beside our tmp/backup
++      // artifacts is ambiguous and must not silently reopen provider traffic.
++      if(!error||error.code!=='ENOENT'||__w2hasRecoveryArtifacts())recoveryUncertain=true;
++      x={};
++    }
+     return {
+@@
+-      lastFailureKind:String(x.lastFailureKind||'')
++      lastFailureKind:String(x.lastFailureKind||''),
++      recoveryUncertain,
++      persistenceUncertain:false
+     };
+   }
+   let __w2g=__w2load(), __w2gate=Promise.resolve();
+   function __w2save(){
++    if(__w2g.recoveryUncertain||__w2g.persistenceUncertain){
++      throw __w2uncertainError(__w2g.recoveryUncertain?'canonical state could not be proven':'a previous durable save failed');
++    }
+     __w2fs.mkdirSync(__w2path.dirname(__w2STATE),{recursive:true});
+@@
+-    const tmp=__w2STATE+'.tmp-'+process.pid+'-'+__w2crypto.randomBytes(3).toString('hex');
+-    __w2fs.writeFileSync(tmp,JSON.stringify(d,null,2),'utf8');
+-    try{__w2fs.renameSync(tmp,__w2STATE)}catch(e){try{__w2fs.rmSync(__w2STATE,{force:true});__w2fs.renameSync(tmp,__w2STATE)}catch(_){try{__w2fs.rmSync(tmp,{force:true})}catch(__){}}}
++    const suffix=process.pid+'-'+__w2crypto.randomBytes(6).toString('hex');
++    const tmp=__w2STATE+'.tmp-'+suffix;
++    const backup=__w2STATE+'.txn-backup-'+suffix;
++    let fd=null,movedOriginal=false,installed=false,committed=false;
++    try{
++      fd=__w2fs.openSync(tmp,'wx',0o600);
++      __w2fs.writeFileSync(fd,JSON.stringify(d,null,2),'utf8');
++      __w2fs.fsyncSync(fd);
++      __w2fs.closeSync(fd);fd=null;
++      if(__w2fs.existsSync(__w2STATE)){
++        __w2fs.renameSync(__w2STATE,backup);movedOriginal=true;
++      }
++      __w2fs.renameSync(tmp,__w2STATE);installed=true;
++      __w2syncParent(__w2STATE);committed=true;
++      if(movedOriginal){
++        try{__w2fs.rmSync(backup,{force:true})}catch(_){}
++        try{__w2syncParent(__w2STATE)}catch(_){}
++      }
++    }catch(error){
++      // Even when rollback succeeds we no longer know that every safety update
++      // associated with this process is durable. Latch the process closed.
++      __w2g.persistenceUncertain=true;
++      if(fd!==null){try{__w2fs.closeSync(fd)}catch(_){}fd=null;}
++      if(!committed){
++        try{
++          if(installed&&__w2fs.existsSync(__w2STATE))__w2fs.rmSync(__w2STATE,{force:true});
++          if(movedOriginal&&__w2fs.existsSync(backup))__w2fs.renameSync(backup,__w2STATE);
++          try{__w2syncParent(__w2STATE)}catch(_){}
++        }catch(_){}
++      }
++      try{__w2fs.rmSync(tmp,{force:true})}catch(_){}
++      throw error;
++    }finally{
++      if(fd!==null){try{__w2fs.closeSync(fd)}catch(_){} }
++      try{__w2fs.rmSync(tmp,{force:true})}catch(_){}
++    }
+   }
+@@
+   async function __w2admit(){
++    if(__w2g.recoveryUncertain||__w2g.persistenceUncertain){
++      throw __w2uncertainError(__w2g.recoveryUncertain?'canonical state could not be proven':'a previous durable save failed');
++    }
+     let now=Date.now();__w2prune(now);
+@@
+-      starts_10s:__w2g.starts.length,penalty_until:__w2g.penaltyUntil||0,waf_strikes:__w2g.wafStrikes
++      starts_10s:__w2g.starts.length,penalty_until:__w2g.penaltyUntil||0,waf_strikes:__w2g.wafStrikes,
++      state_uncertain:Boolean(__w2g.recoveryUncertain||__w2g.persistenceUncertain)
+     }};
+   };
+ })();
+*** Update File: src/quota-telemetry.js
+@@
+   const status = classify(run, statusCode);
+   // GOVERNOR_V22_OUTCOME
+-  if (status === 'ok') {
+-    requestGovernor.success(run.account_id, run.usage);
+-  } else {
+-    requestGovernor.failure(run.account_id, String(run.error || status));
++  try {
++    if (status === 'ok') {
++      requestGovernor.success(run.account_id, run.usage);
++    } else {
++      requestGovernor.failure(run.account_id, String(run.error || status));
++    }
++  } catch (error) {
++    // The response is already finishing/finished here. Keep the governor's
++    // in-memory fail-closed latch, log the durability failure, but do not let an
++    // EventEmitter finish/close callback crash the process after client commit.
++    console.error(
++      `[QUOTA] governor outcome persistence failed code=${String(error?.code || 'unknown')} ` +
++      `message=${String(error?.message || error).slice(0, 240)}`
++    );
+   }
+*** Add File: scripts/request-governor-durable-state-test.js
++'use strict';
++
++const assert = require('assert');
++const fs = require('fs');
++const os = require('os');
++const path = require('path');
++
++const root = fs.mkdtempSync(path.join(os.tmpdir(), 'qwen-governor-durable-'));
++const stateFile = path.join(root, 'global-pressure.json');
++const modulePath = require.resolve('../src/request-governor');
++const previousFile = process.env.QWEN_WAFMIN2_STATE_FILE;
++
++function loadGovernor() {
++  delete require.cache[modulePath];
++  process.env.QWEN_WAFMIN2_STATE_FILE = stateFile;
++  return require('../src/request-governor');
++}
++
++(async () => {
++  try {
++    // Corrupt canonical: never interpret as empty healthy pressure state.
++    fs.writeFileSync(stateFile, '{corrupt global governor state', 'utf8');
++    let governor = loadGovernor();
++    await assert.rejects(
++      () => governor.before('account-a', { chars: 100 }),
++      (error) => error && error.code === 'QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN',
++    );
++
++    // Missing canonical plus our own transaction artifact is also ambiguous.
++    fs.rmSync(stateFile, { force: true });
++    const orphanBackup = `${stateFile}.txn-backup-orphan`;
++    fs.writeFileSync(orphanBackup, '{}', 'utf8');
++    governor = loadGovernor();
++    await assert.rejects(
++      () => governor.before('account-a', { chars: 100 }),
++      (error) => error && error.code === 'QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN',
++      'ENOENT beside transaction artifacts must not be treated as clean start',
++    );
++    fs.rmSync(orphanBackup, { force: true });
++
++    // Genuine first start: no canonical and no recovery artifacts.
++    governor = loadGovernor();
++    await governor.before('account-a', { chars: 100 });
++    assert.ok(fs.existsSync(stateFile));
++    const acknowledged = fs.readFileSync(stateFile, 'utf8');
++
++    // Fail after old canonical was moved aside but before new commit.
++    const originalRenameSync = fs.renameSync;
++    let injected = false;
++    fs.renameSync = (from, to) => {
++      if (!injected && String(to) === stateFile && String(from).includes('.tmp-')) {
++        injected = true;
++        const error = new Error('simulated governor replacement failure');
++        error.code = 'EIO';
++        throw error;
++      }
++      return originalRenameSync(from, to);
++    };
++    try {
++      assert.throws(
++        () => governor.failure('account-a', 'WAF_CAPTCHA_CHALLENGE'),
++        (error) => error && error.code === 'EIO',
++      );
++    } finally {
++      fs.renameSync = originalRenameSync;
++    }
++    assert.ok(injected);
++    assert.strictEqual(fs.readFileSync(stateFile, 'utf8'), acknowledged);
++    await assert.rejects(
++      () => governor.before('account-b', { chars: 100 }),
++      (error) => error && error.code === 'QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN',
++      'unconfirmed durable save must latch this process closed',
++    );
++
++    console.log('REQUEST_GOVERNOR_DURABLE_STATE_PASS corrupt=1 orphan_artifact=1 clean_enoent=1 rollback=1 save_failure_latch=1');
++  } finally {
++    if (previousFile === undefined) delete process.env.QWEN_WAFMIN2_STATE_FILE;
++    else process.env.QWEN_WAFMIN2_STATE_FILE = previousFile;
++    delete require.cache[modulePath];
++    fs.rmSync(root, { recursive: true, force: true });
++  }
++})().catch((error) => {
++  console.error(error && error.stack ? error.stack : error);
++  process.exitCode = 1;
++});
+*** Add File: scripts/quota-telemetry-governor-failure-test.js
++'use strict';
++
++const assert = require('assert');
++const fs = require('fs');
++
++const governorPath = require.resolve('../src/request-governor');
++const telemetryPath = require.resolve('../src/quota-telemetry');
++const originalGovernor = require.cache[governorPath];
++
++const persistenceError = new Error('simulated governor durability failure after response');
++persistenceError.code = 'EIO';
++require.cache[governorPath] = {
++  id: governorPath,
++  filename: governorPath,
++  loaded: true,
++  exports: {
++    success: () => { throw persistenceError; },
++    failure: () => { throw persistenceError; },
++  },
++};
++
++const originalAppend = fs.appendFileSync;
++const originalWrite = fs.writeFileSync;
++const originalRename = fs.renameSync;
++const originalMkdir = fs.mkdirSync;
++const originalRead = fs.readFileSync;
++
++try {
++  fs.appendFileSync = () => {};
++  fs.writeFileSync = () => {};
++  fs.renameSync = () => {};
++  fs.mkdirSync = () => {};
++  fs.readFileSync = () => { const e = new Error('missing telemetry summary'); e.code = 'ENOENT'; throw e; };
++
++  delete require.cache[telemetryPath];
++  const telemetry = require('../src/quota-telemetry');
++  const run = {
++    id: 'test-run',
++    startedAt: Date.now(),
++    started_at: new Date().toISOString(),
++    model: 'test',
++    stream: false,
++    input_chars: 1,
++    message_count: 1,
++    account_id: 'account-a',
++    usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
++    error: '',
++    finished: false,
++  };
++  assert.doesNotThrow(() => telemetry.finish(run, { statusCode: 200 }));
++  assert.strictEqual(run.finished, true);
++  console.log('QUOTA_TELEMETRY_GOVERNOR_FAILURE_ISOLATION_PASS finish_does_not_throw=1');
++} finally {
++  fs.appendFileSync = originalAppend;
++  fs.writeFileSync = originalWrite;
++  fs.renameSync = originalRename;
++  fs.mkdirSync = originalMkdir;
++  fs.readFileSync = originalRead;
++  delete require.cache[telemetryPath];
++  if (originalGovernor) require.cache[governorPath] = originalGovernor;
++  else delete require.cache[governorPath];
++}
+*** End Patch

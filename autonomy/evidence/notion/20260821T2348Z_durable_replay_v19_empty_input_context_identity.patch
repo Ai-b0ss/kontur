@@ -1,6 +1,6 @@
 # Apply after the V12/V17/V14/V15/V16/V18 durable-replay chain.
 # V19 closes the zero-input segment identity gap: per-item fingerprints cannot
-# carry tool/prompt/response-format context when Responses input is empty.
+# carry tool/prompt/response-format/request-kind context when Responses input is empty.
 
 diff --git a/payload/conversation_segments.py b/payload/conversation_segments.py
 --- a/payload/conversation_segments.py
@@ -13,8 +13,11 @@ diff --git a/payload/conversation_segments.py b/payload/conversation_segments.py
      )
 +
 +
-+def response_context_fingerprint(body: dict[str, Any]) -> str:
++def response_context_fingerprint(
++    body: dict[str, Any], request_kind: str
++) -> str:
 +    request_context = {
++        "request_kind": request_kind,
 +        "bridge_prompt_policy": prompt_policy_fingerprint(body),
 +        "engineer_instructions": (
 +            body.get("instructions")
@@ -70,7 +73,7 @@ diff --git a/payload/server.py b/payload/server.py
  )
 @@
      current_fingerprints = response_input_fingerprints(body)
-+    current_context_fingerprint = response_context_fingerprint(body)
++    current_context_fingerprint = response_context_fingerprint(body, request_kind)
 @@
      rollover_reason: str | None = None
      if segment is not None and segment.awaiting_compacted_history and not is_compaction:
@@ -89,10 +92,10 @@ diff --git a/payload/server.py b/payload/server.py
 +        and len(segment.input_fingerprints) == 0
 +    ):
 +        # A legacy zero-input segment carries no per-item evidence of its
-+        # original tools/prompt/response-format contract. Never continue it as
-+        # an anchor. The V12 legacy exact-retry gate still rejects an exact
-+        # already-committed empty request; appended/new work starts a fresh
-+        # Notion segment instead of inheriting unknown context.
++        # original tools/prompt/response-format/request-kind contract. Never
++        # continue it as an anchor. The V12 legacy exact-retry gate still
++        # rejects an exact already-committed empty request; appended/new work
++        # starts a fresh Notion segment instead of inheriting unknown context.
 +        rollover_reason = "request_context_unknown"
      elif segment is not None and segment_prefix is None:
          rollover_reason = "history_rewritten"
@@ -105,7 +108,29 @@ diff --git a/payload/server.py b/payload/server.py
  async def handle_openai_compaction(
 @@
      current_fingerprints = response_input_fingerprints(body)
-+    current_context_fingerprint = response_context_fingerprint(body)
++    current_context_fingerprint = response_context_fingerprint(body, "compaction")
+     prefix = (
+         input_prefix_length(segment.input_fingerprints, current_fingerprints)
+         if segment is not None else None
+     )
+-    continuing = segment is not None and segment.model == model and prefix is not None
++    segment_context_fingerprint = (
++        getattr(segment, "context_fingerprint", None) if segment is not None else None
++    )
++    context_matches = (
++        segment is not None
++        and segment_context_fingerprint is not None
++        and segment_context_fingerprint == current_context_fingerprint
++    )
++    # Legacy zero-input state has no evidence of its planner/tool/request-kind
++    # context. Compaction must not continue such a thread merely because () is a
++    # prefix of every input history.
++    continuing = (
++        segment is not None
++        and segment.model == model
++        and prefix is not None
++        and context_matches
++    )
 @@
              await conversation_segments.put(
 @@

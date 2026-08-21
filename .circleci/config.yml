@@ -1,0 +1,97 @@
+version: 2.1
+
+jobs:
+  kontur-canonical-vite:
+    docker:
+      - image: cimg/node:22.18
+    resource_class: small
+    steps:
+      - checkout
+
+      - run:
+          name: Verify exact PR12 ancestry and bounded candidate
+          command: |
+            set -euo pipefail
+            EXPECTED_SOURCE_HEAD=32034e8af92923a2abe09ad00e3220f6da1ed21c
+            git merge-base --is-ancestor "$EXPECTED_SOURCE_HEAD" HEAD
+            python3 .circleci/apply_candidate_patch.py .circleci/kontur-candidate.patch
+            git diff --check
+
+      - restore_cache:
+          keys:
+            - kontur-pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+            - kontur-pnpm-v1-
+
+      - run:
+          name: Install exact locked dependencies on Linux
+          command: |
+            set -euo pipefail
+            corepack enable
+            corepack prepare pnpm@11 --activate
+            node --version
+            pnpm --version
+            pnpm install --frozen-lockfile
+            test -d node_modules/.pnpm/@rollup+rollup-linux-x64-gnu@4.62.3
+            test -d node_modules/.pnpm/@esbuild+linux-x64@0.25.12
+            echo LINUX_NATIVE_DEPS_PASS
+
+      - save_cache:
+          key: kontur-pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - ~/.local/share/pnpm/store
+
+      - run:
+          name: Mini App 51-test regression gate
+          command: |
+            set -euo pipefail
+            pnpm -F @kontur/miniapp test | tee /tmp/kontur-miniapp-tests.log
+
+      - run:
+          name: TypeScript gate
+          command: |
+            set -euo pipefail
+            pnpm -F @kontur/miniapp typecheck | tee /tmp/kontur-typecheck.log
+
+      - run:
+          name: Canonical Vite production build
+          command: |
+            set -euo pipefail
+            pnpm -F @kontur/miniapp build | tee /tmp/kontur-vite-build.log
+            test -f apps/miniapp/dist/index.html
+            find apps/miniapp/dist -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/kontur-dist.sha256
+            echo KONTUR_CANONICAL_VITE_PASS
+
+      - run:
+          name: Write reproducible evidence
+          when: always
+          command: |
+            set -euo pipefail
+            mkdir -p /tmp/kontur-evidence
+            {
+              echo "circle_sha=$CIRCLE_SHA1"
+              echo "circle_branch=$CIRCLE_BRANCH"
+              echo "source_head=32034e8af92923a2abe09ad00e3220f6da1ed21c"
+              echo "node=$(node --version 2>/dev/null || true)"
+              echo "pnpm=$(pnpm --version 2>/dev/null || true)"
+              echo "utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            } > /tmp/kontur-evidence/BUILD_EVIDENCE.txt
+            cp /tmp/kontur-miniapp-tests.log /tmp/kontur-evidence/ 2>/dev/null || true
+            cp /tmp/kontur-typecheck.log /tmp/kontur-evidence/ 2>/dev/null || true
+            cp /tmp/kontur-vite-build.log /tmp/kontur-evidence/ 2>/dev/null || true
+            cp /tmp/kontur-dist.sha256 /tmp/kontur-evidence/ 2>/dev/null || true
+
+      - store_artifacts:
+          path: apps/miniapp/dist
+          destination: kontur-miniapp-dist
+
+      - store_artifacts:
+          path: /tmp/kontur-evidence
+          destination: kontur-build-evidence
+
+workflows:
+  kontur-vite-gate:
+    jobs:
+      - kontur-canonical-vite:
+          filters:
+            branches:
+              only: ci/kontur-circle-vite-20260821

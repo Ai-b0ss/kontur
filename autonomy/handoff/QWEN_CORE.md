@@ -1,47 +1,41 @@
 # Qwen — агентное ядро
 
-Обновлено: 2026-08-21 06:52Z.
+Обновлено: 2026-08-21 07:41Z.
 
 ## Текущее состояние
 
-`qwen-free-api`: ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6, текущий head после этого прохода `d41bc71ac7875c8bb4a625e128f20d01c2d885c6`.
+`qwen-free-api`: ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6, текущий head `d41bc71ac7875c8bb4a625e128f20d01c2d885c6`.
 
-В этом проходе закрыт следующий слой ошибок streaming/OpenCode на границе клиента и Qwen:
+В этом проходе закрыта проверка предыдущего streaming-fix на hosted-машине без Qwen и без внешнего CI:
 
-- успешный разбор SSE и уже подтверждённый checkpoint больше не могут вылететь из callback только потому, что клиент исчез перед финальными `res.write(finalChunk)`, `[DONE]` или `res.end()`;
-- разрыв клиентского соединения считается локальной downstream-проблемой и не вызывает `onError`, поэтому здоровый Qwen-аккаунт не получает ложный cooldown/failure;
-- тот же принцип распространён на обычные промежуточные SSE-данные и на выдачу ранее удержанных tool-call deltas: ошибка `res.write()` больше не выбрасывается из parser/EventEmitter callback, дальнейший upstream-поток можно корректно дочитать;
-- для stream-first race исправлен старый противоречивый тест: upstream transport error по контракту должен классифицироваться через provider observer ровно один раз, а не ноль раз.
+- exact `scripts/stream-session-lifecycle-race-test.js` материализован с Git blob SHA `52e6d8a1fc40e47b0064732198791a5c5bb8fbcc` и реально выполнен;
+- результат: `QWEN_STREAM_LIFECYCLE_RACE_PASS terminal_once=1 no_write_after_end=1 late_data_ignored=1 disconnected_client_isolated=1 successful_disconnect_isolated=1 midstream_disconnect_isolated=1 primary_upstream_classified_once=1`;
+- `src/stream-session-guard.js` удалось материализовать функционально для запуска, но локальный Git blob SHA не совпал с каноническим `9c2d74c425a99e544fe1ea14fd28adf69769be14` из-за неполного переноса комментариев, поэтому это не считается exact-tree доказательством всего файла. Продуктовый код по этому поводу не менялся.
 
-Продуктовые коммиты этого прохода:
+При read-only разборе `server.js` + `session-store.js` найден новый воспроизводимый Core-дефект восстановления контекста:
 
-- `134954fefb4dc26fdc95f4dbcfa49e6be0be85d6` — безопасное успешное завершение SSE при исчезнувшем клиенте;
-- `a7357f2b3b0a3eee67e57914ee8dbfa1d1eed72d` — изоляция mid-stream downstream disconnect;
-- тестовые коммиты `00f3b359d494748b3177184d9b5b4095ab15fb11`, `a95e3fa365d62b4bce959f0508a82d99ec531679`, `d41bc71ac7875c8bb4a625e128f20d01c2d885c6`.
+- non-stream путь после успешного обычного текстового ответа вызывает `sessionStore.checkpointAcceptedToolProgress(restoredMessages, assistantMessage)`;
+- текущая реализация `checkpointAcceptedToolProgress()` добавляет assistant-сообщение только если в нём есть `tool_calls`; обычный `assistant.content` отбрасывается и в durable checkpoint остаются только предыдущие сообщения;
+- локальный воспроизводимый harness на текущей логике дал `QWEN_NONSTREAM_ASSISTANT_CHECKPOINT_BUG_REPRODUCED assistant_lost=1`;
+- следствие: после падения процесса и короткого `continue` сервер может восстановить пользовательский запрос, но не последний принятый текстовый ответ модели. Это ломает точное продолжение длинной OpenCode-сессии даже без инструментов;
+- streaming-путь имеет аналогичный общий пробел для чистого текстового ответа: `streamAcceptedHistory` обновляется только через `onToolCallsAccepted`, поэтому финальный успешный текст модели тоже не добавляется в checkpoint.
 
-Hosted-проверки без Qwen и без внешнего CI:
+Исправление в продукт в этом проходе не отправлено: `session-store.js` был получен из GitHub частями, но собранный локальный файл не совпал побайтно с каноническим blob `571fc4f3f536f06066dcf623dfcb0db49c11a528`. Перезаписывать целый приватный файл из реконструкции запрещено. Следующий writer должен менять только exact bytes из GitHub, не собирать неизвестные участки из памяти.
 
-- `QWEN_STREAM_SUCCESS_DISCONNECT_PASS provider_health_untouched=1 callback_survived=1 end_attempted=1`;
-- `QWEN_STREAM_MIDSTREAM_DISCONNECT_TARGET_PASS provider_health_untouched=1 parser_completion_survived=1`;
-- локальный связанный race-harness после выравнивания provider-error контракта: `QWEN_STREAM_LIFECYCLE_RACE_PASS ... successful_disconnect_isolated=1`.
-
-Полный exact-tree `npm test` не объявлять зелёным: весь приватный репозиторий на hosted-машине ещё не материализован. GitHub Actions, CircleCI, Cloudflare, live Qwen, реальные аккаунты и production в этом проходе не использовались.
+Полный exact-tree `npm test` не объявлять зелёным. GitHub Actions, CircleCI, Cloudflare, live Qwen, реальные аккаунты и production не использовались.
 
 ## Постоянная память
 
 Нормативный протокол: `autonomy/v3/CAPSULE_RUNTIME_PROTOCOL_V2.json`, реализация `autonomy/v3/tools/capsule_runtime_v4.py`.
 
-На старте был прочитан `autonomy/v3/workspaces/QWEN_CORE/LATEST.json`; его exact Git blob SHA: `0a26b34f066d9baf08317d9ee5aa5fb82fd15a57`. Он указывает на capsule `20260821T055653Z-ce3cad6218`, archive SHA-256 `2beb0e63444f642b113dbd74d0845f0f56b7ec82189f5781eb3d50cddcb164d3`.
+На старте прочитан `autonomy/v3/workspaces/QWEN_CORE/LATEST.json`; exact Git blob SHA `0a26b34f066d9baf08317d9ee5aa5fb82fd15a57`. Он указывает на capsule `20260821T055653Z-ce3cad6218`, archive SHA-256 `2beb0e63444f642b113dbd74d0845f0f56b7ec82189f5781eb3d50cddcb164d3`.
 
-Manifest и обе части этой capsule были получены отдельно из GitHub. Точный исходник `capsule_runtime_v4.py` также был прочитан из Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`, но доступный путь переноса байтов из connector в hosted filesystem не позволил получить локальный файл с тем же Git blob SHA. Поэтому ручная реконструкция не использовалась для `restore/pack`, `LATEST/PREVIOUS` не трогались и псевдо-v4 capsule не создавалась. Это соответствует failure-policy: exact GitHub source остаётся recovery floor, неизвестные байты не реконструируются из памяти.
-
-Перед завершением `LATEST` перечитан: blob SHA всё ещё `0a26b34f066d9baf08317d9ee5aa5fb82fd15a57`; CAS-конфликта с другим писателем не было, но публикация новой capsule намеренно не выполнялась без exact локального runtime.
+Manifest и обе части capsule прочитаны отдельно. Канонический `capsule_runtime_v4.py` прочитан из Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`, однако доступный перенос connector → hosted filesystem снова не дал локальный файл с тем же Git blob SHA. Ручная сокращённая реализация для restore/pack не использовалась. Поэтому новая capsule и LATEST/PREVIOUS в этом проходе не публиковались; exact GitHub source остаётся recovery floor по failure-policy протокола.
 
 ## Следующее
 
-1. Материализовать exact `src/stream-session-guard.js` + `scripts/stream-session-lifecycle-race-test.js` текущего PR-head на hosted-машине и прогнать реальный файл теста, а не только целевые harness-проверки.
-2. Затем проверить disconnect во время flush уже принятого multi-tool-call: checkpoint должен оставаться fail-closed, provider health не должен меняться, а после restart pending ids должны оставаться согласованными.
-3. После этого перейти к следующему воспроизводимому Core-дефекту в session/restart/subagent/prompt/skills; механику cooldown/account selection не расширять без пересекающегося дефекта.
-4. При следующем существенном checkpoint снова выполнить только exact v4 `restore → pack → immutable upload → reread/verify → CAS LATEST`; force-write запрещён.
-
-История предыдущих подробных записей сохранена в Git history этого файла; этот handoff намеренно сведён к актуальной рабочей точке, чтобы следующие запуски не тащили десятки устаревших промежуточных состояний.
+1. Получить exact `session-store.js` без реконструкции и добавить durable сохранение обычного принятого `assistant.content` для non-stream пути. Tool-call fail-closed семантику не ослаблять.
+2. Добавить постоянный regression: `user → обычный assistant text → crash → short continue` обязан восстановить и пользовательский ход, и текст assistant; длинный assistant должен соблюдать checkpoint limits.
+3. Затем провести то же для streaming: собирать принятый текст ответа и фиксировать его только после успешного завершения upstream, не смешивая downstream disconnect с provider health.
+4. После этого вернуться к multi-tool disconnect/restart: уже подтверждённые tool-call ids должны оставаться pending после исчезновения клиента и сниматься только соответствующими tool results.
+5. При следующем существенном checkpoint выполнять только exact v4 `restore → pack → immutable upload → reread/verify → CAS LATEST`; force-write запрещён.

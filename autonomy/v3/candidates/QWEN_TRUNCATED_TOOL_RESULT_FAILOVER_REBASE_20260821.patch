@@ -1,0 +1,49 @@
+--- a/src/session-store.js
++++ b/src/session-store.js
+@@
+-function restoreCheckpoint(incoming, record, hasExplicitSession) {
++function restoreCheckpoint(incoming, record, hasExplicitSession, options = {}) {
+@@
+   const freshIncomingTurns = trimCheckpointOverlap(historyTurns, incomingTurns);
+   const mergedMessages = [...systemMessages, ...historyTurns, ...freshIncomingTurns];
+-  const progressMessages = countNonSystem(messages) > 1 ? messages : mergedMessages;
+-  persistCompletedToolProgress(record, progressMessages);
++  persistCompletedToolProgress(record, mergedMessages);
+ 
+-  if (countNonSystem(messages) > 1) return messages;
++  if (countNonSystem(messages) > 1 && options.forceMergedHistory !== true) return messages;
+   if (countNonSystem(record.history) <= 1) return messages;
+   return mergedMessages;
+ }
+--- a/server.js
++++ b/server.js
+@@
+       const restoredMessages = sessionStore.restoreCheckpoint(
+         publicBody.messages,
+         record,
+         hasExplicitSessionId(req, publicBody),
++        { forceMergedHistory: !existingChatId },
+       );
+@@
+       if (existingChatId && response?.status && response.chatId && response.chatId !== prepared.chatId) {
+@@
+-        prepared = await preparePublicPayloadGoverned(effectiveBody, {
++        const rebaseMessages = sessionStore.restoreCheckpoint(
++          publicBody.messages,
++          sessionStore.getRecord(sessionKey),
++          hasExplicitSessionId(req, publicBody),
++          { forceMergedHistory: true },
++        );
++        const rebaseBody = { ...publicBody, messages: rebaseMessages };
++        prepared = await preparePublicPayloadGoverned(rebaseBody, {
+           currentOnly: false,
+@@
+
+# Required regressions:
+# - saved owner unavailable before request: truncated explicit tool-result transcript
+#   must seed fresh sibling with stored system/prior context + unresolved sibling call.
+# - owner initially available but qwenClient failover changes upstream chat/account:
+#   rebase must rebuild from authoritative merged history before the sibling call.
+# - same healthy owner/currentOnly path may retain incremental caller behavior.
+# - combine with QWEN_TRUNCATED_PARTIAL_TOOL_RESULT_DURABLE_MERGE_20260821.patch;
+#   product owner should fold both into one coherent session-store/server change.

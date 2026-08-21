@@ -1,0 +1,49 @@
+{
+  "schema": "notion_core_durable_replay_v18_evidence_v1",
+  "created_at_utc": "2026-08-21T22:40:00Z",
+  "core_ref": "Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "integration_ref": "Ai-b0ss/notion-agent-bridge@a78c9e1c881265a9f6df9919efc12038f79e795b",
+  "exact_source_blobs": {
+    "payload/conversation_segments.py": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "payload/server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "payload/turn_affinity.py": "f4bc004ec08cbaf3f1118dec0926015ab41b8bd3"
+  },
+  "reproduced_candidate_gap": {
+    "name": "bounded stale replay fingerprint ring can forget old exact requests",
+    "source": "V12 candidate uses MAX_STALE_REPLAY_FINGERPRINTS=32",
+    "risk": "after more than 32 later durable requests in one segment, a delayed exact retry can fall out of stale_replay_fingerprints; the existing history_rewritten path can then re-enter provider planning and potentially repeat a previously issued tool action",
+    "model_observation": {
+      "requests_advanced": 40,
+      "stale_ring_size": 32,
+      "oldest_request_fingerprint_still_present": false,
+      "oldest_input_history_is_strict_prefix_of_latest": true
+    }
+  },
+  "candidate_fix": {
+    "file": "autonomy/evidence/notion/20260821T2240Z_durable_replay_v18_stale_prefix_gate.patch",
+    "rule_normal_turn": "for same model and outside the post-compaction transition, a shorter incoming input_fingerprints tuple that is a strict prefix of the latest durable tuple fails closed before provider planning",
+    "rule_compaction": "a shorter compaction history that is a strict prefix of the latest durable tuple fails closed before provider planning",
+    "why_content_free": "uses only existing SHA-256 input fingerprints; stores no additional prompt, answer, tool arguments, or user text"
+  },
+  "local_model": {
+    "verdict": "DURABLE_REPLAY_V18_STALE_PREFIX_GATE_MODEL_PASS",
+    "cases": {
+      "old_request_after_ring_eviction": "BLOCKED",
+      "normal_appended_new_request": "ALLOWED",
+      "changed_tool_or_prompt_contract": "ALLOWED_TO_EXISTING_ROLLOVER_LOGIC"
+    }
+  },
+  "self_review": {
+    "post_compaction_normal_turn_exempted": true,
+    "model_change_exempted": true,
+    "native_windows_claimed": false,
+    "provider_traffic": false,
+    "hosted_ci_started": false,
+    "product_branch_mutated": false
+  },
+  "windows_digest": {
+    "workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "states": ["pending", "pending", "pending", "pending", "pending"],
+    "rerun": false
+  }
+}

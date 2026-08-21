@@ -1,0 +1,50 @@
+{
+  "schema": "notion_core_durable_rendered_replay_v4_evidence",
+  "timestamp_utc": "2026-08-21T04:58:00Z",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_integration_head": "23a52f88b065a9d03b93b94e2f2ea0044c167ece",
+  "windows_digest": {
+    "workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "status": "all_five_pending",
+    "rerun": false
+  },
+  "exact_source_findings": [
+    "ConversationSegmentStore.put mutates in-memory state before _save_locked and _save_locked swallows persistence failure; caller cannot prove durable publication.",
+    "handle_openai_responses currently writes TurnAffinityStore before ConversationSegmentStore. If durable conversation publication fails, a same-process retry can hit the semantic affinity cache and re-render the uncommitted tool recommendation with a fresh call_id.",
+    "responses_payload allocates response/item/call IDs at render time, so semantic completion_text cache is not protocol-idempotent.",
+    "Codex tool-call output must not be exposed when conversation_key is missing because there is no durable replay identity to bind the side effect to.",
+    "stream_openai_responses currently emits response.created before replay/durable publication is decided. Streaming must emit no Responses identity before preflight/publication; SSE comment keep-alives are identity-free and can preserve the connection while provider work is buffered."
+  ],
+  "v3_self_review_rejection": [
+    "The first v3 candidate kept TurnAffinityStore publication before durable conversation publication; this leaves an unsafe same-process retry path after disk failure.",
+    "A shallow previous_items snapshot is insufficient if cleanup mutates existing ConversationSegment objects in place while expiring replay payloads. Candidate implementation should replace dataclass values instead of mutating shared objects, or take a deep snapshot.",
+    "A tool call with conversation_key=None must fail closed before affinity publication or client exposure."
+  ],
+  "required_v4_order": [
+    "provider_completion",
+    "render_canonical_response_with_final_ids",
+    "durable_atomic_conversation_record_commit",
+    "same_process_affinity_commit",
+    "client_exposure"
+  ],
+  "local_harness": {
+    "verdict": "DURABLE_RENDERED_REPLAY_V4_ORDERING_PASS",
+    "cases": 4,
+    "proved": [
+      "forced durable failure returns 503 with no affinity cache and no exposed response",
+      "tool call without durable conversation identity returns 503 with no affinity cache and no exposed response",
+      "successful tool round follows provider->render->durable->affinity->expose order",
+      "final text remains compatible with clients that lack a Codex conversation identity"
+    ]
+  },
+  "retention_policy_candidate": {
+    "replay_ttl_seconds": 21600,
+    "reason": "bounded exact protocol replay while avoiding an unbounded transcript cache",
+    "expiry_behavior": "retain replay request fingerprint but remove replay payload; later exact retry fails closed instead of re-planning"
+  },
+  "native_windows_claimed": false,
+  "provider_traffic": false,
+  "hosted_ci_started": false,
+  "product_branch_mutated": false,
+  "next": "Materialize an exact local copy of conversation_segments.py/server.py at the fresh PR8 head, implement v4 ordering and store semantics, run real-class offline tests including v2 load, forced NCM28 save failure, same-process retry, restart replay, empty-input request fingerprint, stream/non-stream and tool call. Do not push product under ZERO-MINUTE."
+}

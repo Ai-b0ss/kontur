@@ -1,0 +1,91 @@
+diff --git a/payload/delegated_tool_loop.py b/payload/delegated_tool_loop.py
+--- a/payload/delegated_tool_loop.py
++++ b/payload/delegated_tool_loop.py
+@@
+             for call in reply.tool_calls:
+                 call_id = call.call_id.strip()
+                 name = call.name.strip()
+@@
+                 calls.append(
+                     {
+                         "call_id": normalized_call.call_id,
+                         "name": normalized_call.name,
+                         "arguments": dict(normalized_call.arguments),
+                     }
+                 )
+ 
++            next_model_turn = self._completed_model_turns + 1
++            if next_model_turn >= self._context.max_model_turns:
++                # This provider reply consumed the last allowed model turn. Any
++                # tool result produced now could never be shown to a subsequent
++                # model turn, so entering a local tool executor would create an
++                # orphan side effect immediately before an unavoidable budget
++                # failure. Count the model turn, but fail before publishing call
++                # ids/history or executing any tool.
++                self._completed_model_turns = next_model_turn
++                raise DelegatedToolLoopError(
++                    "delegated task exhausted model-turn budget before tool execution"
++                )
++
+             # Commit model-turn state and call identities only after the entire
+             # provider batch has validated. A malformed later call must not poison
+             # earlier IDs or consume the bounded model-turn budget when no local
+             # side effect/history item was committed.
+-            self._completed_model_turns += 1
++            self._completed_model_turns = next_model_turn
+             model_turn = self._completed_model_turns
+             self._seen_call_ids.update(batch_call_ids)
+             self._history.append(
+                 {
+@@
+ diff --git a/tests/test_delegated_tool_loop.py b/tests/test_delegated_tool_loop.py
+--- a/tests/test_delegated_tool_loop.py
++++ b/tests/test_delegated_tool_loop.py
+@@
+     async def test_model_turn_budget_is_hard_limit(self) -> None:
+         counter = 0
++        executed: list[str] = []
+ 
+         async def unique_model_step(context, history, client):
+             nonlocal counter
+@@
+ 
+         async def tool_executor(context, call):
+-            del context, call
++            del context
++            executed.append(call.call_id)
+             return {"ok": True}
+ 
+         runner = DelegatedToolLoopRunner(unique_model_step, tool_executor)
+         with self.assertRaisesRegex(DelegatedToolLoopError, "exceeded model-turn budget|exhausted model-turn budget"):
+             await runner(child("bounded", "never finish", budget=2), object())
+         self.assertEqual(counter, 2)
++        # The second provider reply consumed the final model turn. Its tool result
++        # can never be consumed by the model, so that final tool call must not run.
++        self.assertEqual(executed, ["call-1"])
++
++    async def test_final_model_turn_cannot_create_orphan_mutating_side_effect(self) -> None:
++        mutations = 0
++
++        async def model_step(context, history, client):
++            del context, client
++            outputs = [item for item in history if item.get("type") == "function_call_output"]
++            if not outputs:
++                return DelegatedModelReply(
++                    tool_calls=(DelegatedToolCall("inspect", "read_file", {}),)
++                )
++            return DelegatedModelReply(
++                tool_calls=(DelegatedToolCall("write-final", "write_file", {}),)
++            )
++
++        async def tool_executor(context, call):
++            nonlocal mutations
++            del context
++            if call.name == "write_file":
++                mutations += 1
++            return {"ok": True}
++
++        runner = DelegatedToolLoopRunner(model_step, tool_executor)
++        with self.assertRaisesRegex(DelegatedToolLoopError, "before tool execution"):
++            await runner(child("budget-write", "inspect then maybe write", budget=2), object())
++        self.assertEqual(mutations, 0)

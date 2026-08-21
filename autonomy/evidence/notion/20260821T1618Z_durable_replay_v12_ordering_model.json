@@ -1,0 +1,61 @@
+{
+  "schema": "notion_core_durable_replay_v12_evidence",
+  "created_at_utc": "2026-08-21T16:18:00Z",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "integration_head": "cd442df4e4574822627761d7d3ea81df37844a41",
+  "exact_source_blobs": {
+    "payload/conversation_segments.py": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "payload/server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "payload/turn_affinity.py": "f4bc004ec08cbaf3f1118dec0926015ab41b8bd3",
+    "payload/account_pool.py": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f"
+  },
+  "windows_digest": {
+    "workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "status": "ALL_FIVE_PENDING",
+    "rerun": false
+  },
+  "current_exact_source_findings": [
+    "TurnAffinity cache recreates Responses ids from completion_text instead of replaying the exact rendered response.",
+    "Foreground account reservation and TurnAffinity memory cache are updated before ConversationSegmentStore persistence.",
+    "ConversationSegmentStore persistence errors are swallowed by _save_locked and only set persistence_blocked.",
+    "responses_payload creates response/item/call ids only after provider state/cache/reservation persistence steps.",
+    "stream_openai_responses emits response.created and request-local reasoning rs_* before durable publication and later inserts that reasoning item into response.completed.",
+    "Account pool status exposes configured accounts[].id, allowing stale persisted owner validation without provider traffic."
+  ],
+  "v12_required_order": [
+    "provider result",
+    "build one canonical Responses payload with final response_id/item_id/call_id",
+    "strict atomic ConversationSegmentStore publication of progress + canonical payload",
+    "rehydrate memory-only TurnAffinity cache",
+    "validate persisted owner against current account_pool status and restore/clear foreground reservation",
+    "only then project canonical payload to JSON or SSE"
+  ],
+  "new_v12_guard": "After any strict persistence failure, the durable store must fail closed before a retry can call the provider again. Otherwise the first failed publication can be followed by a second provider plan even though the store is already persistence_blocked.",
+  "local_model_verdict": "DURABLE_REPLAY_V12_END_TO_END_ORDERING_MODEL_PASS",
+  "local_cases": {
+    "same_request_retry_same_ids_provider_once": true,
+    "restart_retry_same_ids_provider_once": true,
+    "stream_nonstream_same_canonical_payload": true,
+    "distinct_turn_same_text_is_new_request": true,
+    "stale_old_turn_retry_blocked": true,
+    "strict_write_failure_zero_cache_zero_reservation_zero_client_result": true,
+    "blocked_store_prevents_second_provider_call": true,
+    "post_commit_reservation_failure_retry_rehydrates_without_provider": true,
+    "removed_owner_after_restart_fail_closed_without_ghost_reservation": true,
+    "final_response_clears_stale_reservation": true
+  },
+  "limits_carried_forward": {
+    "outer_state_version": 2,
+    "replay_schema_version": 1,
+    "per_response_bytes": 524288,
+    "total_replay_bytes": 8388608,
+    "replay_ttl_seconds": 21600,
+    "stale_fingerprint_limit": 32
+  },
+  "not_proven": [
+    "native Windows NCM28 semantics",
+    "native PowerShell runtime restore replace semantics",
+    "live Codex compatibility of delayed SSE first identity-bearing event",
+    "live Notion provider loop"
+  ]
+}

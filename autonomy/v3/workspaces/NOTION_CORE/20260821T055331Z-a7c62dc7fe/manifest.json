@@ -1,0 +1,64 @@
+{
+  "archive": {
+    "parts": 1,
+    "sha256": "674acb704c3e8adb02f0225f1f6657de1c02d06a5d648dd62f8cc9ffdb59e142",
+    "size": 12548
+  },
+  "capsule_id": "20260821T055331Z-a7c62dc7fe",
+  "created_at_utc": "2026-08-21T05:53:31Z",
+  "parts": [
+    {
+      "chars": 16732,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "2417d35662d75a5418f64a13765fd113615b909f6df225fa66534a71e98a848b"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "worker": "NOTION_CORE",
+  "workspace": {
+    "CHECKPOINT.json": {
+      "mode": "0o644",
+      "sha256": "89cde958a8a68a90f62549ab3adbc2bc2ac153f4a750af8eff403b7022c70e62",
+      "size": 1595,
+      "type": "file"
+    },
+    "codex_probe_exact_head_offline_contract.json": {
+      "mode": "0o644",
+      "sha256": "0f524827bdf0e03ac68cbf876a66fdf4e3cd6a37a746326900e27c2e4d4a44d0",
+      "size": 253,
+      "type": "file"
+    },
+    "durable_rendered_replay_v5_candidate.patch": {
+      "mode": "0o644",
+      "sha256": "fbf93ec6ec9099635917c7280c8063c68d2d5936f1b8311ab015c540b3020f96",
+      "size": 20906,
+      "type": "file"
+    },
+    "durable_replay_v5_candidate_conversation_segments.py": {
+      "mode": "0o644",
+      "sha256": "791d092075560d12a5ab3e1857f1ad501200833b0c12b75c38ca842d61f707ea",
+      "size": 9507,
+      "type": "file"
+    },
+    "durable_replay_v5_evidence.json": {
+      "mode": "0o644",
+      "sha256": "387f319ecc203e306988d0c4d9d621fd22179da81b71b6285932f3c56456cd75",
+      "size": 4221,
+      "type": "file"
+    },
+    "durable_replay_v5_harness.py": {
+      "mode": "0o644",
+      "sha256": "b404d3492b460c53f6d6f5c573120aea76119427bcf7db47cfc62d1376b1f237",
+      "size": 9350,
+      "type": "file"
+    },
+    "durable_replay_v5_output.json": {
+      "mode": "0o644",
+      "sha256": "88f1b18bdeff8d0bff2b61a59506f9011d3b5346349a4779b86fc6a556f8af25",
+      "size": 230,
+      "type": "file"
+    }
+  }
+}

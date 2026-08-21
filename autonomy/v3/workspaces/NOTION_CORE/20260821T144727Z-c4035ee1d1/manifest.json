@@ -1,0 +1,25 @@
+{
+  "archive": {
+    "parts": 4,
+    "sha256": "010a9b171e7a7c1fcaca57d29383152bff4ff239d396cddfba7b5aca6ba85fd9",
+    "size": 2028
+  },
+  "capsule_id": "20260821T144727Z-c4035ee1d1",
+  "created_at_utc": "2026-08-21T14:47:27Z",
+  "parts": [
+    {"chars":800,"index":0,"name":"part-0000.b64","sha256_text":"861160dd08f7d2ad996f46c00e3f27d3ade8cdbf7a58f87c7c5d2f44233e558d"},
+    {"chars":800,"index":1,"name":"part-0001.b64","sha256_text":"4034b77f8daf757b5b8f9e60ef8660c1ba450939cc34b68577b4521ad19feb37"},
+    {"chars":800,"index":2,"name":"part-0002.b64","sha256_text":"914d16321d8f15e9bab70266ccf121e11bc14e260191e503b89a16ff16f42841"},
+    {"chars":304,"index":3,"name":"part-0003.b64","sha256_text":"d1d361983380104f9e4163b40368d506b6c119e9444d63a1e765f10b051f6d56"}
+  ],
+  "schema":"free_fabric_worker_capsule_v4",
+  "source_ref":"Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "worker":"NOTION_CORE",
+  "workspace": {
+    "CHECKPOINT.json":{"mode":"0o644","sha256":"a36c0553b535f4738565cc9520945eea2e62cba87ae2016a338625320cee3131","size":1076,"type":"file"},
+    "V10.json":{"mode":"0o644","sha256":"ca4595a425200153ca9abc51dd5c4061a659fb832a36f9e73d7dda2b6265c8db","size":867,"type":"file"},
+    "V10_NEXT.md":{"mode":"0o644","sha256":"5126d53e2b3f55b7e2c12d9e8824d2c64ff9cdafaf8ee9118cfdd44fd93ad9a6","size":408,"type":"file"},
+    "V11.json":{"mode":"0o644","sha256":"08a57bc1b0efc0a898c23be665f8935d6b03797c0ec04afac82f7560f90ca86b","size":843,"type":"file"},
+    "V11_NEXT.md":{"mode":"0o644","sha256":"3308d7b07f6ee7a97e6db4a673396634eb4b2431c65bf3df0609c51da283add7","size":438,"type":"file"}
+  }
+}

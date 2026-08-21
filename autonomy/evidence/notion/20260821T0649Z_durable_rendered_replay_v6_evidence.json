@@ -1,0 +1,58 @@
+{
+  "schema": "notion_core_durable_rendered_replay_v6_evidence",
+  "timestamp_utc": "2026-08-21T06:49:00Z",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_integration_head": "75a4a6de243e22e0df3c15e572e7aa09977d1fcb",
+  "exact_blobs": {
+    "conversation_segments.py": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "stable_runtime_state.py": "b4bae7aae8ae7d71b0ba249aaee3941f23891321",
+    "real_codex_probe": "2f6d5873606975771b5ab418d5f9d45cd602304c"
+  },
+  "new_blocker": {
+    "name": "v5_top_level_state_version_breaks_stable_runtime_contract",
+    "detail": "The v5 candidate proposed conversation-state top-level version 3, while exact stable_runtime_state.py requires CONVERSATION_STATE_VERSION=2 and rejects any other version as STABLE_CONVERSATION_STATE_INVALID.",
+    "reproduced": true
+  },
+  "v6_fix_direction": {
+    "top_level_state_version": 2,
+    "nested_replay_schema_version": 1,
+    "legacy_entry_without_nested_marker": "fail_closed",
+    "stable_runtime_unknown_entry_fields_roundtrip": "PASS",
+    "replay_ttl_seconds": 21600,
+    "per_replay_bytes": 524288,
+    "aggregate_replay_bytes": 8388608,
+    "budget_eviction": "drop oldest replay payload but retain request fingerprint so an exact retry fails closed instead of replanning"
+  },
+  "local_store_harness": {
+    "verdict": "DURABLE_RENDERED_REPLAY_V6_STORE_COMPAT_PASS",
+    "proved": [
+      "v5 top-level version 3 is incompatible with exact stable-runtime version 2",
+      "top-level version 2 with nested replay fields survives stable-runtime migration copy semantics exactly",
+      "legacy version-2 entries without replay_schema_version are marked fail-closed per entry",
+      "nested replay schema survives process restart with identical call_id",
+      "oversized replay fails before disk publication",
+      "aggregate replay budget evicts only the oldest payload while retaining its request fingerprint"
+    ]
+  },
+  "local_sse_shape_harness": {
+    "verdict": "DURABLE_RENDERED_REPLAY_V6_SSE_SHAPE_PASS",
+    "identity_free_precommit_keepalive": true,
+    "canonical_ids_after_commit": true,
+    "fresh_replay_same_ids": true,
+    "sequence_starts_after_commit": true,
+    "real_codex_cli_comment_compatibility_claimed": false
+  },
+  "limitations": [
+    "No native Windows claim.",
+    "No live Notion/Codex traffic.",
+    "No hosted CI.",
+    "Real current Codex CLI acceptance of identity-free SSE comment keepalives remains unproven because no local codex binary is available.",
+    "Candidate is not product-applied; the full exact server suite is still required before mutating PR #8."
+  ],
+  "windows_digest": {
+    "workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "status": "all_five_pending",
+    "rerun": false
+  }
+}

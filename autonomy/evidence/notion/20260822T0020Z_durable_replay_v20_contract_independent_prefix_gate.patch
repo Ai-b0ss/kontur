@@ -1,0 +1,154 @@
+# Apply after V12/V12-fixup/V17/V14/V15/V16/V16-fixup/V18/V19.
+#
+# V18 compares response_input_fingerprints(), which intentionally mixes tools,
+# prompt policy, instructions and output contract into every input-item hash.
+# That is correct for deciding whether a Notion thread may continue, but it is
+# insufficient as a stale-history detector: an old pre-existing input prefix can
+# become invisible merely because the current tool/prompt contract changed after
+# its bounded durable replay fingerprint aged out.
+#
+# Store a second content-free tuple that hashes only each Responses input item.
+# It is used only for monotonic stale-history detection; existing mixed
+# input_fingerprints remain authoritative for continuation/rollover semantics.
+
+diff --git a/payload/conversation_segments.py b/payload/conversation_segments.py
+--- a/payload/conversation_segments.py
++++ b/payload/conversation_segments.py
+@@
+ def response_input_fingerprints(body: dict[str, Any]) -> tuple[str, ...]:
+@@
+     return tuple(
+@@
+     )
++
++
++def response_input_item_fingerprints(body: dict[str, Any]) -> tuple[str, ...]:
++    """Content-free identity of only the ordered Responses input items.
++
++    Unlike response_input_fingerprints(), this deliberately excludes model,
++    tools, instructions and prompt policy. Those fields decide whether a remote
++    thread may continue; they must not let an old input history stop looking old.
++    """
++    value = body.get("input")
++    items = value if isinstance(value, list) else [value] if isinstance(value, str) else []
++    return tuple(
++        hashlib.sha256(
++            json.dumps(
++                {"item": item},
++                ensure_ascii=False,
++                sort_keys=True,
++                separators=(",", ":"),
++            ).encode()
++        ).hexdigest()
++        for item in items
++    )
+@@
+ class ConversationSegment:
+@@
+     input_fingerprints: tuple[str, ...]
++    input_item_fingerprints: tuple[str, ...] = ()
+@@
+     async def put(
+@@
+         input_fingerprints: tuple[str, ...],
++        input_item_fingerprints: tuple[str, ...] = (),
+@@
+             staged[storage_key] = ConversationSegment(
+@@
+                 input_fingerprints=input_fingerprints,
++                input_item_fingerprints=input_item_fingerprints,
+@@
+                 self._items[key] = ConversationSegment(
+@@
+                     input_fingerprints=tuple(raw.get("input_fingerprints", [])),
++                    input_item_fingerprints=tuple(raw.get("input_item_fingerprints", [])),
+*** Update File: payload/server.py
+@@
+ from conversation_segments import (
+@@
+     response_input_fingerprints,
++    response_input_item_fingerprints,
+ )
+@@
+ async def handle_openai_responses(
+@@
+-    current_fingerprints = response_input_fingerprints(body)
++    current_fingerprints = response_input_fingerprints(body)
++    current_item_fingerprints = response_input_item_fingerprints(body)
++    durable_item_fingerprints = (
++        tuple(getattr(segment, "input_item_fingerprints", ()))
++        if segment is not None else ()
++    )
++
++    # Mixed fingerprints intentionally change when tools/prompt policy/model
++    # change, which can make an old input prefix look like rewritten new work.
++    # Item-only fingerprints preserve the monotonic history relation across such
++    # contract changes. If an incoming input is a strict prefix of the latest
++    # durable input, it is ambiguous old work and must not reach provider
++    # planning. A deliberate branch from old history must use a new conversation
++    # identity rather than reusing a side-effect-bearing durable segment.
++    #
++    # The one legitimate shorter-history transition is post-compaction. V19 has
++    # already required the exact latest compaction marker above; only that proven
++    # transition may bypass this item-only stale-prefix rule.
++    item_prefix_is_stale = bool(
++        durable_item_fingerprints
++        and len(current_item_fingerprints) < len(durable_item_fingerprints)
++        and input_prefix_length(
++            tuple(current_item_fingerprints), durable_item_fingerprints
++        ) is not None
++    )
++    if item_prefix_is_stale:
++        proven_post_compaction = False
++        if (
++            segment is not None
++            and bool(getattr(segment, "awaiting_compacted_history", False))
++            and not is_compaction
++        ):
++            expected_compaction = durable_compaction_fingerprint(
++                getattr(segment, "replay_response", None)
++            )
++            proven_post_compaction = bool(
++                expected_compaction
++                and request_contains_compaction_fingerprint(body, expected_compaction)
++            )
++        if not proven_post_compaction:
++            return replay_error(
++                "stale prior input history cannot be executed under a changed request contract"
++            )
+@@
+             await conversation_segments.put(
+@@
+                 input_fingerprints=current_fingerprints,
++                input_item_fingerprints=current_item_fingerprints,
+@@
+ async def handle_openai_compaction(
+@@
+-    current_fingerprints = response_input_fingerprints(body)
++    current_fingerprints = response_input_fingerprints(body)
++    current_item_fingerprints = response_input_item_fingerprints(body)
+@@
+     if segment is not None:
+@@
+         if replay_fingerprint in stale_fingerprints:
+             return replay_error("stale prior compaction cannot be executed again")
++
++        durable_item_fingerprints = tuple(
++            getattr(segment, "input_item_fingerprints", ())
++        )
++        if (
++            durable_item_fingerprints
++            and len(current_item_fingerprints) < len(durable_item_fingerprints)
++            and input_prefix_length(
++                tuple(current_item_fingerprints), durable_item_fingerprints
++            ) is not None
++        ):
++            return replay_error(
++                "stale prior compaction input cannot be executed under a changed request contract"
++            )
+@@
+             await conversation_segments.put(
+@@
+                 input_fingerprints=current_fingerprints,
++                input_item_fingerprints=current_item_fingerprints,
+*** End Patch

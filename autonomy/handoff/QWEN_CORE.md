@@ -1,52 +1,61 @@
 # Qwen — агентное ядро
 
-Обновлено: 2026-08-21 10:06Z.
+Обновлено: 2026-08-21 11:06Z.
 
 ## Текущее состояние
 
-`qwen-free-api`: ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Текущий наблюдавшийся head `9c7ea9b876eb139cb8d7c141f62326893f52544a`. Содержательно Core-дерево соответствует результату `43416f6fb1c25409251cb1ae8480068e2d1c44ce`: три последующих коммита были исследовательской попыткой передать preamble вместе с tool-call и её полным откатом; `src/stream-session-guard.js` после отката снова имеет тот же blob `e26d5107…`, что на `43416f6…`.
+`qwen-free-api`: ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Текущий head `fe22f6f3b76c92cb28dd5145356e193010a1ccfb`.
 
-В этом проходе закрыт streaming-аналог уже исправленного non-stream дефекта восстановления обычного ответа:
+Закрыт отдельный restart-дефект смешанного streaming-ответа `текстовый preamble → tool_calls`.
 
-- раньше чистый успешный streaming-ответ Qwen уходил клиенту, но `streamAcceptedHistory` оставался состоянием до ответа; после падения процесса короткое `continue` могло потерять последний принятый текст модели;
-- `src/stream-session-guard.js` теперь собирает `delta.content` и сообщает о принятом assistant-тексте только после безошибочного завершения upstream;
-- частичный текст при upstream/parser error не считается принятым и не попадает в checkpoint;
-- отключение клиента не мешает дочитать успешный upstream и зафиксировать принятый текст, а локальный сбой записи checkpoint не классифицируется как ошибка здорового Qwen-аккаунта;
-- `server.js` сохраняет чистый streaming assistant-текст через существующий ограниченный `checkpointAcceptedToolProgress()` с фактическими `chatId/accountId` текущего маршрута; финальная запись использует уже обновлённый `streamAcceptedHistory` и не откатывает его;
-- добавлен постоянный `scripts/stream-assistant-text-restart-test.js`: успешный поток из нескольких чанков → сохранение → перезапуск → короткое `continue`; отдельно проверяются downstream disconnect и запрет сохранять частичный ответ после upstream error;
-- `scripts/server-stream-session-guard-wiring-test.js` теперь требует это подключение и порядок записи; новый restart-тест включён в обычный `npm test`.
+Раньше guard уже удерживал текст и tool-call до успешного завершения upstream, но `server.js` сохранял streaming tool-call как assistant с `content: null`, а отдельный callback чистого текста при наличии tool-call не вызывался. Клиент видел поясняющий текст перед инструментом, но после restart durable history могла помнить только pending tool-call.
 
-Коммиты результата:
-- `97f90284e4aa5cc3c0aca163f85d78388ce40093` — принимать streaming assistant text только после успешного upstream completion;
-- `d2730375b78e191419c9d25eccd495ea4030e1d6` — durable wiring в `server.js`;
-- `f4b3870f29212dfd7d9851f2ac11c6f2a2a0dc45` — restart regression;
-- `906be51721bccdd15e12ed24bfb2d07e2ad094e9` — постоянная проверка wiring;
-- `43416f6fb1c25409251cb1ae8480068e2d1c44ce` — включение regression в `npm test`.
+Теперь смешанный assistant-turn сохраняется атомарно без изменения внешнего OpenCode/provider формата:
 
-Сравнение с head в начале продуктовой работы (`17a71b9636eeead5873a0bd716e27a6bf073c913`) показывает только ожидаемые Core-файлы: `server.js` +20/-0, `src/stream-session-guard.js` +15/-2, новый тест, wiring-test и одна строка `package.json`. До этого `0b95364… → 17a71b…` был единственный соседний reliability-коммит только в `src/qwen-client.js`, поэтому Core-изменения не затёрли чужую работу.
+- добавлен `src/assistant-turn-meta.js` с внутренним `Symbol.for('qwen.streamingAssistantContent')`;
+- `src/stream-session-guard.js` перед durable callback прикрепляет собранный preamble к полным tool-call объектам как non-enumerable Symbol metadata; до успешного callback ни текст, ни tool-call клиенту не выпускаются;
+- существующий `server.js` callback остаётся прежним и передаёт те же объекты в `sessionStore.checkpointAcceptedToolProgress()`;
+- `src/session-store.js` извлекает hidden preamble только для смешанного assistant-turn и формирует один durable `{role:'assistant', content:preamble, tool_calls:[...]}`; при копировании tool-calls Symbol metadata удаляется и в JSON/checkpoint не попадает;
+- pure-text streaming путь и строгий fail-closed для слишком большого/невалидного tool-call не ослаблены.
 
-На ChatGPT hosted-машине без внешнего CI и без Qwen целевая логика прошла:
-`QWEN_STREAM_ASSISTANT_TEXT_TARGETED_PASS success_only=1 downstream_disconnect=1 upstream_error_rejected=1 local_persist_fail_closed=1 provider_health_untouched=1`.
+Добавлен постоянный `scripts/stream-preamble-tool-restart-test.js`, включённый в `npm test`. Он проверяет: durable save до первой выдачи клиенту; ровно один assistant-turn с `content + tool_calls`; restart; pending tool-call; короткое `continue`; отсутствие утечки внутренней metadata.
+
+На ChatGPT hosted-машине без сети к Qwen выполнена целевая проверка механизма:
+`QWEN_STREAM_PREAMBLE_META_TARGET_PASS atomic_content=1 metadata_hidden=1`.
+
+Дополнительно найден старый противоречивый regression в `scripts/stream-session-guard-test.js`: тест всё ещё ожидал, что локальный сбой checkpoint пойдёт в provider `onError` и guard сам завершит ответ. Это противоречит уже принятому контракту `stream-session-local-persist-failure-test.js`: локальная durability-ошибка не должна портить здоровье Qwen-аккаунта, а должна reject-нуться в route catch, не выпуская withheld tool output. Тест приведён к действующему контракту; продуктовую семантику ради старого теста не откатывали.
+
+Коммиты этого результата:
+- `7f315877e7e485ed9693d06a14b90175f68520eb` — внутренний assistant-turn metadata key;
+- `9595397211764c3b8a675d4a8c7307bdf7c34a92` — перенос streaming preamble через guard до durable boundary;
+- `f3016fe36ea47cdec9f5d1c10e8c27c6d7ebdd1b` — атомарное сохранение mixed assistant turn в session-store;
+- `ac24ba3094e1ffd6fa165e2783815acab92141fc` — restart regression;
+- `200d8386f425412d0b1b334aa03c172d2bd74e39` — включение regression в `npm test`;
+- `fe22f6f3b76c92cb28dd5145356e193010a1ccfb` — синхронизация старого guard-regression с текущей семантикой локальных durability failures.
 
 Полный exact-tree `npm test` пока не объявлять зелёным: весь приватный репозиторий не материализован на hosted-машине. GitHub Actions, CircleCI, живой Qwen, реальные аккаунты, Cloudflare и production не использовались.
 
-После первого результата проверен следующий участок и найден отдельный воспроизводимый по коду пробел: если streaming-ответ содержит текстовый preamble, а затем `tool_calls`, guard текст собирает, но `checkpointStreamingToolCalls()` сейчас создаёт assistant-сообщение с `content: null`; `acceptAssistantTextAfterSuccess()` при наличии tool-call намеренно не вызывается. Значит текст, который клиент видел непосредственно перед принятым tool-call, после restart может исчезнуть из durable history. Простого второго callback недостаточно: оба серверных callback сейчас строят историю от одного `restoredMessages` и могут перезаписать друг друга. Нужна одна атомарная запись assistant `{content, tool_calls}`. Попытка однострочного изменения guard была полностью откатана, чтобы не оставлять полурешение.
+## Проверенное покрытие
+
+`session-pending-tool-call-restart-test.js` уже покрывает multi-tool pending state: два accepted tool-call переживают restart, частичный набор tool-result снимает только свой id, unresolved sibling остаётся pending и короткое продолжение остаётся fail-closed. Не добавлять дубликат этого теста без нового поведения.
+
+`stream-session-restart-integration-test.js` уже генерирует preamble перед tool-call, но исторически проверял только tool-call/pending. Новый отдельный regression закрывает именно сохранность preamble + tool-call как одного assistant turn.
 
 ## Постоянная память
 
 Нормативный протокол: `autonomy/v3/CAPSULE_RUNTIME_PROTOCOL_V2.json`, реализация `autonomy/v3/tools/capsule_runtime_v4.py`.
 
-На старте этого прохода прочитан `LATEST` с Git blob SHA `ef4e7d5d57e8be1fe3b0c172250f051ea3d77d36`, capsule `20260821T085022Z-02f231a98c`, archive SHA-256 `82e29b812210b4f817fd72b9791540f9f6096901b7aa16fa3afdd416bb02413d`. Канонический runtime материализован exact; локальный Git blob SHA совпал с нормативным `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`. Стартовая capsule прошла exact v4 `verify + restore`.
+На старте запуска прочитан `LATEST` с Git blob SHA `09ab75c010d46ed857865cae9bd12be642227808`, capsule `20260821T095925Z-0f76028b9a`, archive SHA-256 `28cb6bc1610b3d215ede512e85062280175bf59391df4dc4ad942a5eea8b8ce5`. Exact runtime имел нормативный Git blob SHA `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`; стартовая capsule прошла exact v4 `verify + restore`.
 
-После основной работы exact v4 runtime собрал capsule `20260821T095925Z-0f76028b9a`, archive SHA-256 `28cb6bc1610b3d215ede512e85062280175bf59391df4dc4ad942a5eea8b8ce5`, source ref `43416f6fb1c25409251cb1ae8480068e2d1c44ce`. Обе части и manifest загружены неизменяемо и перечитаны из GitHub. Перечитанные части имеют точные длины 2048/752 и SHA-256 текста `0ae26956…` / `4973b91f…`; их объединённый base64 декодируется в архив 2099 байт с точным SHA-256 `28cb6bc1…`, совпадающим с manifest.
+После работы exact v4 собрал capsule `20260821T110504Z-07ee4e43f2`, archive SHA-256 `18252b0e31ed6524cef949f96ec2c6e374d61b8f53d77cfd7390510c37eac317`, source ref `fe22f6f3b76c92cb28dd5145356e193010a1ccfb`. Обе части и manifest загружены immutable и перечитаны. Git blob SHA загруженных частей совпали с локальными (`39529ec9…`, `156cf833…`), manifest совпал (`1494a8bf…`); exact v4 локально снова дал `verify PASS`.
 
-Непосредственно перед публикацией `LATEST` был перечитан и сохранил исходный parent blob SHA `ef4e7d5d…`, поэтому CAS разрешён. Старый LATEST сохранён как `PREVIOUS`, новый LATEST опубликован через `update_file` именно с исходным parent SHA. Текущий `LATEST` указывает на `20260821T095925Z-0f76028b9a`, его новый Git blob SHA `09ab75c010d46ed857865cae9bd12be642227808`.
+Непосредственно перед публикацией `LATEST` был перечитан и сохранил исходный parent blob SHA `09ab75c0…`. Старый LATEST сохранён как PREVIOUS; новый LATEST опубликован через `update_file` ровно с этим parent SHA. Текущий LATEST указывает на `20260821T110504Z-07ee4e43f2`, blob SHA `8365a3d68023fd0e5638de913cdfb0ad2d951d3e`.
 
-Новая находка про смешанный `content + tool_calls` появилась уже после этой CAS-публикации. Повторно переписывать LATEST от старого стартового parent SHA нельзя; факт сохранён в этом handoff, а следующая нормативная capsule должна включить его после нового restore/CAS-цикла.
+Есть один невалидный immutable orphan `20260821T110307Z-ab60767898`: при ручной передаче `part-0001.b64` был случайно добавлен лишний `=`. Git blob SHA не совпал с локальным до публикации указателя, поэтому capsule не ремонтировалась поверх байтов и никогда не становилась LATEST. Использовать её нельзя.
 
 ## Следующее
 
-1. Материализовать достаточный exact-tree на hosted-машине и реально выполнить `stream-assistant-text-restart-test.js` вместе с ближайшим session/stream кластером; внешние CI не нужны.
-2. Исправить смешанный streaming-ответ атомарно: guard должен передать полный принятый assistant `{content, tool_calls}` в одну durable callback, а `server.js` должен одним `checkpointAcceptedToolProgress()` сохранить эту пару до выпуска tool-call клиенту. Добавить restart-regression `preamble → tool_call → crash → continue/tool-result` и запрет двойного assistant-сообщения.
-3. Затем проверить multi-tool disconnect/restart: несколько уже подтверждённых `tool_call.id` должны пережить исчезновение клиента и перезапуск, а каждый pending снимается только своим `tool result`; не дублировать уже имеющиеся тесты, сначала прочитать текущий coverage.
-4. После следующей существенной работы повторить только нормативный v4 `restore → pack → immutable upload → reread/verify → CAS LATEST`; force-write запрещён.
+1. Материализовать достаточный exact-tree на hosted-машине и реально выполнить новый `stream-preamble-tool-restart-test.js` вместе с ближайшим stream/session кластером; внешние CI не нужны.
+2. Если этот кластер зелёный, проверить следующий недублирующийся Core-дефект. В первую очередь — границы сохранения mixed assistant turn при `retryEmpty`/смене фактического route, но сначала прочитать существующее покрытие.
+3. Узкую механику cooldown/account selection не расширять без пересечения с Core.
+4. После следующей существенной работы снова только нормативный v4 `restore → pack → immutable upload → reread/verify → CAS LATEST`; force-write запрещён.

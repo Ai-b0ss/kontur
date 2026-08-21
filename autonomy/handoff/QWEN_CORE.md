@@ -1,54 +1,71 @@
 # Qwen — агентное ядро
 
-Обновлено: 2026-08-21 18:52Z.
+Обновлено: 2026-08-21 20:03Z.
 
 ## Текущее состояние
 
-`qwen-free-api`: ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. На старте этого запуска прошлый Core-head был `58cb428c313ee23d39cafb07a66e688f8b65e8ad`; текущий PR-head при проверке — `d605db5d8f8411f9054ffabf258616d5b9e0132d`.
+`qwen-free-api`: ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6.
 
-Сравнение показывает, что четыре коммита после прошлого Core-head меняли `account-store` и `stream-session-guard`, но не `src/session-store.js`. Значит прошлое исправление восстановления system prompt после tool-result остаётся в текущей линии.
+На старте Core-работы head был `5c8fc5299f77a1c3502082da8827b6d3f20e7592`. Исправление Core закончено на `db0ef41550cdc8c7d1e74f3fc8f6aa8773f404de`. После этого соседний исполнитель продвинул общий PR до `5cc928607cf4d001cbf9adbc007277dccbdefe4b`; его два коммита затронули `src/session-store.js` и `scripts/session-store-primary-fsync-test.js`, но проверка текущих байтов показывает, что Core-исправление system prompt осталось на месте.
 
-## Новый воспроизводимый Core-дефект: большой owner system prompt режется в checkpoint
+## Закрытый дефект: большой owner system prompt больше не режется в checkpoint
 
-В текущем `src/session-store.js` `checkpointMessages()` применяет `CHECKPOINT_MESSAGE_MAX_CHARS = 12000` ко всем сообщениям, включая `role=system`. Поэтому большой приватный промпт режима владельца при долговечном сохранении silently переписывается: хвост заменяется на `...[checkpoint truncated]`.
+Ранее `checkpointMessages()` применял `CHECKPOINT_MESSAGE_MAX_CHARS = 12000` ко всем сообщениям, включая `role=system`. Поэтому большой приватный промпт владельца после restart восстанавливался уже переписанным с `...[checkpoint truncated]`.
 
-На hosted-машине воспроизведено без сети и без Qwen:
+Исправлено в `src/session-store.js`:
+- `system`-контент сохраняется без нашего сокращения;
+- несколько system-блоков сохраняются в исходном порядке;
+- общий жёсткий бюджет checkpoint 60 000 символов остаётся;
+- если system-инструкции целиком не помещаются в этот бюджет, возникает явный локальный `QWEN_SYSTEM_CHECKPOINT_REJECTED` вместо тихого обрезания/удаления;
+- обычные `user/assistant/tool` сообщения по-прежнему ограничиваются прежним 12k-лимитом;
+- сравнение checkpoint-истории (`checkpointMessageKey`) тоже использует точный system-контент, чтобы recovery/overlap не сравнивали урезанные копии.
 
-`QWEN_OWNER_SYSTEM_CHECKPOINT_TRUNCATION_REPRODUCED owner_exact=0`
+Коммиты Core:
+- `616eb0e1635bcfa3df0e61649dc6d049ec635f09` — продуктовый fix;
+- `62f7c86d3c9527e9cdc9bafb29de4be2d33986df` — новый regression `session-owner-system-checkpoint-test.js`;
+- `db0ef41550cdc8c7d1e74f3fc8f6aa8773f404de` — подключение regression в обычный `npm test`.
 
-Входной owner prompt имел 20 006 символов, в checkpoint осталось 12 026. Второй system-блок с правилами проекта сохранился, то есть проблема именно в побайтовой точности крупного system message.
+Сравнение `5c8fc529… → db0ef415…`: ровно 3 файла — `src/session-store.js` (+18/-3), новый тест (95 строк), одна правка test-chain в `package.json`. Посторонних изменений нет.
 
-Это нарушает обязательный контракт режима владельца: большой приватный system prompt должен доходить до модели без переписывания. Первичный запрос может получить полный prompt, но после restart + короткого continuation восстановится уже урезанная версия.
+Новый regression покрывает:
+- owner prompt >12k без изменения байтов;
+- второй project/system-блок и порядок system-инструкций;
+- сохранение через session-store, перезапуск и короткое `continue`;
+- сохранение прежнего ограничения обычной истории;
+- fail-closed для system prompt, который превышает общий 60k budget.
 
-Правильная граница следующего исправления:
-- system-инструкции нельзя молча обрезать;
-- rolling-budget надо в первую очередь тратить на обычную историю, а не на переписывание system-блоков;
-- если всё же нужен отдельный жёсткий предел для system prompt, превышение должно давать локальный явный отказ до принятия состояния, а не тихо менять текст владельца;
-- regression должен покрывать owner prompt >12k, restart/short continuation и несколько system-блоков в исходном порядке.
+На hosted-машине без Qwen и без внешнего CI целевая семантика прошла:
 
-Продуктовый код в этом запуске не менялся: для безопасной правки нужен exact `src/session-store.js`, а весь приватный tree локально пока не материализован. Не реконструировать неизвестные байты по памяти.
+`QWEN_OWNER_SYSTEM_CHECKPOINT_TARGET_PASS exact=1 order=1 ordinary_bounded=1 oversized_fail_closed=1`
 
-## Проверка соседнего streaming-слоя
-
-Текущий `stream-session-guard` после последних параллельных изменений разобран отдельно. На hosted-машине целевая семантика прошла для `accepted-before-output`, локального persistence fail-closed, retry, multi-call и late-error withholding. Это целевой локальный прогон, не полный exact-tree `npm test`.
+Полный exact-tree `npm test` пока не заявлен: весь приватный репозиторий целиком не материализован в hosted filesystem.
 
 ## Постоянная память
 
-Стартовый `LATEST`: Git blob `90f5d20fcf259dee6979dda589743303079bc0f9`, capsule `20260821T175536Z-4ba90882f1`, archive SHA-256 `dde1c6bb7755ff80897f32372b0860352f93801e0f2d5086fb35578c10111bf1`.
+Стартовый `LATEST` этого запуска: blob `64a3d5855efddf993898dcd8b7400c5f2d4026d7`, capsule `20260821T185121Z-843f98abcc`, archive SHA-256 `28606a683d23f71f7675a816249256e1e5693be8844991fd29cdb6e1516baae1`.
 
-Он восстановлен exact нормативным `autonomy/v3/tools/capsule_runtime_v4.py`; локальный Git blob runtime совпал с каноническим `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`. `verify + restore` — PASS.
+Стартовая capsule восстановлена exact нормативным `capsule_runtime_v4.py`; Git blob runtime — `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`. `verify + restore` — PASS.
 
-После исследования exact runtime собрал новую v4 capsule `20260821T185121Z-843f98abcc`, archive SHA-256 `28606a683d23f71f7675a816249256e1e5693be8844991fd29cdb6e1516baae1`. Загружены immutable manifest + 2 parts; после загрузки они перечитаны. Git blob SHA совпали с локальными: manifest `7e70db66d87e96aa876587167d65502b4752e794`, part0 `0a2d8d97596c242000feab7a2350fe7a0d28071e`, part1 `116e5ec0dcc4b89e1c974a3721253fdd7e281b97`.
+После Core-работы собрана новая v4 capsule `20260821T195934Z-4b6ed4f0b7`, archive SHA-256 `0f5faaf70d7e5793efb2f506cd9111784a6f7f829f5328a6f56a5ccd83ef055e`, source_ref `db0ef41550cdc8c7d1e74f3fc8f6aa8773f404de`.
+
+Immutable upload перепроверен после записи:
+- manifest Git blob `24fda69963d951045d20bf8e19ae1ae0ab95c4a0`;
+- part0 Git blob `773db3f29af476271940d63dfdba3e4767004229`;
+- part1 Git blob `1da89249a5a99042aeb8c37996596c8dcd194ce3`.
+
+Локальный exact runtime повторно дал `verify PASS` и `restore PASS`, восстановленные `CHECKPOINT.md`/`EVIDENCE.txt` совпали с manifest SHA-256.
+
+Перед публикацией `LATEST` был перечитан и всё ещё имел исходный parent blob `64a3d585…`, поэтому CAS выполнен штатно. Старый LATEST сохранён в `PREVIOUS`, новый `LATEST` указывает на `20260821T195934Z-4b6ed4f0b7`; его blob — `bdfbc91f0af8ff9034619ba8eedb3829e073b7c5`.
 
 ## Граница доказанного
 
-- Новый дефект воспроизведён на текущей логике `session-store`.
-- Продуктовый fix ещё НЕ внесён.
-- Полный exact-tree `npm test` текущего PR-head не заявлен.
+- Дефект silent truncation owner system prompt исправлен в текущей PR-линии и защищён постоянным тестом.
+- Целевая hosted-проверка семантики зелёная.
+- Full exact-tree `npm test` на текущем общем PR-head НЕ заявлен.
 - GitHub Actions, CircleCI, Cloudflare, live Qwen/provider traffic, реальные аккаунты, секреты и production не использовались.
 
 ## Следующее
 
-1. Материализовать exact `src/session-store.js` и исправить silent truncation system messages без ослабления bounded history.
-2. Добавить regression `large owner system prompt → checkpoint → restart → short continue`, плюс сохранение нескольких system-блоков в порядке.
-3. Прогнать локальный session/restart-кластер и затем искать следующий воспроизводимый Core-дефект.
+1. Если появится безопасный побайтовый способ материализовать приватный tree на hosted-машине, выполнить новый `session-owner-system-checkpoint-test.js` вместе с ближайшим session/restart-кластером без внешнего CI.
+2. Проверить внешний non-stream контракт `QWEN_SYSTEM_CHECKPOINT_REJECTED`: streaming-путь уже передаёт локальный код checkpoint-ошибки, а общий non-stream catch сейчас, вероятно, превращает его в безликий HTTP 500.
+3. Чинить только после воспроизводимого нарушения; узкую механику cooldown/account selection не трогать, если она не пересекается с Core.

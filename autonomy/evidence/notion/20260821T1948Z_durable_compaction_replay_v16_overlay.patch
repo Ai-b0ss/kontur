@@ -1,0 +1,99 @@
+# Apply after:
+#   20260821T1640Z_durable_replay_v12_exact_candidate.patch
+#   20260821T1705Z_durable_replay_v12_candidate_fixup.patch
+#   V14 oversized-response durable tombstone requirement
+#   20260821T1848Z_durable_replay_v15_overlay.patch
+#
+# V16 closes the crash window where compaction lifecycle state is durable but the
+# exact compact_payload accepted by Codex is not. It intentionally reuses the V12
+# durable replay slot because request_kind participates in durable_replay_fingerprint;
+# advancing to a later request moves the old fingerprint into stale markers, which
+# safely blocks late retries rather than re-running Notion.
+
+diff --git a/payload/server.py b/payload/server.py
+--- a/payload/server.py
++++ b/payload/server.py
+@@
+ async def handle_openai_compaction(
+     body: dict[str, Any],
+     turn_key: str | None,
+     conversation_key: str | None,
+ ):
+@@
+-    input_fingerprint = response_input_fingerprint(body)
+-    affinity = await turn_affinities.get(turn_key)
+-    if (
+-        affinity is not None
+-        and affinity.model == model
+-        and affinity.input_fingerprint == input_fingerprint
+-    ):
+-        log_event(log, "compaction_cache_hit", account_id=affinity.account_id)
+-        return compact_payload(affinity.completion_text, turn_key)
+-
+-    segment = await conversation_segments.get(conversation_key)
++    # Compaction participates in the same durable request/replay transaction as
++    # normal Responses turns. A memory-only cache is never sufficient to prove
++    # crash-safe completion.
++    if conversation_key is not None and isinstance(conversation_segments, ConversationSegmentStore):
++        try:
++            await conversation_segments.require_persistence_ready()
++        except ConversationPersistenceError as exc:
++            return replay_error(str(exc), status_code=503)
++
++    input_fingerprint = response_input_fingerprint(body)
++    segment = await conversation_segments.get(conversation_key)
++    if conversation_key is not None and isinstance(conversation_segments, ConversationSegmentStore):
++        try:
++            # get() can run cleanup and discover a persistence failure.
++            await conversation_segments.require_persistence_ready()
++        except ConversationPersistenceError as exc:
++            return replay_error(str(exc), status_code=503)
++
++    replay_fingerprint = durable_replay_fingerprint(body, turn_key, "compaction")
++    if segment is not None:
++        persisted_fingerprint = getattr(segment, "replay_request_fingerprint", None)
++        persisted_response = getattr(segment, "replay_response", None)
++        stale_fingerprints = set(getattr(segment, "stale_replay_fingerprints", ()))
++        if replay_fingerprint == persisted_fingerprint:
++            if not isinstance(persisted_response, dict):
++                return replay_error("exact prior compaction no longer has a replayable result")
++            return persisted_response
++        if replay_fingerprint in stale_fingerprints:
++            return replay_error("stale prior compaction cannot be executed again")
++
++    # For legacy callers without a durable conversation identity the old
++    # same-process cache remains an optimization only. Codex lifecycle safety
++    # must not treat it as restart-safe proof.
++    affinity = await turn_affinities.get(turn_key)
++    if (
++        conversation_key is None
++        and affinity is not None
++        and affinity.model == model
++        and affinity.input_fingerprint == input_fingerprint
++    ):
++        log_event(log, "compaction_cache_hit", account_id=affinity.account_id)
++        return compact_payload(affinity.completion_text, turn_key)
+@@
+             completion = await lease.run(
+                 continuation_completion if can_continue else initial_completion,
+                 retry_operation=initial_completion,
+             )
++            rendered_compaction = compact_payload(completion.text, turn_key)
+             # Publish the post-compaction lifecycle transition before any
+             # in-memory affinity cache or client-visible compacted context.
+             # A process restart must never observe pre-compaction durable state
+             # after Codex has already accepted the compaction result.
+             await conversation_segments.put(
+                 conversation_key,
+@@
+                 input_tokens=completion.usage.input_tokens,
+                 output_tokens=completion.usage.output_tokens,
+                 model=model,
++                replay_request_fingerprint=replay_fingerprint,
++                replay_response=rendered_compaction,
+                 require_persistence=(conversation_key is not None),
+             )
+             await turn_affinities.put(
+@@
+-    return compact_payload(completion.text, turn_key)
++    return rendered_compaction

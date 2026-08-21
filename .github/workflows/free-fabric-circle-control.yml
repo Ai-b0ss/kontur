@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   circle-control:
@@ -18,90 +18,52 @@ jobs:
     steps:
       - name: Checkout control branch
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Try Circle token A first
-        id: run_a
+      - name: Probe both accounts, adopt-or-trigger Circle pipeline, and wait
+        id: control
         continue-on-error: true
         env:
           CIRCLE_TOKEN_A: ${{ secrets.CIRCLE_TOKEN_A }}
-          CIRCLE_TOKEN_B: ''
-        run: |
-          set +e
-          python3 .free-fabric/circle_control.py
-          code=$?
-          cp .free-fabric/circle-control-result.json /tmp/circle-a.json 2>/dev/null || true
-          exit $code
-
-      - name: Inspect A route
-        id: inspect_a
-        if: always()
-        run: |
-          python3 - <<'PY'
-          import json, os
-          p='/tmp/circle-a.json'
-          d=json.load(open(p)) if os.path.exists(p) else {}
-          r=d.get('result') or {}
-          started=bool(r.get('pipeline_id'))
-          success=r.get('status')=='success'
-          with open(os.environ['GITHUB_OUTPUT'],'a') as f:
-              f.write(f'started={str(started).lower()}\n')
-              f.write(f'success={str(success).lower()}\n')
-          print(json.dumps(d, ensure_ascii=False, indent=2))
-          PY
-
-      - name: Try Circle token B only if A could not start a pipeline
-        id: run_b
-        if: steps.inspect_a.outputs.started != 'true'
-        continue-on-error: true
-        env:
-          CIRCLE_TOKEN_A: ''
           CIRCLE_TOKEN_B: ${{ secrets.CIRCLE_TOKEN_B }}
         run: |
           set +e
-          python3 .free-fabric/circle_control.py
-          code=$?
-          cp .free-fabric/circle-control-result.json /tmp/circle-b.json 2>/dev/null || true
-          exit $code
+          python3 .free-fabric/circle_control_v2.py
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          exit 0
 
-      - name: Inspect B route
-        id: inspect_b
-        if: always() && steps.inspect_a.outputs.started != 'true'
-        run: |
-          python3 - <<'PY'
-          import json, os
-          p='/tmp/circle-b.json'
-          d=json.load(open(p)) if os.path.exists(p) else {}
-          r=d.get('result') or {}
-          started=bool(r.get('pipeline_id'))
-          success=r.get('status')=='success'
-          with open(os.environ['GITHUB_OUTPUT'],'a') as f:
-              f.write(f'started={str(started).lower()}\n')
-              f.write(f'success={str(success).lower()}\n')
-          print(json.dumps(d, ensure_ascii=False, indent=2))
-          PY
-
-      - name: Collect sanitized evidence
+      - name: Persist sanitized result back to the control branch
         if: always()
         run: |
-          mkdir -p /tmp/free-fabric-circle-evidence
-          cp /tmp/circle-a.json /tmp/free-fabric-circle-evidence/ 2>/dev/null || true
-          cp /tmp/circle-b.json /tmp/free-fabric-circle-evidence/ 2>/dev/null || true
-          printf 'control_sha=%s\nbranch=%s\nutc=%s\n' "$GITHUB_SHA" "$GITHUB_REF_NAME" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /tmp/free-fabric-circle-evidence/CONTROL.txt
+          set -euo pipefail
+          test -f .free-fabric/runtime/circle-control-result.json
+          git config user.name "FREE FABRIC bot"
+          git config user.email "free-fabric@users.noreply.github.com"
+          git add -- .free-fabric/runtime/circle-control-result.json
+          if git diff --cached --quiet; then
+            echo "No result delta to persist"
+          else
+            git commit -m "FREE FABRIC: persist sanitized Circle control result [skip ci]"
+            git push origin HEAD:ci/kontur-circle-vite-20260821
+          fi
 
-      - name: Upload sanitized control evidence
+      - name: Upload sanitized result artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: free-fabric-circle-control-evidence
-          path: /tmp/free-fabric-circle-evidence
+          path: .free-fabric/runtime/circle-control-result.json
           if-no-files-found: error
 
       - name: Final gate
         if: always()
         run: |
-          if [ '${{ steps.inspect_a.outputs.started }}' = 'true' ]; then
-            test '${{ steps.inspect_a.outputs.success }}' = 'true'
-          else
-            test '${{ steps.inspect_b.outputs.started }}' = 'true'
-            test '${{ steps.inspect_b.outputs.success }}' = 'true'
-          fi
+          python3 - <<'PY'
+          import json
+          d=json.load(open('.free-fabric/runtime/circle-control-result.json'))
+          r=d.get('result') or {}
+          print(json.dumps(d, ensure_ascii=False, indent=2))
+          if r.get('status') != 'success':
+              raise SystemExit(2)
+          PY

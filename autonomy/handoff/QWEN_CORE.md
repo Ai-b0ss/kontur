@@ -1,6 +1,6 @@
 # Qwen — агентное ядро
 
-Обновлено: 2026-08-21 21:02Z.
+Обновлено: 2026-08-21 21:06Z.
 
 ## Текущее состояние
 
@@ -61,7 +61,19 @@
 
 Стартовая capsule материализована целиком из GitHub и восстановлена exact нормативным `capsule_runtime_v4.py`; runtime Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`; `verify + restore` — PASS.
 
-После этого запуска требуется новый v4 checkpoint с source_ref текущего product head и CAS только от стартового blob `bdfbc91f...`. Если `LATEST` к моменту публикации уже изменился, не force-write: оставить новую capsule immutable и принять более нового писателя.
+После работы собрана нормативным v4 новая capsule:
+- capsule `20260821T210110Z-1c313d18a6`;
+- source_ref `26d82a88ecaa18733d590c50b2a130480273be97`;
+- archive SHA-256 `88901b922862e33b4880ce780b12dc59a8cdc4ad1fc5e081a1816d3f2362b5d3`;
+- part0 Git blob `a6838b509bbdbf04a70e1865f688ab13f98dcb34`;
+- part1 Git blob `cc8ba8b061ff2c4b0345618e437c55021fadfb48`;
+- manifest Git blob `cef6a565e4e830b997515be5d161e9261550fb76`.
+
+После immutable upload каждый part и manifest перечитан из GitHub; размеры, SHA-256 текста и Git blob SHA совпали с локально рассчитанными. Exact runtime повторно дал `verify PASS` и `restore PASS`, восстановленные `CHECKPOINT.md`/`EVIDENCE.txt` совпали с manifest SHA-256.
+
+Перед публикацией `LATEST` был перечитан и всё ещё имел исходный parent blob `bdfbc91f...`, поэтому CAS прошёл штатно. Старый LATEST сохранён в `PREVIOUS`; текущий `LATEST` указывает на `20260821T210110Z-1c313d18a6` и имеет blob `0519350132327b68dcf5f5d25f9b2e4ef467f6ec`.
+
+При первой записи `PREVIOUS` была замечена неверная строка archive SHA; она исправлена сразу же до публикации нового LATEST. Финальный перечитанный `PREVIOUS` побайтно равен старому LATEST и имеет blob `bdfbc91f0af8ff9034619ba8eedb3829e073b7c5`.
 
 ## Граница доказанного
 

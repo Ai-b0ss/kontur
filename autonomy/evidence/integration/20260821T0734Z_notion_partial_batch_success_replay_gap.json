@@ -1,0 +1,59 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "NOTION_PARTIAL_BATCH_SUCCESS_RESULT_LOST_ON_PEER_FAILURE",
+  "verdict": "REPRODUCED_CURRENT_DUPLICATE_AND_CANDIDATE_CONTRACT_PASS",
+  "fresh_sources": {
+    "notion_pr8_head": "75a4a6de243e22e0df3c15e572e7aa09977d1fcb",
+    "subagent_lifecycle_blob": "c90ff249e2199dcdc43002dfb3277fc60fc63b53",
+    "test_subagent_lifecycle_blob": "2d0451ee466502799fb28bfa3236534bbb7d01a5",
+    "qwen_pr6_head": "d41bc71ac7875c8bb4a625e128f20d01c2d885c6",
+    "qwen_subagent_agent_runner_blob": "53e8682563c39d9d10ccf8d748263ce63fb43e28"
+  },
+  "observed_contract": [
+    "Notion run_many() awaits every admitted child with return_exceptions=true, so a peer failure no longer cancels a sibling that may already be mutating local state.",
+    "After all children settle, run_many() raises the first BaseException and discards successful sibling DelegationResult objects.",
+    "The finally block releases every reserved task_id, including siblings that completed successfully.",
+    "The existing peer-failure test proves the successful sibling finishes but intentionally expects only the exception; it does not preserve/replay that successful result on a batch retry.",
+    "Qwen runAgentSubagents(), by contrast, returns per-task structured results and persisted done tasks are resumed instead of executed again."
+  ],
+  "risk": "If a caller retries the same Notion batch after one child fails, a sibling that already completed a write/shell action can run again because its successful result was discarded and its identity released. This is a same-process duplicate-side-effect path even before the separate process-restart durable-child-state gap.",
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_notion_partial_batch_retry_probe.py",
+    "result": {
+      "current_ok_calls": 2,
+      "current_failed_calls": 2,
+      "current_side_effects": 2,
+      "current_duplicate_side_effect": true,
+      "candidate_ok_calls": 1,
+      "candidate_failed_calls": 2,
+      "candidate_side_effects": 1,
+      "candidate_successful_sibling_replayed_not_reexecuted": true
+    }
+  },
+  "minimal_product_contract": [
+    "A partial batch outcome must be first-class: successful siblings cannot disappear merely because another sibling failed.",
+    "A retry of the same canonical child identity must replay a previously completed result rather than dispatch the child again.",
+    "Only failed siblings are eligible for ordinary retry; uncertain siblings remain blocked under the existing uncertainty contract.",
+    "For process-restart safety, the completed/failed/uncertain child ledger must eventually be durable; an in-memory cache only closes the immediate same-process duplicate path.",
+    "Do not solve this by cancelling successful siblings or by treating all partial failures as uncertain: that would lose useful completed work and reduce safe parallelism."
+  ],
+  "candidate_regression": [
+    "Run batch [ok, fails] where ok performs one counted local side effect and returns successfully while fails raises.",
+    "Retry the identical batch in the same lifecycle.",
+    "Assert ok executor count remains 1 and its prior result is replayed; fails executor count becomes 2.",
+    "Extend the same assertion across restart once the durable child-state owner lands its storage contract."
+  ],
+  "coordination": {
+    "does_not_overlap_notion_agent_current_narrow_work": "ordinary Responses dynamic reservation/materialization and transport provenance",
+    "does_not_overlap_notion_core_current_narrow_work": "durable parent Responses replay and native-Windows auth rollback",
+    "does_not_overlap_qwen_core_current_narrow_work": "stream/session disconnect lifecycle",
+    "does_not_overlap_qwen_reliability_current_narrow_work": "canonical preferred-account operationCandidates/thread affinity"
+  },
+  "limits": [
+    "No product file changed.",
+    "No CircleCI, GitHub Actions, Cloudflare or other hosted CI.",
+    "No live Notion/Qwen/Codex/provider traffic.",
+    "No Windows claim, production, real account data or secrets."
+  ]
+}

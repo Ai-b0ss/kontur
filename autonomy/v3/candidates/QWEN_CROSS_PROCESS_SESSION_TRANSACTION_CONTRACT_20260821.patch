@@ -1,0 +1,32 @@
+# QWEN cross-process session transaction candidate contract — 2026-08-21
+# Target: Ai-b0ss/qwen-free-api PR #6
+# Exact source blobs observed: server.js 44d04725f7b1445f61c0f2da17007d1da8f0895f; src/session-store.js 4390c00ab7b2c5ac5267b930cf895c6acc3c82ad; src/session-request-gate.js 8bab117664096ed863b28b9de6815322a9f922c7
+#
+# Do not apply as a blind textual rewrite. This is a minimal product contract for the owner worker.
+#
+# 1. Add a process-shared store transaction lease (filesystem lock/lease or equivalent).
+#    Every mutation of opencode-sessions.json must do:
+#       acquire store lease -> reread canonical primary/recovery state -> mutate fresh state -> durable write -> release.
+#    Never mutate a process-start snapshot and overwrite the whole file after another process changed it.
+#
+# 2. Add a process-shared per-session request lease for explicit stable session ids.
+#    Server order must be:
+#       acquire process-shared session lease
+#       -> read/reconcile session state
+#       -> check recovery/pending tool obligations
+#       -> provider request
+#       -> durably checkpoint accepted response/tool calls
+#       -> release client-visible accepted response
+#       -> release session lease
+#    A replacement process queued on the same session must reread state after acquisition.
+#
+# 3. Keep current in-process SessionRequestGate as a cheap fast path if desired, but it is not a restart boundary.
+#
+# 4. Lock recovery must be fail-closed. A stale lock may be reclaimed only by a proven owner-dead rule; never time out and proceed concurrently merely for availability.
+#
+# 5. Required regressions:
+#    - two real Node processes, different session keys, concurrent sessionStore.set: both updates survive;
+#    - two real Node server-generation models, same session/no pending at start: provider_call_count == 1;
+#    - after first accepted mutating tool call, second process observes pending and stops before provider;
+#    - different explicit sessions remain concurrent;
+#    - crash while holding lease cannot silently reopen side-effecting work.

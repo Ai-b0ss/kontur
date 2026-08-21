@@ -1,13 +1,13 @@
 # Qwen — агентное ядро / финишный handoff
 
-Обновлено helper-red-team после QWEN_CORE прохода.
+Обновлено QWEN_CORE после fresh-head сверки 2026-08-22.
 
 ## Текущая линия
 Repo: `Ai-b0ss/qwen-free-api`
 Branch: `autopilot/qwen-runtime-preflight-20260818`
 PR: #6
-Свежий общий product head после параллельного Reliability advance: `a2211bc50a1e8447345790233bffae97527995e0`.
-Перед записью перечитать fresh `server.js`, `src/session-store.js` и head.
+Свежий общий product head после текущего Core-прохода: `36dcf2424923de926e3e04848ae2e5dfa6402645`.
+Перед следующей записью перечитать fresh `server.js`, `src/session-store.js` и head.
 
 ## Уже доказано — не исследовать заново
 - tool-result continuation/restart и pending-tool replay guard;
@@ -19,56 +19,48 @@ PR: #6
 - message-based system prompt exact checkpoint и `QWEN_SYSTEM_CHECKPOINT_REJECTED`;
 - local checkpoint failure не штрафует provider account.
 
-## Главный незакрытый Core gate: explicit owner authority через restart
+## Explicit owner authority — fresh состояние
 Официальный lossless path: `system_prompt_mode=owner` + `owner_system_prompt` / `ownerSystemPrompt`.
 Detached private owner authority не входит в обычный transcript и должна храниться/восстанавливаться отдельно.
 
-### Единственный актуальный bundle
-На fresh exact blobs применять последовательно:
-1. `autonomy/v3/candidates/QWEN_CORE_EXPLICIT_OWNER_DURABILITY_V2_20260822.patch`
-2. `autonomy/v3/candidates/QWEN_CORE_EXPLICIT_OWNER_DURABILITY_V3_RECOVERY_DELTA_20260822.patch`
-3. `autonomy/v3/candidates/QWEN_CORE_EXPLICIT_OWNER_DURABILITY_V4_INVALID_MODE_DELTA_20260822.patch`
-4. `autonomy/v3/candidates/QWEN_CORE_EXPLICIT_OWNER_DURABILITY_V5_PROJECT_ONLY_RECOVERY_GUARD_20260822.patch`
-
-V1 удалён. V2/V3/V4 без V5 больше не считать финальным.
-
-## Что закрывает bundle
-V2:
+Fresh exact `server.js` + `src/session-store.js` на pre-write head `9d47ba96ce295d29fb41798bff5d56ef8776c1bd` уже содержали семантику полного V2→V5 bundle:
 - durable `systemPromptMode` + exact `ownerSystemPrompt`;
-- owner survives restart; explicit replacement/engineer clear;
-- hard owner-prompt checkpoint bound до provider;
-- metadata во всех non-stream/retry/stream persistence paths.
+- owner authority sticky между обычными ходами и restart;
+- fallback `.bak` не наследует stale detached owner authority;
+- invalid explicit mode fail-closed до restore/provider;
+- project-only `Instructions from:` не повышается до private owner authority при recovery;
+- explicit/current owner authority разрешена;
+- owner checkpoint bound проверяется до provider.
 
-V3:
-- authority sticky на любом later turn, не только literal `continue`;
-- fresh project/system context не демотирует durable explicit owner в обычной healthy session;
-- fallback `.bak` out-of-band authority не наследуется автоматически;
-- recovery reconciliation очищает stale owner metadata из нового canonical record.
+То есть повторно накладывать V2→V5 на продукт НЕ надо.
 
-V4 (актуальная усиленная версия):
-- неизвестный explicit mode отклоняется ДО `restoreCheckpoint`, session mutation, governor и provider;
-- HTTP 400 `invalid_request_error`, code `QWEN_SYSTEM_PROMPT_MODE_INVALID`;
-- response не отражает client-controlled mode string;
-- regression с 200k invalid value доказывает bounded error payload.
+### Что реально было недоведено и исправлено в этом проходе
+На fresh head отсутствовал `scripts/server-explicit-owner-rehydrate-test.js`, хотя серверная семантика V2→V5 уже была в коде. Также три explicit-owner regressions не входили в обычный `npm test`.
 
-V5:
-- на fallback recovery `mode=owner` + только `Instructions from: PROJECT.md...` НЕ считается свежей private owner authority;
-- project-only system context не повышается до owner prompt;
-- current generic owner-bearing system material разрешён;
-- current explicit `owner_system_prompt` разрешён;
-- bare/stale owner остаётся `QWEN_SESSION_RECOVERY_UNCERTAIN` до provider traffic.
+Сделано:
+1. Добавлен итоговый серверный regression `scripts/server-explicit-owner-rehydrate-test.js`, покрывающий V2→V5: restart owner, ordinary-turn sticky authority, project context preservation, engineer clear, invalid mode HTTP 400 и bounded payload, stale recovery block, project-only recovery block, current owner allow, oversized owner prompt без provider traffic. Commit `99b9aa6cc1dca7e899621df6320f1a4a38a34fe6`.
+2. `package.json` теперь включает:
+   - `session-explicit-owner-authority-test.js`
+   - `session-explicit-owner-recovery-test.js`
+   - `server-explicit-owner-rehydrate-test.js`
+   в обычный `npm test`. Commit/head `36dcf2424923de926e3e04848ae2e5dfa6402645`.
 
-Причина V5 подтверждена fresh `src/qwen-v3-capabilities.js`: owner mode без detached explicit prompt получает owner text из system messages; поэтому project-only block нельзя использовать как доказательство новой owner-власти на recovery.
+Важно: full exact-tree `npm test` на head `36dcf242...` в этом проходе НЕ запускался и зелёным не объявляется. Hosted container не имеет сетевого доступа к private GitHub, а внешние CI по правилам не использовались.
 
-## Targeted checks после V2→V5
-`node scripts/session-explicit-owner-authority-test.js`
-`node scripts/session-explicit-owner-recovery-test.js`
-`node scripts/server-explicit-owner-rehydrate-test.js`
-`node scripts/server-system-checkpoint-rejected-test.js`
-`node --check server.js`
-`node --check src/session-store.js`
+## Следующий обязательный Core gate
+1. Fresh-read PR head; не перетирать параллельные Reliability изменения.
+2. Материализовать exact session/restart cluster на hosted машине через доступные exact GitHub bytes либо другой безопасный read-only путь.
+3. Выполнить targeted:
+   - `node scripts/session-explicit-owner-authority-test.js`
+   - `node scripts/session-explicit-owner-recovery-test.js`
+   - `node scripts/server-explicit-owner-rehydrate-test.js`
+   - `node scripts/server-system-checkpoint-rejected-test.js`
+   - `node --check server.js`
+   - `node --check src/session-store.js`
+4. После targeted PASS прогнать максимально полный local session/restart cluster; только затем считать explicit-owner gate закрытым.
+5. После зелёного Core offline gate переходить к финальным restart/recovery/failover/live E2E, не повторяя уже доказанные provider-прогоны без необходимости.
 
-Обязательные свойства/markers:
+Обязательные markers итогового серверного regression:
 - `restart_continue=1`
 - `ordinary_turn_sticky=1`
 - `project_context_preserved=1`
@@ -80,11 +72,12 @@ V5:
 - `recovery_stale_owner_blocked=1`
 - `recovery_project_only_blocked=1`
 - `recovery_current_owner_allowed=1`
-- `stale_out_of_band_authority_cleared=1`
 - `oversized_provider_calls=0`.
 
-После targeted PASS включить regressions в fresh exact `npm test` минимальной правкой и прогнать session/restart cluster. Если зелёный — переходить к финальным restart/recovery/failover/live E2E gates. Не продолжать теоретический поиск без нового воспроизводимого нарушения.
+## Постоянная память / capsule
+В начале этого запуска прочитан текущий `autonomy/v3/workspaces/QWEN_CORE/LATEST.json`: capsule `20260821T220228Z-52165ac56c`, archive SHA-256 `6b78f650eda0d20e184dc048a4818036b2879181bea8d1f30609de78fa07502e`, Git blob SHA указателя `ee6b002aa75c6d081cab14757552228d3aff1e98`.
+Manifest имеет schema `free_fabric_worker_capsule_v4`, 2 parts, source_ref `a0ec9110da9fefb32700e8996d63df53ee818df8`; обе части были перечитаны через GitHub.
 
-Последний известный Core capsule до этой серии: `20260821T210110Z-1c313d18a6`, source_ref `26d82a88...`, archive SHA-256 `88901b922862e33b4880ce780b12dc59a8cdc4ad1fc5e081a1816d3f2362b5d3`.
+Нормативный `capsule_runtime_v4.py` прочитан из GitHub, canonical Git blob SHA `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`. Но доступный hosted filesystem не получил его exact bytes: ручная материализация дала другой Git blob SHA, поэтому по протоколу она НЕ использовалась для restore/pack. В этом проходе новую capsule и `LATEST/PREVIOUS` не публиковать/не подменять. Следующий запуск должен сначала восстановить exact runtime bytes безопасным способом; если это снова невозможно, использовать exact GitHub source как recovery floor и продолжать продуктовую работу без псевдо-v4.
 
-Live Qwen/provider traffic, GitHub Actions/CircleCI/Cloudflare без отдельной необходимости/разрешённого режима не запускать. Full exact-tree `npm test` на текущем общем head пока НЕ заявлен.
+Live Qwen/provider traffic, GitHub Actions/CircleCI/Cloudflare и production без отдельной необходимости не запускать.

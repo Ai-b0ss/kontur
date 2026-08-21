@@ -1,0 +1,157 @@
+*** Begin Patch
+*** Update File: src/request-governor.js
+@@
+-  function __w2artifactState(){
++  function __w2artifactState(canonical,canonicalMissing){
+     const dir=__w2path.dirname(__w2STATE),base=__w2path.basename(__w2STATE),now=Date.now();
+     try{
+-      let interruptedTxn=false,recentInflight=false;
++      let ambiguousTxn=false,recentInflight=false;
++      const canonicalUpdatedAt=canonical&&Number.isFinite(Number(canonical.updatedAt))
++        ? Number(canonical.updatedAt)
++        : -1;
+       for(const name of __w2fs.readdirSync(dir)){
+-        if(name.startsWith(base+'.txn-backup-')||name.startsWith(base+'.tmp-'))interruptedTxn=true;
+-        if(!name.startsWith(base+'.inflight-'))continue;
+-        const marker=__w2path.join(dir,name);
++        const artifact=__w2path.join(dir,name);
++        const isTxn=name.startsWith(base+'.txn-backup-')||name.startsWith(base+'.tmp-');
++        if(isTxn){
++          let candidate;
++          try{candidate=JSON.parse(__w2fs.readFileSync(artifact,'utf8'))}
++          catch(_){ambiguousTxn=true;continue;}
++
++          // A valid canonical plus an artifact that is provably no newer is a
++          // cleanup residue, not uncertainty. Conversely a newer/unreadable
++          // candidate may contain a safety update that never became canonical.
++          if(
++            canonicalMissing||
++            !__w2validLoadedState(candidate)||
++            canonicalUpdatedAt<0||
++            Number(candidate.updatedAt)>canonicalUpdatedAt
++          ){
++            ambiguousTxn=true;
++            continue;
++          }
++          try{__w2fs.rmSync(artifact,{force:true});__w2syncParent(artifact)}catch(_){}
++          continue;
++        }
++
++        if(!name.startsWith(base+'.inflight-'))continue;
+         let parsed;
+-        try{parsed=JSON.parse(__w2fs.readFileSync(marker,'utf8'))}
+-        catch(_){return {interruptedTxn,recentInflight:true,inspectionFailed:false};}
++        try{parsed=JSON.parse(__w2fs.readFileSync(artifact,'utf8'))}
++        catch(_){return {ambiguousTxn,recentInflight:true,inspectionFailed:false};}
+         if(
+           !parsed||Number(parsed.version)!==1||
+           !Number.isFinite(Number(parsed.createdAt))||Number(parsed.createdAt)<0
+-        )return {interruptedTxn,recentInflight:true,inspectionFailed:false};
++        )return {ambiguousTxn,recentInflight:true,inspectionFailed:false};
+         if((now-Number(parsed.createdAt))<__w2INFLIGHT_STALE_MS){
+           recentInflight=true;
+           continue;
+         }
+@@
+-        try{__w2fs.rmSync(marker,{force:true});__w2syncParent(marker)}
+-        catch(_){return {interruptedTxn,recentInflight:true,inspectionFailed:false};}
++        try{__w2fs.rmSync(artifact,{force:true});__w2syncParent(artifact)}
++        catch(_){return {ambiguousTxn,recentInflight:true,inspectionFailed:false};}
+       }
+-      return {interruptedTxn,recentInflight,inspectionFailed:false};
++      return {ambiguousTxn,recentInflight,inspectionFailed:false};
+     }catch(error){
+-      if(error&&error.code==='ENOENT')return {interruptedTxn:false,recentInflight:false,inspectionFailed:false};
+-      return {interruptedTxn:false,recentInflight:false,inspectionFailed:true};
++      if(error&&error.code==='ENOENT')return {ambiguousTxn:false,recentInflight:false,inspectionFailed:false};
++      return {ambiguousTxn:false,recentInflight:false,inspectionFailed:true};
+     }
+   }
+@@
+-    if(!['penaltyUntil','lastWafAt','lastStartAt','lastFailureAt']
++    if(!['penaltyUntil','lastWafAt','lastStartAt','lastFailureAt','updatedAt']
+       .every(key=>Number.isFinite(Number(x[key]))&&Number(x[key])>=0))return false;
+@@
+-    const artifactState=__w2artifactState();
++    const artifactState=__w2artifactState(x,canonicalMissing);
+     if(
+       artifactState.inspectionFailed||
+       artifactState.recentInflight||
+-      (canonicalMissing&&artifactState.interruptedTxn)
++      artifactState.ambiguousTxn
+     )recoveryUncertain=true;
+*** Add File: scripts/request-governor-artifact-order-test.js
++'use strict';
++
++const assert = require('assert');
++const fs = require('fs');
++const os = require('os');
++const path = require('path');
++
++const root = fs.mkdtempSync(path.join(os.tmpdir(), 'qwen-governor-artifact-order-'));
++const stateFile = path.join(root, 'global-pressure.json');
++const modulePath = require.resolve('../src/request-governor');
++const previousFile = process.env.QWEN_WAFMIN2_STATE_FILE;
++
++function state(updatedAt, patch = {}) {
++  return {
++    version: 3,
++    starts: [],
++    usage: [],
++    penaltyUntil: 0,
++    wafStrikes: 0,
++    successStreak: 0,
++    lastWafAt: 0,
++    lastStartAt: 0,
++    lastFailureAt: 0,
++    lastFailureKind: '',
++    updatedAt,
++    ...patch,
++  };
++}
++
++function loadGovernor() {
++  delete require.cache[modulePath];
++  process.env.QWEN_WAFMIN2_STATE_FILE = stateFile;
++  return require('../src/request-governor');
++}
++
++(async () => {
++  try {
++    const now = Date.now();
++    fs.writeFileSync(stateFile, JSON.stringify(state(now)), 'utf8');
++
++    const oldBackup = `${stateFile}.txn-backup-old`;
++    fs.writeFileSync(oldBackup, JSON.stringify(state(now - 1000)), 'utf8');
++    let governor = loadGovernor();
++    assert.strictEqual(
++      governor.snapshot('account-a').global.state_uncertain,
++      false,
++      'backup proven older than durable canonical is cleanup-only',
++    );
++    assert.strictEqual(fs.existsSync(oldBackup), false, 'proven stale backup should be cleaned');
++
++    const newerTmp = `${stateFile}.tmp-newer`;
++    fs.writeFileSync(newerTmp, JSON.stringify(state(now + 1000, {
++      penaltyUntil: now + 600000,
++      wafStrikes: 2,
++    })), 'utf8');
++    governor = loadGovernor();
++    await assert.rejects(
++      () => governor.before('account-a', { chars: 100 }),
++      (error) => error && error.code === 'QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN',
++      'newer uncommitted safety candidate beside older canonical must fail closed',
++    );
++
++    console.log('REQUEST_GOVERNOR_ARTIFACT_ORDER_PASS stale_cleanup=1 newer_candidate_blocked=1');
++  } finally {
++    if (previousFile === undefined) delete process.env.QWEN_WAFMIN2_STATE_FILE;
++    else process.env.QWEN_WAFMIN2_STATE_FILE = previousFile;
++    delete require.cache[modulePath];
++    fs.rmSync(root, { recursive: true, force: true });
++  }
++})().catch((error) => {
++  console.error(error && error.stack ? error.stack : error);
++  process.exitCode = 1;
++});
+*** End Patch

@@ -1,0 +1,49 @@
+{
+  "artifact": "autonomy/v3/tools/integration_notion_delegated_restart_side_effect_probe.py",
+  "current_semantics": [
+    "DelegatedToolLoopSession history, seen call ids, completed model turns and final text are in-memory only",
+    "SubagentLifecycle active identities are in-memory only",
+    "A process death after a mutating tool commits but before a durable child result leaves no persisted inflight/uncertain marker",
+    "After restart the same logical child can be launched as fresh and repeat the mutation"
+  ],
+  "deterministic_probe": {
+    "after_same_identity_restart_side_effects": 2,
+    "first_process_side_effects": 1
+  },
+  "finding": "NOTION_DELEGATED_CHILD_RESTART_SIDE_EFFECT_GAP",
+  "limits": [
+    "No Notion product file modified",
+    "No live Notion/Codex/provider traffic",
+    "No native Windows claim",
+    "No hosted CI"
+  ],
+  "required_contract": [
+    "stable parent-scoped delegated identity",
+    "durable child state separate from provider account/thread state",
+    "persist accepted assistant tool batch before local tool execution",
+    "before a potentially mutating tool enters executor persist tool_inflight_mutating with call id/tool name",
+    "after restart tool_inflight_mutating becomes uncertain and automatic replay is blocked",
+    "after durable tool result persist history before next model call",
+    "read-only inflight can use a separately proven retry policy; do not classify mutating tools as safely retryable"
+  ],
+  "result": "REPRODUCED",
+  "safe_candidate": {
+    "automatic_retry_blocked": true,
+    "boundary": "persist mutating tool_inflight before executor; restart maps inflight to uncertain",
+    "identity": "(target,parent_turn_id,task_id)",
+    "side_effects": 1
+  },
+  "schema": "integration_helper_evidence_v1",
+  "source": {
+    "files": {
+      "payload/delegated_tool_loop.py": "ee789e92c5c3f63296923fc6584c55a44c082798",
+      "payload/delegation_policy.py": "cc50fc7373578262e6051e76716563a98f8f4935",
+      "payload/subagent_lifecycle.py": "c90ff249e2199dcdc43002dfb3277fc60fc63b53"
+    },
+    "head": "75a4a6de243e22e0df3c15e572e7aa09977d1fcb",
+    "repo": "Ai-b0ss/notion-agent-bridge"
+  },
+  "status": "REGRESSION_READY_OWNER_FIX_REQUIRED",
+  "timestamp_utc": "2026-08-21T06:20:00Z",
+  "worker": "INTEGRATION_HELPER"
+}

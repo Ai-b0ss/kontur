@@ -1,0 +1,51 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "DELEGATED_TOOL_CAPABILITY_POLICY_GAP",
+  "verdict": "REPRODUCED_AND_CANDIDATE_CONTRACT_PASS",
+  "source_heads": {
+    "qwen_pr6": "ffd19b208da8be58f5de9d11c4240327b9e0ad81",
+    "notion_pr8": "1d80d4f2939b4c76a43313b722e4e80c1041564c",
+    "notion_core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144"
+  },
+  "source_blobs": {
+    "notion_delegation_policy.py": "cc50fc7373578262e6051e76716563a98f8f4935",
+    "notion_delegation_dispatcher.py": "66d839a1db347684f2fa2681ceaf98600415298d",
+    "notion_server_subagent_runtime.py": "19362b1c73862247d833bfdc7d0ae5cd648e76c2",
+    "qwen_subagent_agent_runner.js": "53e8682563c39d9d10ccf8d748263ce63fb43e28",
+    "qwen_agent.js": "0dc6486d7bbb7a7c8d4137971a0deae6bd99e87d",
+    "qwen_tool_executor.js": "85cd74b92a4f4496d787e66e0ccaa96ec6f9f086"
+  },
+  "observed_gap": [
+    "Notion DelegationRequest and DelegationContext carry no delegated tool/capability policy.",
+    "Notion server child runtime exposes a fixed catalog containing write_file, edit_file and run_shell.",
+    "Qwen coding subagent defaults terminal=true and files=true; files=true enables read and mutating file tools together.",
+    "Therefore a restricted/read-only parent capability set cannot be preserved by the current neutral delegation envelope, and a future Qwen adapter cannot safely approximate read-only with the current boolean files switch."
+  ],
+  "offline_reproduction": {
+    "probe": "autonomy/v3/tools/integration_delegated_tool_capability_policy_probe.py",
+    "result": "DELEGATED_TOOL_CAPABILITY_POLICY_GAP_REPRO_PASS",
+    "parent_policy": "read_only",
+    "notion_escalated_tools": ["edit_file", "run_shell", "write_file"],
+    "qwen_default_mutators": ["append_file", "bash", "edit_file", "write_file"],
+    "neutral_envelope_can_express_policy": false
+  },
+  "candidate_contract": {
+    "delegation_envelope": "carry an explicit immutable provider-neutral tool capability allowlist or equivalent policy",
+    "missing_policy": "fail closed for delegated execution; never widen to provider defaults",
+    "identity": "persist only a content-free SHA-256 fingerprint of the canonical capability policy where restart identity requires it",
+    "notion_mapping": "filter SERVER_DELEGATED_TOOLS to the exact requested capability set before exposing tools to the child model",
+    "qwen_mapping": "add granular allowed-tools support; until then reject capability policies that cannot be represented exactly (for example read-only files) rather than mapping them to files=true",
+    "no_implicit_escalation": "child capabilities must be a subset of the parent/delegation policy unless an explicit higher-trust policy is separately authorized"
+  },
+  "non_overlap": {
+    "qwen_core": "does not modify current checkpoint/tool-pair trimming work",
+    "qwen_reliability": "does not modify account selection/provider circuit/thread affinity",
+    "notion_agent": "does not modify current dynamic reservation/materialization work",
+    "notion_core": "does not modify durable rendered replay or Windows auth rollback"
+  },
+  "limits": [
+    "No product source file was rewritten.",
+    "No hosted CI, Cloudflare, native Windows, provider traffic, production, real user data, accounts or secrets were used."
+  ]
+}

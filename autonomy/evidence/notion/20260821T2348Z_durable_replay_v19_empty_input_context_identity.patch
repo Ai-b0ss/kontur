@@ -1,0 +1,113 @@
+# Apply after the V12/V17/V14/V15/V16/V18 durable-replay chain.
+# V19 closes the zero-input segment identity gap: per-item fingerprints cannot
+# carry tool/prompt/response-format context when Responses input is empty.
+
+diff --git a/payload/conversation_segments.py b/payload/conversation_segments.py
+--- a/payload/conversation_segments.py
++++ b/payload/conversation_segments.py
+@@
+ def response_input_fingerprints(body: dict[str, Any]) -> tuple[str, ...]:
+@@
+     return tuple(
+@@
+     )
++
++
++def response_context_fingerprint(body: dict[str, Any]) -> str:
++    request_context = {
++        "bridge_prompt_policy": prompt_policy_fingerprint(body),
++        "engineer_instructions": (
++            body.get("instructions")
++            if requested_prompt_mode(body) != "owner"
++            else None
++        ),
++        "tools": body.get("tools"),
++        "tool_choice": body.get("tool_choice"),
++        "text": body.get("text"),
++    }
++    return hashlib.sha256(
++        json.dumps(
++            request_context,
++            ensure_ascii=False,
++            sort_keys=True,
++            separators=(",", ":"),
++        ).encode()
++    ).hexdigest()
+@@
+ class ConversationSegment:
+@@
+     model: str | None = None
++    context_fingerprint: str | None = None
+@@
+     async def put(
+@@
+         model: str,
++        context_fingerprint: str | None = None,
+@@
+             staged[storage_key] = ConversationSegment(
+@@
+                 model=model,
++                context_fingerprint=(
++                    context_fingerprint
++                    if context_fingerprint is not None
++                    else previous.context_fingerprint if previous else None
++                ),
+@@
+                     model=(str(raw["model"]) if raw.get("model") else None),
++                    context_fingerprint=(
++                        str(raw["context_fingerprint"])
++                        if raw.get("context_fingerprint") else None
++                    ),
+
+diff --git a/payload/server.py b/payload/server.py
+--- a/payload/server.py
++++ b/payload/server.py
+@@
+ from conversation_segments import (
+@@
+     response_input_fingerprints,
++    response_context_fingerprint,
+ )
+@@
+     current_fingerprints = response_input_fingerprints(body)
++    current_context_fingerprint = response_context_fingerprint(body)
+@@
+     rollover_reason: str | None = None
+     if segment is not None and segment.awaiting_compacted_history and not is_compaction:
+         rollover_reason = "post_compaction"
+     elif segment is not None and segment.model != model:
+         rollover_reason = "model_changed"
++    elif (
++        segment is not None
++        and getattr(segment, "context_fingerprint", None) is not None
++        and segment.context_fingerprint != current_context_fingerprint
++    ):
++        rollover_reason = "request_context_changed"
++    elif (
++        segment is not None
++        and getattr(segment, "context_fingerprint", None) is None
++        and len(segment.input_fingerprints) == 0
++    ):
++        # A legacy zero-input segment carries no per-item evidence of its
++        # original tools/prompt/response-format contract. Never continue it as
++        # an anchor. The V12 legacy exact-retry gate still rejects an exact
++        # already-committed empty request; appended/new work starts a fresh
++        # Notion segment instead of inheriting unknown context.
++        rollover_reason = "request_context_unknown"
+     elif segment is not None and segment_prefix is None:
+         rollover_reason = "history_rewritten"
+@@
+             await conversation_segments.put(
+@@
+                 model=model,
++                context_fingerprint=current_context_fingerprint,
+@@
+ async def handle_openai_compaction(
+@@
+     current_fingerprints = response_input_fingerprints(body)
++    current_context_fingerprint = response_context_fingerprint(body)
+@@
+             await conversation_segments.put(
+@@
+                 model=model,
++                context_fingerprint=current_context_fingerprint,

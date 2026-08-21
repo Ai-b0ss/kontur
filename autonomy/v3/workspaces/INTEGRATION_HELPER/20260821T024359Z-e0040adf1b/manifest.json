@@ -1,0 +1,64 @@
+{
+  "archive": {
+    "parts": 4,
+    "sha256": "378655bc8b376ae3a86664b63394e5239bb05c1b7afa037d2ec3120a7a98af15",
+    "size": 4819
+  },
+  "capsule_id": "20260821T024359Z-e0040adf1b",
+  "created_at_utc": "2026-08-21T02:43:59Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "f1d140e4ede8e42602b2ff539dd42d1708d2f3f35bc2a0e7073dd0f5c5761d7f"
+    },
+    {
+      "chars": 2048,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "4afa5afcaf594009b45bdd6cd26bf0ea2bb216c5b86e742bb2731c983f3b6eef"
+    },
+    {
+      "chars": 2048,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "af6ef94473b5f5f5472ebe8f99d277a401fdd93cc3de6631af9329a0c00d16ca"
+    },
+    {
+      "chars": 284,
+      "index": 3,
+      "name": "part-0003.b64",
+      "sha256_text": "cd252cf4c38b499cc83376764c8aa1ba66281b61930c7e0b7e124aed41d85740"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@3b8206eefbf319957c12a0ef46ed31fdf74801f8 + Ai-b0ss/notion-agent-bridge@9cd1a98ee1d1c85a9d3650c6d756852810a055f3",
+  "worker": "INTEGRATION_HELPER",
+  "workspace": {
+    "CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "efb002d9c623ffc149b114d0e93bb8ba661d02de2eca798bd87cfdd4e1c548f6",
+      "size": 4578,
+      "type": "file"
+    },
+    "STATE.json": {
+      "mode": "0o644",
+      "sha256": "96749d1a9485fd7eb6b49e9366cb1e4e352dd59f795b6624de54781fc834f11b",
+      "size": 636,
+      "type": "file"
+    },
+    "integration_notion_rebind_global_parallelism_probe.py": {
+      "mode": "0o755",
+      "sha256": "535db5413064e5d9738bee02d7e891e8b4657ecf2b35c93d9aaac77bab7fd4d6",
+      "size": 4129,
+      "type": "file"
+    },
+    "integration_qwen_persisted_skill_content_fingerprint_probe.js": {
+      "mode": "0o755",
+      "sha256": "206e19da6f56348ba93963876001301137c58835b230661cffd00ccd0fffab61",
+      "size": 3093,
+      "type": "file"
+    }
+  }
+}

@@ -4,7 +4,7 @@
 
 Основная продуктовая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6.
 
-Свежий product head этого запуска: `ffd19b208da8be58f5de9d11c4240327b9e0ad81`.
+Свежий product head этого запуска: `5c7df532f747cdb103d02fdd0de26feb957b4ae8`.
 
 ## Уже доказано и не переделывать
 
@@ -12,54 +12,32 @@
 - CAPTCHA/rate limit/expired auth допускают ограниченный failover, provider-wide WAF/trust/pressure закрывают дальнейшее прощупывание;
 - существующий Qwen-тред сохраняет account/thread affinity, а допустимый failover переносит локальную историю в свежий тред другого аккаунта;
 - stale `current()`/`preferredAccount` fail-open закрыт: configured-but-none-eligible => `503 QWEN_NO_ELIGIBLE_ACCOUNT`, отсутствие аккаунтов => `401`;
-- cooldown монотонный; поздняя CAPTCHA в принятом SSE идёт через `markCaptchaChallenge`;
+- account cooldown монотонный; поздняя CAPTCHA в принятом SSE идёт через `markCaptchaChallenge`;
 - duplicate `Failed to generate chat_id` classification закрыт;
 - критичные account/session/provider-circuit состояния сохраняются crash-safe;
 - automatic retry поздней SSE-ошибки отсутствует;
 - pending tool-call в durable checkpoint блокирует короткий `continue` через `409 QWEN_PENDING_TOOL_RESULT`;
-- `src/stream-session-guard.js` удерживает потоковые mutating tool-calls до durable acceptance; поздняя SSE-ошибка не выпускает их клиенту;
+- потоковые mutating tool-calls удерживаются до durable acceptance; поздняя SSE-ошибка не выпускает их клиенту;
 - streaming и оба non-stream `sessionStore.set() === false` fail-open закрыты через `QWEN_TOOL_CHECKPOINT_REJECTED`;
 - transport error после принятого SSE проходит в account/provider classification ровно один раз;
-- удаление аккаунта после durable rename больше не расходится между диском и памятью при сбое cleanup tombstone;
+- удаление аккаунта после durable rename не расходится между диском и памятью при сбое cleanup tombstone;
 - ended empty/metadata-only initial SSE получает account-local classification и bounded sibling failover, чужой upstream `chatId` соседнему аккаунту не переиспользуется;
-- terminal-only initial SSE (`[DONE]`, `true`, `{data:true}`) больше не считается пригодным model output;
-- unconfirmed initial-gate release, который позже доказанно закончился без usable output, теперь классифицирует фактический аккаунт один раз и выбирает свежего eligible sibling перед retry;
-- provider-wide circuit теперь не снимается через `reset()` конкретного аккаунта даже если этот аккаунт был источником WAF/trust сигнала; `accountId` в circuit — атрибуция, а не право на локальную разблокировку.
+- terminal-only initial SSE (`[DONE]`, `true`, `{data:true}`) не считается пригодным model output;
+- unconfirmed initial-gate release, который позже доказанно закончился без usable output, классифицирует фактический аккаунт один раз и выбирает свежего eligible sibling перед retry;
+- provider-wide circuit не снимается через `reset()` конкретного аккаунта; `accountId` в circuit — атрибуция, а не право на локальную разблокировку;
+- provider-wide circuit теперь тоже монотонный по времени: более поздний короткий WAF/pressure сигнал не может сократить уже действующий более длинный trust/WAF блок.
 
-## Этот запуск — исправление №1: unconfirmed release -> unusable end -> sibling failover
+## Этот запуск — provider circuit cooldown downgrade
 
-Предыдущий воспроизводимый дефект был `A -> A -> A`: после timeout/buffer release без подтверждённого `choices` поток мог позже закончиться пустым, а server retry продолжал передавать старый `preferredAccount=A`.
-
-Исправлено:
-
-- `59373f7c6114b312b8f76b8a11663c15ba3e72a3` — `server.js`:
-  - фактический `response.account` получает `markFailure()` только после доказанного unusable end;
-  - ставится `initialEmptyResponseClassified`, чтобы outer catch не считал ту же ошибку второй раз;
-  - каждый bounded retry берёт `accountStore.candidates()[0]` заново;
-  - `preparePublicPayloadGoverned(... currentOnly:false, account:retryPreferred)` и `sendChatRequest(..., retryPreferred)` используют одного свежего кандидата;
-  - пустой retry классифицирует фактический `retry.account` до следующей попытки;
-  - sibling получает свежий thread, старый upstream chat id не переносится.
-- `e375d7416480871fed23a91eff621ea941d6aee1` — новый `scripts/server-unconfirmed-retry-failover-test.js`.
-- `f6193c08c1f86e19450148e4e68ec63b69a5e6cc` — тест включён в штатный `npm test`.
-
-Byte-safety: compare `075602972f1b41ecaf61ed44319a2681760ffd3b -> 59373f7c...` показал только `server.js`, `+17/-4`.
-
-Hosted targeted proof: `QWEN_UNCONFIRMED_RETRY_FAILOVER_PASS`.
-
-## Этот запуск — исправление №2: account reset не снимает provider-wide circuit
-
-Найден отдельный fail-open: WAF/trust circuit хранит `accountId` наблюдавшего аккаунта. Старый `providerCircuit.clear(accountId)` позволял `accountStore.reset()` этого же аккаунта снять общий circuit и снова открыть sibling probing, хотя WAF/trust по контракту считаются provider-wide.
+Найден отдельный fail-open по времени. `providerCircuit.trip()` безусловно перезаписывал активное provider-wide состояние. Поэтому, например, уже действующий `trust_restriction` на 30 минут мог быть заменён пришедшим чуть позже `waf` на 10 минут или `provider_pressure` на 2 минуты. При нескольких уже летящих запросах это могло открыть весь пул раньше, чем требовал более сильный предыдущий сигнал.
 
 Исправлено:
 
-- `b718e8edb66a8233a8a71e947433bae46c542c01` — `src/provider-circuit.js`: при account-scoped `clear(expectedAccountId)` любой активный provider circuit остаётся закрытым; accountId трактуется только как атрибуция. Явный глобальный `clear()` остаётся доступен.
-- `ffd19b208da8be58f5de9d11c4240327b9e0ad81` — `scripts/provider-safety-test.js`: WAF и trust restriction обязаны переживать `store.reset(a)` и сниматься только через `store.clearProviderCircuit()`; старый anonymous provider_pressure тест сохранён.
+- `617151237caf8f6553ea30085077e57d23af24ae` — `src/provider-circuit.js`: перед записью читается активный circuit; если его `until` позже или равен новому, сохраняется существующий. Новый сигнал может только продлить общий блок, но не сократить его.
+- `8a3d799eefa9bdbc33516c985b5a0028b9eda88f` — новый `scripts/provider-circuit-monotonic-test.js`: trust 30m -> WAF 10m -> pressure 2m не сокращают блок; более длинный последующий сигнал может его продлить.
+- `5c7df532f747cdb103d02fdd0de26feb957b4ae8` — регресс включён в штатный `npm test`.
 
-Hosted synthetic proof: `PROVIDER_CIRCUIT_ACCOUNT_RESET_FAIL_CLOSED_PASS`.
-
-## Параллельная работа
-
-Во время запуска другой Qwen worker добавил `session-checkpoint-system-retention-test.js` и менял `session-store.js`; наши изменения не пересекались. На финальном head оба набора находятся вместе. Текущий `package.json` содержит и `server-unconfirmed-retry-failover-test.js`, и новый session checkpoint тест.
+Во время запуска параллельный Qwen worker добавил изменения в `session-store.js` и session-тест. Наши файлы с ним не пересекались. Compare от предыдущего head показывает совместное продвижение ветки; собственная зона этого worker ограничена `src/provider-circuit.js`, новым monotonic-тестом и `package.json`.
 
 ## Проверки и ограничения запуска
 
@@ -68,37 +46,33 @@ Hosted synthetic proof: `PROVIDER_CIRCUIT_ACCOUNT_RESET_FAIL_CLOSED_PASS`.
 - Cloudflare не использовался;
 - provider/live запросов к Qwen: 0;
 - реальные аккаунты, секреты и production не тронуты;
-- полный `npm test` exact-tree не заявлять: hosted container не имел сетевого доступа для клонирования GitHub. Выполнены targeted hosted проверки и обязательный read-back/commit diff изменённых файлов.
+- полный `npm test` exact-tree не заявлять: hosted container не имеет DNS до GitHub. Выполнены read-back ветки, проверка diff/головы и отдельная регрессия добавлена в штатный набор.
 
 ## Capsule runtime
 
 Нормативный протокол: `autonomy/v3/CAPSULE_RUNTIME_PROTOCOL_V2.json` + `autonomy/v3/tools/capsule_runtime_v4.py`.
 
-Старт текущего запуска:
+Старт запуска:
 
-- LATEST: `20260821T015929Z-4b823c0fc1`;
-- стартовый Git blob SHA LATEST: `fafc1a99ed040da06be6cf1ef35fce82e2437be9`;
-- archive SHA из указателя: `efb09765aa9f261e94a238821ea02f93840223c8dee233dc378d39566ba6d787`;
-- manifest blob `d2baa37c8c4be6e414274dbb5bb5592d91e2d511`;
-- part blob `08ad6603181e7a299c692404dfe103380665c5d6`.
+- LATEST: `20260821T030413Z-4f34d77e1e`;
+- стартовый Git blob SHA LATEST: `8b0fbc3de020c5bf5b120cef7d936d326b6d6664`;
+- archive SHA: `96c7b605db9910157c9caf2f222bfb72aab89a402eb60c1a61766a6cbffa71f2`;
+- v4 `verify` + `restore` = PASS.
 
-Стартовая capsule была восстановлена через v4: part length/hash и archive SHA совпали, workspace verification/restore = PASS. Неизвестные bytes не угадывались.
+Финиш:
 
-Финиш текущего запуска:
-
-- v4 `pack`, `verify` и `restore` локально = PASS;
-- новая capsule: `20260821T030413Z-4f34d77e1e`;
-- source ref: `Ai-b0ss/qwen-free-api@ffd19b208da8be58f5de9d11c4240327b9e0ad81`;
-- archive SHA-256: `96c7b605db9910157c9caf2f222bfb72aab89a402eb60c1a61766a6cbffa71f2`;
-- 1 part, 1724 chars, text SHA-256 `ba99acfbd23b520f48b0fbfa046af0f280e049616ac14f8e20c58921176449a8`;
-- remote part Git blob SHA `54a34b72f73250ccd7a3fbae1562736e9349da40` совпал с локально вычисленным blob SHA;
-- remote manifest Git blob SHA `ed4ca75a74c298793f71dd63a4f7c88720500da3` совпал с локально вычисленным blob SHA;
-- непосредственно перед CAS LATEST всё ещё имел стартовый blob SHA `fafc1a99...`, конфликта писателя не было;
-- прежний LATEST сохранён как PREVIOUS;
-- новый LATEST опубликован CAS-обновлением и перечитан; новый blob SHA `8b0fbc3de020c5bf5b120cef7d936d326b6d6664`.
+- первая попытка capsule `20260821T035602Z-eadd338f84` была отбракована: повторное чтение part показало несовпадение байтов; LATEST на неё не переводился;
+- повторный v4 pack: `20260821T035831Z-5cb774203d`;
+- source ref: `Ai-b0ss/qwen-free-api@5c7df532f747cdb103d02fdd0de26feb957b4ae8`;
+- archive SHA-256: `e6c958ce38ac2ee3ec224f433284ce924bcf63a0dd99c5a713a8348b979d1255`;
+- part: 1844 chars, SHA-256 `be1f0cd72720ae9a062efe6bd259d8ff9be9ca6b842395d441216fbc7fb12f67`, remote Git blob SHA `985f69f381c2cb583e727db6cb3da1482158b712` совпал с локально вычисленным;
+- manifest remote Git blob SHA `e2e993b465035d94006f32a6597068f81915050d` совпал с локально вычисленным;
+- непосредственно перед CAS LATEST всё ещё имел стартовый blob SHA `8b0fbc3d...`;
+- старый LATEST сохранён как PREVIOUS;
+- новый LATEST опубликован exact CAS и перечитан; новый blob SHA `5d03f31813b6080bfd66a7bf327316ad1630b3c8`.
 
 ## Следующий приоритет
 
-1. На следующем запуске сначала восстановить свежий LATEST/PREVIOUS по v4 и проверить, не продвинулся ли PR #6 параллельным worker.
-2. Если full exact-tree доступен hosted локально — прогнать штатный `npm test`; если нет, не изображать полный PASS, а продолжать targeted проверки.
-3. Следующий независимый кусок искать только в зоне pool/cooldown/provider circuit/preferred-current/failover/thread affinity/side-effect replay. Не трогать Qwen Core и не повторять provider/live без необходимости.
+1. На следующем запуске восстановить свежий LATEST/PREVIOUS через v4 и проверить свежий head PR #6.
+2. Если exact-tree станет доступен hosted локально — прогнать штатный `npm test`; иначе не изображать полный PASS.
+3. Дальше искать только независимый дефект в зоне pool/cooldown/provider circuit/preferred-current/failover/thread affinity/side-effect replay. Не трогать Qwen Core и не повторять provider/live без доказанной необходимости.

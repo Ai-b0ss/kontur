@@ -1,0 +1,172 @@
+{
+  "archive": {
+    "parts": 9,
+    "sha256": "c0780c4135bc14544b4534ecd68f15af1d9a2549ff0fdee44878a23aba11d88c",
+    "size": 13059
+  },
+  "capsule_id": "20260821T194950Z-59364f142e",
+  "created_at_utc": "2026-08-21T19:49:50Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "3c69f9c81d4b13ce315794ba5269defe26dbacd8ccd9448cdfbeeea78ad46680"
+    },
+    {
+      "chars": 2048,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "05480d8e67e2fc4db198936bdd7199b18642702ffd6b996af1ffaad14129a5ed"
+    },
+    {
+      "chars": 2048,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "52e8954e5a42c8cba6529470b9f58bb0a2f451916871a20829e940784829853d"
+    },
+    {
+      "chars": 2048,
+      "index": 3,
+      "name": "part-0003.b64",
+      "sha256_text": "d3503ad65b18776351c06e034a9208619b14fc6789962473e07be956a4adc97a"
+    },
+    {
+      "chars": 2048,
+      "index": 4,
+      "name": "part-0004.b64",
+      "sha256_text": "d648c06b8f2bd547019aa782dff34120b07d853586a9c0907b59ce22ae9b1927"
+    },
+    {
+      "chars": 2048,
+      "index": 5,
+      "name": "part-0005.b64",
+      "sha256_text": "b7c7ca9330cf8119448fd203e31b3cab68306155133049bb11b8d31ba319c895"
+    },
+    {
+      "chars": 2048,
+      "index": 6,
+      "name": "part-0006.b64",
+      "sha256_text": "9bd5d0520b8fc77539a74c50e79732a53c511dd770c756ce78b0f4cdb0776975"
+    },
+    {
+      "chars": 2048,
+      "index": 7,
+      "name": "part-0007.b64",
+      "sha256_text": "948a600e9a12030e885fef1803c63954daccaa0019ed16697b457a2d41fbf07f"
+    },
+    {
+      "chars": 1028,
+      "index": 8,
+      "name": "part-0008.b64",
+      "sha256_text": "e4003508495e5db45e6ed6c2d7bbe01df34053998ef79eda44970ee083209c51"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@5c8fc5299f77a1c3502082da8827b6d3f20e7592 + Ai-b0ss/notion-agent-bridge@7742691ca681b13b92d6ca59fb190d89883346d8",
+  "worker": "INTEGRATION_HELPER",
+  "workspace": {
+    "CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "052f6b37951af0664cf9e7d353be61d256d9a4b0557bfa359cab808c01734d71",
+      "size": 2354,
+      "type": "file"
+    },
+    "EVIDENCE.json": {
+      "mode": "0o644",
+      "sha256": "eef24d28c3d73099680d3ad29de53a7202a786d101fff884b1b7fb242132f7b0",
+      "size": 484,
+      "type": "file"
+    },
+    "EVIDENCE_SESSION_GATE_XPROC.json": {
+      "mode": "0o644",
+      "sha256": "a6a1da46a72177d430217a3cad5d69c09919685f2da2542362947f5f2a961a1b",
+      "size": 2071,
+      "type": "file"
+    },
+    "EVIDENCE_SESSION_STORE_XPROC.json": {
+      "mode": "0o644",
+      "sha256": "0a3fc24b1e4620e9a9406e2155914bd731f07bea9312c33c2aed1d9abdb9e74a",
+      "size": 2116,
+      "type": "file"
+    },
+    "QWEN_CROSS_PROCESS_SESSION_TRANSACTION_CONTRACT.patch": {
+      "mode": "0o644",
+      "sha256": "6aa1c24c50ec9cb20039e292330b75323ddd49ced938b12f176dda3559db38e3",
+      "size": 2086,
+      "type": "file"
+    },
+    "QWEN_PENDING_TOOL_DURABLE_OBLIGATION_GUARD.patch": {
+      "mode": "0o644",
+      "sha256": "1e56e97fa0de06db46dcce9e7e6e238643800ea1418823e3146d2dddf85074b6",
+      "size": 709,
+      "type": "file"
+    },
+    "STATE.json": {
+      "mode": "0o644",
+      "sha256": "db05296333e3d8a37db12b00a554a8fba56cd2beed85058fc897ce44e76385f2",
+      "size": 399,
+      "type": "file"
+    },
+    "cross-process-session-gate-output.json": {
+      "mode": "0o644",
+      "sha256": "4ae0781438e883023a1faeaa5b1ec3d703296ffa4a3255a17733cebeddeea33e",
+      "size": 453,
+      "type": "file"
+    },
+    "implicit-session-probe-output.json": {
+      "mode": "0o644",
+      "sha256": "f63d3a9ff7d4dd52e0dd6831bf802f7c8b8896ab5eae3bc4a3beaeca1d172941",
+      "size": 557,
+      "type": "file"
+    },
+    "integration_qwen_cross_process_session_gate_probe.js": {
+      "mode": "0o644",
+      "sha256": "2b6124a0c863fb2d39fc1508a0e26e2c24f55abeb0fd5fc5bbd72c2c9a31b15e",
+      "size": 3195,
+      "type": "file"
+    },
+    "integration_qwen_implicit_session_affinity_collision_probe.py": {
+      "mode": "0o755",
+      "sha256": "fe76cb1422ee94d125f3f072eacb3dc60182bfe2daa49effdd98ee21e22bb5df",
+      "size": 3953,
+      "type": "file"
+    },
+    "integration_qwen_partial_tool_result_truncated_transcript_probe.js": {
+      "mode": "0o644",
+      "sha256": "9aefb1855cd18a3cb47ab3e87d01380cada4cd341e4f53d5d1548ea00ccce719",
+      "size": 5282,
+      "type": "file"
+    },
+    "integration_qwen_pending_tool_durable_obligation_probe.js": {
+      "mode": "0o644",
+      "sha256": "d636cc44cef87d64683a99005d8280ffbd825e7d65de9545b338fdb7d56ddf4c",
+      "size": 7695,
+      "type": "file"
+    },
+    "integration_qwen_session_store_cross_process_lost_update_probe.js": {
+      "mode": "0o644",
+      "sha256": "c89296b294bf0b691179069aff1489ef8a4ec6fb39270f2159ae4fff78cffc4c",
+      "size": 4339,
+      "type": "file"
+    },
+    "integration_qwen_truncated_tool_result_failover_rebase_probe.js": {
+      "mode": "0o644",
+      "sha256": "0bcbf95f7923700cdb37576583941545815f4f0f6231ea4b6fe32c4007a17f54",
+      "size": 3603,
+      "type": "file"
+    },
+    "probe-output.json": {
+      "mode": "0o644",
+      "sha256": "439d1424680f5e3c96746585c9adf8c81496fa31f941a052c821a96754b28379",
+      "size": 1090,
+      "type": "file"
+    },
+    "session-store-cross-process-output.json": {
+      "mode": "0o644",
+      "sha256": "86cdc75d11736a67d66f83120ca09e1f469cb67ac21915d670bd84e0e606cd89",
+      "size": 312,
+      "type": "file"
+    }
+  }
+}

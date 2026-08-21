@@ -1,0 +1,70 @@
+{
+  "archive": {
+    "parts": 3,
+    "sha256": "ca3c085eba6a1ca94246adcaf193043792d098a33b271d2c793e7f5de587c615",
+    "size": 4339
+  },
+  "capsule_id": "20260821T094144Z-14c3639432",
+  "created_at_utc": "2026-08-21T09:41:44Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "caf5e983c5a64b0f6d1bdfc0fce09ab5a3a72e4063da3879582052651f9dab4b"
+    },
+    {
+      "chars": 2048,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "8cd743153eb9ab4216d78999c46ea796435d1de73dbdffd64b1f7acb929a8e45"
+    },
+    {
+      "chars": 1692,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "a5798d9e523316cf3c6eb9a9cc3315ff1fdfe12d3ff0d1ab2bd00be7b56c53e4"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@17a71b9636eeead5873a0bd716e27a6bf073c913 + Ai-b0ss/notion-agent-bridge@249a639be210cf8f2f4682bd7b9b4b7b0e4a1455",
+  "worker": "INTEGRATION_HELPER",
+  "workspace": {
+    "CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "811409fd8c2f23a46c03a02fc2ddd488b8d1625c86ed50da7bc8d4b439e4b36d",
+      "size": 1741,
+      "type": "file"
+    },
+    "EVIDENCE.json": {
+      "mode": "0o644",
+      "sha256": "c8aa678f310dd64addab53b86b81709144154c3199071378193cc54ed0bb9a55",
+      "size": 3239,
+      "type": "file"
+    },
+    "QWEN_SESSION_STALE_BACKUP_CANDIDATE.patch": {
+      "mode": "0o644",
+      "sha256": "007cc09ca47d3f9815b0df41c26e71fe6ac523f95ebeffa45e5855c3de9c1671",
+      "size": 1373,
+      "type": "file"
+    },
+    "STATE.json": {
+      "mode": "0o644",
+      "sha256": "b5ba5961d88af21ed2ca6d1ca82b43e51c68c5c67005be6df5039260d31b8987",
+      "size": 246,
+      "type": "file"
+    },
+    "integration_notion_delegated_restart_probe.py": {
+      "mode": "0o755",
+      "sha256": "331283b6d0f8ce81dd47b42de59c0701d27216dae0af50cd049edc6b42f9088f",
+      "size": 1177,
+      "type": "file"
+    },
+    "integration_qwen_session_stale_backup_probe.js": {
+      "mode": "0o644",
+      "sha256": "059d514ef78c0a9e587b2259acc17a8211dda0284e3e031d94ddecc47b39b31c",
+      "size": 2344,
+      "type": "file"
+    }
+  }
+}

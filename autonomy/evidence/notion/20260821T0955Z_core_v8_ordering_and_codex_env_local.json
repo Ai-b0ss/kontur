@@ -1,0 +1,70 @@
+{
+  "schema": "notion_core_v8_ordering_and_codex_env_local",
+  "timestamp_utc": "2026-08-21T09:55:00Z",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_integration_head": "249a639be210cf8f2f4682bd7b9b4b7b0e4a1455",
+  "windows_digest": {
+    "workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "status": "all_five_pending",
+    "rerun": false
+  },
+  "source_observations": {
+    "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "codex_probe_blob": "2f6d5873606975771b5ab418d5f9d45cd602304c",
+    "current_store_write_failure_is_not_observable": true,
+    "current_server_reserves_and_caches_before_durable_segment_save": true,
+    "current_responses_payload_allocates_response_item_call_ids_after_state_save": true,
+    "current_stream_emits_response_created_before_provider_and_durable_save": true
+  },
+  "v8_local_harness": {
+    "verdict": "DURABLE_REPLAY_V8_ORDERING_HARNESS_PASS",
+    "proved": [
+      "same-turn retry calls provider once and preserves response_id/item_id/call_id",
+      "same-turn retry after process-style store reload preserves the exact rendered response",
+      "same-text distinct turn_id invokes provider again",
+      "late retry of an older committed turn is tombstoned and cannot replan",
+      "forced durable write failure leaves no transient cache entry or foreground reservation",
+      "after durable persistence is blocked, retry fails before another provider call",
+      "tool-producing response without stable conversation and turn identity fails closed",
+      "stream flag is intentionally excluded from replay identity so stream/non-stream retries can share one canonical response"
+    ]
+  },
+  "required_server_order": [
+    "provider completion/correction",
+    "construct one canonical Responses payload with final response_id/item_id/call_id",
+    "atomically publish conversation progress plus canonical rendered replay through NCM28",
+    "only after successful durable publication update TurnAffinityStore",
+    "only after successful durable publication reserve or clear foreground account based on canonical item",
+    "only after successful durable publication emit identity-bearing HTTP/SSE data"
+  ],
+  "stream_boundary": {
+    "before_durable_publish": "no response_id/item_id/call_id may be emitted",
+    "candidate_heartbeat": "identity-free SSE comments only",
+    "live_codex_acceptance_of_pre_response_comments": "UNPROVEN"
+  },
+  "codex_shell_env_candidate": {
+    "verdict": "CODEX_PROBE_EXACT_SHELL_ENV_CONFIG_PASS",
+    "target_blob": "2f6d5873606975771b5ab418d5f9d45cd602304c",
+    "config": {
+      "inherit": "core",
+      "ignore_default_excludes": false,
+      "exclude": ["NOTION_BRIDGE_API_KEY", "RUNTIME_STATE_KEY"]
+    },
+    "secret_values_written_to_config": false,
+    "live_codex_binary_tested": false
+  },
+  "limitations": [
+    "No native Windows semantics are claimed from Linux.",
+    "No hosted CI was started.",
+    "No live Notion/Codex/provider traffic was started.",
+    "The V8 result is a local lifecycle harness mirroring the exact observed store/server ordering; the final two-file product patch is not yet applied to a full exact checkout.",
+    "The current v4 LATEST capsule could not be fully restored because the connector truncated its 8000-character first part; unknown bytes were not reconstructed. Exact source was read from GitHub instead, as allowed by the capsule protocol fallback."
+  ],
+  "next": [
+    "Materialize/apply the V8 changes to exact fresh payload/conversation_segments.py and payload/server.py and run real class-level offline tests.",
+    "Keep STATE_VERSION=2 and add replay schema inside each conversation entry rather than bumping the outer state format.",
+    "Apply the shell_environment_policy change to the exact Codex probe fixture locally before any live Codex run.",
+    "Do not rerun the pending Windows digest."
+  ]
+}

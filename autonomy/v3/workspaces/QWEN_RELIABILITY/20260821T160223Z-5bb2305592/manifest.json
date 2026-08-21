@@ -1,0 +1,30 @@
+{
+  "archive": {
+    "parts": 11,
+    "sha256": "13a72f4e16e7247c315b0b948d2be2bf17700e692db7783c328a6c3e032ae42f",
+    "size": 2046
+  },
+  "capsule_id": "20260821T160223Z-5bb2305592",
+  "created_at_utc": "2026-08-21T16:02:23Z",
+  "parts": [
+    {"chars":256,"index":0,"name":"part-0000.b64","sha256_text":"b27f848366a5588935950af4eff167f73199a6372151d626456d28fffa44790b"},
+    {"chars":256,"index":1,"name":"part-0001.b64","sha256_text":"778a0f84e91f158d80cff525a141db85bebb8a9161802232d3010167d62d1869"},
+    {"chars":256,"index":2,"name":"part-0002.b64","sha256_text":"43af3a01cfef01439df66ce936caf46c844c204f1068d8caa56c00f3eee00602"},
+    {"chars":256,"index":3,"name":"part-0003.b64","sha256_text":"c1af4e17746c992d19dc54965f45a9d130be54bae15d81b27748f034f1a10abb"},
+    {"chars":256,"index":4,"name":"part-0004.b64","sha256_text":"d396ca31e8bd2d863bb33f80888a6bf3de7616935c1c11643fb10df0f6fdd6a4"},
+    {"chars":256,"index":5,"name":"part-0005.b64","sha256_text":"6ebf09984d152256aa574d820b65ff66f3564cd6333911de3b457539e285560f"},
+    {"chars":256,"index":6,"name":"part-0006.b64","sha256_text":"5407f75b9c13252f8afc8e1d4db4bac2d967de617f598644794b361cd2833201"},
+    {"chars":256,"index":7,"name":"part-0007.b64","sha256_text":"bcd68e45a1aadf688653fb7fa48a3fa38db3d9bb999d53acd7d3bd8274785273"},
+    {"chars":256,"index":8,"name":"part-0008.b64","sha256_text":"8970fc578c4d940bb20135751904930c9b5022cdcf1cf695981e38fc834b04c2"},
+    {"chars":256,"index":9,"name":"part-0009.b64","sha256_text":"2d2817b4a9b6b269f567ed539aa37feea15197153e44a5292a1e84dbc9a8b72d"},
+    {"chars":168,"index":10,"name":"part-0010.b64","sha256_text":"74e9e9cdf476287f57ded037fc067d3c2427112f862897d6f2088b098cef205a"}
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@a656d42522c463ca36937c9a2a552df0836fd020",
+  "worker": "QWEN_RELIABILITY",
+  "workspace": {
+    "evidence": {"mode":"0o755","type":"dir"},
+    "evidence/CHECKPOINT.md": {"mode":"0o644","sha256":"5d5c0f9a38a46969317062bb61397619203a1b9d3f8a3278f68df4b76a2f5978","size":2813,"type":"file"},
+    "evidence/RESULTS.json": {"mode":"0o644","sha256":"f9c191ff0d46fa00c0f7455e45b53e5e4701dea30cbb8b307c61cc92d08d30f9","size":596,"type":"file"}
+  }
+}

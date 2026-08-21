@@ -163,10 +163,35 @@ test('quiz crack/progress mapping is exactly q1=stage1 through q8=stage8', () =>
 test('q8 hatch reuses shell art inside QuizEgg and delays visible hatch until response gesture ends', async () => {
   const egg = await readFile(new URL('../src/components/QuizEgg.tsx', import.meta.url), 'utf8');
   const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
+  const screen = await readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8');
   assert.match(egg, /lk-quiz-egg__hatch-shells/);
-  assert.equal((egg.match(/src="\/quiz\/egg-stage-08\.webp"/g) ?? []).length, 3);
-  assert.match(css, /is-egg-responding[\s\S]*animation-delay: 260ms/);
-  assert.match(css, /legacy hatch sibling supplies only glow\/bird/i);
+  assert.equal((egg.match(/src="\/quiz\/egg-stage-08\.webp"/g) ?? []).length, 2);
+  assert.equal((egg.match(/src="\/quiz\/egg-crack-light\.webp"/g) ?? []).length, 1);
+  assert.match(screen, /shouldEnterQ8Hatching\(stage, eggResponding, hatchReady\)/);
+  assert.match(screen, /if \(!eggResponding && hatchReady\) setStage\('hatching'\)/);
+  assert.doesNotMatch(css, /animation-delay:\s*260ms/);
+});
+
+test('equipped palette stays on the same canonical bird from hatch through Home', async () => {
+  const screen = await readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8');
+  assert.match(screen, /palette=\{reveal\?\.state\.player\.palette \?\? state\?\.player\.palette \?\? null\}/);
+  assert.match(screen, /<CanonicalBirdVisual resultId=\{currentBird\.resultId\} palette=\{state\.player\.palette\} \/>/);
+  assert.doesNotMatch(screen, /<ResultBird resultId=\{currentBird\.resultId\}/);
+});
+
+test('quiz back control is unavailable while an answer transition is locked', async () => {
+  const screen = await readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8');
+  assert.match(screen, /index > 0 && !busy && !eggResponding && !answerLock\.current/);
+  assert.match(screen, /if \(busy \|\| eggResponding \|\| answerLock\.current\) return;/);
+});
+
+test('replay keeps the saved bird identity instead of presenting a temporary new bird', async () => {
+  const screen = await readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8');
+  const replayBranch = screen.match(/if \(replayMode && state\) \{([\s\S]*?)\n      \}\n      const result = await api\.localHatch/)?.[1] ?? '';
+  assert.match(replayBranch, /const savedBird = birdPresentation\(/);
+  assert.match(replayBranch, /setRevealResultId\(savedBird\.resultId\)/);
+  assert.match(replayBranch, /setRevealNote\(savedBird\.note\)/);
+  assert.doesNotMatch(replayBranch, /resolveRole|selectBirdResult|personalizedBirdNote/);
 });
 
 test('responsive QA contract covers 320x568, 430x1000, safe area and reduced motion', async () => {

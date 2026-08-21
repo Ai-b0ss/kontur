@@ -4,7 +4,7 @@
 
 Основная продуктовая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6.
 
-Свежий product head, проверенный в этом проходе: `861a8f176a6037acaec5721b2f6bbad3041d7dd9`.
+Свежий product head после этого прохода: `a656d42522c463ca36937c9a2a552df0836fd020`.
 
 ## Уже доказано и не переделывать
 
@@ -29,53 +29,53 @@
 - request-wide bounded retry закрыт: обычный/stream retry делят один `attemptedAccountIds`, distinct-account usage ограничен `MAX_ACCOUNTS_PER_OPERATION`, same-owner rebase не расходует новый distinct slot;
 - provider-wide circuit, найденный до реального provider path, не расходует request-wide slot.
 
-## Незавершённые кандидаты №1–3
+## Закрыто в этом проходе — истёкший provider circuit больше не может открыть ротацию при ошибке диска
 
-Три ранее подтверждённых дефекта остаются на product head `861a8f17...`:
+Свежий `provider-circuit.current()` удалял истёкшее состояние через durable `removeState()`. Если именно синхронизация удаления падала с `EIO/fsync`, исключение могло уйти наружу в request path и быть ошибочно принято за provider transport, после чего возникал риск sibling probing.
 
-1. Локальная подготовка headers/cookie/timezone может упасть до provider I/O, но аккаунт уже списан в request-wide budget и ошибка может считаться transport. Кандидат: `autonomy/v3/candidates/QWEN_RELIABILITY_LOCAL_PREPARATION_BOUNDARY_20260821.patch`.
-2. `markSuccess()` после успешного provider I/O может упасть на durable write и быть переклассифицирован как transport с опасным sibling failover. Кандидат: `autonomy/v3/candidates/QWEN_RELIABILITY_POST_SUCCESS_PERSISTENCE_BOUNDARY_20260821.patch`.
-3. Durable запись уже классифицированной CAPTCHA/rate-limit/account failure может упасть и затем быть повторно классифицирована как transport. Кандидат: `autonomy/v3/candidates/QWEN_RELIABILITY_FAILURE_PERSISTENCE_BOUNDARY_20260821.patch`.
+Исправление внесено в продукт:
+- `b03acb5c8ab383e90bca70c0cd1d9231b73d6abd` — `provider-circuit.js` теперь при неподтверждённой очистке истёкшего circuit устанавливает процессный fail-closed latch `state_cleanup_failed` с `until=Number.MAX_SAFE_INTEGER`;
+- per-account reset этот latch не снимает;
+- только успешный explicit global clear снимает latch;
+- `a656d42522c463ca36937c9a2a552df0836fd020` — расширена `scripts/provider-circuit-persistence-test.js`: synthetic EIO на expiry cleanup, сохранение fail-closed после восстановления файловой системы, запрет per-account clear и успешное снятие explicit global clear.
 
-Применять именно в этом порядке: второй вводит общий `localPersistenceError()`, третий на него опирается.
+Hosted Node модель: `PROVIDER_CIRCUIT_EXPIRED_CLEANUP_FAIL_CLOSED_MODEL_PASS`.
 
-## Новый подтверждённый дефект №4 — ошибка записи provider-wide circuit может открыть sibling probing
+## Всё ещё незавершённые qwen-client кандидаты
 
-`stopError()` вызывает `accountStore.markRestriction()` либо `providerCircuit.trip()` до создания ошибки `QWEN_PROVIDER_CIRCUIT`. `providerCircuit.trip()` намеренно persist-first и при EIO/fsync/rename откатывает неподтверждённое состояние и выбрасывает исходную локальную ошибку. Сейчас эта ошибка может попасть обратно в общий provider catch, классифицироваться как generic `transport` и разрешить следующий аккаунт, хотя provider-wide WAF/trust/pressure уже был обнаружен.
+На предыдущем exact head были подтверждены четыре связанные границы локальной ошибки/провайдера. Перед применением перечитать свежий `qwen-client.js` и убедиться, что они не superseded параллельной работой:
 
-Для `markRestriction()` частичный случай безопаснее: если provider circuit успел durably записаться, а затем упала account-state запись, `providerCircuit.current()` уже блокирует кандидатов. Но если падает сама durable запись circuit, подтверждённого стоп-состояния нет, поэтому текущий запрос обязан завершиться fail-closed локальной ошибкой и не пробовать sibling.
+1. `autonomy/v3/candidates/QWEN_RELIABILITY_LOCAL_PREPARATION_BOUNDARY_20260821.patch` — локальная подготовка headers/cookie/timezone не должна расходовать provider budget и становиться transport.
+2. `autonomy/v3/candidates/QWEN_RELIABILITY_POST_SUCCESS_PERSISTENCE_BOUNDARY_20260821.patch` — ошибка durable `markSuccess()` после уже успешного provider I/O не должна порождать sibling failover.
+3. `autonomy/v3/candidates/QWEN_RELIABILITY_FAILURE_PERSISTENCE_BOUNDARY_20260821.patch` — ошибка записи уже классифицированной CAPTCHA/rate-limit/account failure не должна переклассифицироваться как transport.
+4. `autonomy/v3/candidates/QWEN_RELIABILITY_PROVIDER_CIRCUIT_PERSISTENCE_BOUNDARY_20260821.patch` — ошибка durable записи provider-wide circuit должна завершать запрос fail-closed.
 
-Hosted Node модель воспроизведена: текущая схема `provider-wide signal -> EIO during circuit persist -> outer transport classification` допускает sibling; исправленная схема завершает запрос как `local_persistence`. Маркер: `PROVIDER_CIRCUIT_PERSISTENCE_FAIL_CLOSED_REPRO_PASS`.
-
-Готовый зависимый кандидат (применять после post-success candidate, использует `localPersistenceError()`):
-`autonomy/v3/candidates/QWEN_RELIABILITY_PROVIDER_CIRCUIT_PERSISTENCE_BOUNDARY_20260821.patch`
-
-Control commit кандидата: `8da635780df49cf3d56f34b0ebf784918221317b`.
-
-## Почему product PR пока не мутирован
-
-Доступный GitHub write-интерфейс заменяет `src/qwen-client.js` целиком. Файл большой и общий; hosted-машина не может клонировать GitHub из-за DNS. На свежем PR #6 head остаётся `861a8f17...`; exact patch-кандидаты семантически свежие, но полная реконструкция общего файла через Contents API ради нескольких строк остаётся неоправданным риском. Нужен byte-safe git/patch исполнитель либо exact full-file материализация с CAS-проверкой blob SHA.
-
-## Следующий безопасный кусок
-
-1. Byte-safe применить четыре кандидата: local preparation -> post-success persistence -> failure persistence -> provider-circuit persistence.
-2. Добавить регрессии в обычный `npm test`, прогнать на hosted машине без внешних CI.
-3. Затем проверить `providerCircuit.current()` при истёкшем circuit: `current()` вызывает durable `removeState()`. Если очистка истёкшего состояния падает, убедиться, что ошибка не превращается в provider transport и не открывает sibling probing; сначала воспроизвести EIO, потом менять код.
+Применять только byte-safe git/patch либо exact full-file CAS. Не реконструировать большой общий `qwen-client.js` из частичных фрагментов.
 
 ## Постоянная память
 
-В начале этого прохода прочитан `LATEST.json`:
+Стартовый `LATEST.json` прочитан до работы:
 - capsule `20260821T135651Z-b77269c19c`;
-- Git blob SHA `dc9a778b8e6777cee6f398a4fcdcdd81db356e31`;
+- parent Git blob SHA `dc9a778b8e6777cee6f398a4fcdcdd81db356e31`;
 - archive SHA-256 `90f973f85b3ddedfaa9edfe08f2ecac434901ed9f86e2d17910c70246c89ef2c`.
 
-Manifest и обе exact parts материализованы; длины/sha частей и archive SHA проверены, workspace восстановлен и checkpoint прочитан. Источник capsule: `Ai-b0ss/qwen-free-api@861a8f17...`.
+Точный manifest и обе parts были материализованы; нормативный `capsule_runtime_v4.py verify` и `restore` дали PASS.
 
-После существенной работы требуется новый v4 checkpoint/pack/upload/read-back и CAS-публикация только если `LATEST` всё ещё имеет исходный blob SHA.
+После исправления выполнены `checkpoint -> pack v4` и две попытки immutable upload. Обе корректно остановлены до публикации `LATEST` обязательной повторной проверкой:
+- `20260821T160000Z-038e0e6bd0`: remote `part-0001.b64` не совпал побайтно с локальным pack;
+- `20260821T160223Z-5bb2305592`: manifest был загружен не exact-byte (JSON был переформатирован при ручном переносе), поэтому capsule нельзя считать валидной.
+
+**`LATEST` намеренно не обновлён.** Это правильное поведение протокола v2: неизвестные/изменённые bytes не исправлять из памяти и не публиковать непроверенную capsule. Оба каталога остаются immutable orphan evidence. Следующий запуск восстанавливается со старого валидного `LATEST`, а product exact source — `Ai-b0ss/qwen-free-api@a656d425...`.
+
+## Следующий безопасный кусок
+
+1. Снова восстановить валидный `LATEST` через v4; exact product source уже известен.
+2. Перечитать свежий PR #6 и проверить четыре qwen-client кандидата на superseded/актуальность.
+3. Применить только актуальные патчи byte-safe способом и прогнать targeted hosted tests без CircleCI/GitHub Actions/provider traffic.
+4. Для следующей capsule использовать транспорт, который сохраняет exact bytes manifest/parts; если такого транспорта нет — pack можно сохранить immutable, но `LATEST` не менять.
 
 ## Ограничения этого прохода
 
 - CircleCI/GitHub Actions/Cloudflare: 0 запусков;
 - provider/live Qwen: 0 запросов;
-- реальные аккаунты, секреты и production не тронуты;
-- product PR #6 не мутирован; добавлен четвёртый exact patch-кандидат и обновлён handoff.
+- реальные аккаунты, секреты и production не тронуты.

@@ -1,0 +1,42 @@
+diff --git a/payload/server.py b/payload/server.py
+--- a/payload/server.py
++++ b/payload/server.py
+@@
+     if (
+         affinity_matches_model
+         and affinity is not None
+         and affinity.input_fingerprint == input_fingerprint
+         and affinity.completion_text
+@@
+ 
+         return StreamingResponse(cached_stream(), media_type="text/event-stream")
++    # Persistent conversation segments survive a bridge restart, while the
++    # response cache in TurnAffinityStore does not. If the persisted segment
++    # already covers this exact request, there is no new delta to send to the
++    # recorded Notion thread. Falling through would run initial_completion()
++    # against a fresh provider plan and could re-plan an already processed tool
++    # result. Until a durable response replay journal exists, fail closed rather
++    # than silently re-plan the same request.
++    if (
++        not is_compaction
++        and segment is not None
++        and rollover_reason is None
++        and current_fingerprints
++        and segment_prefix == len(current_fingerprints)
++        and (
++            affinity is None
++            or affinity.input_fingerprint != input_fingerprint
++            or not affinity.completion_text
++        )
++    ):
++        log_event(log, "response_replay_unavailable_after_restart", level=logging.WARNING)
++        return JSONResponse(
++            {
++                "error": {
++                    "message": "The previous response was already processed before restart but is not available for safe replay.",
++                    "type": "restart_replay_unavailable",
++                }
++            },
++            status_code=409,
++        )
+     anchor = None

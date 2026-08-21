@@ -1,0 +1,107 @@
+--- a/src/session-store.js
++++ b/src/session-store.js
+@@
+ let sessions = new Map();
+ let recoveredFromBackupKeys = new Set();
++let uncertainStoreRecovery = false;
++let recoverySource = 'primary-or-empty';
++let recoveryResetKeys = new Set();
+ let persistSequence = 0;
+@@
+ function load() {
++  const persistenceArtifactsExisted = fs.existsSync(FILE) || fs.existsSync(BACKUP_FILE);
+   try {
+     sessions = readSessionsFile(FILE);
+     recoveredFromBackupKeys = new Set();
++    uncertainStoreRecovery = false;
++    recoverySource = 'primary';
++    recoveryResetKeys = new Set();
+     return;
+   } catch (_) {}
+ 
+   try {
+     sessions = readSessionsFile(BACKUP_FILE);
+@@
+     // whose backup refresh failed before a later primary corruption.
+     recoveredFromBackupKeys = new Set(sessions.keys());
++    uncertainStoreRecovery = true;
++    recoverySource = 'backup';
++    recoveryResetKeys = new Set();
+   } catch (_) {
+     sessions = new Map();
+     recoveredFromBackupKeys = new Set();
++    // If durable artifacts existed but neither snapshot is readable, an empty
++    // map is not proof that all prior sessions safely disappeared. A newer
++    // primary may have released mutating tool calls before corruption.
++    uncertainStoreRecovery = persistenceArtifactsExisted;
++    recoverySource = persistenceArtifactsExisted ? 'corrupt-store' : 'primary-or-empty';
++    recoveryResetKeys = new Set();
+   }
+ }
+ 
+ function recoveryState(key) {
+   if (!key) return { source: 'primary-or-empty', uncertain: false };
+-  const uncertain = recoveredFromBackupKeys.has(String(key));
++  const normalizedKey = String(key);
++  if (recoveryResetKeys.has(normalizedKey)) {
++    return { source: 'explicit-reset', uncertain: false };
++  }
++  const recoveredExisting = recoveredFromBackupKeys.has(normalizedKey);
++  const recoveredMissing = Boolean(
++    uncertainStoreRecovery &&
++    !sessions.has(normalizedKey)
++  );
++  const uncertain = recoveredExisting || recoveredMissing;
+   return {
+-    source: uncertain ? 'backup' : 'primary-or-empty',
++    source: recoveredExisting
++      ? 'backup'
++      : (recoveredMissing
++        ? (recoverySource === 'backup' ? 'backup-missing-key' : 'corrupt-store-missing-key')
++        : 'primary-or-empty'),
+     uncertain,
+   };
+ }
+@@
+ function getRecord(key) {
+   if (!key) return null;
+   const normalizedKey = String(key);
+   const value = sessions.get(normalizedKey);
+-  if (!value) return null;
++  if (!value) {
++    const recovery = recoveryState(normalizedKey);
++    if (!recovery.uncertain) return null;
++    return {
++      chatId: null,
++      history: [],
++      recoveryUncertain: true,
++      recoveryMissingKey: true,
++      recoverySource: recovery.source,
++      recoveryKey: normalizedKey,
++    };
++  }
+@@
+ function set(key, chatId, metadata = {}) {
+   if (!key || !chatId) return false;
+   const normalizedKey = String(key);
+-  if (recoveredFromBackupKeys.has(normalizedKey)) throw recoveryUncertainError();
++  if (recoveryState(normalizedKey).uncertain) throw recoveryUncertainError();
+@@
+ function clear(key) {
+   if (!key) return;
+-  if (!sessions.has(String(key))) return;
++  const normalizedKey = String(key);
++  if (!sessions.has(normalizedKey)) {
++    // Explicit reset is the deliberate local decision that an ambiguous key
++    // absent from a fallback/corrupt store should now start fresh.
++    if (uncertainStoreRecovery) recoveryResetKeys.add(normalizedKey);
++    return;
++  }
+   commitMutation((nextSessions) => {
+-    nextSessions.delete(String(key));
++    nextSessions.delete(normalizedKey);
+   });
+-  recoveredFromBackupKeys.delete(String(key));
++  recoveredFromBackupKeys.delete(normalizedKey);
++  recoveryResetKeys.add(normalizedKey);
+ }

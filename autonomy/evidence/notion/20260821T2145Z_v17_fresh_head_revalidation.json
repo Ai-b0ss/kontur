@@ -1,0 +1,40 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "created_at_utc": "2026-08-21T21:45:00Z",
+  "scope": "NOTION_CORE",
+  "core_pr7_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_integration_pr8_head": "b5cd79374bd097041a14f36c549aea632f62e7ed",
+  "comparison_from_previous_head": {
+    "base": "a5792c1a15027a5f58890a679df738084514e6d1",
+    "head": "b5cd79374bd097041a14f36c549aea632f62e7ed",
+    "ahead_by": 2,
+    "changed_files": [
+      "tests/test_materialize_agent_wiring_hardlink.py",
+      "tools/materialize_agent_wiring.py"
+    ],
+    "core_boundary_changed": false
+  },
+  "exact_core_boundary_blobs": {
+    "payload/conversation_segments.py": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "payload/server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "payload/turn_affinity.py": "f4bc004ec08cbaf3f1118dec0926015ab41b8bd3"
+  },
+  "v17_revalidation": {
+    "still_required": true,
+    "reason": "ConversationSegmentStore.get() still returns the live internal ConversationSegment object from self._items after cleanup; a caller mutation can therefore alter the in-memory preimage before strict durable publication. V17 deepcopy fix remains applicable to the fresh PR8 integration boundary.",
+    "product_modified": false
+  },
+  "windows_digest": {
+    "workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "statuses": {
+      "outside-digest": "pending",
+      "migration": "pending",
+      "auth": "pending",
+      "codex": "pending",
+      "runtime": "pending"
+    },
+    "restarted": false
+  },
+  "zero_minute_respected": true,
+  "provider_traffic": false
+}

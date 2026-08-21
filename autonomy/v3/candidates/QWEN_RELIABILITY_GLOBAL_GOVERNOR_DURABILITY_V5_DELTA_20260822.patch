@@ -1,0 +1,101 @@
+*** Begin Patch
+*** Update File: src/request-governor.js
+@@
+-  function __w2hasRecoveryArtifacts(){
++  function __w2recoveryArtifactState(){
+     const dir=__w2path.dirname(__w2STATE),base=__w2path.basename(__w2STATE);
+     try{
+-      return __w2fs.readdirSync(dir).some(name=>
+-        name.startsWith(base+'.txn-backup-')||name.startsWith(base+'.tmp-')
+-      );
+-    }catch(_){return false;}
++      return {
++        found:__w2fs.readdirSync(dir).some(name=>
++          name.startsWith(base+'.txn-backup-')||name.startsWith(base+'.tmp-')
++        ),
++        inspectionFailed:false
++      };
++    }catch(error){
++      if(error&&error.code==='ENOENT')return {found:false,inspectionFailed:false};
++      return {found:false,inspectionFailed:true};
++    }
++  }
++  function __w2validLoadedState(x){
++    if(!x||typeof x!=='object'||Array.isArray(x))return false;
++    if(Number(x.version)!==3)return false;
++    if(!Array.isArray(x.starts)||!x.starts.every(value=>Number.isFinite(Number(value))))return false;
++    if(!Array.isArray(x.usage)||!x.usage.every(event=>
++      event&&typeof event==='object'&&Number.isFinite(Number(event.t))&&Number.isFinite(Number(event.tokens))
++    ))return false;
++    return ['penaltyUntil','wafStrikes','successStreak','lastWafAt','lastStartAt','lastFailureAt']
++      .every(key=>Number.isFinite(Number(x[key])));
+   }
+   function __w2load(){
+@@
+     let recoveryUncertain=false;
+     try{
+       x=JSON.parse(__w2fs.readFileSync(__w2STATE,'utf8'));
+-      if(!x||typeof x!=='object'||Array.isArray(x))throw new Error('invalid global governor state');
++      if(!__w2validLoadedState(x))throw new Error('invalid global governor state');
+     }catch(error){
+       // ENOENT is a clean first start only when there is no evidence of an
+       // interrupted transaction. A missing canonical beside our tmp/backup
+       // artifacts is ambiguous and must not silently reopen provider traffic.
+-      if(!error||error.code!=='ENOENT'||__w2hasRecoveryArtifacts())recoveryUncertain=true;
++      const artifactState=(error&&error.code==='ENOENT')
++        ? __w2recoveryArtifactState()
++        : {found:false,inspectionFailed:false};
++      if(
++        !error||error.code!=='ENOENT'||artifactState.found||artifactState.inspectionFailed
++      )recoveryUncertain=true;
+       x={};
+     }
+*** Update File: scripts/request-governor-durable-state-test.js
+@@
+     await assert.rejects(
+       () => governor.before('account-a', { chars: 100 }),
+       (error) => error && error.code === 'QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN',
+     );
++
++    // Syntactically valid but semantically incomplete JSON must not reset the
++    // safety state to healthy defaults.
++    fs.writeFileSync(stateFile, '{}', 'utf8');
++    governor = loadGovernor();
++    await assert.rejects(
++      () => governor.before('account-a', { chars: 100 }),
++      (error) => error && error.code === 'QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN',
++      'semantically invalid persisted governor state must fail closed',
++    );
+ 
+     // Missing canonical plus our own transaction artifact is also ambiguous.
+@@
+     );
+     fs.rmSync(orphanBackup, { force: true });
++
++    // A missing canonical is not a proven clean start if the recovery directory
++    // itself cannot be inspected for transaction artifacts.
++    const originalReaddirSync = fs.readdirSync;
++    fs.readdirSync = (dir, ...args) => {
++      if (path.resolve(String(dir)) === path.resolve(root)) {
++        const error = new Error('simulated recovery-directory inspection failure');
++        error.code = 'EIO';
++        throw error;
++      }
++      return originalReaddirSync(dir, ...args);
++    };
++    try {
++      governor = loadGovernor();
++    } finally {
++      fs.readdirSync = originalReaddirSync;
++    }
++    await assert.rejects(
++      () => governor.before('account-a', { chars: 100 }),
++      (error) => error && error.code === 'QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN',
++      'uninspectable transaction directory must fail closed',
++    );
+ 
+     // Genuine first start: no canonical and no recovery artifacts.
+@@
+-    console.log('REQUEST_GOVERNOR_DURABLE_STATE_PASS corrupt=1 orphan_artifact=1 clean_enoent=1 rollback=1 save_failure_latch=1');
++    console.log('REQUEST_GOVERNOR_DURABLE_STATE_PASS corrupt=1 semantic_invalid=1 orphan_artifact=1 artifact_inspection_failure=1 clean_enoent=1 rollback=1 save_failure_latch=1');
+*** End Patch

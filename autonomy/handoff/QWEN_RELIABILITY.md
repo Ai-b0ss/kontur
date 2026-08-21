@@ -4,113 +4,60 @@
 
 Основная продуктовая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6.
 
-Свежий product head после этого прохода: `5cc928607cf4d001cbf9adbc007277dccbdefe4b`.
+Свежий product head после этого прохода: `6f3e9b6cdf39856fdeb038ba6362f86805d2663b`.
 
 ## Уже доказано и не переделывать
 
 - локальные проблемы аккаунта отделены от provider-wide WAF/trust/pressure;
 - CAPTCHA/rate limit/expired auth допускают ограниченный failover, общий provider circuit останавливает sibling probing;
-- account/thread affinity сохраняется для существующего треда, допустимый failover создаёт свежий тред на соседнем аккаунте;
+- account/thread affinity сохраняется, failover создаёт свежий тред на соседнем аккаунте;
 - configured-but-none-eligible => `503 QWEN_NO_ELIGIBLE_ACCOUNT`, отсутствие аккаунтов => `401`;
-- account cooldown и provider-wide cooldown монотонны;
-- поздняя CAPTCHA после принятого SSE классифицируется как CAPTCHA конкретного аккаунта;
-- duplicate chat-id classification закрыт;
-- критичные account/session/provider-circuit состояния сохраняются crash-safe;
-- pending mutating tool-call в durable checkpoint блокирует короткий `continue` через `409 QWEN_PENDING_TOOL_RESULT`;
-- streaming и non-stream tool-calls не выпускаются клиенту при `sessionStore.set() === false`;
-- поздний transport error учитывается ровно один раз;
-- empty/metadata-only/terminal-only initial SSE не считается успешным model output;
-- unconfirmed initial release, позднее доказанный пустым, охлаждает фактический аккаунт один раз и выбирает свежего sibling;
-- `reset(account)` не снимает provider-wide circuit;
-- stale preferred object не обходит canonical cooldown/state;
-- удалённый managed account не воскресает через detached snapshot;
-- durable provider-circuit replacement не откатывается из-за cleanup-only ошибки;
-- `qwen-client.operationCandidates()` делегирует порядок каноническому `accountStore.candidates(preferredAccount)`;
-- request-wide bounded retry закрыт: обычный/stream retry делят один `attemptedAccountIds`, distinct-account usage ограничен `MAX_ACCOUNTS_PER_OPERATION`, same-owner rebase не расходует новый distinct slot;
-- provider-wide circuit, найденный до реального provider path, не расходует request-wide slot;
-- истёкший provider circuit при неподтверждённой durable cleanup остаётся fail-closed через `state_cleanup_failed`;
-- local preparation, durable `markSuccess`, durable CAPTCHA/rate-limit/account failure и durable provider-circuit trip отделены от provider transport;
-- accepted-stream observer persistence errors не проглатываются;
-- fsync-confirmed account/cooldown replacement не откатывается из-за cleanup-only удаления старого backup;
-- explicit global provider-circuit clear не снимает fail-closed память без durable подтверждения родительского каталога.
+- account/provider cooldown монотонны; `reset(account)` не снимает provider-wide circuit;
+- stale preferred object и удалённый managed account не обходят canonical state;
+- request-wide bounded retry делит один distinct-account budget между обычным и stream retry;
+- local preparation/persistence errors не классифицируются как provider transport и не запускают sibling failover после успешной provider-работы;
+- provider/account/session durable replacement не откатывается из-за cleanup-only ошибки после commit point;
+- истёкший provider circuit при неподтверждённой cleanup остаётся fail-closed;
+- pending mutating tool-call в durable checkpoint блокирует replay; streaming/non-stream tool-call не выпускается без принятого checkpoint;
+- late stream CAPTCHA/transport и empty/metadata/terminal-only SSE классифицируются безопасно;
+- session primary после parent fsync не откатывается из-за ошибки удаления старого backup.
 
 ## Закрыто в этом проходе
 
-### Session primary больше не откатывается из-за cleanup-only ошибки после durable commit
+### Recovery subagent batch из stale `.bak-*` теперь fail-closed
 
-Свежий `src/session-store.js::writePrimaryAtomic()` перечитан после параллельного изменения ветки. Дефект из прошлого handoff подтвердился: после успешного `rename(tmp -> FILE)` и `syncParentDirectory(FILE)` удаление старого `.txn-backup-*` всё ещё находилось в общем `try`, поэтому чистый `EIO` на уборке мог попасть в rollback-ветку и вернуть старый checkpoint.
+Подтверждён дефект из прошлого handoff: `src/subagent-batch-store.js::readState()` при повреждённом canonical `subagent-batches.json` молча принимал `readNewestBackup()` как авторитетное состояние. Старый backup мог содержать `pending/done/failed`, хотя более новый durable canonical уже успел перейти через `running/uncertain/done` после потенциального side effect. После повреждения canonical и restart это позволяло автоматический replay старой задачи.
 
-Исправление:
-- после успешного parent-directory fsync новый primary считается каноническим;
-- удаление старого transaction backup стало cleanup-only и best-effort;
-- ошибка уборки больше не удаляет fsync-подтверждённый новый session/tool checkpoint;
-- все ошибки до commit point, включая ошибку parent-directory fsync, по-прежнему откатываются к старому подтверждённому primary.
+Исправление в product:
+- `readNewestBackup()` после успешного parse пропускает recovered state через `markBackupRecoveryUncertain()`;
+- каждая задача из такого backup получает `status: uncertain` и recovery marker `stale_backup_after_canonical_read_failure`;
+- прежний `result`, diagnostics и batch signature сохраняются;
+- существующий runner уже блокирует `uncertain` без явного `retryUncertain=true`, поэтому автоматического replay нет;
+- явный операторский retry остаётся возможен.
 
 Product commits:
-- `ba09219adeb82574fbcbfaa07346b9f7971ed150` — продуктовый fix в `src/session-store.js`;
-- `5cc928607cf4d001cbf9adbc007277dccbdefe4b` — расширенный `scripts/session-store-primary-fsync-test.js` с cleanup-only `EIO` и проверкой reload.
+- `43668e372d87b933a08aa5413c539cd7911122ec` — fail-closed recovery в `src/subagent-batch-store.js`;
+- `5604e69aa5041880a684fae47ace2dfa22a22d79` — `scripts/subagent-stale-backup-recovery-test.js`;
+- `6f3e9b6cdf39856fdeb038ba6362f86805d2663b` — регрессия включена в штатный `npm test`.
 
-Важная гонка с другим writer была обработана безопасно: первая запись старой версии файла получила GitHub `409`, после чего был заново перечитан свежий `session-store.js` и сохранены параллельные изменения по exact system-message checkpoint. Старый файл не форсировался и чужая работа не затёрта.
+Регресс покрывает старые `pending`, `done` и `failed`: после повреждения canonical все восстанавливаются как uncertain, при этом старые результаты и signature не теряются.
 
-Hosted targeted model marker:
-`SESSION_PRIMARY_CLEANUP_DURABILITY_PASS cleanup_only_no_rollback=1`.
-
-Полный exact-tree `npm test` не заявлен: hosted container не смог получить целиком репозиторий по сети. CircleCI/GitHub Actions/Cloudflare не запускались; живых Qwen/provider запросов — 0.
-
-## Следующий найденный дефект
-
-Следующий независимый fail-open найден в `src/subagent-batch-store.js` + `src/subagent-agent-runner.js`, то есть в защите от повторного выполнения side effects.
-
-`writeAtomic()` уже правильно считает новый batch state каноническим после rename + parent fsync и допускает leftover `.bak-*`, если cleanup старого backup не удался. Но если позже canonical `subagent-batches.json` повреждён, `readState()` молча берёт `readNewestBackup()` и возвращает старый backup как авторитетное состояние без признака recovery uncertainty.
-
-Опасная последовательность:
-1. старый backup содержит `pending` или более старое состояние;
-2. новый canonical `running/uncertain/done` был durable, а cleanup старого backup дал ошибку и backup остался;
-3. позже canonical повреждается;
-4. restart молча восстанавливает старый backup;
-5. `runAgentSubagents()` может снова выполнить задачу, потому что `pending`/обычный старый state не блокирует replay, хотя mutating tool side effect в более новом потерянном состоянии уже мог произойти.
-
-Это тот же класс stale-backup uncertainty, который session-store уже обрабатывает fail-closed.
-
-Следующая безопасная правка: recovery из `.bak-*` должен явно маркировать batch/task как uncertain (или возвращать recovery metadata, которое runner трактует как uncertain) и блокировать автоматический replay до явного `retryUncertain=true`. Нельзя автоматически считать stale `done`, `failed` или `pending` истинными. Существующие diagnostics/signature нужно сохранить.
-
-Регресс должен покрыть: durable более новый running/side-effect-capable state -> leftover старый backup -> повреждение canonical -> restart из backup -> автоматический запуск блокируется, пока явно не разрешён uncertain retry.
-
-Полезные существующие тесты: `subagent-batch-resume-test.js`, `subagent-legacy-uncertain-restart-test.js`, `subagent-persisted-state-conflict-test.js`, `subagent-state-persist-batch-boundary-test.js`, `subagent-uncertain-batch-stop-test.js`.
+Hosted exact-tree test не выполнен: `git clone` на hosted-машине снова не смог разрешить `github.com` по DNS. CircleCI/GitHub Actions/Cloudflare и живой Qwen не запускались.
 
 ## Постоянная память
 
-Стартовый `LATEST`:
-- capsule `20260821T185621Z-d4f0f4eead`;
-- исходный Git blob SHA `660e310c7aca0045e59b56f4d0a28cb3cc53da53`;
-- archive SHA-256 `da6dc69b691b928d09fac2628e5da304be9fa331bc178b61ef44940dd97b4848`.
-
-Стартовая capsule материализована из exact manifest/part и прошла нормативные v4 `verify + restore`. Лишний локальный newline при первой материализации part был обнаружен проверкой и удалён; неизвестные bytes не угадывались.
-
-После работы выполнены checkpoint workspace evidence -> `pack v4` -> локальные `verify + restore` -> immutable upload -> повторное чтение всех parts и manifest.
-
-Новая capsule:
-- `20260821T200001Z-8a7c1e4d7a`;
-- source ref `Ai-b0ss/qwen-free-api@5cc928607cf4d001cbf9adbc007277dccbdefe4b`;
-- archive SHA-256 `96e35c1aca7cf7149fbce0903e9a290c2a24e145718a4643a15d96479ef4b979`;
-- archive size 1641 bytes;
-- 2 parts: 2048 и 140 символов;
-- uploaded part0 Git blob SHA `7f93270f1ef1c912e7add715ec0d7d4d16bf9161`;
-- uploaded part1 Git blob SHA `dcf021740cf29b8f746e324dc0622622e9cdafc8`;
-- uploaded manifest Git blob SHA `dc49aa3449e3491dbdb7a57323206a573824f1e6`.
-
-После upload оба part и manifest перечитаны; их Git blob SHA и SHA-256 текста точно совпали с локальными значениями.
-
-Непосредственно перед CAS `LATEST` был перечитан и сохранил стартовый parent SHA `660e310c...`; конфликта не было. Старый `LATEST` сохранён в `PREVIOUS`, затем новый опубликован exact CAS и перечитан.
-
-Текущий `LATEST`:
+На старте прочитан нормативный `LATEST`:
 - capsule `20260821T200001Z-8a7c1e4d7a`;
 - Git blob SHA `31d12fe0d190da24c7afc612db55165c675d67a5`;
 - archive SHA-256 `96e35c1aca7cf7149fbce0903e9a290c2a24e145718a4643a15d96479ef4b979`.
 
+Manifest и обе exact parts перечитаны из GitHub. В этом запуске не было безопасного механизма передать полученные connector bytes в hosted filesystem для запуска полного нормативного `capsule_runtime_v4.py restore`. Поэтому использован разрешённый recovery floor: exact GitHub source + свежий handoff; продуктовая работа продолжена.
+
+После работы локально был создан checkpoint, но попытка pack использовала не полный нормативный v4 implementation, поэтому результат `20260821T205035Z-f383f6aa87` считается НЕВАЛИДНЫМ для протокола и намеренно НЕ загружался и НЕ публиковался. `LATEST`/`PREVIOUS` не менялись. Следующий запуск обязан снова начать с текущего проверенного указателя `20260821T200001Z-8a7c1e4d7a`; неизвестные bytes не реконструировать.
+
 ## Следующий безопасный кусок
 
-1. Восстановить текущий `LATEST` через normative v4.
-2. Перечитать свежий PR #6 и `subagent-batch-store.js`/runner, потому что параллельный writer может сдвинуть head.
-3. Если stale-backup uncertainty ещё не закрыта, добавить fail-closed recovery marker без автоматического replay и targeted regression на повреждённый canonical + leftover stale backup.
-4. После одного фикса продолжить аудит остальных durable-state cleanup/recovery путей; не возвращаться к уже закрытым дефектам.
+1. Снова восстановить текущий LATEST нормативным v4, если среда позволит exact materialization connector bytes; иначе использовать exact GitHub source floor.
+2. Перечитать свежий PR #6: параллельный writer мог сдвинуть head.
+3. Проверить остальные durable stores на тот же класс stale-backup recovery: повреждённый canonical + оставшийся старый backup не должен молча становиться авторитетным состоянием, если это может повторить side effects.
+4. В первую очередь посмотреть recovery/backup пути `session-store`, account/provider state и любые новые persisted subagent/session stores; уже закрытые cleanup-after-commit дефекты не переделывать.

@@ -45,24 +45,36 @@ diff --git a/payload/conversation_segments.py b/payload/conversation_segments.py
 @@
  class ConversationSegment:
 @@
-     input_fingerprints: tuple[str, ...]
+     model: str | None = None
 +    input_item_fingerprints: tuple[str, ...] = ()
+     replay_schema_version: int = 0
 @@
      async def put(
 @@
-         input_fingerprints: tuple[str, ...],
+         output_tokens: int,
+         model: str,
 +        input_item_fingerprints: tuple[str, ...] = (),
+         replay_request_fingerprint: str | None = None,
 @@
              staged[storage_key] = ConversationSegment(
 @@
-                 input_fingerprints=input_fingerprints,
+                 model=model,
 +                input_item_fingerprints=input_item_fingerprints,
+                 replay_schema_version=(
 @@
                  self._items[key] = ConversationSegment(
 @@
-                     input_fingerprints=tuple(raw.get("input_fingerprints", [])),
-+                    input_item_fingerprints=tuple(raw.get("input_item_fingerprints", [])),
-*** Update File: payload/server.py
+                     model=(str(raw["model"]) if raw.get("model") else None),
++                    input_item_fingerprints=tuple(
++                        str(v)
++                        for v in raw.get("input_item_fingerprints", [])
++                        if isinstance(v, str)
++                    ),
+                     replay_schema_version=int(raw.get("replay_schema_version", 0) or 0),
+
+diff --git a/payload/server.py b/payload/server.py
+--- a/payload/server.py
++++ b/payload/server.py
 @@
  from conversation_segments import (
 @@
@@ -121,6 +133,7 @@ diff --git a/payload/conversation_segments.py b/payload/conversation_segments.py
 @@
                  input_fingerprints=current_fingerprints,
 +                input_item_fingerprints=current_item_fingerprints,
+                 segment_index=next_segment_index,
 @@
  async def handle_openai_compaction(
 @@
@@ -151,4 +164,4 @@ diff --git a/payload/conversation_segments.py b/payload/conversation_segments.py
 @@
                  input_fingerprints=current_fingerprints,
 +                input_item_fingerprints=current_item_fingerprints,
-*** End Patch
+                 segment_index=next_segment_index,

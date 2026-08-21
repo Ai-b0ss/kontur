@@ -1,0 +1,179 @@
+*** Begin Patch
+*** Update File: src/request-governor.js
+@@
+   function __w2syncParent(target){
+@@
+   }
++  function __w2hasGeneration(state){
++    return Boolean(
++      state&&state.generation!==undefined&&
++      Number.isInteger(Number(state.generation))&&Number(state.generation)>=0
++    );
++  }
++  function __w2sameSafetyState(a,b){
++    const select=(x)=>({
++      version:Number(x.version),
++      generation:__w2hasGeneration(x)?Number(x.generation):null,
++      starts:x.starts,
++      usage:x.usage,
++      penaltyUntil:Number(x.penaltyUntil),
++      wafStrikes:Number(x.wafStrikes),
++      successStreak:Number(x.successStreak),
++      lastWafAt:Number(x.lastWafAt),
++      lastStartAt:Number(x.lastStartAt),
++      lastFailureAt:Number(x.lastFailureAt),
++      lastFailureKind:String(x.lastFailureKind),
++      updatedAt:Number(x.updatedAt),
++    });
++    return JSON.stringify(select(a))===JSON.stringify(select(b));
++  }
++  function __w2artifactIsProvenNoNewer(candidate,canonical){
++    // Once both states have generations, ordering is independent of wall clock.
++    if(__w2hasGeneration(candidate)&&__w2hasGeneration(canonical)){
++      const artifactGeneration=Number(candidate.generation);
++      const canonicalGeneration=Number(canonical.generation);
++      if(artifactGeneration<canonicalGeneration)return true;
++      if(artifactGeneration>canonicalGeneration)return false;
++      // Same generation is cleanup-safe only when the safety payload is actually
++      // identical. Two different writes can share a millisecond timestamp.
++      return __w2sameSafetyState(candidate,canonical);
++    }
++
++    // Migration compatibility for pre-generation v3 files. Strict timestamp
++    // ordering is allowed; an equal timestamp is safe only for identical state.
++    const artifactUpdatedAt=Number(candidate.updatedAt);
++    const canonicalUpdatedAt=Number(canonical.updatedAt);
++    if(artifactUpdatedAt<canonicalUpdatedAt)return true;
++    if(artifactUpdatedAt>canonicalUpdatedAt)return false;
++    return __w2sameSafetyState(candidate,canonical);
++  }
+@@
+-          if(
+-            canonicalMissing||
+-            !__w2validLoadedState(candidate)||
+-            canonicalUpdatedAt<0||
+-            Number(candidate.updatedAt)>canonicalUpdatedAt
+-          ){
++          if(
++            canonicalMissing||
++            !__w2validLoadedState(candidate)||
++            canonicalUpdatedAt<0||
++            !__w2artifactIsProvenNoNewer(candidate,canonical)
++          ){
+@@
+   function __w2validLoadedState(x){
+     if(!x||typeof x!=='object'||Array.isArray(x))return false;
+     if(Number(x.version)!==3)return false;
++    // `generation` is optional only for migration from existing v3 state.
++    if(
++      x.generation!==undefined&&
++      (!Number.isInteger(Number(x.generation))||Number(x.generation)<0)
++    )return false;
+@@
+-    return {
++    return {
++      generation:__w2hasGeneration(x)?Number(x.generation):0,
+       starts:Array.isArray(x.starts)?x.starts.map(Number):[],
+@@
+   function __w2save(){
+@@
+-    const d={version:3,starts:__w2g.starts,usage:__w2g.usage,penaltyUntil:__w2g.penaltyUntil,
++    const nextGeneration=Number(__w2g.generation||0)+1;
++    const d={version:3,generation:nextGeneration,starts:__w2g.starts,usage:__w2g.usage,penaltyUntil:__w2g.penaltyUntil,
+@@
+-      __w2fs.renameSync(tmp,__w2STATE);installed=true;
+-      __w2syncParent(__w2STATE);committed=true;
++      __w2fs.renameSync(tmp,__w2STATE);installed=true;
++      __w2syncParent(__w2STATE);committed=true;
++      __w2g.generation=nextGeneration;
+*** Add File: scripts/request-governor-generation-order-test.js
++'use strict';
++
++const assert = require('assert');
++const fs = require('fs');
++const os = require('os');
++const path = require('path');
++
++const root = fs.mkdtempSync(path.join(os.tmpdir(), 'qwen-governor-generation-'));
++const stateFile = path.join(root, 'global-pressure.json');
++const modulePath = require.resolve('../src/request-governor');
++const previousFile = process.env.QWEN_WAFMIN2_STATE_FILE;
++
++function state(generation, updatedAt, patch = {}) {
++  return {
++    version: 3,
++    generation,
++    starts: [],
++    usage: [],
++    penaltyUntil: 0,
++    wafStrikes: 0,
++    successStreak: 0,
++    lastWafAt: 0,
++    lastStartAt: 0,
++    lastFailureAt: 0,
++    lastFailureKind: '',
++    updatedAt,
++    ...patch,
++  };
++}
++
++function loadGovernor() {
++  delete require.cache[modulePath];
++  process.env.QWEN_WAFMIN2_STATE_FILE = stateFile;
++  return require('../src/request-governor');
++}
++
++(async () => {
++  try {
++    const now = Date.now();
++
++    // Same timestamp/generation but different safety state is not cleanup-only.
++    fs.writeFileSync(stateFile, JSON.stringify(state(5, now)), 'utf8');
++    let artifact = `${stateFile}.tmp-same-generation`;
++    fs.writeFileSync(artifact, JSON.stringify(state(5, now, {
++      penaltyUntil: now + 600000,
++      wafStrikes: 2,
++    })), 'utf8');
++    let governor = loadGovernor();
++    await assert.rejects(
++      () => governor.before('account-a', { chars: 100 }),
++      (error) => error && error.code === 'QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN',
++      'different same-generation state must not be deleted as stale',
++    );
++    fs.rmSync(artifact, { force: true });
++
++    // Newer generation wins even if wall clock moved backwards.
++    fs.writeFileSync(stateFile, JSON.stringify(state(5, now)), 'utf8');
++    artifact = `${stateFile}.tmp-clock-backwards`;
++    fs.writeFileSync(artifact, JSON.stringify(state(6, now - 10000, {
++      penaltyUntil: now + 600000,
++      wafStrikes: 2,
++    })), 'utf8');
++    governor = loadGovernor();
++    await assert.rejects(
++      () => governor.before('account-a', { chars: 100 }),
++      (error) => error && error.code === 'QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN',
++      'newer generation must remain authoritative over wall-clock ordering',
++    );
++    fs.rmSync(artifact, { force: true });
++
++    // Conversely an older generation is proven stale despite a later timestamp.
++    fs.writeFileSync(stateFile, JSON.stringify(state(6, now)), 'utf8');
++    const backup = `${stateFile}.txn-backup-old-generation`;
++    fs.writeFileSync(backup, JSON.stringify(state(5, now + 10000)), 'utf8');
++    governor = loadGovernor();
++    assert.strictEqual(governor.snapshot('account-a').global.state_uncertain, false);
++    assert.strictEqual(fs.existsSync(backup), false);
++
++    console.log('REQUEST_GOVERNOR_GENERATION_ORDER_PASS equal_generation_divergence_blocked=1 clock_rollback_blocked=1 old_generation_cleanup=1');
++  } finally {
++    if (previousFile === undefined) delete process.env.QWEN_WAFMIN2_STATE_FILE;
++    else process.env.QWEN_WAFMIN2_STATE_FILE = previousFile;
++    delete require.cache[modulePath];
++    fs.rmSync(root, { recursive: true, force: true });
++  }
++})().catch((error) => {
++  console.error(error && error.stack ? error.stack : error);
++  process.exitCode = 1;
++});
+*** End Patch

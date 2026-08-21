@@ -1,0 +1,336 @@
+*** Begin Patch
+*** Update File: src/request-governor.js
+@@
+   const __w2WAF_PENALTIES = [120_000,300_000,600_000,900_000,1_800_000,3_600_000];
++  // Any request that has crossed before() but whose outcome is not yet durably
++  // committed leaves a disk marker. A crash or outcome-save failure therefore
++  // cannot disappear merely because the process-local latch was lost.
++  const __w2INFLIGHT_STALE_MS = 2 * 60 * 60 * 1000;
++  const __w2inflightByAccount = new Map();
+@@
+-  function __w2recoveryArtifactState(){
+-    const dir=__w2path.dirname(__w2STATE),base=__w2path.basename(__w2STATE);
++  function __w2artifactState(){
++    const dir=__w2path.dirname(__w2STATE),base=__w2path.basename(__w2STATE),now=Date.now();
+     try{
+-      return {
+-        found:__w2fs.readdirSync(dir).some(name=>
+-          name.startsWith(base+'.txn-backup-')||name.startsWith(base+'.tmp-')
+-        ),
+-        inspectionFailed:false
+-      };
++      let interruptedTxn=false,recentInflight=false;
++      for(const name of __w2fs.readdirSync(dir)){
++        if(name.startsWith(base+'.txn-backup-')||name.startsWith(base+'.tmp-'))interruptedTxn=true;
++        if(!name.startsWith(base+'.inflight-'))continue;
++        const marker=__w2path.join(dir,name);
++        let parsed;
++        try{parsed=JSON.parse(__w2fs.readFileSync(marker,'utf8'))}
++        catch(_){return {interruptedTxn,recentInflight:true,inspectionFailed:false};}
++        if(
++          !parsed||Number(parsed.version)!==1||
++          !Number.isFinite(Number(parsed.createdAt))||Number(parsed.createdAt)<0
++        )return {interruptedTxn,recentInflight:true,inspectionFailed:false};
++        if((now-Number(parsed.createdAt))<__w2INFLIGHT_STALE_MS){
++          recentInflight=true;
++          continue;
++        }
++        // The global layer's longest WAF penalty is one hour and strikes reset
++        // after 45m. Two hours without provider traffic is therefore a bounded
++        // conservative recovery horizon for an orphaned unknown-outcome marker.
++        try{__w2fs.rmSync(marker,{force:true});__w2syncParent(marker)}
++        catch(_){return {interruptedTxn,recentInflight:true,inspectionFailed:false};}
++      }
++      return {interruptedTxn,recentInflight,inspectionFailed:false};
+     }catch(error){
+-      if(error&&error.code==='ENOENT')return {found:false,inspectionFailed:false};
+-      return {found:false,inspectionFailed:true};
++      if(error&&error.code==='ENOENT')return {interruptedTxn:false,recentInflight:false,inspectionFailed:false};
++      return {interruptedTxn:false,recentInflight:false,inspectionFailed:true};
+     }
+   }
+   function __w2validLoadedState(x){
+     if(!x||typeof x!=='object'||Array.isArray(x))return false;
+     if(Number(x.version)!==3)return false;
+-    if(!Array.isArray(x.starts)||!x.starts.every(value=>Number.isFinite(Number(value))))return false;
++    if(!Array.isArray(x.starts)||!x.starts.every(value=>Number.isFinite(Number(value))&&Number(value)>=0))return false;
+     if(!Array.isArray(x.usage)||!x.usage.every(event=>
+-      event&&typeof event==='object'&&Number.isFinite(Number(event.t))&&Number.isFinite(Number(event.tokens))
++      event&&typeof event==='object'&&
++      Number.isFinite(Number(event.t))&&Number(event.t)>=0&&
++      Number.isFinite(Number(event.tokens))&&Number(event.tokens)>=0
+     ))return false;
+-    return ['penaltyUntil','wafStrikes','successStreak','lastWafAt','lastStartAt','lastFailureAt']
+-      .every(key=>Number.isFinite(Number(x[key])));
++    if(!['penaltyUntil','lastWafAt','lastStartAt','lastFailureAt']
++      .every(key=>Number.isFinite(Number(x[key]))&&Number(x[key])>=0))return false;
++    if(!['wafStrikes','successStreak']
++      .every(key=>Number.isInteger(Number(x[key]))&&Number(x[key])>=0))return false;
++    return typeof x.lastFailureKind==='string';
++  }
++  function __w2createInflight(accountId){
++    const dir=__w2path.dirname(__w2STATE);
++    __w2fs.mkdirSync(dir,{recursive:true});
++    const marker=__w2STATE+'.inflight-'+process.pid+'-'+__w2crypto.randomBytes(8).toString('hex');
++    let fd=null;
++    try{
++      fd=__w2fs.openSync(marker,'wx',0o600);
++      __w2fs.writeFileSync(fd,JSON.stringify({
++        version:1,
++        createdAt:Date.now(),
++        accountId:String(accountId||'unknown')
++      }),'utf8');
++      __w2fs.fsyncSync(fd);
++      __w2fs.closeSync(fd);fd=null;
++      __w2syncParent(marker);
++    }catch(error){
++      if(fd!==null){try{__w2fs.closeSync(fd)}catch(_){}}
++      try{__w2fs.rmSync(marker,{force:true})}catch(_){}
++      throw error;
++    }
++    const key=String(accountId||'unknown');
++    const queue=__w2inflightByAccount.get(key)||[];
++    queue.push(marker);
++    __w2inflightByAccount.set(key,queue);
++    return marker;
++  }
++  function __w2removeInflightMarker(accountId,marker){
++    const key=String(accountId||'unknown');
++    const queue=__w2inflightByAccount.get(key)||[];
++    const index=queue.indexOf(marker);
++    if(index>=0)queue.splice(index,1);
++    if(queue.length)__w2inflightByAccount.set(key,queue);
++    else __w2inflightByAccount.delete(key);
++    if(!marker)return;
++    try{__w2fs.rmSync(marker,{force:true});__w2syncParent(marker)}
++    catch(error){__w2g.persistenceUncertain=true;throw error;}
++  }
++  function __w2finishInflight(accountId){
++    const key=String(accountId||'unknown');
++    const queue=__w2inflightByAccount.get(key)||[];
++    __w2removeInflightMarker(accountId,queue[0]||null);
+   }
+   function __w2load(){
+-    let x={};
+-    let recoveryUncertain=false;
++    let x={};
++    let recoveryUncertain=false;
++    let canonicalMissing=false;
+     try{
+       x=JSON.parse(__w2fs.readFileSync(__w2STATE,'utf8'));
+       if(!__w2validLoadedState(x))throw new Error('invalid global governor state');
+     }catch(error){
+-      const artifactState=(error&&error.code==='ENOENT')
+-        ? __w2recoveryArtifactState()
+-        : {found:false,inspectionFailed:false};
+-      if(
+-        !error||error.code!=='ENOENT'||artifactState.found||artifactState.inspectionFailed
+-      )recoveryUncertain=true;
++      canonicalMissing=Boolean(error&&error.code==='ENOENT');
++      if(!canonicalMissing)recoveryUncertain=true;
+       x={};
+     }
++    const artifactState=__w2artifactState();
++    if(
++      artifactState.inspectionFailed||
++      artifactState.recentInflight||
++      (canonicalMissing&&artifactState.interruptedTxn)
++    )recoveryUncertain=true;
+@@
+-  module.exports.before = async function(...args){
++  module.exports.before = async function(...args){
+     const job=async()=>{
+       await __w2admit();
+-      const r=await __w2origBefore.apply(this,args);
+-      const t=Date.now();__w2prune(t);__w2g.starts.push(t);__w2g.lastStartAt=t;__w2save();
+-      return r;
++      // The marker is durable before the provider-facing admission returns. If
++      // marker creation fails, before() fails and the caller cannot send traffic.
++      const marker=__w2createInflight(args[0]);
++      try{
++        const r=await __w2origBefore.apply(this,args);
++        const t=Date.now();__w2prune(t);__w2g.starts.push(t);__w2g.lastStartAt=t;__w2save();
++        return r;
++      }catch(error){
++        // before() has not returned, so no provider traffic has been authorized.
++        // Remove exactly this request's marker, not an older sibling marker.
++        try{__w2removeInflightMarker(args[0],marker)}catch(_){}
++        throw error;
++      }
+     };
+@@
+-    __w2save();return r;
++    __w2save();
++    // Outcome state is durable before the unknown-outcome marker disappears.
++    __w2finishInflight(accountId);
++    return r;
+@@
+-    __w2g.lastFailureKind=kind;__w2g.lastFailureAt=now;__w2save();return r;
++    __w2g.lastFailureKind=kind;__w2g.lastFailureAt=now;__w2save();
++    __w2finishInflight(accountId);
++    return r;
+*** Update File: scripts/request-governor-durable-state-test.js
+@@
+     await assert.rejects(
+       () => governor.before('account-a', { chars: 100 }),
+       (error) => error && error.code === 'QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN',
+       'semantically invalid persisted governor state must fail closed',
+     );
++
++    const negativeState = {
++      version: 3,
++      starts: [],
++      usage: [{ t: Date.now(), tokens: -1 }],
++      penaltyUntil: 0,
++      wafStrikes: -1,
++      successStreak: 0,
++      lastWafAt: 0,
++      lastStartAt: 0,
++      lastFailureAt: 0,
++      lastFailureKind: '',
++    };
++    fs.writeFileSync(stateFile, JSON.stringify(negativeState), 'utf8');
++    governor = loadGovernor();
++    await assert.rejects(
++      () => governor.before('account-a', { chars: 100 }),
++      (error) => error && error.code === 'QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN',
++      'negative safety counters/tokens must not be normalized into a weaker healthy state',
++    );
+@@
+-    console.log('REQUEST_GOVERNOR_DURABLE_STATE_PASS corrupt=1 semantic_invalid=1 orphan_artifact=1 artifact_inspection_failure=1 clean_enoent=1 rollback=1 save_failure_latch=1');
++    console.log('REQUEST_GOVERNOR_DURABLE_STATE_PASS corrupt=1 semantic_invalid=1 range_invalid=1 orphan_artifact=1 artifact_inspection_failure=1 clean_enoent=1 rollback=1 save_failure_latch=1');
+*** Add File: scripts/request-governor-inflight-gate-test.js
++'use strict';
++
++const assert = require('assert');
++const fs = require('fs');
++const os = require('os');
++const path = require('path');
++
++const root = fs.mkdtempSync(path.join(os.tmpdir(), 'qwen-governor-inflight-'));
++const stateFile = path.join(root, 'global-pressure.json');
++const modulePath = require.resolve('../src/request-governor');
++const previousFile = process.env.QWEN_WAFMIN2_STATE_FILE;
++
++function loadGovernor() {
++  delete require.cache[modulePath];
++  process.env.QWEN_WAFMIN2_STATE_FILE = stateFile;
++  return require('../src/request-governor');
++}
++
++function markerNames() {
++  if (!fs.existsSync(root)) return [];
++  const prefix = path.basename(stateFile) + '.inflight-';
++  return fs.readdirSync(root).filter((name) => name.startsWith(prefix));
++}
++
++(async () => {
++  try {
++    let governor = loadGovernor();
++
++    // Normal lifecycle: provider-facing admission has a durable unknown-outcome
++    // marker; confirmed durable outcome removes it; clean restart remains open.
++    await governor.before('account-a', { chars: 100 });
++    assert.strictEqual(markerNames().length, 1, 'provider admission must create one durable inflight marker');
++    governor.success('account-a', { total_tokens: 2 });
++    assert.strictEqual(markerNames().length, 0, 'durable outcome must remove its inflight marker');
++    governor = loadGovernor();
++    assert.strictEqual(governor.snapshot('account-a').global.state_uncertain, false);
++
++    // If durable outcome publication fails, the marker must survive both the
++    // in-process latch and a process/module restart.
++    await governor.before('account-a', { chars: 100 });
++    assert.strictEqual(markerNames().length, 1);
++    const originalRenameSync = fs.renameSync;
++    let injected = false;
++    fs.renameSync = (from, to) => {
++      if (!injected && String(to) === stateFile && String(from).includes('.tmp-')) {
++        injected = true;
++        const error = new Error('simulated outcome persistence failure');
++        error.code = 'EIO';
++        throw error;
++      }
++      return originalRenameSync(from, to);
++    };
++    try {
++      assert.throws(
++        () => governor.failure('account-a', 'WAF_CAPTCHA_CHALLENGE'),
++        (error) => error && error.code === 'EIO',
++      );
++    } finally {
++      fs.renameSync = originalRenameSync;
++    }
++    assert.ok(injected);
++    assert.strictEqual(markerNames().length, 1, 'failed outcome commit must retain unknown-outcome marker');
++
++    governor = loadGovernor();
++    await assert.rejects(
++      () => governor.before('account-b', { chars: 100 }),
++      (error) => error && error.code === 'QWEN_GLOBAL_GOVERNOR_STATE_UNCERTAIN',
++      'restart must not forget an uncommitted provider outcome',
++    );
++
++    console.log('REQUEST_GOVERNOR_INFLIGHT_GATE_PASS normal_cleanup=1 failed_outcome_restart_blocked=1');
++  } finally {
++    if (previousFile === undefined) delete process.env.QWEN_WAFMIN2_STATE_FILE;
++    else process.env.QWEN_WAFMIN2_STATE_FILE = previousFile;
++    delete require.cache[modulePath];
++    fs.rmSync(root, { recursive: true, force: true });
++  }
++})().catch((error) => {
++  console.error(error && error.stack ? error.stack : error);
++  process.exitCode = 1;
++});
+*** Add File: scripts/request-governor-inflight-marker-failure-test.js
++'use strict';
++
++const assert = require('assert');
++const fs = require('fs');
++const os = require('os');
++const path = require('path');
++
++const root = fs.mkdtempSync(path.join(os.tmpdir(), 'qwen-governor-marker-fail-'));
++const stateFile = path.join(root, 'global-pressure.json');
++const modulePath = require.resolve('../src/request-governor');
++const previousFile = process.env.QWEN_WAFMIN2_STATE_FILE;
++
++(async () => {
++  try {
++    process.env.QWEN_WAFMIN2_STATE_FILE = stateFile;
++    delete require.cache[modulePath];
++    const governor = require('../src/request-governor');
++
++    const originalOpenSync = fs.openSync;
++    let injected = false;
++    fs.openSync = (file, ...args) => {
++      if (!injected && String(file).includes('.inflight-')) {
++        injected = true;
++        const error = new Error('simulated inflight-marker write failure');
++        error.code = 'EIO';
++        throw error;
++      }
++      return originalOpenSync(file, ...args);
++    };
++    try {
++      await assert.rejects(
++        () => governor.before('account-a', { chars: 100 }),
++        (error) => error && error.code === 'EIO',
++        'marker persistence failure must reject provider-facing admission',
++      );
++    } finally {
++      fs.openSync = originalOpenSync;
++    }
++    assert.ok(injected);
++
++    console.log('REQUEST_GOVERNOR_INFLIGHT_MARKER_FAIL_CLOSED_PASS provider_gate_rejected=1');
++  } finally {
++    if (previousFile === undefined) delete process.env.QWEN_WAFMIN2_STATE_FILE;
++    else process.env.QWEN_WAFMIN2_STATE_FILE = previousFile;
++    delete require.cache[modulePath];
++    fs.rmSync(root, { recursive: true, force: true });
++  }
++})().catch((error) => {
++  console.error(error && error.stack ? error.stack : error);
++  process.exitCode = 1;
++});
+*** End Patch

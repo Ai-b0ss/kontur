@@ -1,0 +1,47 @@
+*** Begin Patch
+*** Update File: server.js
+@@
+ function explicitPromptMode(body = {}, headers = {}) {
+@@
+-  if (raw === undefined || raw === null || String(raw).trim() === '') return null;
+-  return String(raw).trim().toLowerCase();
++  if (raw === undefined || raw === null || String(raw).trim() === '') return null;
++  const normalized = String(raw).trim().toLowerCase();
++  if (normalized !== 'engineer' && normalized !== 'owner') {
++    const error = new Error(`Unsupported Qwen system prompt mode: ${normalized}`);
++    error.code = 'QWEN_SYSTEM_PROMPT_MODE_INVALID';
++    throw error;
++  }
++  return normalized;
+ }
+@@
+       accountStore.load();
+       const record = sessionStore.getRecord(sessionKey);
++      // Validate explicit authority before restoreCheckpoint is allowed to
++      // reconcile or persist any session/tool progress. Otherwise an invalid
++      // mode could be silently overwritten by durable authority, or mutate a
++      // recovered session before the capability layer rejects the request.
++      explicitPromptMode(publicBody, req.headers);
+       // History recovered from a fallback backup has an explicit reconciliation
+*** Update File: scripts/server-explicit-owner-rehydrate-test.js
+@@
+     assert.strictEqual(persistedMetadata[0].ownerSystemPrompt, null);
++
++    // Invalid current authority is never replaced by stale durable authority.
++    // It must fail before provider traffic and before a recovered/session
++    // checkpoint can be reconciled or rewritten.
++    providerBodies = []; persistedMetadata = [];
++    const invalidMode = await invoke({
++      model: 'qwen-test',
++      stream: false,
++      system_prompt_mode: 'definitely-not-a-mode',
++      messages: [{ role: 'user', content: 'do the next task' }],
++    });
++    assert.strictEqual(providerBodies.length, 0);
++    assert.strictEqual(persistedMetadata.length, 0);
++    assert.strictEqual(invalidMode.body.error.type, 'server_error');
++    assert.match(invalidMode.body.error.message, /Unsupported Qwen system prompt mode/i);
+@@
+-    console.log('SERVER_EXPLICIT_OWNER_REHYDRATE_PASS restart_continue=1 ordinary_turn_sticky=1 project_context_preserved=1 owner_flag_inherits=1 current_authority_wins=1 recovery_stale_owner_blocked=1 oversized_provider_calls=0');
++    console.log('SERVER_EXPLICIT_OWNER_REHYDRATE_PASS restart_continue=1 ordinary_turn_sticky=1 project_context_preserved=1 owner_flag_inherits=1 current_authority_wins=1 invalid_mode_fail_closed=1 recovery_stale_owner_blocked=1 oversized_provider_calls=0');
+*** End Patch

@@ -10,17 +10,17 @@ ZERO-MINUTE: не запускать CircleCI/GitHub Actions/Cloudflare/друг
 
 ## Постоянная память
 
-Текущий проверенный v4 `LATEST`:
+Текущий проверенный v4 `LATEST` на момент промежуточной публикации:
 - capsule `20260821T014821Z-b313e12017`;
 - archive SHA-256 `2e5b849d94af4a7ddb5615ec61e78268cd92a77b213da71e943365392787fdc0`;
 - 2 parts;
-- part-0000: 4096 chars, Git blob `a5dce74d7b5ba276c05db40a03a37b5458ef727c` — совпадает с локальным Git blob;
-- part-0001: 1552 chars, Git blob `bb03ec383de4231a7b566a3d446867928b828656` — совпадает с локальным Git blob;
-- manifest: 2168 bytes, Git blob `2668f3e4cf8d7783594251061086179e651d8ba1` — совпадает с локальным Git blob;
-- `LATEST.json` после exact CAS: Git blob `aba08e08d43a9a1b8d7ee57e1db835577b1bb5d4`;
+- part-0000: 4096 chars, Git blob `a5dce74d7b5ba276c05db40a03a37b5458ef727c`;
+- part-0001: 1552 chars, Git blob `bb03ec383de4231a7b566a3d446867928b828656`;
+- manifest Git blob `2668f3e4cf8d7783594251061086179e651d8ba1`;
+- `LATEST.json` Git blob после CAS `aba08e08d43a9a1b8d7ee57e1db835577b1bb5d4`;
 - предыдущая capsule `20260821T004058Z-6a23a2dff8` сохранена как `PREVIOUS`.
 
-В начале запуска capsule `20260821T004058Z-6a23a2dff8` восстановлена строго через `capsule_runtime_v4.py`; part/archive/workspace verification прошёл.
+В начале запуска capsule `20260821T004058Z-6a23a2dff8` восстановлена строго через `capsule_runtime_v4.py`; part/archive/workspace verification прошёл. В конце запуска после нового idempotency finding должна быть опубликована ещё одна v4 capsule и этот раздел обновлён её точными SHA.
 
 ## NCM28 / Windows
 
@@ -56,7 +56,7 @@ ignore_default_excludes = false
 
 Из-за ZERO-MINUTE product PR #8 не мутировался. До применения этой защиты настоящий Codex/Notion probe не запускать.
 
-## Новый Core lifecycle blocker: exact replay после restart
+## Core lifecycle blocker: exact replay после restart
 
 Fresh PR #8 правильно расширил persistent segment identity: prompt policy, engineer instructions, tools/tool_choice и structured output входят в fingerprint. Но отдельная restart-проблема остаётся.
 
@@ -91,14 +91,41 @@ Offline predicate проверен на пяти границах:
 - `autonomy/evidence/notion/20260821T0155Z_codex_restart_exact_replay_failclosed_candidate.patch`;
 - `autonomy/evidence/notion/20260821T0155Z_codex_restart_exact_replay_failclosed_candidate.json`.
 
-Это safety-only candidate, не финальное recovery: `NOTION_CORE_DONE` требует либо durable replay предыдущего Responses результата без нового provider inference, либо другой механизм, который действительно продолжает работу после restart и не может повторно планировать уже обработанный tool result.
+Это safety-only candidate, не финальное recovery.
+
+## Более сильный Core blocker: текущий response cache не является идемпотентным replay
+
+После restart finding отдельно проверен даже обычный same-process cache path. `TurnAffinityStore` хранит `completion_text`, usage и provider affinity, но не готовый OpenAI Responses payload. При cache hit сервер снова вызывает `responses_payload(completion_text, ...)`.
+
+`responses_payload()` при каждом вызове создаёт новые UUID для:
+- `response_id`;
+- tool `call_id`;
+- output item id (`fc_...`/`ctc_...`/`msg_...`).
+
+Локальный deterministic harness дважды отрендерил одну и ту же tool-рекомендацию. Семантический текст совпал, но все три протокольных идентификатора различались.
+
+Вердикт: `RESPONSES_SEMANTIC_CACHE_NOT_IDEMPOTENT_REPRODUCED`.
+
+Это означает, что даже same-process retry сейчас получает не точный replay, а новый протокольный ответ с новым `call_id`. Для Codex tool loop этого недостаточно: истинная restart/retry идемпотентность требует сохранять либо точно готовый Responses result, либо детерминированно сохраняемые response/item/call IDs вместе с содержимым.
+
+Материал: `autonomy/evidence/notion/20260821T0200Z_responses_cache_idempotency_gap.json`.
+
+### Минимальные invariants для настоящего durable replay
+
+1. Replay key: content-free exact request fingerprint + conversation/turn identity + model/lifecycle version boundary.
+2. Replay value: достаточно данных, чтобы без provider inference воспроизвести тот же completed Responses result для non-streaming и эквивалентный SSE stream, включая стабильные `response_id`, item id и tool `call_id`.
+3. Durable publication должна быть согласована с persistent conversation progress: нельзя считать request обработанным и сохранить segment progress, если matching replay record ещё не опубликован.
+4. Crash между provider completion и durable replay publication должен fail closed или восстанавливаться без повторного provider planning/tool side effect.
+5. Не хранить приватный owner prompt/секреты ради replay identity; использовать уже существующие content-free fingerprints.
+6. Fail-closed 409 candidate остаётся safety floor до появления этого механизма.
 
 ## Следующий порядок
 
-1. Восстановить текущий v4 `LATEST`, затем read-only проверить существующий Windows digest; не перезапускать.
-2. Если всё ещё pending: спроектировать и локально доказать durable exact-request replay/recovery поверх Core, не перенося ownership NOTION_AGENT. Сначала определить минимально необходимое durable replay state и privacy/rollback invariants; fail-closed candidate использовать как safety floor.
-3. Параллельно держать готовым shell-env hardening для real Codex probe; product push не делать до снятия ZERO-MINUTE.
-4. При первом разрешённом native Windows gate совместить auth-rollback callsite с PowerShell restore reparse/overwrite proof; без нового fanout.
-5. После Core gates: один bounded авторизованный `codex exec → bridge → Notion → local tool → verifier FAIL → tool result → fix → VERIFY_OK`, затем restart/recovery с доказанным отсутствием повторного локального side effect.
+1. Восстановить свежий v4 `LATEST`, затем read-only проверить существующий Windows digest; не перезапускать.
+2. Если всё ещё pending: спроектировать и локально доказать durable **rendered Responses replay** с устойчивыми response/item/call IDs и атомарной связью с persistent segment progress. Не ограничиваться сохранением `completion_text`.
+3. Сначала сделать offline crash-state matrix: provider completion до replay save, replay save до segment save, segment save до response return, exact retry после каждого crash point. Для каждой точки требование — либо тот же replay без provider inference, либо fail closed; никогда тихий новый plan уже обработанного tool result.
+4. Параллельно держать готовым shell-env hardening для real Codex probe; product push не делать до снятия ZERO-MINUTE.
+5. При первом разрешённом native Windows gate совместить auth-rollback callsite с PowerShell restore reparse/overwrite proof; без нового fanout.
+6. После Core gates: один bounded авторизованный `codex exec → bridge → Notion → local tool → verifier FAIL → tool result → fix → VERIFY_OK`, затем restart/recovery с доказанным отсутствием повторного локального side effect.
 
 Product PR #7/PR #8 не менялись; hosted CI, provider traffic и реальные пользовательские данные не трогались.

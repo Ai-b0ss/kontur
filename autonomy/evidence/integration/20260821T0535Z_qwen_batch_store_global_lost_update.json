@@ -1,0 +1,53 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "timestamp_utc": "2026-08-21T05:35:00Z",
+  "finding": "QWEN_BATCH_STORE_GLOBAL_LOST_UPDATE",
+  "verdict": "REPRODUCED_OFFLINE",
+  "source": {
+    "repo": "Ai-b0ss/qwen-free-api",
+    "pr": 6,
+    "head": "4bf8bbdb0b7dcf185e2180dd5894fbc49bf6ebd4",
+    "file": "src/subagent-batch-store.js",
+    "blob_sha": "f384b57e52d54e298d466b858831eedb2a0dc4f1"
+  },
+  "why_current_code_is_racy": [
+    "createBatchStore.transaction() performs readState(target), clones the whole JSON state, mutates the clone, then replaces the whole file with writeAtomic().",
+    "writeAtomic() makes each replacement crash-safer, but it does not serialize two independent read-modify-write transactions across processes.",
+    "Therefore two writers can both read the same old state, commit different updates, and the later whole-file replacement silently erases the earlier update even when the writers touch different batches/tasks."
+  ],
+  "offline_reproduction": {
+    "tool": "autonomy/v3/tools/integration_qwen_batch_store_global_lost_update_probe.js",
+    "mechanism": "Two child processes intentionally capture the same pre-commit whole-file snapshot. Process A commits task-a=running first; process B then commits its stale snapshot with task-b=running.",
+    "observed": {
+      "task_a_final_status": "pending",
+      "task_b_final_status": "running",
+      "lost_update": true
+    },
+    "candidate_contract_probe": {
+      "mechanism": "Serialize the complete read-modify-write interval across processes before either reader takes its snapshot.",
+      "observed": {
+        "task_a_final_status": "running",
+        "task_b_final_status": "running",
+        "lost_update": false
+      }
+    }
+  },
+  "safety_impact": [
+    "The persisted coding-subagent state is the restart/retry safety boundary for pending/running/uncertain/done work. Losing an unrelated writer's update can make the durable state disagree with work that actually happened.",
+    "This is broader than the already-recorded same-task concurrent-claim race: even different batches or different task ids share one JSON file and can overwrite each other.",
+    "A future Notion->Qwen adapter increases the chance of concurrent independent delegated jobs reaching the same global store, so fixing only same-task claim ownership would not close this store-wide race."
+  ],
+  "required_fix_contract": [
+    "Serialize the entire store transaction across processes, including the initial read, mutation, and durable replace; locking only writeAtomic() is insufficient.",
+    "The mechanism must be crash-safe and bounded: a dead process must not leave an unrecoverable permanent lock.",
+    "Atomic claim/compare-and-swap for one task must use the same serialization/versioning domain as all other batch-store mutations, otherwise unrelated writes can still erase it.",
+    "Add a regression with two processes updating different batches from the same initial snapshot and require both updates to survive.",
+    "Add a second regression where one process persists uncertain/done while another updates an unrelated task; the terminal/uncertain state must never roll back to stale running/pending."
+  ],
+  "not_done": [
+    "No product file was rewritten by INTEGRATION_HELPER.",
+    "The lock-directory code inside the probe is only a contract demonstration, not an apply-ready production lock implementation.",
+    "No hosted CI, provider traffic, real account state, secrets, Cloudflare, Windows or production were used."
+  ]
+}

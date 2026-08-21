@@ -1,0 +1,68 @@
+{
+  "schema": "notion_core_durable_rendered_replay_v7_evidence",
+  "timestamp_utc": "2026-08-21T07:55:00Z",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_integration_head": "75a4a6de243e22e0df3c15e572e7aa09977d1fcb",
+  "windows_digest": {
+    "workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "status": "all_five_pending",
+    "rerun": false
+  },
+  "capsule_restore": {
+    "source_capsule": "20260821T064849Z-7b43475e0e",
+    "archive_sha256": "dfb7f2bd1bbbc8e0247a1f513f9e806bd8bb20c1b4715501ca91cabaadf82d83",
+    "v4_restore": "PASS"
+  },
+  "v6_new_blockers": [
+    {
+      "name": "distinct_codex_turn_identity_collision",
+      "reproduced": true,
+      "detail": "V6 response_request_fingerprint omitted client_metadata.turn_id. Two intentional turns with identical model/input/tools/request_kind but different turn_id produced the same fingerprint, so a new turn could receive an old durable replay instead of invoking the provider."
+    },
+    {
+      "name": "late_retry_after_conversation_advance_can_replan_old_tool",
+      "reproduced_by_model": true,
+      "detail": "A single latest replay slot is insufficient. Once turn B replaces turn A's replay, a delayed retry of A can otherwise miss the replay and re-enter provider planning. V7 retains bounded prior request fingerprints as tombstones so stale retries fail closed."
+    }
+  ],
+  "v7_store_candidate": {
+    "verdict": "DURABLE_RENDERED_REPLAY_V7_IDENTITY_AND_STALE_RETRY_PASS",
+    "changes": [
+      "request fingerprint binds Codex turn_id as well as request_kind and response-shaping fields",
+      "same-turn retry keeps a stable fingerprint",
+      "previous committed request fingerprints are retained as bounded tombstones",
+      "durable_required rejects a missing conversation identity or non-persistent store",
+      "failed durable publication restores prior in-memory state and blocks replay",
+      "legacy v2 exact retry remains fail-closed"
+    ]
+  },
+  "server_ordering_model": {
+    "verdict": "DURABLE_RENDERED_REPLAY_V7_SERVER_ORDERING_MODEL_PASS",
+    "proved": [
+      "fresh non-stream tool response then exact retry calls provider once and preserves response_id/item_id/call_id",
+      "distinct same-text Codex turn invokes provider again",
+      "delayed retry of older committed turn is tombstoned and cannot replan",
+      "stream emits only identity-free SSE comments before durable publication",
+      "stream then non-stream exact retry reuses one canonical response",
+      "forced disk failure publishes no transient cache/client tool response and a retry does not call provider again while persistence is blocked"
+    ]
+  },
+  "codex_shell_env": {
+    "verdict": "CODEX_PROBE_SHELL_ENV_V2_OFFLINE_PASS",
+    "candidate": "[shell_environment_policy] inherit=core, ignore_default_excludes=false, explicit excludes for NOTION_BRIDGE_API_KEY and RUNTIME_STATE_KEY",
+    "config_contains_secret_values": false,
+    "live_codex_binary_tested": false
+  },
+  "limitations": [
+    "No native Windows claim.",
+    "No hosted CI was started.",
+    "No live Notion or Codex provider traffic was started.",
+    "The V7 server ordering result is a local integration model using the exact current response-id construction shape and the candidate persistent store; it is not yet an applied full-server test on exact server.py.",
+    "Actual current Codex acceptance of pre-response SSE comments remains unproven because this hosted machine has no codex binary."
+  ],
+  "next": [
+    "Build an apply-ready exact server.py + conversation_segments.py patch from V7 ordering and run the fullest local fixture possible without hosted CI.",
+    "Add the shell-environment policy patch to the exact Codex project probe fixture and keep it unpushed until product mutation is justified.",
+    "Do not rerun the pending Windows digest; combine native PowerShell restore proof and auth-rollback callsite in the next permitted single Windows Core gate."
+  ]
+}

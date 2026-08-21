@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ColoringDto, EggOpenResponse, GameState, QuestionDto } from '@kontur/contracts';
 import { resolveRole, type Role } from '@kontur/core';
 import { ApiError, OfflineError, api, authenticate } from '../api.js';
+import { CanonicalBirdVisual } from '../components/CanonicalBirdVisual.js';
 import { LocalBirdVisual } from '../components/LocalBirdVisual.js';
 import { QuizEgg } from '../components/QuizEgg.js';
-import { ResultBird } from '../components/ResultBird.js';
 import { initialLocalStage, needsLocalQuestions, reconcileColoring, shouldReduceMotion, wormWord } from '../local-kontur-model.js';
 import { shouldBlockQuizAnswer, shouldEnterQ8Hatching } from '../q8-hatch-timeline.js';
 import {
@@ -280,14 +280,16 @@ export function LocalKontur() {
     setError(null);
     try {
       if (replayMode && state) {
-        const localResult = resolveRole(finalAnswers);
-        const visualResult = selectBirdResult({
-          resolvedRole: localResult.role,
-          scores: localResult.scores,
-        });
+        // Повтор теста не меняет серверный профиль, поэтому и reveal должен
+        // показывать ту же сохранённую птицу, которая останется на Home.
+        const savedBird = birdPresentation(
+          state.player.role,
+          state.player.roleTitle ?? 'птица',
+          state.player.userId,
+        );
         setReveal({ state });
-        setRevealResultId(visualResult.resultId);
-        setRevealNote(personalizedBirdNote(visualResult.resultId, finalAnswers));
+        setRevealResultId(savedBird.resultId);
+        setRevealNote(savedBird.note);
         setHatchReady(true);
         haptic('ok');
         return;
@@ -485,6 +487,7 @@ export function LocalKontur() {
             stage={eggStage}
             hatching={stage === 'hatching' || stage === 'reveal'}
             resultId={revealResultId}
+            palette={reveal?.state.player.palette ?? state?.player.palette ?? null}
           />
         </div>
 
@@ -507,8 +510,13 @@ export function LocalKontur() {
                 </button>
               ))}
             </div>
-            {index > 0 && !busy && (
-              <button className="lk-text-button" onClick={() => { const previous = Math.max(0, index - 1); setIndex(previous); setVisualQuestionIndex(previous); }}>← назад</button>
+            {index > 0 && !busy && !eggResponding && !answerLock.current && (
+              <button className="lk-text-button" onClick={() => {
+                if (busy || eggResponding || answerLock.current) return;
+                const previous = Math.max(0, index - 1);
+                setIndex(previous);
+                setVisualQuestionIndex(previous);
+              }}>← назад</button>
             )}
             {error && <p className="lk-error">{error}</p>}
           </section>
@@ -576,7 +584,7 @@ export function LocalKontur() {
       <section className="lk-hero">
         <span className="lk-hero-index" aria-hidden="true">01</span>
         <div className={`lk-bird-stage lk-bird-stage--home ${birdPulse ? 'is-pulsing' : ''}`}>
-          <ResultBird resultId={currentBird.resultId} />
+          <CanonicalBirdVisual resultId={currentBird.resultId} palette={state.player.palette} />
         </div>
         <div className="lk-identity">
           <p className="lk-kicker">твоя птица</p>

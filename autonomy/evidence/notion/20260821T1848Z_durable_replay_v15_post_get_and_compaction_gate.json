@@ -1,0 +1,52 @@
+{
+  "schema": "notion_core_durable_replay_v15_evidence_v1",
+  "created_at_utc": "2026-08-21T18:48:00Z",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "integration_head": "bca2bd16d5dcbf4d4dfa6638f5e914807617ec2f",
+  "source_blobs": {
+    "payload/conversation_segments.py": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "payload/server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "payload/turn_affinity.py": "f4bc004ec08cbaf3f1118dec0926015ab41b8bd3",
+    "payload/account_pool.py": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f"
+  },
+  "freshness": {
+    "previous_integration_head": "ce610b78f38a6f33dbdc5d0b6a46a25bbae907d9",
+    "current_integration_head": "bca2bd16d5dcbf4d4dfa6638f5e914807617ec2f",
+    "comparison": "one commit ahead; only tools/materialize_agent_wiring.py changed",
+    "relevant_payload_blobs_unchanged": true
+  },
+  "windows_digest": {
+    "workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "states": ["pending", "pending", "pending", "pending", "pending"],
+    "rerun": false
+  },
+  "finding_1": {
+    "name": "V12 pre-provider persistence check can become stale during get cleanup",
+    "severity": "blocking lifecycle safety",
+    "source_reason": "V12 checks require_persistence_ready() before ConversationSegmentStore.get(). The exact store get() runs cleanup, and cleanup may attempt an NCM28 write. A cleanup write failure can set persistence_blocked after the precheck but before provider invocation. Without a second readiness check, the provider can still be called while durable publication is already blocked.",
+    "local_reproduction": {
+      "precheck_only_provider_calls": 1,
+      "post_get_recheck_provider_calls": 0,
+      "verdict": "DURABLE_REPLAY_V15_POST_GET_BLOCK_GATE_PASS"
+    },
+    "required_fix": "After conversation_segments.get(conversation_key), re-check require_persistence_ready() before any provider planning. Fail 503 before provider if get/cleanup blocked persistence."
+  },
+  "finding_2": {
+    "name": "Responses compaction still publishes ephemeral state before durable post-compaction state",
+    "severity": "restart consistency",
+    "source_reason": "handle_openai_compaction currently writes TurnAffinity first and then calls ConversationSegmentStore.put() using legacy non-strict semantics. ConversationSegmentStore swallows NCM28 write failures by setting persistence_blocked, so Codex can receive a compaction result while the durable awaiting_compacted_history transition was never published.",
+    "risk": "After restart the bridge may continue the pre-compaction Notion segment even though Codex already accepted a compacted context, creating a lifecycle mismatch.",
+    "required_fix": "With V12 store API applied, strictly publish the compaction segment first (require_persistence when conversation identity exists), then update TurnAffinity, then return compact_payload. Surface ConversationPersistenceError as 503 before client publication."
+  },
+  "v14_relation": {
+    "v14_oversize_tombstone_still_required": true,
+    "v12_self_review_fixup_still_required": true,
+    "v15_is_overlay_not_replacement": true
+  },
+  "non_claims": [
+    "No native Windows semantics inferred from Linux.",
+    "No product branch modified.",
+    "No hosted CI or provider traffic started.",
+    "This evidence does not claim full product tests; it closes two exact-source ordering gaps in the apply-ready candidate design."
+  ]
+}

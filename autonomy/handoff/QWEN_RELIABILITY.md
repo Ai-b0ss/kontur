@@ -4,7 +4,7 @@
 
 Основная продуктовая линия: `Ai-b0ss/qwen-free-api`, ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6.
 
-Свежий product head на момент этого запуска: `a95e3fa365d62b4bce959f0508a82d99ec531679`.
+Свежий product head после этого запуска: `51a54afdb39fac3198a33d8809a57a474b20eca9`.
 
 ## Уже доказано и не переделывать
 
@@ -25,40 +25,43 @@
 - stale preferred object не обходит canonical cooldown/state;
 - удалённый managed account не воскресает через detached snapshot.
 
-## Свежая проверка этого запуска
+## Что исправлено в этом запуске
 
-PR #6 продвинулся с `73083123...` до `a95e3fa...` на три коммита. `compare_commits` показал изменения только в `src/stream-session-guard.js` и `scripts/stream-session-lifecycle-race-test.js`; `src/qwen-client.js` и `src/account-store.js` параллельно не менялись.
+1. Обнаружен устаревший `provider-circuit-persistence-test.js`: после перевода всех provider circuit на глобальную семантику он всё ещё ожидал, что `clear('account-b')` удаляет provider-wide circuit. Это противоречило текущему fail-closed контракту и делало штатный `npm test` красным по неверному ожиданию. Тест приведён к фактическому контракту: per-account clear возвращает `false`, глобальная очистка выполняется только `clear()`.
 
-Незавершённый кусок из прошлого handoff остаётся актуальным: `qwen-client.operationCandidates()` вручную вставляет caller-owned `preferredAccount`, хотя `accountStore.candidates(preferredAccount)` уже полностью канонизирует preferred id и применяет LRU/cooldown/remove правила.
+2. Найден отдельный продуктовый дефект в `provider-circuit.atomicWriteState()`. После успешного `rename` нового состояния и подтверждённого directory `fsync` ошибка удаления старого `.txn-backup-*` попадала в общий `catch` и откатывала уже durable новый circuit. В худшем случае более сильный `trust_restriction` мог откатиться к старому короткому `provider_pressure` только из-за cleanup-only ошибки.
 
-Точный byte-safe patch сохранён в каноническом control repo:
-`autonomy/v3/candidates/QWEN_RELIABILITY_OPERATION_CANDIDATES_20260821.patch` (commit `9ec6ceee9600d19db7591a74ed255af4f8c1dac0`).
+Исправление: после подтверждённой установки нового canonical state удаление transaction backup считается только уборкой и не может откатить circuit. Настоящая ошибка directory `fsync` до подтверждения canonical state по-прежнему приводит к rollback и пробрасывается наружу.
 
-Патч сводит функцию к:
-`return accountStore.candidates(preferredAccount).slice(0, MAX_ACCOUNTS_PER_OPERATION);`
+Продуктовые коммиты этого запуска:
+- `fc17ef80deb5ecca248fcba19daf0338d0e21255` — привести persistence-тест к provider-wide clear semantics;
+- `9d7f3285cad07097074be3f1fab125ef53bcbf97` — не откатывать durable provider circuit при ошибке cleanup backup;
+- `51a54afdb39fac3198a33d8809a57a474b20eca9` — расширить regression на corrupt-state fail-closed, global clear, tombstone cleanup и replacement-backup cleanup.
 
-Почему пока не применён в product branch: hosted container не имеет DNS до GitHub, а доступный GitHub Contents API заменяет большой общий `src/qwen-client.js` целиком. Ради удаления пяти строк риск полной ручной реконструкции файла выше пользы. Нужен byte-safe git/patch исполнитель или безопасный partial-edit инструмент.
+Hosted targeted check: `PROVIDER_CIRCUIT_DURABLE_REPLACEMENT_CLEANUP_PASS`.
 
-## Проверка thread affinity
+Важно: corrupt `provider-circuit.json` остаётся fail-closed (`state_corrupt`, `until=MAX_SAFE_INTEGER`). Обычный `trip()` не должен молча превращать его в конечный cooldown; восстановление требует явного глобального `clear()`. Regression теперь фиксирует именно этот инвариант.
 
-На свежем коде прочитаны `operationCandidates`, `canReuseOriginalChatId`, `chatCreationCandidates` и `sendChatRequest`.
+## Незавершённый старый cleanup
 
-После упрощения ожидаемый инвариант сохраняется:
-- healthy canonical preferred A остаётся первым через `accountStore.candidates(preferredAccount)`;
-- cooled/removed A не возвращается;
-- independent request без preferred остаётся LRU;
-- original chat id переиспользуется только когда выбранный account.id совпадает с preferredAccount.id и canonical preferred доступен;
-- sibling B получает новый chat id через `generateChatID(..., B)`, а `chatCreationCandidates(B)` запрещает скрытый переход на C.
+`qwen-client.operationCandidates()` всё ещё вручную вставляет caller-owned `preferredAccount`, хотя `accountStore.candidates(preferredAccount)` уже канонизирует preferred id, применяет cooldown/remove/LRU и возвращает canonical object.
 
-Следующий запуск должен сначала применить сохранённый маленький patch byte-safe способом, затем добавить/прогнать regression на эти четыре инварианта. После этого искать следующий независимый дефект в bounded retry / account-thread affinity.
+Точный patch остаётся в control repo:
+`autonomy/v3/candidates/QWEN_RELIABILITY_OPERATION_CANDIDATES_20260821.patch`.
+
+После нынешней канонизации account-store этот хвост в основном дублирует уже работающую защиту; срочность ниже, чем у найденного provider-circuit rollback. При byte-safe редакторе всё равно стоит свести `operationCandidates()` к одному источнику истины и прогнать thread-affinity regression.
+
+## Следующий безопасный кусок
+
+Проверить следующий bounded-retry/account-affinity крайний случай, не залезая в Qwen Core. В частности обратить внимание на stream/non-stream retry loops в `server.js`: локальный retry budget сверху складывается с внутренним `MAX_ACCOUNTS_PER_OPERATION`, поэтому нужно доказать, что один пользовательский запрос не может сделать существенно больше provider-attempts, чем предполагает общий bounded failover контракт, и что уже охлаждённые аккаунты не пробуются повторно в новом вложенном retry.
 
 ## Постоянная память и ограничения
 
 - LATEST на старте: `20260821T060242Z-70f4eb934f`;
 - стартовый Git blob SHA LATEST: `d7d197fb4bfe0551530323739fb7097edab03d60`;
 - manifest schema v4, archive SHA `aeab1d8abf8300f6f7375ece04f2e344de7e18a36c41929f207c14004adeb53a`;
-- part length/SHA и archive length/SHA проверены на hosted машине; workspace восстановлен, CHECKPOINT/RESULTS прочитаны;
+- LATEST восстановлен через `capsule_runtime_v4.py verify + restore` на hosted машине; CHECKPOINT/RESULTS прочитаны;
 - CircleCI/GitHub Actions/Cloudflare не запускались;
 - provider/live запросов к Qwen: 0;
 - реальные аккаунты, секреты и production не тронуты;
-- полный `npm test` exact-tree не заявлять: hosted container не имеет DNS до GitHub.
+- полный `npm test` exact-tree не заявлять: hosted container не имеет DNS до GitHub; выполнен целевой hosted-probe изменённого durability-инварианта.

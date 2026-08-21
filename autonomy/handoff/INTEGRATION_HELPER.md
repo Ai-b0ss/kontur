@@ -1,6 +1,6 @@
 # Qwen + Notion — интеграционный помощник
 
-Обновлено: 2026-08-21 07:05 UTC.
+Обновлено: 2026-08-21 07:34 UTC.
 
 Worker id: `INTEGRATION_HELPER`.
 
@@ -14,79 +14,50 @@ Worker id: `INTEGRATION_HELPER`.
 - Qwen Core — streaming/session disconnect + checkpoint lifecycle;
 - Qwen Reliability — canonical preferred account/cooldown и `operationCandidates()` без потери thread affinity;
 - Notion Agent — ordinary Responses dynamic reservation/materialization + transport provenance;
-- Notion Core — durable rendered parent Responses replay + ожидающий native-Windows auth rollback.
+- Notion Core — durable parent Responses replay + native-Windows auth rollback.
 
-## Новый Qwen gap 1 — stale writer может откатить terminal status
+## Новый стыковой дефект — успешный sibling теряется при частичном падении batch
 
-Fresh exact blobs:
-- `src/subagent-batch-store.js` = `f384b57e52d54e298d466b858831eedb2a0dc4f1`;
-- `src/subagent-agent-runner.js` = `53e8682563c39d9d10ccf8d748263ce63fb43e28`;
-- `scripts/subagent-persisted-state-conflict-test.js` = `a2d483963550bcb4aae0b88e871356e9e69cac30`.
+Fresh exact Notion blobs:
+- `payload/subagent_lifecycle.py` = `c90ff249e2199dcdc43002dfb3277fc60fc63b53`;
+- `tests/test_subagent_lifecycle.py` = `2d0451ee466502799fb28bfa3236534bbb7d01a5`.
 
-`updateTask()` сейчас слепо сливает patch в текущую запись. `markRunning/markDone/markFailed/markUncertain` не проверяют ожидаемый предыдущий статус. Поэтому более медленный старый исполнитель после того, как другой уже долговечно записал `done`, может поздно записать `uncertain/failed`; отдельный stale `markRunning` может снова открыть terminal task.
+`SubagentLifecycle.run_many()` сейчас правильно ждёт все допущенные дочерние задачи через `asyncio.gather(..., return_exceptions=True)`, поэтому ошибка одного ребёнка больше не отменяет sibling, который мог уже перейти границу локального side effect. Но после того как все дети завершились, функция поднимает первую ошибку и выбрасывает успешные `DelegationResult` остальных детей. В `finally` освобождаются все `task_id`, включая успешно завершившиеся.
 
-Offline probe PASS: нынешняя семантика разрешает `done -> uncertain` и `done -> running`; кандидат с expected-status guard блокирует оба перехода и сохраняет нормальный `running -> done`.
+Следствие: если вызывающий код повторит тот же batch после одной ошибки, уже успешный sibling снова получит dispatch и может второй раз выполнить `write/edit/run_shell`.
 
-Материалы:
-- `autonomy/v3/tools/integration_qwen_batch_status_transition_guard_probe.js`;
-- `autonomy/evidence/integration/20260821T0655Z_qwen_batch_terminal_status_transition_gap.json`.
+Существующий тест `test_peer_failure_does_not_cancel_sibling_with_possible_local_side_effects` доказывает, что sibling доходит до успеха, но его результат после исключения никак не сохраняется и не переиспользуется.
 
-Обязательное условие: expected-status check должен выполняться ВНУТРИ той же межпроцессной сериализации/CAS, что и read→mutate→replace. Внешняя проверка статуса не закрывает гонку.
+Офлайн-регрессия:
+- `autonomy/v3/tools/integration_notion_partial_batch_retry_probe.py`;
+- текущая семантика: успешный child вызван 2 раза, failed child 2 раза, side effect = 2;
+- кандидатный контракт: успешный child вызван 1 раз и его результат переиспользован, failed child 2 раза, side effect = 1.
 
-## Новый Qwen gap 2 — backup recovery может воскресить `pending`
-
-Тот же `subagent-batch-store.js` при ошибке чтения/JSON canonical-файла безусловно возвращает `readNewestBackup()`. Но backup — это predecessor snapshot. `writeAtomic()` специально допускает оставшийся `.bak-*` после уже совершённого commit, если cleanup backup не удался.
-
-Опасный сценарий:
-1. backup содержит `pending`;
-2. canonical replacement долговечно записал `running`;
-3. после этого локальный инструмент мог выполнить side effect;
-4. canonical-файл позже стал нечитаемым;
-5. `readState()` возвращает старый backup как обычный `pending`;
-6. restart может автоматически выполнить задачу снова.
-
-Offline probe PASS: текущий fallback действительно восстанавливает `pending`; консервативный кандидат помечает non-done запись, восстановленную из predecessor backup, как `uncertain` и блокирует автоматический replay.
-
-Материалы:
-- `autonomy/v3/tools/integration_qwen_batch_backup_recovery_failclosed_probe.js`;
-- `autonomy/evidence/integration/20260821T0700Z_qwen_batch_backup_recovery_replay_gap.json`.
+Evidence:
+- `autonomy/evidence/integration/20260821T0734Z_notion_partial_batch_success_replay_gap.json`.
 
 Минимальный продуктовый контракт:
-- backup fallback обязан иметь явный provenance;
-- non-terminal predecessor backup нельзя считать replay-authoritative;
-- без более сильного generation/commit proof он должен fail-closed (`uncertain`/explicit recovery), а не молча становиться runnable;
-- coherent predecessor `done` можно сохранить resumable;
-- regression: `pending backup -> committed running -> possible side effect -> canonical corruption -> restart`, executor count после restart должен оставаться 0.
+1. Частичный результат batch должен быть явным: успех sibling не исчезает из-за ошибки другого ребёнка.
+2. Повтор той же канонической child identity обязан переиспользовать уже завершённый результат, а не выполнять ребёнка снова.
+3. Повторять можно только обычные failed-задачи; `uncertain` остаются заблокированными.
+4. Для restart-защиты этот ledger в итоге должен быть долговечным; простой in-memory cache закрывает только same-process путь.
+5. Не чинить это отменой sibling или переводом всего batch в `uncertain`: это потеряет безопасно завершённую работу.
 
-## Связь с уже доказанным store-wide gap
+Полезный контраст: Qwen `runAgentSubagents()` уже возвращает структурированный результат по каждой задаче, а persisted `done` при повторе переиспользуется. Эту семантику можно использовать как ориентир для общего Notion→Qwen контракта, не копируя provider-specific state.
 
-Предыдущим запуском подготовлен `autonomy/v3/tools/integration_qwen_batch_store_interprocess_lock_candidate.js`: два реальных Node-процесса доказали, что store-wide lock вокруг полного read→mutate→atomic-replace убирает lost update. Это отдельный слой. Для целостного product fix нужны одновременно:
-1. store-wide interprocess serialization/CAS;
-2. expected predecessor status внутри этой транзакции;
-3. fail-closed provenance при восстановлении predecessor backup.
+## Открытые ранее интеграционные блоки — не дублировать
 
-Только lock без пунктов 2–3 всё ещё допускает stale terminal downgrade и unsafe backup replay.
+Сохраняются уже доказанные дефекты/контракты: межпроцессный claim одной Qwen-задачи; store-wide lost update; terminal-status downgrade stale writer; fail-closed backup recovery; persisted workspace identity; selected-skill content fingerprint; stable Qwen taskId/batchId/sessionPrefix; parent-scoped child identity; typed completed/uncertain/failed/skipped result; cancellation/side-effect uncertainty; explicit delegated prompt policy; delegated tool-capability policy; Notion durable child-state после restart; rebind same-account/global-parallel overlap; Notion 24 vs Qwen 12 turns; успешный Qwen result с пустым text.
 
-## Notion styk — не потерять предыдущий открытый блок
+## Следующее
 
-Сохраняется предыдущий доказанный дефект: `DelegatedToolLoopSession`/`SubagentLifecycle` держат child execution state только в памяти, поэтому process death после mutating local tool и до durable tool result может повторить side effect после restart. Материалы остаются:
-- `autonomy/v3/tools/integration_notion_delegated_restart_side_effect_probe.py`;
-- `autonomy/evidence/integration/20260821T0630Z_notion_delegated_restart_side_effect_gap.json`.
-
-Не смешивать этот child-state с Notion Core parent Responses replay или provider account/thread state.
-
-## Ранее доказанные стыки — не дублировать
-
-Сохраняются: same-task claim race; global batch-store lost update; process-global tool workspace; persisted workspace identity; Notion rebind global parallelism и same-account overlap; parent-scoped child identity; stable Qwen taskId/batchId/sessionPrefix; typed completed/uncertain/failed/skipped result; cancellation/side-effect uncertainty; explicit delegated prompt policy; Notion 24 vs Qwen 12 turns; successful Qwen result с пустым text; selected-skill content fingerprint; delegated tool-capability policy; cross-parent bare task-id conflict.
-
-## Следующий безопасный интеграционный шаг
-
-1. Когда Qwen-владелец материализует store-wide serialization, прогнать единый exact-store offline harness: same task => один executor; unrelated batches не теряют updates; stale worker не откатывает `done/uncertain`; backup fallback не делает predecessor `pending` runnable; restart не повторяет mutating side effect.
-2. До product merge дополнительно проверить explicit `retryUncertain=true`: он должен оставаться осознанным escape hatch, но не позволять старому процессу перезаписать более новый terminal result.
-3. Для Notion продолжить только независимый durable child-state contract/regression, не переписывая активные server/account-pool materializers основного Agent-worker.
+1. Передать владельцу Notion Agent минимальную регрессию: `[ok(mutating), fails]` → retry identical batch → `ok executor_count` должен остаться 1.
+2. Когда появится durable child-state storage, расширить тот же тест на restart; не строить второй независимый state-store параллельно владельцу этой зоны.
+3. По Qwen дождаться материализации общего batch-store lock/status-guard и затем прогнать единый exact-store harness из предыдущих evidence.
+4. Продолжать искать только новые стыки, не возвращаться к перечисленным выше уже доказанным пунктам.
 
 ## Ограничения и память
 
-Run-start `LATEST.json`: capsule `20260821T054341Z-e45fead477`, archive SHA-256 `e21ac51d8884aa1970c0cc072e36aa2a1b422379400126ec0bb87cad3f3904b7`, Git blob SHA `ffc3e9d98b387fe9cb9cdb76fae80050027468cd`. Manifest и 7 parts получены отдельно; длины и SHA частей, archive size/SHA совпали с manifest. Product work опирался на fresh exact GitHub source; неизвестные байты из памяти не реконструировались.
+На старте прочитан `autonomy/v3/workspaces/INTEGRATION_HELPER/LATEST.json`: capsule `20260821T070043Z-042b484e9f`, archive SHA-256 `14fdd375a94683add5fd6f20cf6201e421a406d89a61e2fcdec9446085526b15`, Git blob SHA `a6e0ea8fccda862066b8246e24e0aa16870b3bdd`. Manifest и три части получены отдельно; их заявленные длины/SHA и archive size/SHA согласованы с manifest. Product work опирался на fresh exact GitHub source.
 
 CircleCI, GitHub Actions, Cloudflare и другой hosted CI не запускались. Live Qwen/Notion/Codex/provider traffic — 0. Native Windows не заявлялся. Production, реальные данные, аккаунты и секреты не трогались.

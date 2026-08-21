@@ -1,52 +1,54 @@
 # Qwen — агентное ядро
 
-Обновлено: 2026-08-21 15:43Z.
+Обновлено: 2026-08-21 17:05Z.
 
 ## Текущее состояние
 
-`qwen-free-api`: ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6, exact head `205faf3e4b9f89c53e40930cb6447cba6ed37677`.
+`qwen-free-api`: ветка `autopilot/qwen-runtime-preflight-20260818`, PR #6. Core-исправление было зафиксировано на `a77b882c98d52932c9382d301579012f00d4eec3`; текущий наблюдавшийся head PR уже `925682bc36338a249a26dae2c684380c21ba8db7`. `a77b882…` является его предком; последующие 8 коммитов меняют `qwen-client.js` и reliability-тесты, но не откатывают `session-store.js` и новый Core-regression.
 
-Основные Core-инварианты сохраняются: tool result переживает restart, pending tool-call блокирует короткое продолжение, streaming tool-call фиксируется до выдачи клиенту, системные инструкции сохраняются в обычном restart-пути, одинаковый `tool_call.id` не схлопывает несколько pending-вызовов, запросы одной OpenCode-сессии сериализуются. Stale-backup recovery работает fail-closed: восстановленная из `.bak` сессия не переиспользует старый `chatId` и требует явной полной сверки истории.
+Основные Core-инварианты сохраняются: tool result переживает restart, pending tool-call блокирует короткое продолжение, streaming tool-call фиксируется до выдачи клиенту, обычный assistant-text сохраняется, системные инструкции сохраняются в restart-пути, одинаковый `tool_call.id` не схлопывает несколько pending-вызовов, запросы одной OpenCode-сессии сериализуются. Stale-backup recovery работает fail-closed: восстановленная из `.bak` сессия не переиспользует старый `chatId` и требует явной полной сверки истории.
 
-## Новый существенный факт: stale-backup reconciliation может потерять системные инструкции
+## Закрыто: stale-backup reconciliation больше не теряет системные инструкции
 
-На exact head `205faf3e…` `isExplicitRecoveryHistory()` намеренно сравнивает только не-system историю. Это само по себе полезно для проверки пользовательского/assistant/tool прогресса, но `reconcileRecoveredSession()` затем сохраняет `checkpointMessages(messages)` прямо из входящей полной истории.
+Ранее `isExplicitRecoveryHistory()` корректно проверял только non-system прогресс, но `reconcileRecoveredSession()` затем сохранял ровно входящую историю. Если клиент доказал более новый assistant/tool-прогресс, но не прислал system-сообщения, fallback-снимок мог потерять приватный prompt владельца и project rules.
 
-Из-за этого клиент может прислать историю, которая полностью доказывает более новый assistant/tool прогресс, но не содержит system-сообщений. Такая история сейчас принимается как достаточная для снятия `QWEN_SESSION_RECOVERY_UNCERTAIN`, после чего сохранённые `owner`/project system-инструкции из fallback-снимка исчезают из нового checkpoint. В том же текущем ходе они также не возвращаются в сообщения к модели.
+Исправлено в `src/session-store.js`, commit `f1389a4283945ed35c2e3bbd9daf32d43e8a424a`:
 
-Локальный офлайн-reproduction, повторяющий текущую функцию `isExplicitRecoveryHistory()`, получил:
+- если в явной полной истории есть system-сообщения, они считаются актуальными и полностью заменяют старые;
+- если system-сообщений во входящей истории нет, сохраняются system-блоки из восстановленного checkpoint;
+- один и тот же объединённый набор используется и для нового долговечного checkpoint, и для текущего хода к модели;
+- условия снятия `QWEN_SESSION_RECOVERY_UNCERTAIN` не ослаблены: всё ещё нужен более новый assistant/tool-прогресс и отсутствие pending tool-call.
 
-`QWEN_STALE_BACKUP_SYSTEM_LOSS_REPRODUCED accepted_without_systems=1 owner_prompt_at_risk=1`
+Постоянный regression `scripts/session-recovery-system-preservation-test.js` добавлен commit `87275b7f8fecbee370c933682ade78a0f320dfbf`; в обычный `npm test` включён на head `a77b882c98d52932c9382d301579012f00d4eec3`. Он проверяет оба обязательных варианта: отсутствие system-блоков сохраняет старые owner/project instructions; явно присланные новые system-блоки заменяют старые и сохраняются долговечно.
 
-Это пересекается с обязательным двухрежимным system-prompt контрактом и относится к Qwen Core, а не к пулу аккаунтов.
+Целевой hosted-проход логики дал:
 
-### Безопасная граница исправления
+`QWEN_STALE_RECOVERY_SYSTEM_TARGETED_PASS retained=1 explicit_replace=1`
 
-Не надо запрещать владельцу менять системный промпт при явной полной сверке. Семантика должна совпасть с обычным `restoreCheckpoint()`:
+Полный exact-tree `npm test` всего приватного репозитория в этом проходе не выполнялся и зелёным не объявляется.
 
-- если во входящей полной истории есть system-сообщения — они считаются явной актуальной версией и выигрывают;
-- если входящая история system-сообщений не содержит — перед reconciliation нужно подставить сохранённые system-сообщения из восстановленного checkpoint;
-- именно этот объединённый набор нужно и долговечно записать, и вернуть из `restoreCheckpoint()` для текущего хода;
-- снятие recovery-uncertain по-прежнему требует более нового assistant/tool прогресса и отсутствия pending tool-call.
+## Параллельный writer после Core-фикса
 
-Обязательный regression: stale backup с `PRIVATE_OWNER_PROMPT` + project rules → authoritative non-system history без system-блоков → reconciliation сохраняет старые system-блоки; отдельный вариант с явно присланными новыми system-блоками должен заменить старые, а не смешать оба набора.
+После `a77b882…` другой исполнитель продвинул PR до `925682bc…`. Compare показывает `ahead_by=8`, `behind_by=0`; изменены только `package.json`, несколько reliability-тестов и `src/qwen-client.js`. Новый `session-recovery-system-preservation-test.js` остался в test-chain, а `session-store.js` содержит Core-исправление без отката. Узкую account/provider механику здесь не перехватывать.
 
-Продукт в этом проходе намеренно не переписывался: GitHub-интерфейс для `src/session-store.js` требует полную замену большого файла, а exact-tree локально не материализован. Широкую реконструкцию неизвестных байтов делать запрещено.
+## Постоянная память
 
-## Предыдущий закрытый факт: внешний HTTP-контракт stale-backup recovery
+Стартовый `LATEST` этого запуска: blob `637e4e59456b9898284cdd416979764ce1e6e45f`, capsule `20260821T155256Z-3e3db3ae97`, archive SHA-256 `ba78dc06533712417531280759c266ebe5bc8a8bdfcfb7cff124044dfcc6ca6c`. Он восстановлен exact нормативным `capsule_runtime_v4.py`; runtime Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`.
 
-`server.js` уже отдельно отображает `QWEN_SESSION_RECOVERY_UNCERTAIN` как HTTP 409 / `type=conflict` / стабильный `error.code`, до обращения к Qwen. Regression `scripts/server-session-recovery-uncertain-test.js` входит в обычный `npm test`.
+Первая post-fix упаковка `20260821T165311Z-e0fccf79da` НЕВАЛИДНА: после immutable-upload перечитывание выявило несовпадение `part-0001`. Она не публиковалась как `LATEST`; не ремонтировать её поверх байтов и не использовать для restore.
+
+Нормативно перепакован и проверен checkpoint `20260821T165444Z-2d8865f51c`, archive SHA-256 `ace06f2c01b033c39c114671c3fbe2c2e2fc0a3a0318d52b5b25266abe6b2510`. Manifest и оба part после upload перечитаны и совпали. Перед публикацией `LATEST` всё ещё имел исходный blob `637e4e…`, поэтому CAS прошёл штатно. Старый указатель сохранён в `PREVIOUS`; текущий `LATEST` указывает на `20260821T165444Z-2d8865f51c`.
 
 ## Граница доказанного
 
-- Стартовая постоянная память этого запуска восстановлена exact нормативным `capsule_runtime_v4.py`; runtime Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`.
-- `LATEST` на старте: blob `5687a65ed328200ffaec9a2d4189d26ced689e54`, capsule `20260821T150527Z-7bd4306f4c`, archive SHA-256 `443627b83c87a0f54d07cd87e0339fbcd4cc839acff2594ba0b433fe4e111144`; exact `verify + restore` PASS.
-- Новый system-loss дефект воспроизведён локально без сети и без Qwen.
-- Полный exact-tree `npm test` приватного репозитория в этом запуске не выполнялся.
+- Core system-preservation fix присутствует и на текущем наблюдавшемся PR-head `925682bc…`.
+- Новый regression существует и включён в текущий `npm test`.
+- Целевая логика проверена на ChatGPT-hosted машине без сети к Qwen.
+- Полный exact-tree `npm test` не выполнялся: весь приватный репозиторий локально не материализован.
 - GitHub Actions, CircleCI, Cloudflare, live Qwen/provider traffic, реальные аккаунты, секреты и production не использовались.
 
 ## Следующее
 
-1. На exact `session-store.js` внести минимальную семантику system-preservation для stale-backup reconciliation и добавить regression с двумя вариантами: system отсутствует / system явно заменён.
-2. Материализовать максимально полный exact-tree текущего PR-head на hosted-машине и выполнить `session-store-restart-test.js` вместе с новым regression и ближайшим session/server/restart-кластером.
-3. После зелёного локального кластера искать следующий воспроизводимый Core-дефект; узкую механику cooldown/account selection не перехватывать.
+1. На hosted-машине материализовать достаточный exact session/restart-кластер текущего PR-head и выполнить `session-recovery-system-preservation-test.js`, `session-store-restart-test.js`, `session-stale-backup-recovery-test.js`, `session-checkpoint-system-retention-test.js` и ближайшие pending/tool-result проверки — без hosted CI и без live Qwen.
+2. Если кластер зелёный, искать следующий воспроизводимый дефект в Core: continuation после tool result, restart, system-prompt modes, subagents, skills или ошибки исполнения.
+3. Узкую механику cooldown/account selection не перехватывать у reliability-worker, кроме нарушения Core-инварианта.

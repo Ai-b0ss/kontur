@@ -1,0 +1,56 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "timestamp_utc": "2026-08-21T06:55:00Z",
+  "finding": "QWEN_SUBAGENT_TERMINAL_STATUS_CAN_BE_DOWNGRADED_BY_STALE_WRITER",
+  "verdict": "REPRODUCED_OFFLINE",
+  "source": {
+    "repo": "Ai-b0ss/qwen-free-api",
+    "pr": 6,
+    "head": "d41bc71ac7875c8bb4a625e128f20d01c2d885c6",
+    "subagent_batch_store_blob": "f384b57e52d54e298d466b858831eedb2a0dc4f1",
+    "subagent_agent_runner_blob": "53e8682563c39d9d10ccf8d748263ce63fb43e28",
+    "persisted_state_conflict_test_blob": "a2d483963550bcb4aae0b88e871356e9e69cac30"
+  },
+  "coordination": {
+    "qwen_core_current_narrow_work": "stream/session disconnect and checkpoint lifecycle",
+    "qwen_reliability_current_narrow_work": "canonical operationCandidates/preferred account cooldown and thread affinity",
+    "overlap": false,
+    "relationship_to_prior_integration_work": "This is the next required layer after the already-recorded store-wide lost-update/claim-race fix. Store-wide serialization alone is insufficient unless status transitions also validate their expected predecessor atomically."
+  },
+  "observed_product_semantics": [
+    "src/subagent-batch-store.js updateTask() blindly merges patch into the current task record and has no expected-status guard.",
+    "markRunning/markDone/markFailed/markUncertain are unconditional wrappers around that blind update.",
+    "src/subagent-agent-runner.js performs model/tool work outside the store transaction and later calls markDone/markFailed/markUncertain.",
+    "Therefore a slower stale executor can finish after another executor has durably committed done and overwrite done with uncertain/failed, or a later markRunning can reopen a terminal task."
+  ],
+  "deterministic_probe": {
+    "path": "autonomy/v3/tools/integration_qwen_batch_status_transition_guard_probe.js",
+    "local_command": "node integration_qwen_batch_status_transition_guard_probe.js",
+    "result": "PASS",
+    "reproduced": {
+      "done_to_uncertain_allowed": true,
+      "done_to_running_allowed": true
+    },
+    "candidate": {
+      "stale_done_to_uncertain_blocked": true,
+      "stale_done_to_running_blocked": true,
+      "running_to_done_allowed": true
+    }
+  },
+  "required_fix_contract": [
+    "The whole batch-store read -> validate expected predecessor status -> mutate -> atomic replace must be under the same interprocess serialization/CAS boundary already required by the global lost-update finding.",
+    "Terminal completion transitions done/failed/uncertain must accept only the exact expected predecessor for that execution attempt, normally running.",
+    "markRunning must atomically compare against the status observed/authorized by the runner; explicit retryUncertain may authorize running/uncertain recovery, but an unrelated stale caller may not reopen a newer terminal state.",
+    "A stale transition must fail closed with a dedicated non-secret error such as QWEN_SUBAGENT_BATCH_STALE_TRANSITION and must not rewrite the store.",
+    "Regression must cover two writers where winner commits done and loser later attempts uncertain/failed; final durable state must remain done and preserve the winner result.",
+    "Regression must also cover explicit authorized retry path without weakening terminal-state monotonicity."
+  ],
+  "important_note": "A status guard implemented outside the store-wide lock is not sufficient: two processes can still both validate the same old state. This fix must land together with or on top of interprocess serialization/CAS.",
+  "product_files_modified": false,
+  "hosted_ci_used": false,
+  "provider_traffic": false,
+  "windows_claimed": false,
+  "production_touched": false,
+  "secrets_touched": false
+}

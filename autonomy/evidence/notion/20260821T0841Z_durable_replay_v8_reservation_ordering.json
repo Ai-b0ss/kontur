@@ -1,0 +1,33 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "created_at_utc": "2026-08-21T08:41:00Z",
+  "source": {
+    "repo": "Ai-b0ss/notion-agent-bridge",
+    "agent_head": "f89d85b0b67faf3188c444d1ea52268783a722cd",
+    "core_base": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "turn_affinity_blob": "f4bc004ec08cbaf3f1118dec0926015ab41b8bd3"
+  },
+  "verdict": "DURABLE_REPLAY_V8_RESERVATION_ORDERING_GAP_PROVEN",
+  "facts": [
+    "Current server reserves the foreground account for a tool-producing Sol round before TurnAffinityStore.put and before ConversationSegmentStore.put.",
+    "Current ConversationSegmentStore._save_locked swallows NCM28 write failure by setting persistence_blocked, so current code can still return a tool call after durable publication failed.",
+    "V7 requires durable publication to become fail-closed; once that is enforced, keeping reservation-before-commit creates a ghost reservation for a tool call that was never published to Codex.",
+    "TurnAffinityStore is memory-only and is currently populated before durable conversation state, so it also must not be populated before the durable replay record commits.",
+    "The rendered Responses payload is currently created only after both stores are mutated, so exact response_id/item_id/call_id cannot be included in the durable transaction without reordering."
+  ],
+  "required_ordering_v8": [
+    "provider completion and correction",
+    "render canonical Responses payload once, including response_id/item_id/call_id",
+    "atomically publish conversation progress plus rendered replay record; failure must be observable to caller",
+    "only after durable success: update memory-only TurnAffinityStore",
+    "only after durable success: reserve/clear foreground account according to the canonical rendered item",
+    "only after durable success: emit any identity-bearing HTTP/SSE response"
+  ],
+  "failure_invariant": "If durable publication fails, no tool call, no response/call identifiers, no affinity cache entry and no foreground reservation may become externally or internally authoritative for that request.",
+  "scope_boundary": "No rotation, prompt-mode, delegation or account/thread-affinity policy is redesigned; this is only Core crash/lifecycle ordering at the integration boundary.",
+  "hosted_ci_started": false,
+  "provider_traffic_started": false,
+  "product_branch_mutated": false
+}

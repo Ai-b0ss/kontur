@@ -1,0 +1,27 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "lane": "NOTION_CORE",
+  "verdict": "CODEX_PROBE_EXACT_SHELL_ENV_CONFIG_PASS",
+  "integration_head": "cba70d87c2fad9736f4f2cefa1854b3efbf7636d",
+  "exact_blobs": {
+    "tools/run_real_codex_cli_project_probe.py": "2f6d5873606975771b5ab418d5f9d45cd602304c",
+    "tests/test_real_codex_cli_probe_contract.py": "2958fac16ecf6ded815c6dfc12aa1060319a62e8"
+  },
+  "candidate": {
+    "shell_environment_policy": {
+      "inherit": "core",
+      "ignore_default_excludes": false,
+      "exclude": ["NOTION_BRIDGE_API_KEY", "RUNTIME_STATE_KEY"]
+    }
+  },
+  "local_checks": [
+    "generated config parses as TOML",
+    "bridge provider still resolves NOTION_BRIDGE_API_KEY through env_key rather than embedding its value",
+    "shell environment policy explicitly excludes NOTION_BRIDGE_API_KEY and RUNTIME_STATE_KEY",
+    "existing model provider, responses wire_api, approval_policy and workspace-write sandbox contract remain unchanged"
+  ],
+  "patch_sha256": "1a08988e7dc9c5307dd0b9150c8cec5d61f1c3892667386d37d66c02dcb661f6",
+  "not_proven": ["live Codex binary execution", "live Notion traffic"],
+  "hosted_ci_started": false,
+  "provider_traffic_started": false
+}

@@ -1,0 +1,39 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "QWEN_COOLDOWN_FORWARD_CLOCK_JUMP_RESTART_GAP",
+  "verdict": "REPRODUCED",
+  "source": {
+    "repo": "Ai-b0ss/qwen-free-api",
+    "branch": "autopilot/qwen-runtime-preflight-20260818",
+    "pr": 6,
+    "head": "cd4696f5730d928892d1080e6c7bf12a175819f1",
+    "account_store_blob": "d4ea623713882d55aad14f6429b049205e85eb96"
+  },
+  "current_behavior": {
+    "cooldown_ms": 600000,
+    "real_elapsed_before_restart_ms": 60000,
+    "wall_clock_forward_jump_ms": 3600000,
+    "same_process_available_after_jump": false,
+    "available_after_restart": true,
+    "reason": "the in-process hrtime deadline is lost on restart; load() reconstructs it only if persisted unavailableUntil is still in the future according to Date.now(), which is false after the forward wall-clock jump"
+  },
+  "impact": "A CAPTCHA/rate-limit/account-local cooldown can end early after a process restart if the wall clock jumped forward before restart. The fresh monotonic guard correctly protects the current process but is not a restart-safe floor under an untrusted wall clock.",
+  "required_contract": [
+    "Do not weaken the new in-process monotonic guard.",
+    "Persist enough restart-safe cooldown information to avoid trusting Date.now() alone after a clock discontinuity/restart, or fail closed when elapsed real time cannot be proved.",
+    "A restart before the intended real duration elapsed must keep the account unavailable even when wall time jumped forward.",
+    "Normal restart with a trustworthy wall clock and expired cooldown must remain available.",
+    "accountStore.load() between requests must not erase the current-process monotonic deadline."
+  ],
+  "probe": {
+    "path": "autonomy/v3/tools/integration_qwen_cooldown_restart_clock_jump_probe.js",
+    "result": "QWEN_COOLDOWN_FORWARD_CLOCK_JUMP_RESTART_GAP_REPRODUCED"
+  },
+  "coordination": {
+    "owner": "QWEN_RELIABILITY",
+    "product_rewrite_by_helper": false,
+    "circleci_triggered": false,
+    "live_provider_used": false
+  }
+}

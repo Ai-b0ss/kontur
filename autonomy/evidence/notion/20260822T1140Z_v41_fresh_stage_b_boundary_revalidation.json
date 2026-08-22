@@ -1,0 +1,42 @@
+{
+  "schema": "notion_core_v41_fresh_stage_b_boundary_revalidation_v1",
+  "created_at_utc": "2026-08-22T11:40:00Z",
+  "worker": "NOTION_CORE",
+  "source": {
+    "core_pr": 7,
+    "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_integration_pr": 8,
+    "fresh_agent_head": "efab0a496b5b90a3d631560540e80269a29dbf91",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "account_pool_blob": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f",
+    "turn_affinity_blob": "f4bc004ec08cbaf3f1118dec0926015ab41b8bd3"
+  },
+  "fresh_tree_revalidation": {
+    "core_boundary_blobs_unchanged_since_v34_v40": true,
+    "v34_store_materializer_exact_preimage_still_matches": true,
+    "v39_account_pool_materializer_exact_preimage_still_matches": true,
+    "server_stage_b_candidate_not_yet_applied": true
+  },
+  "exact_source_findings": {
+    "account_lease_default_failover": "AccountLease.run still switches account after failover-eligible errors; durable Core steps therefore require allow_failover=false while default Agent behavior remains unchanged.",
+    "outer_transport_retry": "handle_openai_responses still has a separate single-account foreground TRANSPORT recursion after AccountPoolExhausted; protected Stage-B execution must suppress this after durable intent.",
+    "planner_correction": "exact server still allows at most two deliberate correction provider steps after the initial step; these are product behavior and must remain on the same selected lease/account, each attempted once with implicit failover disabled.",
+    "ephemeral_cache_before_durable": "exact server still checks TurnAffinity completion_text before the durable Stage-B replay path and reconstructs a new Responses payload with fresh IDs. Stage-B must make durable replay authoritative before any ephemeral completion cache hit.",
+    "pre_finalize_ephemeral_side_effects": "exact server still reserves/clears foreground account and writes TurnAffinity before ConversationSegmentStore.put, then creates the final Responses payload only afterwards. The Stage-B candidate must reverse this ordering.",
+    "stream_precommit_leak": "stream_openai_responses still allocates resp_/rs_ IDs and emits response/provider-derived events before durable publication; stream must become a projection of one canonical durable result."
+  },
+  "v39_materializer_review": {
+    "expected_account_pool_blob": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f",
+    "signature_anchor_present_on_fresh_source": true,
+    "failover_switch_anchor_present_on_fresh_source": true,
+    "default_allow_failover_true_preserves_agent_semantics": true,
+    "protected_false_path_records_failure_and_transport_outcome_then_reraises_without_switch": true
+  },
+  "gate_decision": {
+    "native_windows_ready": false,
+    "reason": "Stage-B exact server orchestration is not yet locally green; Windows semantics are not yet the last unknown.",
+    "historical_digest_rerun": false
+  },
+  "next": "Build the exact server Stage-B materializer around fresh blob f02cef6a... and the already-green V34/V35 store plus V39 account-pool opt-out; locally prove pool-unavailable, intent-write-failure, planner-correction, ambiguous transport, final-write-failure, exact retry/restart, compaction, stream and disconnect ordering before the single disposable Windows final gate."
+}

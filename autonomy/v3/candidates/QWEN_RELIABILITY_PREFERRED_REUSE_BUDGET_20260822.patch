@@ -1,0 +1,31 @@
+diff --git a/src/qwen-client.js b/src/qwen-client.js
+--- a/src/qwen-client.js
++++ b/src/qwen-client.js
+@@
+ function operationCandidates(preferredAccount = null, attemptContext = null) {
+   const attempted = attemptContext && attemptContext.attemptedAccountIds instanceof Set
+     ? attemptContext.attemptedAccountIds
+     : null;
+   const limit = Math.min(
+     MAX_ACCOUNTS_PER_OPERATION,
+     Math.max(1, Number(attemptContext && attemptContext.limit) || MAX_ACCOUNTS_PER_OPERATION),
+   );
+   const allowPreferredReuse = Boolean(attemptContext && attemptContext.allowPreferredReuse);
+   const preferredId = preferredAccount && preferredAccount.id ? preferredAccount.id : null;
+-  const reuseCredit = allowPreferredReuse && preferredId && attempted && attempted.has(preferredId) ? 1 : 0;
++  const eligible = accountStore.candidates(preferredAccount);
++  const preferredReusable = Boolean(
++    allowPreferredReuse &&
++    preferredId &&
++    attempted &&
++    attempted.has(preferredId) &&
++    eligible.some((account) => account.id === preferredId)
++  );
++  const reuseCredit = preferredReusable ? 1 : 0;
+   const remaining = Math.max(0, limit - (attempted ? attempted.size : 0) + reuseCredit);
+-  return accountStore.candidates(preferredAccount)
+-    .filter((account) => !attempted || !attempted.has(account.id) || (allowPreferredReuse && account.id === preferredId))
++  return eligible
++    .filter((account) => !attempted || !attempted.has(account.id) || (preferredReusable && account.id === preferredId))
+     .slice(0, remaining);
+ }

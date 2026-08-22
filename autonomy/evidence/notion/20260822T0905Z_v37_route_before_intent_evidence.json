@@ -1,0 +1,43 @@
+{
+  "schema": "notion_core_v37_route_before_intent_evidence_v1",
+  "created_at_utc": "2026-08-22T09:05:00Z",
+  "worker": "NOTION_CORE",
+  "source": {
+    "core_pr": 7,
+    "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_integration_pr": 8,
+    "fresh_agent_head": "60ea23501cda46a6244311174b1db4e27f596c2c",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "account_pool_blob": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f"
+  },
+  "defect": {
+    "name": "publishing provider intent before local lease acquisition can create a false unresolved tombstone without any provider entry",
+    "severity": "blocking_recovery_liveness_gap",
+    "exact_source_reason": "NotionAccountPool.lease().__aenter__ can fail locally with AccountPoolCoolingDown/AccountPoolExhausted before any Notion client operation. If Stage-B writes begin_provider_intent before entering the lease, that purely local routing failure leaves a durable unresolved intent. A later exact retry then fails closed forever even though provider_call_count was zero.",
+    "remote_side_effect_before_lease_enter": false
+  },
+  "local_model": {
+    "old_order": "intent -> lease acquisition -> provider",
+    "old_pool_unavailable_result": {"provider_intent_left": true, "provider_calls": 0},
+    "safe_order": "lease acquisition/local route -> strict intent publication -> provider",
+    "safe_pool_unavailable_result": {"provider_intent_left": false, "provider_calls": 0},
+    "verdict": "V37_LOCAL_ROUTE_BEFORE_PROVIDER_INTENT_MODEL_PASS"
+  },
+  "required_stage_b_order": [
+    "read/gate durable state and resolve exact retry before any new route",
+    "acquire/select local account lease; no provider call yet",
+    "strictly publish provider intent",
+    "enter provider exactly once with failover disabled for this intent",
+    "build canonical payload",
+    "strictly finalize durable state and clear intent",
+    "publish ephemeral affinity/reservation",
+    "project payload to client"
+  ],
+  "safety": {
+    "rotation_policy_changed": false,
+    "product_branch_mutated": false,
+    "hosted_ci_started": false,
+    "live_provider_started": false
+  },
+  "next": "The exact Stage-B server materializer must place begin_provider_intent inside an already-acquired lease but immediately before lease.run(provider), and combine this with V36 allow_failover=false."
+}

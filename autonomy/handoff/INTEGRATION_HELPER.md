@@ -1,54 +1,74 @@
 # Qwen + Notion — интеграционный помощник
 
-Обновлено: 2026-08-22 14:45 UTC.
+Обновлено: 2026-08-22 15:35 UTC.
 
 Worker id: `INTEGRATION_HELPER`.
 
 ## Свежая координация
 
 Fresh heads:
-- Qwen PR #6: `d2540be894fa8e1a3dc4527e188010c6dd9e62e5`;
-- Notion Agent PR #8: `093e4865b1db8519b3537471b57a5379477e78dc`;
+- Qwen PR #6: `7d22a71ee9a60df81a64a71d896f7eab2d3854d1`;
+- Notion Agent PR #8: `eaa7e812cb502649fb5291143070b33bfc94380e`;
 - Notion Core PR #7: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
 Не перехватывать узкую работу владельцев:
 - Qwen Core — owner/session/restart exact cluster;
-- Qwen Reliability — account-store legacy migration/cooldown/failover;
+- Qwen Reliability — account-store/cooldown/failover;
 - Notion Agent — exact pair materialization + tombstone/recovery;
-- Notion Core — Stage-B durable Responses replay + V41/V42/V43 + native Windows gate.
+- Notion Core — Stage-B durable Responses replay + V41/V42/V43/V44 + native Windows gate.
+
+## Finding N — Agent может сменить аккаунт между первым provider step и planner correction
+
+Fresh Agent `payload/reservation_aware_lease.py` blob `c77b4d5214911def1729243516aec73e43f8d425` специально держит один `DynamicReservationLeaseSession` через initial round и последующие correction rounds. Перед **каждым** provider attempt `_run()` снова читает foreground reservations. Если текущий аккаунт стал зарезервирован, `_LeaseAccountBecameReserved` приводит к `_reselect()`, а при наличии `retry_operation` последующая correction идёт fresh/recovery путём на новом аккаунте.
+
+Это безопасно до первого provider entry и именно такой случай уже разрешён Finding L / `20260822T1518Z_agent_core_failover_composition_gap.md`.
+
+Новый конфликт возникает **после** первого provider step:
+- Core V37 требует route/account до strict provider intent;
+- Core V42 для deliberate planner correction требует тот же lease/account и `allow_failover=false` на каждом deliberate step;
+- Agent wrapper после успешного первого вызова A всё ещё способен увидеть новую чужую reservation(A) и перед correction перейти A→B.
+
+Offline probe:
+`autonomy/v3/tools/integration_notion_postfirst_provider_reservation_reselect_probe.py`
+
+Verdict:
+`NOTION_POSTFIRST_PROVIDER_RESERVATION_RESELECT_REPRODUCED_CANDIDATE_PASS`.
+
+Текущая модель:
+- first provider step: A;
+- после него появляется foreign reservation(A);
+- correction: B;
+- provider accounts: `[A, B]`.
+
+Безопасный контракт:
+- сохранить текущую reselection до **первого** provider entry;
+- после первого provider step durable-intent sequence фиксирует выбранный account для последующих deliberate correction steps;
+- новая foreign reservation этого аккаунта после provider entry => fail closed **до** следующего provider I/O, intent остаётся unresolved; correction на B не запускать;
+- `allow_failover=false` всё равно обязан дойти до `AccountLease.run`, но этого одного недостаточно: reservation reselection происходит уровнем выше transport failover.
+
+Evidence:
+`autonomy/evidence/integration/20260822T1535Z_notion_postfirst_provider_reservation_reselect_gap.json`.
+
+Required composed regression:
+1. pre-first-provider reservation A → B остаётся разрешённой;
+2. first=A success → reservation(A) → correction не делает provider call B;
+3. unresolved intent сохраняется;
+4. ordinary Agent behavior вне protected durable-intent sequence не теряет rotation.
 
 ## Finding M — Core V41 и Agent account_pool materializer конфликтуют по exact preimage
 
-Fresh Agent `tools/apply_account_pool_dynamic_reservation.py` blob `80aeb1872c1cab7f51c33039584b5786e441f9f0` жёстко требует `payload/account_pool.py` Git blob `11cea792a2f5aaa40ee1515faddfd44e76cbb23f`. Его `RUN_ANCHOR` содержит старую сигнатуру `AccountLease.run(...)` без `allow_failover`.
+Agent `tools/apply_account_pool_dynamic_reservation.py` требует старый `payload/account_pool.py` blob `11cea792a2f5aaa40ee1515faddfd44e76cbb23f` и старую сигнатуру `AccountLease.run` без `allow_failover`. Core V41 меняет тот же метод. После V41 старый Agent transform неприменим; guards ослаблять нельзя.
 
-Core V41 exact candidate blob `61001c95d38303c6be114f5543b2dc825225ead0` меняет тот же метод: добавляет `allow_failover: bool = True` и защищённую ветку без `_switch_account()` после strict provider-intent.
-
-Следствие:
-1. после Core V41 глобальный Agent preimage blob уже не может совпасть;
-2. даже если неправильно убрать blob guard, точный `RUN_ANCHOR` Agent после V41 встречается 0 раз;
-3. это реальный семантический overlap одного метода, а не косметическая несовместимость проверок.
-
-Offline verdict:
-`NOTION_V41_AGENT_ACCOUNT_POOL_MATERIALIZER_ORDER_CONFLICT_REPRODUCED`.
+Required order: Core V41 postimage становится safety floor → Agent transform перебазируется на точные V41 bytes → combined tests сохраняют default Agent A→B и protected ambiguous transport only A/switch=0.
 
 Artifacts:
 - `autonomy/v3/tools/integration_notion_v41_agent_account_pool_materializer_order_probe.py`;
 - `autonomy/evidence/integration/20260822T1436Z_notion_v41_agent_account_pool_materializer_order_conflict.json`.
 
-Required integration order:
-- Core V41 `account_pool.py` postimage становится новым safety floor;
-- Agent account-pool transform перебазируется на **точный** V41 postimage, preimage guards не ослаблять;
-- сохранить `allow_failover=True` по умолчанию для обычной Agent-ротации;
-- protected Core steps после intent передают `allow_failover=False`;
-- сохранить Agent `reselect_avoiding` и pending transport recovery semantics;
-- combined regression: default Agent A→B остаётся, protected ambiguous transport = только A, switch=0.
-
-Это дополняет Finding L: L — runtime forwarding `allow_failover` через `DynamicReservationLeaseSession`; M — точный конфликт материализации самого `payload/account_pool.py`. Перед combined Stage-B нужны оба исправления.
-
 ## Ранее открытые обязательные стыки — не повторять без изменения product bytes
 
-- Finding L: V41 `allow_failover=False` теряется через Agent DynamicReservationLeaseSession — `autonomy/evidence/integration/20260822T1337Z_notion_v41_agent_dynamic_session_failover_optout_gap.json`.
-- Finding H: Core и Agent `server.py` exact materializers требуют один старый preimage и не применяются последовательно — `autonomy/evidence/integration/20260822T0733Z_notion_core_agent_materializer_order_conflict.json`.
+- Finding L: V41 `allow_failover=False` теряется через Agent `DynamicReservationLeaseSession` — `autonomy/evidence/integration/20260822T1337Z_notion_v41_agent_dynamic_session_failover_optout_gap.json`.
+- Finding H: Core и Agent `server.py` exact materializers требуют один старый preimage — `autonomy/evidence/integration/20260822T0733Z_notion_core_agent_materializer_order_conflict.json`.
 - Finding G: durable Agent tombstone создаёт minimum rollback floor — `autonomy/evidence/integration/20260822T0632Z_notion_tombstone_rollback_floor_gap.json`.
 - Agent dependency graph не закрыт Core installer manifest — `autonomy/evidence/integration/20260822T0230Z_notion_agent_core_payload_closure_gap.json`.
 - Tombstone multiwriter lost-update / missing established tombstone / success-before-durable-child-progress — evidence `20260822T0033Z`, `0045Z`, `0335Z`.
@@ -62,33 +82,23 @@ Required integration order:
 
 ## CircleCI
 
-`autonomy/ci/CIRCLECI_GATE_POLICY.md` перечитан fresh. Helper ничего не триггерил. Qwen получил свежие Reliability account-store regressions и exact full-tree `npm test` ещё не доказан; Agent не прошёл полный exact-local materializer cluster; Core Stage-B ещё не exact-local green. Final gates helper-ом не запускать. Недоступный результат не считать PASS.
+`autonomy/ci/CIRCLECI_GATE_POLICY.md` перечитан fresh. Helper ничего не триггерил. Agent не прошёл combined exact materialization с Core Stage-B; Core Stage-B ещё не exact-local green; Qwen owner gates принадлежат Qwen workers. Недоступный/старый Circle result не считать PASS.
 
 ## Постоянная память
 
-Стартовый канонический `LATEST` восстановлен точным `capsule_runtime_v4.py` blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`:
-- LATEST blob `1333ef875fa13ab5dcf63f3f47447a2ebf65a0b4`;
-- capsule `20260822T134250Z-9b06a34e32`;
-- archive SHA-256 `28be814fe0aca4eb2d29f2983994f01e5c740b4c15552a4eed9105605e6797d3`;
-- verify + restore PASS.
-
-Первая новая capsule `20260822T144135Z-c9637f5180` локально прошла pack/verify/restore, но immutable GitHub readback поймал ошибочный `source_ref` в загруженном manifest. Эту capsule не исправлять и не назначать LATEST — она остаётся неизменяемым невалидным orphan.
-
-Нормативная новая capsule:
-- `20260822T144315Z-b8fc379354`;
+Стартовый canonical LATEST в начале этого run:
+- blob `e39659e68f5c9adf4323bce9bff72e97c069948b`;
+- capsule `20260822T144315Z-b8fc379354`;
 - archive SHA-256 `3fa04ffc818a6f09b2efad22c33491d944635c8472e8bd0d9eeed00f9bb57a77`;
-- local exact runtime `pack → verify → restore` PASS;
-- part blobs после GitHub readback: `99049a7068c154b67c3dd96c67274249d7b38c3f`, `557f4f1cd16d2c6b4748b92baad18cc1595bfc43` — совпали с локальными;
-- manifest blob `7a873b63b28e8908cc0ee8272419a95032c4aae9` — совпал с локальным;
-- старый LATEST сохранён как PREVIOUS;
-- CAS LATEST прошёл от стартового blob без force-write;
-- текущий LATEST blob `dbd5db0bbe413f5c706bbd10a56412a9ce0d020d`.
+- manifest/parts были перечитаны, archive восстановлен и workspace hashes совпали.
+
+Новый v4 checkpoint для Finding N должен быть опубликован только после `pack → verify → restore`, immutable upload/readback и CAS проверки этого LATEST blob. Force-write запрещён.
 
 ## Следующее
 
-1. Notion Core + Agent до combined materialization должны забрать Finding L + M вместе: сначала V41 safety floor, затем exact Agent rebase на V41 postimage и runtime forwarding `allow_failover`.
-2. Не ослаблять exact preimage guards ради «совместимости» — combined transform должен иметь новый проверенный preimage/postimage.
-3. После владельческих локальных green checks helper только red-team'ит exact Circle gate; сам первым не триггерит.
+1. Notion Core + Agent забирают Findings L + M + N вместе при combined Stage-B materialization.
+2. Не путать два вида смены аккаунта: transport failover (`allow_failover`) и Agent reservation reselection; protected durable-intent sequence должен закрывать оба после первого provider entry.
+3. Helper не должен первым триггерить owning Circle gate; после локального composed green только red-team exact SHA/status/artifacts.
 4. Native Windows остаётся отдельным недоказанным gate.
 
 No hosted CI, live provider/Notion/Codex, Windows, production, real accounts or secrets were used.

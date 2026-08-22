@@ -1,0 +1,60 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "NOTION_CONFIRMED_MUTATING_TOOL_SUCCESS_CRASH_REPLAY_GAP",
+  "verdict": "REPRODUCED_CURRENT_DUPLICATE_AND_SAFE_CONTRACT_PASS",
+  "fresh_heads": {
+    "notion_agent_pr8": "d2ada47dd096e1273a8bfb1977240a6034e8e622",
+    "notion_core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "qwen_pr6": "6eab3a8232bc40b631e5804fe7fbb33e57754e1a"
+  },
+  "exact_notions_blobs": {
+    "payload/delegated_tool_loop.py": "1681001501a24bb8ba4754c1b3f4ddb1254fa8a9",
+    "payload/server_subagent_runtime.py": "206d8cdfc0897979c981659e9edc378da08f2a78",
+    "payload/notion_delegation_adapter.py": "6f50b5f59b441e139308782404742397ab3e7d3c",
+    "payload/subagent_tombstone_store.py": "e5908b3178120b4d37675d307208470674c4d65d",
+    "tests/test_server_subagent_durable_tool_guard_v2.py": "638e685c4fcc8a4df5c151288e10e1188af26c68",
+    "tests/test_server_subagent_tombstone_restart.py": "aba8b3dd4dc181d1f78cb6fdfd3b85fc7ce1c7ee"
+  },
+  "observed_product_order": [
+    "SubagentTombstoneStore.begin_call writes durable inflight marker before write_file/edit_file/run_shell.",
+    "call_runtime_tool performs the local mutation.",
+    "On normalized ok=true, server_subagent_runtime immediately calls tombstone_store.resolve_call and removes the durable marker.",
+    "Only after execute_tool returns does DelegatedToolLoopSession append function_call_output to its process-local _history.",
+    "NotionDelegationAdapter creates that child session in memory before leasing and exposes no durable child-history/result store."
+  ],
+  "crash_boundary": "hard process crash after resolve_call successfully removed the durable marker but before the process-local child tool result/final completion is durably published anywhere",
+  "risk": "After restart the same logical child task is no longer tombstoned, its local history is gone, and replay from the objective may execute the already-confirmed mutation a second time.",
+  "why_existing_tests_do_not_close_it": [
+    "test_server_subagent_durable_tool_guard_v2 explicitly expects confirmed success to clear the marker immediately.",
+    "test_server_subagent_tombstone_restart covers restart only while an inflight marker still exists.",
+    "No current test crashes after confirmed tool success and marker removal but before durable child completion/history publication."
+  ],
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_notion_success_crash_replay_probe.py",
+    "result": {
+      "current": {
+        "side_effect_count": 2,
+        "restart_blocked": false,
+        "duplicate": true
+      },
+      "candidate_contract": {
+        "side_effect_count": 1,
+        "restart_blocked": true,
+        "duplicate": false
+      }
+    }
+  },
+  "required_contract": [
+    "A confirmed mutating tool result must not erase the last durable no-replay evidence before an equally durable child-progress/final-result publication exists.",
+    "Use a durable per-task state transition such as inflight -> completed_uncommitted (or a durable child history journal) instead of inflight -> absent immediately on ok=true.",
+    "After restart, completed_uncommitted must fail closed or reconstruct exact child progress; it must never relaunch the objective and mutate again automatically.",
+    "Clear the task-level no-replay state only in the same proven ordering as durable child completion/history publication.",
+    "This should be integrated with Notion Core durable replay/intent work rather than adding an unrelated second recovery protocol."
+  ],
+  "limits": [
+    "No product file changed.",
+    "No hosted CI, provider/Notion/Codex traffic, Windows, production, user data or secrets used.",
+    "Linux/offline regression does not prove native Windows durability semantics."
+  ]
+}

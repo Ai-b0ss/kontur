@@ -1,0 +1,7 @@
+owner_authorization=2026-08-22_current_chat
+source=635bb2a1cd920d55e3d57facda99c9a9e7148675
+intent=backup-production-d1-reset-all-participant-state-deploy-kontur-core-done-to-existing-bot-worker
+bot=preserve-existing-token-webhook-secret-chat-and-miniapp-vars
+rollback=sql-export-plus-cloudflare-time-travel-bookmark-required-before-reset
+production_worker=kontur-igor
+production_d1=kontur

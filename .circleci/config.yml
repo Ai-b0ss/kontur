@@ -6,7 +6,7 @@ jobs:
       - image: cimg/node:22.18-browsers
     resource_class: medium
     environment:
-      KONTUR_EXPECTED_SHA: aafa42b9777357fadf54a7127bcd178db35c1d84
+      KONTUR_EXPECTED_SHA: 8c48ccfe4f7716ac2199f4639da285440e5abc83
       KONTUR_BROWSER_EVIDENCE_DIR: /tmp/kontur-core-evidence/browser
       KONTUR_STAGING_ORIGIN: https://kontur-igor-staging.igorekglukhovskii43.workers.dev
     steps:
@@ -71,6 +71,11 @@ jobs:
             pnpm -F @kontur/miniapp build | tee /tmp/vite-build.log
             test -f apps/miniapp/dist/index.html
             find apps/miniapp/dist -type f -print0 | sort -z | xargs -0 sha256sum | tee /tmp/dist.sha256
+            js_bytes="$(find apps/miniapp/dist/assets -type f -name '*.js' -printf '%s\n' | awk '{s+=$1} END {print s+0}')"
+            dist_bytes="$(du -sb apps/miniapp/dist | awk '{print $1}')"
+            test "$js_bytes" -le 512000
+            test "$dist_bytes" -le 5242880
+            printf 'js_bytes=%s\ndist_bytes=%s\njs_budget=512000\ndist_budget=5242880\n' "$js_bytes" "$dist_bytes" | tee /tmp/dist-budget.txt
             (cd apps/miniapp/dist && python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/dist-http.log 2>&1) &
             server_pid=$!
             trap 'kill "$server_pid" 2>/dev/null || true' EXIT
@@ -90,7 +95,7 @@ jobs:
             pnpm -F @kontur/miniapp test:browser:kontur | tee /tmp/browser-acceptance.log
             test -s "$KONTUR_BROWSER_EVIDENCE_DIR/browser-acceptance.json"
             node -e 'const f=require(process.env.KONTUR_BROWSER_EVIDENCE_DIR+"/browser-acceptance.json"); if(f.result!=="PASS"||f.exactHead!==process.env.KONTUR_EXPECTED_SHA||f.consoleErrors.length) process.exit(1)'
-            for f in 01-hook.png 02-hook-start-before.png 03-quiz-q1.png 04-quiz-q4.png 05-quiz-q8.png 06-bird-reveal.png 07-worm-loop.png 08-home.png motion-1-hook-to-q1.webm motion-2-q1-q4-q8-cracks.webm motion-3-q8-to-reveal.webm; do test -s "$KONTUR_BROWSER_EVIDENCE_DIR/$f"; done
+            for f in 01-hook.png 02-hook-start-before.png 03-quiz-q1.png 04-quiz-q4.png 05-quiz-q8.png 06-bird-reveal.png 07-worm-loop.png 08-home.png 09-new-coloring-drop.png 10-reload-persistence.png 11-replay-same-bird.png 12-large-hook.png 13-large-home.png 14-reduced-motion-reveal.png motion-1-hook-to-q1.webm motion-2-q1-q4-q8-cracks.webm motion-3-q8-to-reveal.webm; do test -s "$KONTUR_BROWSER_EVIDENCE_DIR/$f"; done
             echo REAL_CHROMIUM_ARTIFACT_GATE_PASS
 
       - run:
@@ -121,6 +126,7 @@ jobs:
             cp /tmp/typecheck.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
             cp /tmp/vite-build.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
             cp /tmp/dist.sha256 /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
+            cp /tmp/dist-budget.txt /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
             cp /tmp/browser-acceptance.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
             cp /tmp/staging-assets.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
             cp /tmp/staging-live-smoke.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
@@ -133,7 +139,6 @@ jobs:
               echo "patch_overlay=false"
               echo "production_touched=false"
               echo "staging_synthetic_test_data=true"
-              echo "production_touched=false"
             } > /tmp/kontur-core-evidence/CIRCLE_EVIDENCE.txt
 
       - run:
@@ -141,8 +146,8 @@ jobs:
           when: always
           command: |
             set -euo pipefail
-            evidence_branch="evidence/kontur-core-aafa42b9-diag22-20260822"
-            target="docs/product/evidence/runtime/aafa42b9-diag2"
+            evidence_branch="evidence/kontur-core-8c48ccfe-final1-20260822"
+            target="docs/product/evidence/runtime/8c48ccfe-final1"
             git switch --create "$evidence_branch" "$KONTUR_EXPECTED_SHA"
             mkdir -p "$target/browser" "$target/logs"
             cp "$KONTUR_BROWSER_EVIDENCE_DIR"/*.png "$target/browser/"
@@ -154,7 +159,7 @@ jobs:
             git config user.name "Kontur Acceptance Bot"
             git config user.email "kontur-acceptance@users.noreply.github.com"
             git add "$target"
-            git commit -m "evidence: preserve aafa42b9 diagnostic-2 browser and staging evidence"
+            git commit -m "evidence: preserve 8c48ccfe final-1 browser and staging evidence"
             git push origin "HEAD:refs/heads/$evidence_branch"
             echo "EVIDENCE_BRANCH_PASS branch=$evidence_branch"
 

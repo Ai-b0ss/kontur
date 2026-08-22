@@ -1,176 +1,70 @@
 version: 2.1
 
 jobs:
-  kontur-core-browser-acceptance:
+  kontur-production-readonly-probe:
     docker:
-      - image: cimg/node:22.18-browsers
-    resource_class: medium
+      - image: cimg/base:stable
+    resource_class: small
     environment:
-      KONTUR_EXPECTED_SHA: 635bb2a1cd920d55e3d57facda99c9a9e7148675
-      KONTUR_BROWSER_EVIDENCE_DIR: /tmp/kontur-core-evidence/browser
-      KONTUR_STAGING_ORIGIN: https://kontur-igor-staging.igorekglukhovskii43.workers.dev
+      PROD_ORIGIN: https://kontur-igor.igorekglukhovskii43.workers.dev
+      EXPECT_ROOT_SHA: 5ede16eabf0296fb734a449bf0d81ef92e2fedd7bfeeaa144532c1ed69c5f37a
+      EXPECT_EGG01_SHA: ac5a7a4205b3cf55b8cea477b49794b48ded19cf084973fd87a642f56277b199
+      EXPECT_EGG08_SHA: 6a0da2124b06d7c6440cd236024c017e36776007c0a1f0d903b74c977802bdc7
+      EXPECT_MAGPIE_SHA: 0970a813282898ceee151e1bab5ba09fd161f470ce5b596af9351dcebc1717a1
+      EXPECT_WOODPECKER_SHA: 2b83bdfac6d20169be522f876278c4d61e1c03f2a4e252e84917024797a85867
+      EXPECT_JAY_SHA: 96d6cb22ca6504500779f790804706e53c3084d62ca5a87dcb7c5e2ba88fc30b
+      EXPECT_CRANE_SHA: e96c549bafd11d84bbe081f9ee57abaa601ceb301016d987feadc3e006a84dcf
+      EXPECT_OWL_SHA: 3953a0b8d448d1dca11f08d1c2bb06a01fd2dfa039c9e26220dc44b392690993
+      EXPECT_KOTOSOV_SHA: b073f8520d13cd387c4bb5019a98f26e5e031f1ca5b8ff2f79dbabff4c5cce8f
     steps:
-      - checkout
-
       - run:
-          name: Checkout exact clean PR12 head without overlay
+          name: Verify exact public generation and fresh database
           command: |
             set -euo pipefail
-            git fetch origin fix/kontur-core-visual-continuity-20260818
-            git checkout --detach "$KONTUR_EXPECTED_SHA"
-            test "$(git rev-parse HEAD)" = "$KONTUR_EXPECTED_SHA"
-            test -z "$(git status --porcelain)"
-            git diff --exit-code
-            printf 'repo=Ai-b0ss/kontur\nbranch=fix/kontur-core-visual-continuity-20260818\nhead=%s\nclean=true\npatch_overlay=false\n' "$KONTUR_EXPECTED_SHA" | tee /tmp/kontur-source.txt
-            echo KONTUR_EXACT_CLEAN_HEAD_PASS
-
-      - restore_cache:
-          keys:
-            - kontur-core-browser-v2-{{ checksum "pnpm-lock.yaml" }}
-            - kontur-core-browser-v2-
-
-      - run:
-          name: Frozen Linux install and native binaries
-          command: |
-            set -euo pipefail
-            corepack enable
-            corepack prepare pnpm@11.22.0 --activate
-            node --version | tee /tmp/node-version.txt
-            pnpm --version | tee /tmp/pnpm-version.txt
-            pnpm install --frozen-lockfile | tee /tmp/install.log
-            test -d node_modules/.pnpm/@rollup+rollup-linux-x64-gnu@4.62.3
-            test -d node_modules/.pnpm/@esbuild+linux-x64@0.25.12
-            echo LINUX_NATIVE_DEPS_PASS
-
-      - save_cache:
-          key: kontur-core-browser-v2-{{ checksum "pnpm-lock.yaml" }}
-          paths:
-            - ~/.local/share/pnpm/store
-
-      - run:
-          name: Product regressions
-          no_output_timeout: 20m
-          command: |
-            set -euo pipefail
-            pnpm -F @kontur/miniapp test | tee /tmp/miniapp-tests.log
-            pnpm -F @kontur/core test | tee /tmp/core-tests.log
-            pnpm -F @kontur/db test | tee /tmp/db-tests.log
-            pnpm -F @kontur/bot test | tee /tmp/bot-tests.log
-            pnpm -F @kontur/worker test | tee /tmp/worker-tests.log
-
-      - run:
-          name: TypeScript contracts
-          command: |
-            set -euo pipefail
-            pnpm -r --if-present typecheck | tee /tmp/typecheck.log
-
-      - run:
-          name: Canonical production build and served-dist smoke
-          command: |
-            set -euo pipefail
-            pnpm -F @kontur/miniapp build | tee /tmp/vite-build.log
-            test -f apps/miniapp/dist/index.html
-            find apps/miniapp/dist -type f -print0 | sort -z | xargs -0 sha256sum | tee /tmp/dist.sha256
-            js_bytes="$(find apps/miniapp/dist/assets -type f -name '*.js' -printf '%s\n' | awk '{s+=$1} END {print s+0}')"
-            dist_bytes="$(du -sb apps/miniapp/dist | awk '{print $1}')"
-            test "$js_bytes" -le 512000
-            test "$dist_bytes" -le 5242880
-            printf 'js_bytes=%s\ndist_bytes=%s\njs_budget=512000\ndist_budget=5242880\n' "$js_bytes" "$dist_bytes" | tee /tmp/dist-budget.txt
-            (cd apps/miniapp/dist && python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/dist-http.log 2>&1) &
-            server_pid=$!
-            trap 'kill "$server_pid" 2>/dev/null || true' EXIT
-            for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4173/index.html -o /tmp/dist-index.html && break; sleep 1; done
-            test -s /tmp/dist-index.html
-            kill "$server_pid" 2>/dev/null || true
-            wait "$server_pid" 2>/dev/null || true
-            trap - EXIT
-            echo PRODUCTION_DIST_HTTP_PASS
-
-      - run:
-          name: Real Chromium behavior, viewport, motion and continuity proof
-          no_output_timeout: 25m
-          command: |
-            set -euo pipefail
-            pnpm -F @kontur/miniapp exec playwright install --with-deps chromium
-            pnpm -F @kontur/miniapp test:browser:kontur 2>&1 | tee /tmp/browser-acceptance.log
-            test -s "$KONTUR_BROWSER_EVIDENCE_DIR/browser-acceptance.json"
-            node -e 'const f=require(process.env.KONTUR_BROWSER_EVIDENCE_DIR+"/browser-acceptance.json"); if(f.result!=="PASS"||f.exactHead!==process.env.KONTUR_EXPECTED_SHA||f.consoleErrors.length) process.exit(1)'
-            for f in 01-hook.png 02-hook-start-before.png 03-quiz-q1.png 04-quiz-q4.png 05-quiz-q8.png 06-bird-reveal.png 07-worm-loop.png 08-home.png 09-new-coloring-drop.png 10-reload-persistence.png 11-replay-same-bird.png 12-large-hook.png 13-large-home.png 14-reduced-motion-reveal.png motion-1-hook-to-q1.webm motion-2-q1-q4-q8-cracks.webm motion-3-q8-to-reveal.webm; do test -s "$KONTUR_BROWSER_EVIDENCE_DIR/$f"; done
-            echo REAL_CHROMIUM_ARTIFACT_GATE_PASS
-
-      - run:
-          name: Exact-generation staging and synthetic economy persistence
-          command: |
-            set -euo pipefail
-            RELEASE_ORIGIN="$KONTUR_STAGING_ORIGIN" RELEASE_PROPAGATION_TIMEOUT_MS=180000 node tools/cloudflare/wait-for-deployed-assets.mjs | tee /tmp/staging-assets.log
-            code="$(curl -sS -o /tmp/staging-unauth.json -w '%{http_code}' "$KONTUR_STAGING_ORIGIN/api/v4/local/state")"
-            test "$code" = 401
-            STAGING_ORIGIN="$KONTUR_STAGING_ORIGIN" STAGING_TG_ID="$((820000000 + CIRCLE_BUILD_NUM))" node tools/cloudflare/live-release-staging-smoke.mjs 2>&1 | tee /tmp/staging-live-smoke.log
-            echo STAGING_EXACT_GENERATION_AND_LIVE_SYNTHETIC_PASS
-
-      - run:
-          name: Collect evidence
-          when: always
-          command: |
-            set -euo pipefail
-            mkdir -p /tmp/kontur-core-evidence/logs
-            cp /tmp/kontur-source.txt /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
-            cp /tmp/node-version.txt /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
-            cp /tmp/pnpm-version.txt /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
-            cp /tmp/install.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
-            cp /tmp/miniapp-tests.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
-            cp /tmp/core-tests.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
-            cp /tmp/db-tests.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
-            cp /tmp/bot-tests.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
-            cp /tmp/worker-tests.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
-            cp /tmp/typecheck.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
-            cp /tmp/vite-build.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
-            cp /tmp/dist.sha256 /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
-            cp /tmp/dist-budget.txt /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
-            cp /tmp/browser-acceptance.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
-            cp /tmp/staging-assets.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
-            cp /tmp/staging-live-smoke.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
-            {
-              echo "kontur_head=$KONTUR_EXPECTED_SHA"
-              echo "circle_trigger=$CIRCLE_SHA1"
-              echo "circle_branch=$CIRCLE_BRANCH"
-              echo "utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-              echo "clean=true"
-              echo "patch_overlay=false"
-              echo "production_touched=false"
-              echo "staging_synthetic_test_data=true"
-            } > /tmp/kontur-core-evidence/CIRCLE_EVIDENCE.txt
-
-      - run:
-          name: Publish sanitized immutable evidence branch
-          when: always
-          command: |
-            set -euo pipefail
-            evidence_branch="evidence/kontur-core-635bb2a1-final3-20260822"
-            target="docs/product/evidence/runtime/635bb2a1-final3"
-            git switch --create "$evidence_branch" "$KONTUR_EXPECTED_SHA"
-            mkdir -p "$target/browser" "$target/logs"
-            cp "$KONTUR_BROWSER_EVIDENCE_DIR"/*.png "$target/browser/" 2>/dev/null || true
-            cp "$KONTUR_BROWSER_EVIDENCE_DIR"/*.webm "$target/browser/" 2>/dev/null || true
-            cp "$KONTUR_BROWSER_EVIDENCE_DIR"/browser-acceptance.json "$target/browser/" 2>/dev/null || true
-            cp /tmp/kontur-core-evidence/logs/* "$target/logs/" 2>/dev/null || true
-            cp /tmp/kontur-core-evidence/CIRCLE_EVIDENCE.txt "$target/"
-            find "$target" -type f ! -name 'SHA256SUMS.txt' -print0 | sort -z | xargs -0 sha256sum > "$target/SHA256SUMS.txt"
-            git config user.name "Kontur Acceptance Bot"
-            git config user.email "kontur-acceptance@users.noreply.github.com"
-            git add "$target"
-            git commit -m "evidence: preserve 635bb2a1 final 3"
-            git push origin "HEAD:refs/heads/$evidence_branch"
-            echo "EVIDENCE_BRANCH_PASS branch=$evidence_branch"
-
+            mkdir -p /tmp/probe
+            get() { curl -fsS --retry 5 --retry-delay 3 -H 'Cache-Control: no-cache, no-store, max-age=0' "$PROD_ORIGIN$1?probe=${CIRCLE_SHA1}" -o "$2"; }
+            get / /tmp/probe/root.html
+            printf '%s  %s\n' "$EXPECT_ROOT_SHA" /tmp/probe/root.html | sha256sum -c -
+            get /quiz/egg-stage-01.webp /tmp/probe/egg01.webp
+            printf '%s  %s\n' "$EXPECT_EGG01_SHA" /tmp/probe/egg01.webp | sha256sum -c -
+            get /quiz/egg-stage-08.webp /tmp/probe/egg08.webp
+            printf '%s  %s\n' "$EXPECT_EGG08_SHA" /tmp/probe/egg08.webp | sha256sum -c -
+            get /results/magpie.webp /tmp/probe/magpie.webp
+            printf '%s  %s\n' "$EXPECT_MAGPIE_SHA" /tmp/probe/magpie.webp | sha256sum -c -
+            get /results/woodpecker.webp /tmp/probe/woodpecker.webp
+            printf '%s  %s\n' "$EXPECT_WOODPECKER_SHA" /tmp/probe/woodpecker.webp | sha256sum -c -
+            get /results/jay.webp /tmp/probe/jay.webp
+            printf '%s  %s\n' "$EXPECT_JAY_SHA" /tmp/probe/jay.webp | sha256sum -c -
+            get /results/crane-collectible.svg /tmp/probe/crane.svg
+            printf '%s  %s\n' "$EXPECT_CRANE_SHA" /tmp/probe/crane.svg | sha256sum -c -
+            get /results/owl.webp /tmp/probe/owl.webp
+            printf '%s  %s\n' "$EXPECT_OWL_SHA" /tmp/probe/owl.webp | sha256sum -c -
+            get /results/kotosov.webp /tmp/probe/kotosov.webp
+            printf '%s  %s\n' "$EXPECT_KOTOSOV_SHA" /tmp/probe/kotosov.webp | sha256sum -c -
+            curl -fsS --retry 5 --retry-delay 3 "$PROD_ORIGIN/api/v1/health?probe=${CIRCLE_SHA1}" -o /tmp/probe/health.json
+            python3 - <<'PY'
+            import json
+            x=json.load(open('/tmp/probe/health.json'))
+            assert x.get('ok') is True, x
+            assert x.get('devMode') is False, x
+            assert x.get('driver') == 'd1', x
+            assert int(x.get('startedBot', -1)) == 0, x
+            assert int(x.get('hatched', -1)) == 0, x
+            assert int(x.get('grants', -1)) == 0, x
+            print('FRESH_PRODUCTION_DATABASE_PASS', x)
+            PY
+            code=$(curl -sS -o /tmp/probe/webhook-negative.txt -w '%{http_code}' -X POST "$PROD_ORIGIN/telegram/webhook" -H 'Content-Type: application/json' -H 'X-Telegram-Bot-Api-Secret-Token: deliberately-wrong' --data '{"update_id":1}')
+            test "$code" = 403
+            sha256sum /tmp/probe/* | tee /tmp/probe/SHA256SUMS.txt
+            echo KONTUR_PRODUCTION_EXACT_GENERATION_FRESH_DB_AND_BOT_ROUTE_PASS
       - store_artifacts:
-          path: /tmp/kontur-core-evidence
-          destination: kontur-core-browser-acceptance
+          path: /tmp/probe
+          destination: kontur-production-readonly-probe
 
 workflows:
-  kontur-core-browser-acceptance:
+  production-readonly-probe:
     jobs:
-      - kontur-core-browser-acceptance:
+      - kontur-production-readonly-probe:
           filters:
             branches:
               only: ci/kontur-circle-vite-20260821

@@ -13,6 +13,11 @@ function fail(message, extra) {
 
 if (!origin.startsWith('https://kontur-igor-staging.')) fail('Refusing non-staging origin');
 if (!Number.isSafeInteger(tgId) || tgId <= 0) fail('bad synthetic Telegram id');
+const updateBase = tgId * 100;
+const giverBase = tgId * 10;
+if (!Number.isSafeInteger(updateBase + 99) || !Number.isSafeInteger(giverBase + 9)) {
+  fail('synthetic staging id namespace exceeds safe integers');
+}
 
 function telegramInitData() {
   const params = new URLSearchParams();
@@ -70,16 +75,16 @@ async function webhook(update) {
 }
 
 await webhook({
-  update_id: tgId,
+  update_id: updateBase,
   message: {
-    message_id: tgId,
+    message_id: updateBase,
     from: { id: tgId, username: `release_staging_${tgId}` },
     chat: { id: tgId, type: 'private' },
     text: '/start',
   },
 });
 await webhook({
-  update_id: tgId + 1,
+  update_id: updateBase + 1,
   chat_member: {
     chat: { id: mainChatId, type: 'supergroup' },
     from: { id: tgId, username: `release_staging_${tgId}` },
@@ -104,7 +109,8 @@ async function localState() {
   return jsonFetch('/api/v4/local/state', { headers });
 }
 
-function wormUpdate(giverId, messageId) {
+function wormUpdate(giverId, offset) {
+  const messageId = updateBase + offset;
   return {
     update_id: messageId,
     message: {
@@ -122,13 +128,13 @@ function wormUpdate(giverId, messageId) {
 
 // Self-reward and a repeated giver→receiver reward must not mint worms. Five
 // distinct trusted webhook updates then fund the exact five-worm reward egg.
-await webhook(wormUpdate(tgId, tgId + 10));
+await webhook(wormUpdate(tgId, 10));
 if ((await localState())?.state?.player?.wallet !== 0) fail('self /worm minted currency');
-const givers = Array.from({ length: 5 }, (_, index) => tgId + 1000 + index);
+const givers = Array.from({ length: 5 }, (_, index) => giverBase + index + 1);
 for (let index = 0; index < givers.length; index += 1) {
-  await webhook(wormUpdate(givers[index], tgId + 20 + index));
+  await webhook(wormUpdate(givers[index], 20 + index));
 }
-await webhook(wormUpdate(givers[0], tgId + 30));
+await webhook(wormUpdate(givers[0], 30));
 const funded = await localState();
 if (funded?.state?.player?.wallet !== 5) fail('five unique /worm grants did not fund exactly five', funded?.state);
 

@@ -6,8 +6,9 @@
 - Hard cut cause: at the `flash`→`reveal` animation-name swap the overlay fell back to base `opacity: 0` while the egg was already hidden and the bird/frame became visible. The overlay was also a soft radial blob (peak `.82`, transparent at 78%), so it never fully covered the swap.
 - Fix: covering white flash; resting `opacity: 1` across flash and reveal; egg stays until cover completes; `animationend` of `lk-hatch-flash-in` advances the state machine; bird eases `scale(.88)` / opacity over the existing reveal phase.
 - Artifact cause: the q8 block (`08` plus option letters) stayed mounted under the result, and `.lk-reveal-signal` was leftover overlay from the old bird-inside-reveal layout. Both could paint through the transparent lower oval of `.lk-quiz-egg__ring`.
-- Question copy now mounts only on `questions`. The inline reveal no longer renders `.lk-reveal-signal`.
-- Chromium/production-build proof follows this entry after the isolated acceptance run.
+- Question copy now unmounts only on `hatching`/`reveal`. Hook and questions keep it mounted so the q1 egg transition still waits for the copy fade. The inline reveal no longer renders `.lk-reveal-signal`.
+- Proof at `32298ee8`: Mini App unit tests pass, typecheck pass, production Vite build pass, Chromium acceptance PASS (`KONTUR_BROWSER_ACCEPTANCE_PASS`) on 320x568, 390x844, 430x1000, reduced motion, and delayed hatch API. Reveal layout: no `.lk-question-number`, no `.lk-reveal-signal`, stray text under the ring `[]`, name gap 34px/67px/126px. 10 fps frames from `motion-3-q8-to-reveal.webm` show cracked egg → covering white flash → bird under the fading flash, with no uncovered egg-to-bird cut.
+- Production was not deployed or otherwise mutated by this candidate.
 
 ## 2026-08-22 — owner-authorized non-destructive production release
 

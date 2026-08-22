@@ -1,0 +1,38 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "worker": "NOTION_CORE",
+  "timestamp_utc": "2026-08-22T13:45:00Z",
+  "core_pr7_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_pr8_head_observed": "71749c86125fcc60b67fc477245150c7f5587813",
+  "exact_boundary_blobs": {
+    "payload/server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "payload/account_pool.py": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f"
+  },
+  "v41_candidate": "autonomy/evidence/notion/20260822T1155Z_v41_accountlease_failover_optout_exact_candidate.patch",
+  "local_targeted_verdict": "V41_EXACT_METHOD_TARGETED_PASS",
+  "local_cases": [
+    "ordinary success with allow_failover=false",
+    "local validation error remains non-failover",
+    "TRUST_RULE_DENIED remains pool-wide fail-closed and accounted",
+    "Notion TRANSPORT with allow_failover=false performs one operation, zero account switches, one failure accounting event, retry_scheduled=false",
+    "raw HTTP transport error with allow_failover=false performs one operation and zero switches",
+    "default allow_failover=true preserves existing sibling failover and retry_operation behavior",
+    "two deliberate planner steps with allow_failover=false remain on the same lease/account"
+  ],
+  "exact_server_callsite_audit": {
+    "responses_initial_or_continuation": "lease.run(continuation_completion if can_continue else initial_completion, retry_operation=initial_completion)",
+    "responses_planner_correction": "lease.run(correction_lambda, retry_operation=initial_completion)",
+    "compaction": "lease.run(continuation_completion if can_continue else initial_completion, retry_operation=initial_completion)",
+    "protected_stage_b_requirement": "after strict provider-intent publication every deliberate provider step above must call lease.run(..., allow_failover=false); the default remains true outside the protected Core transaction"
+  },
+  "outer_retry_boundary": {
+    "current_server_recursion_entry": "except AccountPoolExhausted on single-account foreground TRANSPORT",
+    "result": "with V41 allow_failover=false, ambiguous transport is raised directly and does not become AccountPoolExhausted, so the current outer recursion is unreachable for the protected post-intent call; no second server retry flag is justified yet"
+  },
+  "new_integration_constraint": "compaction must use the same protected lease semantics as ordinary Responses once its strict provider-intent is durable; otherwise compaction can still fail over after an ambiguous transport even if ordinary Responses is protected",
+  "windows_gate": "NOT_READY_STAGE_B_SERVER_ORCHESTRATION_NOT_EXACT_LOCAL_GREEN",
+  "hosted_ci_triggered": false,
+  "live_notion_or_codex": false,
+  "product_branches_mutated": false,
+  "capsule_note": "Canonical v4 LATEST was read and validated at the metadata/immutable-part level. No new LATEST was published in this run because the exact capsule_runtime_v4.py bytes could not be safely materialized into the container with a matching canonical Git blob; unknown or mismatched bytes were not used."
+}

@@ -1,0 +1,23 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "worker": "NOTION_CORE",
+  "timestamp_utc": "2026-08-22T04:58:00Z",
+  "title": "V25 self-review: capacity gate belongs only at new-intent publication boundary",
+  "finding": "The first V25 overlay placed a server-side require_provider_intent_capacity() precheck before replay/intent resolution. At exactly the unresolved-intent limit that would incorrectly block a safe exact durable replay and an already-matching unresolved-intent retry, neither of which creates another tombstone.",
+  "local_reproduction": [
+    "V25_V1_PRECHECK_FALSE_BLOCK_REPRODUCED replay",
+    "V25_V1_PRECHECK_FALSE_BLOCK_REPRODUCED already_ambiguous",
+    "V25_V2_CAPACITY_CHECK_AT_NEW_INTENT_BOUNDARY_PASS"
+  ],
+  "correction": [
+    "Do not add a generic server precheck.",
+    "Enforce MAX_UNRESOLVED_PROVIDER_INTENTS only inside the V22 strict mark-intent transaction, after exact replay and existing-inflight checks and immediately before staging a genuinely new inflight_fp.",
+    "General cleanup still preserves unresolved intents before ordinary TTL/LRU eviction.",
+    "A loaded state already over the limit remains preserved; new provider intents fail closed until explicit reconciliation reduces ambiguity."
+  ],
+  "supersedes_candidate": "autonomy/evidence/notion/20260822T0450Z_durable_replay_v25_unresolved_intent_retention.patch",
+  "preferred_candidate": "autonomy/evidence/notion/20260822T0458Z_durable_replay_v25_unresolved_intent_retention_v2.patch",
+  "hosted_ci_started": false,
+  "provider_traffic_started": false,
+  "product_change": false
+}

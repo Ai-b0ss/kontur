@@ -1,0 +1,60 @@
+{
+  "schema": "notion_core_v34_stage_b_store_exact_candidate_evidence_v1",
+  "created_at_utc": "2026-08-22T09:15:00Z",
+  "worker": "NOTION_CORE",
+  "source": {
+    "core_pr": 7,
+    "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_integration_pr": 8,
+    "fresh_agent_head": "60ea23501cda46a6244311174b1db4e27f596c2c",
+    "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "stage_a_floor": "V32_STAGE_A_EXACT_LOCAL_FLOOR_PASS"
+  },
+  "candidate": {
+    "name": "V34_STAGE_B_STORE_EXACT_CANDIDATE",
+    "basis": "V33 store foundation materialized as an exact-preimage transformation of the current conversation_segments.py blob",
+    "state_version": 3,
+    "legacy_read_versions": [2, 3],
+    "provider_intents": "separate top-level content-free ledger",
+    "max_unresolved_provider_intents": 128,
+    "replay_ttl_seconds": 21600,
+    "max_replay_bytes": 524288,
+    "max_total_replay_bytes": 8388608,
+    "completed_request_fingerprint_ring": 32,
+    "get_returns_detached_copy": true,
+    "strict_write_failure_is_observable": true,
+    "strict_write_failure_rolls_back_in_memory": true
+  },
+  "local_exact_candidate": {
+    "python_compile": "PASS",
+    "verdict": "V34_STAGE_B_STORE_EXACT_CANDIDATE_LOCAL_PASS",
+    "cases": {
+      "legacy_v2_read_without_mutation": "PASS",
+      "first_strict_intent_promotes_v3": "PASS",
+      "unresolved_intent_survives_restart": "PASS",
+      "duplicate_provider_attempt_blocked": "PASS",
+      "finalize_clears_intent_and_publishes_exact_response_call_ids": "PASS",
+      "restart_returns_exact_replay_payload": "PASS",
+      "get_returns_detached_copy": "PASS",
+      "begin_intent_write_failure_is_observable_and_rolls_back": "PASS",
+      "store_blocks_after_strict_write_failure": "PASS",
+      "final_write_failure_preserves_prior_durable_intent_and_exposes_no_replay": "PASS",
+      "oversize_replay_becomes_content-free_fail-closed_tombstone": "PASS",
+      "missing_stable_conversation_identity_rejected_before_intent": "PASS"
+    }
+  },
+  "important_boundary": {
+    "stage_b_complete": false,
+    "why": "The exact store candidate is locally green, but exact server integration is still required: request identity, provider-intent ordering, canonical Responses/compaction payload, ephemeral cache/reservation after durable finalize, stream/non-stream projection, disconnect/crash ownership, stale retry, removed-account rehydration and Codex shell-env safety.",
+    "native_windows_gate_ready": false,
+    "circleci_started": false
+  },
+  "safety": {
+    "product_branch_mutated": false,
+    "hosted_ci_started": false,
+    "live_notion_or_codex": false,
+    "secrets_touched": false
+  },
+  "next": "Materialize the exact V32 server candidate and integrate V34 store interfaces locally. Enforce stable conversation identity and strict begin_provider_intent before provider entry; build one canonical payload and strict finalize before TurnAffinity/reservation/client projection. Only after the exact server crash/retry/stream/compaction matrix is green may the final native Windows gate be considered."
+}

@@ -1,0 +1,49 @@
+version: 2.1
+
+jobs:
+  kontur-fast-check:
+    docker:
+      - image: cimg/node:22.18-browsers
+    resource_class: medium
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - kontur-pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+            - kontur-pnpm-v1-
+      - run:
+          name: Install exact dependencies
+          no_output_timeout: 20m
+          command: |
+            set -euo pipefail
+            corepack enable
+            corepack prepare pnpm@11.22.0 --activate
+            pnpm install --frozen-lockfile
+      - save_cache:
+          key: kontur-pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - ~/.local/share/pnpm/store
+      - run:
+          name: Mini App tests
+          command: |
+            set -euo pipefail
+            pnpm -F @kontur/miniapp test
+      - run:
+          name: Mini App typecheck
+          command: |
+            set -euo pipefail
+            pnpm -F @kontur/miniapp typecheck
+      - run:
+          name: Production build
+          command: |
+            set -euo pipefail
+            pnpm -F @kontur/miniapp build
+            test -s apps/miniapp/dist/index.html
+
+workflows:
+  kontur-fast-check:
+    jobs:
+      - kontur-fast-check:
+          filters:
+            branches:
+              only: fix/kontur-core-visual-continuity-20260818

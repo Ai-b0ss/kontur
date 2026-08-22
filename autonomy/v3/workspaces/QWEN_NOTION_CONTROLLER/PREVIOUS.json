@@ -1,0 +1,8 @@
+{
+  "archive_sha256": "2010abeadff8929aa19034b31c0c35a872f196b462551ec9fa7c1107218455d2",
+  "capsule_id": "20260822T204050Z-3872026e66",
+  "manifest": "20260822T204050Z-3872026e66/manifest.json",
+  "schema": "free_fabric_latest_v1",
+  "updated_at_utc": "2026-08-22T20:40:50Z",
+  "worker": "QWEN_NOTION_CONTROLLER"
+}

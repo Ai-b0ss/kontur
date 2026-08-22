@@ -88,3 +88,32 @@ control:
   current_owner_directive: "2026-08-22 exhaustive revalidation"
   direct_main_push: false
   merge_requires_owner_permission: true
+
+owner_authorized_production_2026_08_22_pr22:
+  status: "pass"
+  product_head: "6fefe26ba4a145e0b5e559005f8e7faf851e2737"
+  worker: "kontur-igor"
+  d1: "kontur"
+  live_assets: {js: "/assets/index-D13ey_3j.js", css: "/assets/index-CcHYcZpN.css"}
+  health: {ok: true, devMode: false, driver: d1, startedBot: 3, hatched: 3, grants: 0}
+  api_boundary: "unauthenticated /api/v4/local/state 401"
+  telegram_webhook_boundary: "POST without secret 403"
+  deploy_executor_commit: "8f5d0247"
+  reset_executor_commit: "b3c6474a"
+  reset:
+    username: "fff6pm"
+    db_id: 53
+    unique_match: 1
+    users_before: 4
+    users_after: 3
+    hatched_before: 4
+    hatched_after: 3
+    remaining_usernames: ["belasblesov", "fff6dm", "fff999o"]
+    static_colorings: 10
+    static_opportunities: 4
+    migrations: 18
+    schema_unchanged: true
+  infra_branch_attempt: "infra/cloudflare-workers-builds-staging check-suites stayed queued and never started a Workers Build"
+  live_executor_lane: "fix/kontur-core-visual-continuity-20260818 via Workers Builds kontur-igor-staging"
+  secrets_vars_webhook_d1_binding_preserved: true
+  chromium_authenticated_telegram_hatch: "HOLD; VM has no Telegram Mini App session"

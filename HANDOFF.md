@@ -7,7 +7,8 @@
 - PR: #12, **draft / open / unmerged**;
 - runtime/product baseline: `287b9aa294dbec0af077cdcf96e8e5b864f32c03`;
 - exact release-record commit: поле `final_commit` в финальном owner-package `MANIFEST.json` и канонической записи issue #9;
-- production/main не менялись и не разрешены.
+- `main` не менялся и merge не выполнялся.
+- 2026-08-22 owner-authorized one-shot: PR #22 head `6fefe26b` выкачен в существующий Worker `kontur-igor` (`--keep-vars`). Live assets `/assets/index-D13ey_3j.js` и `/assets/index-CcHYcZpN.css`. Затем FK-safe reset ровно `fff6pm` (db id 53); остальные три пользователя и статические каталоги сохранены. Webhook/секреты/схема D1 не менялись.
 
 Git-коммит не может содержать собственный SHA. Поэтому exact closing SHA и относящиеся к нему Circle/Cloudflare IDs связаны с деревом во внешнем `MANIFEST.json`, в последнем `KONTUR_CORE_DONE CANONICAL REVALIDATION` комментарии issue #9 и в последнем `KONTUR_CORE_DONE EVIDENCE BINDING` комментарии PR #12.
 

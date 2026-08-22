@@ -1,0 +1,44 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "NOTION_AGENT_TOMBSTONE_ROLLBACK_FLOOR_GAP",
+  "verdict": "REPRODUCED_CURRENT_FAILOPEN_AND_CANDIDATE_FAILCLOSED_PASS",
+  "fresh_heads": {
+    "notion_agent_pr8": "f58f0123b370ad786d337337eb03a6a4ce9963b3",
+    "notion_core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144"
+  },
+  "fresh_blobs": {
+    "agent_tombstone_store": "e5908b3178120b4d37675d307208470674c4d65d",
+    "agent_tombstone_wiring": "40ab3a448e33fb8a8c3ce045ef31a815d0554823",
+    "agent_materializer_wrapper": "bac891555f38ad850f7e1145a0ee141b5708960d"
+  },
+  "observed_contract": [
+    "Agent generation persists unresolved mutating child state in subagent-uncertain-tasks.json and uses it to block automatic replay.",
+    "The tombstone path is introduced by Agent materialization next to stable conversation state.",
+    "Current Core server predates this Agent tombstone mechanism and has no reader/wiring for it.",
+    "Therefore rollback from a tombstone-aware Agent generation to current Core can leave the durable tombstone file on disk while making it semantically invisible to the running bridge."
+  ],
+  "risk": "If a child performed or may have performed a mutating local tool and its tombstone is unresolved, rollback below the first tombstone-aware compatibility floor can make the same logical child look retryable and allow duplicate side effects.",
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_notion_tombstone_rollback_floor_probe.py",
+    "result": "NOTION_TOMBSTONE_ROLLBACK_FLOOR_GAP_REPRODUCED_CANDIDATE_PASS",
+    "current_agent_before_rollback": "child-A blocked",
+    "current_core_after_rollback": "child-A allowed because tombstone is not read",
+    "candidate": "rollback refused while unresolved tombstone exists unless the target generation contains a tombstone compatibility floor"
+  },
+  "required_product_contract": [
+    "Define minimum_safe_agent_rollback_commit at or before the first product generation that can create durable subagent tombstones.",
+    "Any rollback target below that floor must be rejected if tombstone state exists or cannot be proven empty.",
+    "Prefer a Stage-A compatibility floor in Core/install path that can read the tombstone schema and fail closed before enabling delegated mutating children, even if the older build cannot execute new Agent features.",
+    "Include the tombstone file/schema in exact install/upgrade/rollback closure so downgrade safety is checked transactionally rather than by an ad-hoc file existence test.",
+    "Regression: unresolved child tombstone -> attempted rollback to pre-floor build -> provider/local child execution count remains 0."
+  ],
+  "coordination": {
+    "notion_agent_owner": "Do not merely materialize server/account_pool without defining the rollback floor for the newly durable tombstone state.",
+    "notion_core_owner": "V27 already establishes a schema-epoch rollback-floor pattern for durable conversation state; extend the same compatibility-floor idea to Agent tombstone state when synchronizing Agent onto Core."
+  },
+  "limits": [
+    "No product branch was changed.",
+    "No hosted CI, native Windows, provider traffic, Notion/Codex traffic, production, real accounts, user data or secrets were used."
+  ]
+}

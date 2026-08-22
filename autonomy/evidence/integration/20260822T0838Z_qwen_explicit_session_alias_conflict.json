@@ -1,0 +1,49 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "QWEN_EXPLICIT_SESSION_ALIAS_CONFLICT",
+  "verdict": "REPRODUCED_STRICT_CONTRACT_PASS",
+  "fresh_heads": {
+    "qwen_pr_6": "e837a4f6b47a6c4c6674eb7752224e54ac9ecdc3",
+    "notion_agent_pr_8": "60ea23501cda46a6244311174b1db4e27f596c2c",
+    "notion_core_pr_7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144"
+  },
+  "exact_source": {
+    "repo": "Ai-b0ss/qwen-free-api",
+    "branch": "autopilot/qwen-runtime-preflight-20260818",
+    "server_js_git_blob": "554510ba721bf096c8ee807f76701c926e70e72e",
+    "observed_functions": [
+      "getOpenCodeSessionKey",
+      "hasExplicitSessionId"
+    ]
+  },
+  "observed_gap": [
+    "getOpenCodeSessionKey chooses the first truthy explicit session/conversation alias by priority and does not validate agreement between simultaneously supplied aliases.",
+    "A request with header x-opencode-session=session-A and body session_id=session-B is silently bound to session-A instead of failing closed.",
+    "A whitespace-only explicit header is truthy before trimming, so getOpenCodeSessionKey returns the empty string while hasExplicitSessionId returns true.",
+    "The chosen session key controls the per-session gate, durable sessionStore record, upstream chat/thread reuse, account affinity and restart checkpoint namespace; therefore alias disagreement is an identity-safety boundary, not a cosmetic parsing issue."
+  ],
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_qwen_explicit_session_alias_probe.py",
+    "result": "QWEN_EXPLICIT_SESSION_ALIAS_CONFLICT_REPRODUCED_STRICT_CONTRACT_PASS",
+    "cases": {
+      "conflicting_header_and_body": "current silently selects session-A; candidate rejects conflict",
+      "blank_explicit_header": "current key is empty while explicit=true; candidate rejects blank",
+      "equivalent_aliases": "candidate accepts normalized identical session-Z",
+      "no_explicit_alias": "candidate returns no explicit identity and leaves existing fallback policy separate"
+    }
+  },
+  "required_contract": [
+    "Resolve all explicit session/conversation aliases through one strict helper before any session mutation, gate acquisition or provider work.",
+    "Every present explicit alias must be a non-empty string after normalization.",
+    "If more than one explicit alias is present, all normalized values must agree exactly; otherwise return a bounded HTTP 400 invalid-request error.",
+    "getOpenCodeSessionKey and hasExplicitSessionId must consume the same validated resolution result so they cannot disagree about whether a durable identity exists.",
+    "Do not derive provider account/thread identity from this helper and do not weaken the existing per-session serialization/replay rules."
+  ],
+  "integration_relevance": "A future Notion-to-Qwen adapter may carry its provider-neutral conversation key through one explicit body field while an OpenCode/Codex client or proxy also supplies a session header. Silent priority would attach the child to the wrong durable Qwen namespace instead of exposing the protocol mismatch.",
+  "limits": [
+    "No Qwen product file was changed.",
+    "No CircleCI or GitHub Actions was triggered.",
+    "No live provider, Notion, Codex, accounts, secrets, Windows or production state was used."
+  ]
+}

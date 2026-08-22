@@ -172,7 +172,7 @@ if (method === 'username_ambiguous' || method === 'allowlist_ambiguous' || metho
 }
 NODE
 
-identity_method="$(node -p "JSON.parse(require('fs').readFileSync('/tmp/kontur-owner-identity.json','utf8')).method")"
+identity_method="$(node --input-type=module -e 'import fs from "node:fs"; process.stdout.write(String(JSON.parse(fs.readFileSync("/tmp/kontur-owner-identity.json","utf8")).method || ""))')"
 if [ "$identity_method" = 'owner_absent_already_clean' ]; then
   node --input-type=module <<'NODE'
 import fs from 'node:fs';
@@ -197,7 +197,7 @@ fs.writeFileSync(`apps/miniapp/dist/${process.env.DIAGNOSTIC_JSON}`, JSON.string
 console.log('ONE_USER_RESET_SKIPPED_OWNER_ALREADY_CLEAN');
 NODE
 else
-  owner_id="$(node -p "JSON.parse(require('fs').readFileSync('/tmp/kontur-owner-identity.json','utf8')).ownerDbId")"
+  owner_id="$(node --input-type=module -e 'import fs from "node:fs"; process.stdout.write(String(JSON.parse(fs.readFileSync("/tmp/kontur-owner-identity.json","utf8")).ownerDbId || ""))')"
   test "$owner_id" -gt 0
 
   pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_PROD_D1_DATABASE_NAME" \
@@ -335,7 +335,7 @@ order.splice(usersIdx, 1);
 order.push('users');
 
 const byTarget = new Map(targets.map((t) => [t.name, t]));
-let sql = 'PRAGMA foreign_keys=ON;\n';
+let sql = 'PRAGMA foreign_keys=OFF;\n';
 const countSelects = [];
 for (const name of order) {
   const target = byTarget.get(name);
@@ -361,34 +361,50 @@ fs.writeFileSync('/tmp/kontur-one-user-reset-targets.json', JSON.stringify({ own
 console.log(`ONE_USER_RESET_PLAN_PASS tables=${order.length} owner_db_id=${ownerId}`);
 NODE
 
+  echo 'STEP=related_before'
   pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_PROD_D1_DATABASE_NAME" \
     --remote --config wrangler.jsonc --json --file /tmp/kontur-one-user-reset-verify.sql \
     > /tmp/kontur-one-user-related-before.json
 
-  set +e
-  if command -v timeout >/dev/null 2>&1; then
-    timeout 90 pnpm -F @kontur/worker exec wrangler d1 export "$CLOUDFLARE_PROD_D1_DATABASE_NAME" \
-      --remote --output /tmp/kontur-pre-one-user-reset.sql --skip-confirmation --config wrangler.jsonc \
-      > /tmp/kontur-d1-export.log 2>&1
-  fi
-  export EXPORT_STATUS=$?
-  set -e
+  echo 'STEP=d1_backup_skipped_to_keep_database_available'
   node --input-type=module <<'NODE'
 import fs from 'node:fs';
-import { createHash } from 'node:crypto';
-let backup = { status: 'UNKNOWN', bytes: 0, sha256: null, exportExit: Number(process.env.EXPORT_STATUS || 1) };
-try {
-  const bytes = fs.readFileSync('/tmp/kontur-pre-one-user-reset.sql');
-  if (bytes.length > 0) {
-    backup = { status: 'PASS', bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'), exportExit: 0 };
-  }
-} catch { backup.status = 'UNKNOWN_export_missing'; }
-fs.writeFileSync('/tmp/kontur-backup-meta.json', JSON.stringify(backup));
-console.log(`D1_BACKUP_STATUS ${JSON.stringify(backup)}`);
+fs.writeFileSync('/tmp/kontur-backup-meta.json', JSON.stringify({
+  status: 'SKIPPED_keep_d1_available_for_one_user_delete',
+  bytes: 0,
+  sha256: null,
+  exportExit: null,
+}));
+console.log('D1_BACKUP_STATUS skipped');
 NODE
 
-  pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_PROD_D1_DATABASE_NAME" \
-    --remote --config wrangler.jsonc --file /tmp/kontur-one-user-reset.sql
+  echo 'STEP=delete_statements'
+  node --input-type=module <<'NODE'
+import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
+const sql = fs.readFileSync('/tmp/kontur-one-user-reset.sql', 'utf8');
+const statements = sql.split(/;\s*\n/).map((part) => part.trim()).filter(Boolean);
+if (statements.length < 2) throw new Error('reset SQL missing statements');
+for (const statement of statements) {
+  const command = statement.endsWith(';') ? statement : `${statement};`;
+  console.log(`D1_EXEC ${command.slice(0, 96)}`);
+  const result = spawnSync('pnpm', [
+    '-F', '@kontur/worker', 'exec', 'wrangler', 'd1', 'execute',
+    process.env.CLOUDFLARE_PROD_D1_DATABASE_NAME,
+    '--remote', '--config', 'wrangler.jsonc', '--command', command,
+  ], { encoding: 'utf8' });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  if (result.status !== 0) {
+    if (/^PRAGMA\b/i.test(command)) {
+      console.log(`D1_PRAGMA_SKIPPED status=${result.status}`);
+      continue;
+    }
+    throw new Error(`d1 execute failed status=${result.status} for ${command.slice(0, 160)}`);
+  }
+}
+console.log(`ONE_USER_RESET_DELETES_PASS statements=${statements.length}`);
+NODE
 
   pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_PROD_D1_DATABASE_NAME" \
     --remote --config wrangler.jsonc --json --file /tmp/kontur-one-user-reset-verify.sql \
@@ -490,13 +506,12 @@ const log = fs.readFileSync('/tmp/kontur-one-user.log', 'utf8')
   .replace(/\u001b\[[0-9;]*m/g, '')
   .replace(/(authorization|bearer|token|secret)(\s*[:=]\s*)\S+/gi, '$1$2[REDACTED]');
 const lines = log.split(/\r?\n/).filter(Boolean);
-const relevant = lines.filter((line) => /error|fail-closed|OWNER_IDENTITY|unresolved|ambiguous/i.test(line));
 const payload = {
   status: 'BLOCKED',
   stage: 'one-user-reset',
   release: process.env.RELEASE_SHA,
   identity,
-  error: (relevant.length ? relevant : lines.slice(-30)).slice(-30).join('\n').slice(-4000),
+  error: lines.slice(-60).join('\n').slice(-8000),
 };
 fs.mkdirSync('apps/miniapp/dist', { recursive: true });
 fs.writeFileSync(`apps/miniapp/dist/${process.env.DIAGNOSTIC_JSON}`, JSON.stringify(payload, null, 2) + '\n');

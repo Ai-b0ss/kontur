@@ -67,6 +67,11 @@ test('the intact egg stays singular until the shell actually begins opening', as
   );
   assert.match(
     css,
+    /\.lk-quiz-egg__hatch-shells\s*\{[\s\S]*?overflow:\s*hidden;[\s\S]*?border-radius:\s*50%;/,
+    'the moving shell halves must stay clipped to the circular hatch boundary',
+  );
+  assert.match(
+    css,
     /\.lk-quiz-egg\.is-hatching\s*>\s*\.lk-quiz-hatch\s*\{[\s\S]*?z-index:\s*7;/,
     'the entire future-bird hatch layer must sit below the shell layer; a child z-index alone cannot beat the parent stacking context',
   );

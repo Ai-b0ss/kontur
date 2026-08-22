@@ -1,70 +1,127 @@
 version: 2.1
 
 jobs:
-  kontur-production-readonly-probe:
+  kontur-visual-regression-fix:
     docker:
-      - image: cimg/base:stable
-    resource_class: small
+      - image: cimg/node:22.18-browsers
+    resource_class: medium
     environment:
-      PROD_ORIGIN: https://kontur-igor.igorekglukhovskii43.workers.dev
-      EXPECT_ROOT_SHA: 5ede16eabf0296fb734a449bf0d81ef92e2fedd7bfeeaa144532c1ed69c5f37a
-      EXPECT_EGG01_SHA: ac5a7a4205b3cf55b8cea477b49794b48ded19cf084973fd87a642f56277b199
-      EXPECT_EGG08_SHA: 6a0da2124b06d7c6440cd236024c017e36776007c0a1f0d903b74c977802bdc7
-      EXPECT_MAGPIE_SHA: 0970a813282898ceee151e1bab5ba09fd161f470ce5b596af9351dcebc1717a1
-      EXPECT_WOODPECKER_SHA: 2b83bdfac6d20169be522f876278c4d61e1c03f2a4e252e84917024797a85867
-      EXPECT_JAY_SHA: 96d6cb22ca6504500779f790804706e53c3084d62ca5a87dcb7c5e2ba88fc30b
-      EXPECT_CRANE_SHA: e96c549bafd11d84bbe081f9ee57abaa601ceb301016d987feadc3e006a84dcf
-      EXPECT_OWL_SHA: 3953a0b8d448d1dca11f08d1c2bb06a01fd2dfa039c9e26220dc44b392690993
-      EXPECT_KOTOSOV_SHA: b073f8520d13cd387c4bb5019a98f26e5e031f1ca5b8ff2f79dbabff4c5cce8f
+      KONTUR_EXPECTED_SHA: 055464c61257fc21156cca5337572a4343d3f09a
+      KONTUR_BROWSER_EVIDENCE_DIR: /tmp/kontur-visual-evidence/browser
     steps:
+      - checkout
+
       - run:
-          name: Verify exact public generation and fresh database
+          name: Checkout exact clean PR12 visual-fix head
           command: |
             set -euo pipefail
-            mkdir -p /tmp/probe
-            get() { curl -fsS --retry 5 --retry-delay 3 -H 'Cache-Control: no-cache, no-store, max-age=0' "$PROD_ORIGIN$1?probe=${CIRCLE_SHA1}" -o "$2"; }
-            get / /tmp/probe/root.html
-            printf '%s  %s\n' "$EXPECT_ROOT_SHA" /tmp/probe/root.html | sha256sum -c -
-            get /quiz/egg-stage-01.webp /tmp/probe/egg01.webp
-            printf '%s  %s\n' "$EXPECT_EGG01_SHA" /tmp/probe/egg01.webp | sha256sum -c -
-            get /quiz/egg-stage-08.webp /tmp/probe/egg08.webp
-            printf '%s  %s\n' "$EXPECT_EGG08_SHA" /tmp/probe/egg08.webp | sha256sum -c -
-            get /results/magpie.webp /tmp/probe/magpie.webp
-            printf '%s  %s\n' "$EXPECT_MAGPIE_SHA" /tmp/probe/magpie.webp | sha256sum -c -
-            get /results/woodpecker.webp /tmp/probe/woodpecker.webp
-            printf '%s  %s\n' "$EXPECT_WOODPECKER_SHA" /tmp/probe/woodpecker.webp | sha256sum -c -
-            get /results/jay.webp /tmp/probe/jay.webp
-            printf '%s  %s\n' "$EXPECT_JAY_SHA" /tmp/probe/jay.webp | sha256sum -c -
-            get /results/crane-collectible.svg /tmp/probe/crane.svg
-            printf '%s  %s\n' "$EXPECT_CRANE_SHA" /tmp/probe/crane.svg | sha256sum -c -
-            get /results/owl.webp /tmp/probe/owl.webp
-            printf '%s  %s\n' "$EXPECT_OWL_SHA" /tmp/probe/owl.webp | sha256sum -c -
-            get /results/kotosov.webp /tmp/probe/kotosov.webp
-            printf '%s  %s\n' "$EXPECT_KOTOSOV_SHA" /tmp/probe/kotosov.webp | sha256sum -c -
-            curl -fsS --retry 5 --retry-delay 3 "$PROD_ORIGIN/api/v1/health?probe=${CIRCLE_SHA1}" -o /tmp/probe/health.json
-            python3 - <<'PY'
-            import json
-            x=json.load(open('/tmp/probe/health.json'))
-            assert x.get('ok') is True, x
-            assert x.get('devMode') is False, x
-            assert x.get('driver') == 'd1', x
-            assert int(x.get('startedBot', -1)) == 0, x
-            assert int(x.get('hatched', -1)) == 0, x
-            assert int(x.get('grants', -1)) == 0, x
-            print('FRESH_PRODUCTION_DATABASE_PASS', x)
-            PY
-            code=$(curl -sS -o /tmp/probe/webhook-negative.txt -w '%{http_code}' -X POST "$PROD_ORIGIN/telegram/webhook" -H 'Content-Type: application/json' -H 'X-Telegram-Bot-Api-Secret-Token: deliberately-wrong' --data '{"update_id":1}')
-            test "$code" = 403
-            sha256sum /tmp/probe/* | tee /tmp/probe/SHA256SUMS.txt
-            echo KONTUR_PRODUCTION_EXACT_GENERATION_FRESH_DB_AND_BOT_ROUTE_PASS
+            git fetch origin fix/kontur-core-visual-continuity-20260818
+            git checkout --detach "$KONTUR_EXPECTED_SHA"
+            test "$(git rev-parse HEAD)" = "$KONTUR_EXPECTED_SHA"
+            test -z "$(git status --porcelain)"
+            git diff --exit-code
+            echo KONTUR_VISUAL_EXACT_HEAD_PASS
+
+      - restore_cache:
+          keys:
+            - kontur-visual-v1-{{ checksum "pnpm-lock.yaml" }}
+            - kontur-visual-v1-
+
+      - run:
+          name: Frozen install and exact source checks
+          no_output_timeout: 20m
+          command: |
+            set -euo pipefail
+            corepack enable
+            corepack prepare pnpm@11.22.0 --activate
+            pnpm install --frozen-lockfile | tee /tmp/install.log
+            pnpm -F @kontur/miniapp test | tee /tmp/miniapp-tests.log
+            pnpm -F @kontur/miniapp typecheck | tee /tmp/typecheck.log
+
+      - save_cache:
+          key: kontur-visual-v1-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - ~/.local/share/pnpm/store
+
+      - run:
+          name: Production build and served-dist smoke
+          command: |
+            set -euo pipefail
+            pnpm -F @kontur/miniapp build | tee /tmp/vite-build.log
+            test -s apps/miniapp/dist/index.html
+            (cd apps/miniapp/dist && python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/dist-http.log 2>&1) &
+            server_pid=$!
+            trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+            for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4173/index.html -o /tmp/dist-index.html && break; sleep 1; done
+            test -s /tmp/dist-index.html
+            kill "$server_pid" 2>/dev/null || true
+            wait "$server_pid" 2>/dev/null || true
+            trap - EXIT
+            echo KONTUR_VISUAL_PRODUCTION_DIST_PASS
+
+      - run:
+          name: Real Chromium visual regression acceptance
+          no_output_timeout: 25m
+          command: |
+            set -euo pipefail
+            pnpm -F @kontur/miniapp exec playwright install --with-deps chromium
+            pnpm -F @kontur/miniapp test:browser:kontur 2>&1 | tee /tmp/browser-acceptance.log
+            test -s "$KONTUR_BROWSER_EVIDENCE_DIR/browser-acceptance.json"
+            node -e 'const f=require(process.env.KONTUR_BROWSER_EVIDENCE_DIR+"/browser-acceptance.json");if(f.result!=="PASS"||f.exactHead!==process.env.KONTUR_EXPECTED_SHA||f.consoleErrors.length)process.exit(1)'
+            for f in \
+              01-hook.png 12-large-hook.png 17-hook-390x844.png \
+              15-hatch-intact.png 16-hatch-opening.png 06-bird-reveal.png 08-home.png \
+              gallery-magpie-10-colorings.png gallery-woodpecker-10-colorings.png \
+              gallery-jay-10-colorings.png gallery-crane-10-colorings.png \
+              gallery-owl-10-colorings.png gallery-kotosov-10-colorings.png \
+              KONTUR_VISUAL_FIX_WALKTHROUGH.webm; do
+              test -s "$KONTUR_BROWSER_EVIDENCE_DIR/$f"
+            done
+            echo KONTUR_REAL_CHROMIUM_VISUAL_FIX_PASS
+
+      - run:
+          name: Collect visual evidence
+          when: always
+          command: |
+            set -euo pipefail
+            mkdir -p /tmp/kontur-visual-evidence/logs
+            cp /tmp/install.log /tmp/kontur-visual-evidence/logs/ 2>/dev/null || true
+            cp /tmp/miniapp-tests.log /tmp/kontur-visual-evidence/logs/ 2>/dev/null || true
+            cp /tmp/typecheck.log /tmp/kontur-visual-evidence/logs/ 2>/dev/null || true
+            cp /tmp/vite-build.log /tmp/kontur-visual-evidence/logs/ 2>/dev/null || true
+            cp /tmp/browser-acceptance.log /tmp/kontur-visual-evidence/logs/ 2>/dev/null || true
+            printf 'head=%s\ncircle_trigger=%s\nclean=true\npatch_overlay=false\nproduction_touched=false\nstaging_touched=false\n' "$KONTUR_EXPECTED_SHA" "$CIRCLE_SHA1" > /tmp/kontur-visual-evidence/CIRCLE_EVIDENCE.txt
+
+      - run:
+          name: Publish immutable visual evidence branch
+          when: always
+          command: |
+            set -euo pipefail
+            evidence_branch="evidence/kontur-visual-055464c6-20260822"
+            target="docs/product/evidence/runtime/055464c6-visual-fix"
+            git switch --create "$evidence_branch" "$KONTUR_EXPECTED_SHA"
+            mkdir -p "$target/browser" "$target/logs"
+            cp "$KONTUR_BROWSER_EVIDENCE_DIR"/*.png "$target/browser/" 2>/dev/null || true
+            cp "$KONTUR_BROWSER_EVIDENCE_DIR"/*.webm "$target/browser/" 2>/dev/null || true
+            cp "$KONTUR_BROWSER_EVIDENCE_DIR"/browser-acceptance.json "$target/browser/" 2>/dev/null || true
+            cp /tmp/kontur-visual-evidence/logs/* "$target/logs/" 2>/dev/null || true
+            cp /tmp/kontur-visual-evidence/CIRCLE_EVIDENCE.txt "$target/"
+            find "$target" -type f ! -name 'SHA256SUMS.txt' -print0 | sort -z | xargs -0 sha256sum > "$target/SHA256SUMS.txt"
+            git config user.name "Kontur Acceptance Bot"
+            git config user.email "kontur-acceptance@users.noreply.github.com"
+            git add "$target"
+            git commit -m "evidence: preserve 055464c6 visual fix"
+            git push origin "HEAD:refs/heads/$evidence_branch"
+            echo "KONTUR_VISUAL_EVIDENCE_BRANCH_PASS branch=$evidence_branch"
+
       - store_artifacts:
-          path: /tmp/probe
-          destination: kontur-production-readonly-probe
+          path: /tmp/kontur-visual-evidence
+          destination: kontur-visual-regression-fix
 
 workflows:
-  production-readonly-probe:
+  kontur-visual-regression-fix:
     jobs:
-      - kontur-production-readonly-probe:
+      - kontur-visual-regression-fix:
           filters:
             branches:
               only: ci/kontur-circle-vite-20260821

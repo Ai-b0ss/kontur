@@ -1,5 +1,7 @@
 # KONTUR — FINAL_TZ §16 / §18 classification, 2026-08-18
 
+> **Historical classification snapshot.** The required §16 artifacts and current staging replacement for §18 are closed in [`KONTUR_FINAL_REQUIREMENT_MATRIX_2026-08-22.md`](KONTUR_FINAL_REQUIREMENT_MATRIX_2026-08-22.md) and the 2026-08-22 evidence index. The `VERIFY_PENDING` values below describe the 18.08 audit moment, not the current candidate.
+
 This note classifies every explicit §16 review artifact and §18 release-contract item against later owner authority. It does **not** authorize `main`, production, destructive D1 writes, Telegram configuration changes, or a traffic switch.
 
 Status vocabulary follows `KONTUR_REQUIREMENT_MATRIX_2026-08-18.md`.

@@ -1,5 +1,7 @@
 # KONTUR — mandatory requirement matrix, 2026-08-18
 
+> **Historical audit snapshot.** Its `VERIFY_PENDING`/`PASS_HISTORICAL` states are superseded by the exhaustive closing matrix [`KONTUR_FINAL_REQUIREMENT_MATRIX_2026-08-22.md`](KONTUR_FINAL_REQUIREMENT_MATRIX_2026-08-22.md). Do not use this file as the current release verdict.
+
 Status vocabulary: `PASS` = current source has direct evidence; `FAIL` = current source contradicts an applicable owner/TZ requirement; `PASS_HISTORICAL` = accepted immutable evidence exists but this exact head still needs its current verifier; `VERIFY_PENDING` = implementation is present but the current head still needs a successful runner/remote proof; `SUPERSEDED` = a later owner decision intentionally replaces the older gate; `NOT_APPLICABLE` = explicitly deferred/forbidden in the current pass.
 
 Current candidate: PR #12, branch `fix/kontur-core-visual-continuity-20260818`.

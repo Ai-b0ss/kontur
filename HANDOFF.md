@@ -1,97 +1,123 @@
-# Контур — как передать проект другому разработчику
+# Контур — финальная передача CORE
 
-## Короткий ответ
+## Текущий кандидат
 
-**Передавать одной ссылкой на private GitHub repository и конкретную текущую ветку/PR, а не случайным ZIP из Downloads.**
-
-Текущая ветка для просмотра и передачи кода:
-
-- repo: `Ai-b0ss/kontur`;
+- repository: `Ai-b0ss/kontur`;
 - branch: `fix/kontur-core-visual-continuity-20260818`;
-- PR: `#12`;
-- продуктовый код, отправленный на Chromium QA: `60d1703a958757dc27222338cc41a9349382efb5`;
-- поверх него допускаются только документационные коммиты, не меняющие проверяемый runtime;
-- PR остаётся draft до Chromium + isolated staging + Telegram/WebView proof;
-- merge в `main` и production без отдельного явного разрешения запрещены.
+- PR: #12, **draft / open / unmerged**;
+- runtime/product baseline: `287b9aa294dbec0af077cdcf96e8e5b864f32c03`;
+- exact release-record commit: поле `final_commit` в финальном owner-package `MANIFEST.json` и канонической записи issue #9;
+- production/main не менялись и не разрешены.
 
-База PR #12 — `cleanup/repo-hygiene-shareable-source` (PR #11). Она остаётся чистой handoff-основой, но для знакомства с **текущим** кодом следует открывать PR #12.
+Git-коммит не может содержать собственный SHA. Поэтому exact closing SHA и относящиеся к нему Circle/Cloudflare IDs связаны с деревом во внешнем `MANIFEST.json`, в последнем `KONTUR_CORE_DONE CANONICAL REVALIDATION` комментарии issue #9 и в последнем `KONTUR_CORE_DONE EVIDENCE BINDING` комментарии PR #12.
 
 ## Что является текущим продуктом
 
-Первый пользовательский путь:
+Первый путь:
 
-`Какая ты птица в IT? -> hero egg -> 8Q -> 8 crack stages -> hatching -> bird reveal -> /worm -> Home`
+`Какая ты птица в IT? → одно hero egg → q1…q8 / восемь стадий трещин → response-gated hatch → reveal → /worm → Home`
 
-Игровой инвариант:
+Экономика:
 
-`8Q once -> bird -> reply /worm -> +1 worm -> 5 worms = egg -> guaranteed-new coloration -> equip -> reload persists`
+`reply /worm → +1 worm → 5 worms = egg → гарантированно новый косметический окрас → equip → reload сохраняет состояние`
 
-Текущий visual/runtime контракт:
-- STEP A H3 — accepted;
-- STEP B one-egg continuity — accepted;
-- STEP C 8 deterministic crack states — accepted;
-- STEP D first-time flow — integrated;
-- STEP E — accepted + integrated;
-- 5 backend roles / 6 visual results, включая Kotosov presentation subtype;
-- q1–q7 используют явный `visualQuestionIndex` для перехода N→N+1 во время ответа;
-- q8 видимо переходит к hatching только после завершения жеста и готовности результата;
-- hatching/reveal сохраняют одну сцену и один `QuizEgg`;
-- скорлупа раскрывается двумя согласованными половинами поверх одной canonical bird сцены.
+Инварианты:
 
-## Что ещё НЕ доказано
+- пять backend roles и шесть визуальных персонажей: сорока, дятел, сойка, компактный журавль-менеджер, сова и Котосов;
+- Котосов — client-local presentation subtype роли `vibe`, а не шестая server-role;
+- hatch, reveal, Home, reward drop и collection используют один `BirdResultId` master;
+- palette меняет только косметическую маску;
+- q8 не начинает видимое вылупление до окончания response gesture;
+- back заблокирован во время answer transition;
+- reload и replay не меняют identity/palette.
 
-Для текущего продуктового SHA `60d1703a...` ещё обязательны:
-1. реальный Chromium user journey в CircleCI;
-2. исправление/доказательство isolated `kontur-igor-staging` Cloudflare build;
-3. Telegram/WebView smoke;
-4. только после этого решение о merge/release.
+## Где лежит финальная доказательная база
 
-Пока эти пункты не закрыты, не надо заменять их новыми статическими аудитами или дополнительным визуальным полированием без воспроизведённой ошибки.
+Начать с:
 
-## Что читать получателю
-
-1. `README.md`;
-2. `CURRENT_PRODUCT.md`;
-3. `docs/product/evidence/KONTUR_REQUIREMENT_MATRIX_2026-08-18.md`;
+1. `docs/product/evidence/KONTUR_FINAL_REQUIREMENT_MATRIX_2026-08-22.md`;
+2. `docs/product/evidence/KONTUR_CORE_DONE_REVALIDATION_2026-08-22.md`;
+3. `docs/product/evidence/KONTUR_EVIDENCE_INDEX_2026-08-22.md`;
 4. `docs/product/source/PRIMARY_SOURCE_IGOR_ZEZOKUK_2026-08-13.md`;
 5. `docs/product/source/FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md`;
-6. `ARCHITECTURE.md`;
-7. `CODEBASE_MAP.md`;
-8. затем код.
+6. accepted 14.08 evidence;
+7. `CURRENT_PRODUCT.md`, `ARCHITECTURE.md`, `CODEBASE_MAP.md`.
 
-Основные current files:
-- `apps/miniapp/src/screens/LocalKontur.tsx`;
-- `apps/miniapp/src/components/QuizEgg.tsx`;
-- `apps/miniapp/src/components/CanonicalBirdVisual.tsx`;
-- `apps/miniapp/src/q8-hatch-timeline.ts`;
-- `apps/miniapp/src/quiz-egg-model.ts`;
-- `apps/worker/src/local-kontur-api.ts`.
+Файлы `KONTUR_REQUIREMENT_MATRIX_2026-08-18.md` и `KONTUR_FINAL_TZ_16_18_CLASSIFICATION_2026-08-18.md` сохранены как исторические audit snapshots и явно помечены superseded. Их старые `VERIFY_PENDING` не являются текущим verdict.
 
-## Как проверить clone
+## Что свежо доказано
+
+- clean exact-head checkout без overlay/temporary patch;
+- frozen Linux install, pnpm 11.22, native Rollup/esbuild;
+- Mini App, core, DB, bot и Worker tests;
+- repository-wide TypeScript;
+- production Vite build, `dist/index.html`, HTTP serve;
+- real Playwright Chromium, 320×568 и 430×1000;
+- normal и reduced motion;
+- full UI journey, q1…q8, back lock, q8 gesture gate, hatch/reveal/Home continuity, palette, egg/equip, reload и replay;
+- console/page/request errors = 0, horizontal overflow = 0, safe-area contract present, reveal copy is separated from the entire outer frame;
+- canonical master art is decoded and independently checked for rendered pixel detail, so a tint-only silhouette cannot pass;
+- восемь обязательных PNG + три обязательных WebM + дополнительные captures;
+- exact isolated Cloudflare staging generation;
+- live synthetic staging auth/questions/hatch/egg/equip/reload на реальном Worker/D1;
+- строгая provenance граница от старого DONE `50b4426…`;
+- воспроизводимый secret-safe owner package.
+
+Binding IDs находятся в package `MANIFEST.json` и канонических GitHub comments. Product-baseline acceptance run: exact head `287b9aa294dbec0af077cdcf96e8e5b864f32c03`, Circle trigger `0b12fc5838b673962422ea015eafed1b3564bef8`, workflow `1cb18623-ee52-42a5-8a0f-ca53a994a1a8`, job `cb3ed7e5-ebc5-456d-ad0b-e68212d06860`, SUCCESS. Exact isolated staging build: `9ec8e6a5-38a6-485f-9e1f-cafa066b93cb`; immutable evidence branch: `evidence/kontur-core-287b9aa2-runtime2-20260822`.
+
+## Как воспроизвести локальные gates
 
 ```bash
-git clone <repo>
-cd kontur
+corepack enable
+corepack prepare pnpm@11.22.0 --activate
 pnpm install --frozen-lockfile
-pnpm check
+pnpm -F @kontur/miniapp test
+pnpm -F @kontur/core test
+pnpm -F @kontur/db test
+pnpm -F @kontur/bot test
+pnpm -F @kontur/worker test
+pnpm -r --if-present typecheck
+pnpm -F @kontur/miniapp build
+pnpm -F @kontur/miniapp exec playwright install chromium
+pnpm -F @kontur/miniapp test:browser:kontur
+node tools/handoff-safety-check.mjs
 ```
 
-Но локальный `pnpm check` не заменяет текущий обязательный browser gate: финальный кандидат должен пройти настоящий Chromium user journey на зафиксированном продуктовом SHA.
+Browser harness использует production `dist` и contract-faithful isolated API. Это UI proof. Live backend proof запускается отдельно против **только** `kontur-igor-staging` через `tools/cloudflare/live-release-staging-smoke.mjs`.
 
-## Что НЕ передавать
+## Evidence artifacts
 
-Не включать и не пересылать отдельно:
-- `.env`;
-- API tokens/secrets;
-- Telegram cookies/sessions/accounts;
-- Cloudflare credentials;
+Имена обязательных файлов:
+
+- `01-hook.png` … `08-home.png`;
+- `motion-1-hook-to-q1.webm`;
+- `motion-2-q1-q4-q8-cracks.webm`;
+- `motion-3-q8-to-reveal.webm`.
+
+Плюс captures drop/reload/replay/large/reduced-motion и `browser-acceptance.json`. Exact evidence branch и SHA-256 каждого файла записаны в owner-package manifest/index.
+
+## Что запрещено после передачи
+
+Без нового явного решения owner:
+
+- не merge PR #12;
+- не push/merge в `main`;
+- не promote/switch production traffic;
+- не писать в production Worker/D1;
+- не делать destructive D1 reset;
+- не менять production secrets или Telegram configuration;
+- не использовать production как тестовый стенд.
+
+Эти действия не являются незакрытым CORE blocker: они owner-constrained и намеренно не выполнялись.
+
+## Что не передавать
+
+Не добавлять в handoff:
+
+- `.env`, API tokens, cookies/sessions/accounts;
+- Cloudflare/Telegram credentials;
 - production D1 dumps;
-- browser profiles;
-- encryption keys;
-- private chat/research exports.
+- browser profiles, private exports, encryption keys;
+- `.git`, `node_modules`, `dist`, caches и временные runner files.
 
-## Если человек просто просит «скинь код»
-
-Если у него есть GitHub-аккаунт и он должен реально смотреть/ревьюить проект — дать ему доступ к private repo и ссылку на **PR #12 / ветку `fix/kontur-core-visual-continuity-20260818`**. Это лучше ZIP: видна история, diff и актуальная документация.
-
-Если доступ в private GitHub давать не хочется — делать отдельный share-safe архив из этой ветки после secret/handoff gate. Не отправлять архив рабочего окружения и не включать секреты/дампы/профили.
+Использовать финальный owner package, а не старый ZIP `KONTUR_CORE_DONE_5ec223a_2026-08-22.zip`: тот архив был проверен и признан неполным/не привязанным к текущему дереву.

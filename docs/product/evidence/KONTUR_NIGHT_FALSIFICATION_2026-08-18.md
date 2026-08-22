@@ -1,5 +1,7 @@
 # KONTUR night acceptance falsification — 2026-08-18
 
+> **Historical falsification snapshot.** Its `VERIFY REQUIRED`/`CORE_DONE=NO` verdict is preserved for audit history and superseded for current release status by [`KONTUR_FINAL_REQUIREMENT_MATRIX_2026-08-22.md`](KONTUR_FINAL_REQUIREMENT_MATRIX_2026-08-22.md). Every finding remains traced in the closing matrix.
+
 Exact audited head before this note: `bdb84f0e467a6e16bda447056f39d06c2320d23b` on PR #12.
 
 Authority: newest OWNER/KONTUR ACCEPTANCE AUTHORITY CORRECTION in `kontur#9`, then the canonical 13 Aug source, FINAL_TZ, accepted 14 Aug decisions, 17 Aug live delta, and current source/tests.

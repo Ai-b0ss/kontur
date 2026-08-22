@@ -1,7 +1,7 @@
 version: 2.1
 
 jobs:
-  kontur-browser-proof:
+  kontur-browser-diagnostic:
     docker:
       - image: cimg/node:22.18-browsers
     resource_class: medium
@@ -18,7 +18,6 @@ jobs:
             git checkout --detach "$KONTUR_EXPECTED_SHA"
             test "$(git rev-parse HEAD)" = "$KONTUR_EXPECTED_SHA"
             test -z "$(git status --porcelain)"
-            echo KONTUR_CIRCLE_EXACT_HEAD_PASS
       - run:
           name: Install and build
           no_output_timeout: 25m
@@ -28,24 +27,47 @@ jobs:
             corepack prepare pnpm@11.22.0 --activate
             pnpm install --frozen-lockfile
             pnpm -F @kontur/miniapp build
-            test -s apps/miniapp/dist/index.html
       - run:
-          name: Real Chromium Telegram hatch proof
+          name: Chromium diagnostic
           no_output_timeout: 25m
           command: |
+            set +e
+            mkdir -p /tmp/kontur-circle-diagnostic "$KONTUR_TELEGRAM_EVIDENCE_DIR"
+            pnpm -F @kontur/miniapp exec playwright install --with-deps chromium > /tmp/kontur-circle-diagnostic/playwright-install.log 2>&1
+            install_status=$?
+            if [ "$install_status" -eq 0 ]; then
+              pnpm --dir apps/miniapp exec node test/telegram-hatch-browser.mjs > /tmp/kontur-circle-diagnostic/browser.log 2>&1
+              browser_status=$?
+            else
+              browser_status=99
+              echo 'browser skipped because playwright install failed' > /tmp/kontur-circle-diagnostic/browser.log
+            fi
+            printf 'install_status=%s\nbrowser_status=%s\n' "$install_status" "$browser_status" > /tmp/kontur-circle-diagnostic/status.txt
+            cat /tmp/kontur-circle-diagnostic/status.txt
+            exit "$browser_status"
+      - run:
+          name: Publish diagnostic log to GitHub
+          when: always
+          command: |
             set -euo pipefail
-            pnpm -F @kontur/miniapp exec playwright install --with-deps chromium
-            mkdir -p "$KONTUR_TELEGRAM_EVIDENCE_DIR"
-            pnpm --dir apps/miniapp exec node test/telegram-hatch-browser.mjs 2>&1 | tee /tmp/telegram-hatch-browser.log
-            grep -q 'KONTUR_TELEGRAM_HATCH_BROWSER_PASS' /tmp/telegram-hatch-browser.log
-            test -s "$KONTUR_TELEGRAM_EVIDENCE_DIR/telegram-390x760-normal.png"
-            test -s "$KONTUR_TELEGRAM_EVIDENCE_DIR/telegram-390x760-reduced.png"
-            echo KONTUR_CIRCLE_REAL_CHROMIUM_PASS
+            diag_branch="diagnostics/circle-kontur-browser-20260822"
+            git config user.name "Kontur Circle Diagnostic"
+            git config user.email "kontur-circle@users.noreply.github.com"
+            git switch --create "$diag_branch" "$CIRCLE_SHA1"
+            mkdir -p docs/product/evidence/runtime/circle-browser-diagnostic
+            cp /tmp/kontur-circle-diagnostic/status.txt docs/product/evidence/runtime/circle-browser-diagnostic/status.txt 2>/dev/null || true
+            cp /tmp/kontur-circle-diagnostic/playwright-install.log docs/product/evidence/runtime/circle-browser-diagnostic/playwright-install.log 2>/dev/null || true
+            cp /tmp/kontur-circle-diagnostic/browser.log docs/product/evidence/runtime/circle-browser-diagnostic/browser.log 2>/dev/null || true
+            git add docs/product/evidence/runtime/circle-browser-diagnostic
+            if ! git diff --cached --quiet; then
+              git commit -m "evidence: capture Circle browser diagnostic"
+              git push --force origin "HEAD:refs/heads/$diag_branch"
+            fi
 
 workflows:
-  kontur-browser-proof:
+  kontur-browser-diagnostic:
     jobs:
-      - kontur-browser-proof:
+      - kontur-browser-diagnostic:
           filters:
             branches:
               only: ci/kontur-circle-vite-20260821

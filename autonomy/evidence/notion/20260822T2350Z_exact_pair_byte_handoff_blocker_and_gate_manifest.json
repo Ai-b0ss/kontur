@@ -1,0 +1,59 @@
+{
+  "schema": "notion_core_exact_pair_handoff_v1",
+  "observed_at_utc": "2026-08-22T23:50:40Z",
+  "lane": "NOTION_CORE",
+  "core_pr7_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_pr8_head": "ee0ae241b3ef19da7d3a69ddeecf6bb5476f91a9",
+  "circle_policy": "OWNER_TEMPORARY_CIRCLE_FREEZE_ACTIVE",
+  "expected_transformed_pair": {
+    "payload/account_pool.py": "c9ca6f3b4545e469966369a4220a6a2a60bf3697",
+    "payload/server.py": "ba52edc7a8528d58acd2c5bef2b86c3ca84ca298"
+  },
+  "fetchability_check": {
+    "notion_agent_bridge_account_pool_blob": "404_NOT_FOUND",
+    "notion_agent_bridge_server_blob": "404_NOT_FOUND",
+    "kontur_account_pool_blob": "404_NOT_FOUND",
+    "conclusion": "expected transformed hashes are proven but exact transformed bytes are not yet durably fetchable by NOTION_CORE"
+  },
+  "current_agent_source_blobs": {
+    ".circleci/config.yml": "e6bab5c300b2240cfbc68e30bb9a83c67ecc0cd5",
+    "payload/account_pool.py": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f",
+    "payload/server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "payload/conversation_segments.py": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "payload/subagent_tombstone_store.py": "c2a3f8e74a94b15325423bfdb8f3437141233996"
+  },
+  "mandatory_final_composed_suite": [
+    "tests/test_subagent_tombstone_post_replace_sync_failure.py",
+    "tests/test_subagent_tombstone_store.py",
+    "tests/test_server_subagent_tombstone_restart.py",
+    "tests/test_delegated_cancellation_lifecycle.py",
+    "tests/test_materialize_agent_wiring.py",
+    "tests/test_materialize_agent_wiring_crash_recovery.py",
+    "tests/test_materialize_agent_wiring_durability_order.py",
+    "tests/test_materialize_agent_wiring_finalize_guard.py",
+    "tests/test_dynamic_reservation_lease_session.py",
+    "tests/test_dynamic_reservation_inlease_reselect.py",
+    "tests/test_reservation_aware_lease.py",
+    "tests/test_responses_cooldown_failover.py",
+    "tests/test_real_codex_cli_probe_contract.py"
+  ],
+  "stage_b_required_cases": [
+    "strict intent write before provider entry",
+    "strict final atomic publication of progress plus canonical response",
+    "same response_id/item_id/call_id after exact retry and restart",
+    "stream and non-stream project the same durable canonical response",
+    "disconnect after provider-entered cannot cancel durable commit",
+    "ambiguous transport does not implicit-retry or fail over after intent",
+    "planner correction is deliberate and stays on selected account",
+    "removed persisted account creates no ghost reservation and no silent replacement",
+    "TTL/size/oversize/stale retry greater than 32",
+    "legacy rollback floor fail-closed before provider",
+    "compaction exact replay/restart",
+    "Codex shell env excludes NOTION_BRIDGE_API_KEY and RUNTIME_STATE_KEY"
+  ],
+  "gate_coverage_finding": "Current PR#8 Circle suites do not run tests/test_subagent_tombstone_post_replace_sync_failure.py; future final disposable gate must include it explicitly.",
+  "safe_next_action": "NOTION_AGENT must persist exact transformed pair bytes without moving product refs; then NOTION_CORE runs V50 check/apply and the same-byte composed Stage-B matrix locally. Circle remains forbidden until owner explicitly releases the freeze and local composed proof is green.",
+  "product_mutation": false,
+  "live_notion": false,
+  "circle_started": false
+}

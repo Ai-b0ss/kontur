@@ -1,0 +1,47 @@
+{
+  "schema": "notion_core_v48_frozen_agent_toolchain_composition_evidence_v1",
+  "observed_at_utc": "2026-08-22T17:38:00Z",
+  "core_pr": {
+    "number": 7,
+    "head_sha": "b6f4eef28ea7acdbba5fc32559fa635c28f72144"
+  },
+  "agent_pr": {
+    "number": 8,
+    "head_sha": "57bafc097d610e8055ab28f2fadc36a85af8200a",
+    "previous_handoff_head_sha": "eaa7e812cb502649fb5291143070b33bfc94380e",
+    "commits_since_previous_handoff": 5,
+    "changed_since_previous_handoff": [
+      "tools/materialize_agent_wiring.py",
+      "tests/test_materialize_agent_wiring_journal_path_safety.py"
+    ]
+  },
+  "frozen_product_preimages": {
+    "payload/account_pool.py": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f",
+    "payload/server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "payload/reservation_aware_lease.py": "c77b4d5214911def1729243516aec73e43f8d425"
+  },
+  "frozen_agent_toolchain": {
+    "tools/materialize_agent_wiring_with_tombstones.py": "859039a5e408bc84e7046372cdb509131eb37a97",
+    "tools/materialize_agent_wiring.py": "30fb89286eb4457b25b2145918279fec2d735042",
+    "tools/apply_account_pool_dynamic_reservation.py": "80aeb1872c1cab7f51c33039584b5786e441f9f0",
+    "tools/apply_startup_status_cleanup.py": "2ed85ece7d3323b1619ec0963d3021c1623d0e0a",
+    "tools/apply_subagent_tombstone_wiring.py": "40ab3a448e33fb8a8c3ce045ef31a815d0554823"
+  },
+  "finding": {
+    "classification": "COMPOSITION_PROOF_REPRODUCIBILITY_GAP",
+    "details": "V47 froze only product preimage blobs but dynamically imported the Agent materializer/toolchain from the checkout. Agent materializer bytes changed while the three product preimages remained unchanged, so an old V47 PASS would not identify which transformation toolchain produced the composed bytes.",
+    "risk": "A final native-Windows gate could be attributed to the correct product preimages but a different Agent composition toolchain, weakening exact-source provenance and making an old composed PASS non-reproducible."
+  },
+  "candidate": {
+    "path": "autonomy/evidence/notion/20260822T1840Z_v48_frozen_agent_toolchain_composition_materializer.py",
+    "git_blob_sha": "dab975abd730481d0986b38cb2b2fb2d816e4244",
+    "behavior": "Before importing the Agent materializer, verify exact Git blob SHA for all five transformation helpers, then verify the three product preimages, compose current Agent wiring, apply V41/V45, compile all composed files, and print exact resulting Git blobs. --apply remains disposable-checkout only."
+  },
+  "verdict": "V48_FROZEN_TOOLCHAIN_GUARD_PREPARED",
+  "not_yet_proven": [
+    "V48 exact composed output blobs on a full checkout",
+    "current Agent test cluster on V48 composed bytes",
+    "full Stage-B server orchestration",
+    "native Windows semantics"
+  ]
+}

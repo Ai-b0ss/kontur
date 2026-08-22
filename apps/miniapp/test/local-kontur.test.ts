@@ -186,7 +186,7 @@ test('equipped palette stays on the same canonical bird from hatch through Home'
 test('reveal state removes stale hook and question surfaces and wins the final CSS order', async () => {
   const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
   assert.match(css, /\.lk-first-time\.lk-first-time--reveal \.lk-hook-copy,[\s\S]*?visibility:\s*hidden;[\s\S]*?pointer-events:\s*none;/);
-  assert.match(css, /\.lk-first-time\.lk-first-time--reveal \.lk-reveal\.lk-reveal--inline\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?top:\s*auto;/);
+  assert.match(css, /\.lk-first-time\.lk-first-time--reveal \.lk-reveal\.lk-reveal--inline\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?top:\s*auto;[\s\S]*?animation:\s*lk-reveal-inline-in/);
 });
 
 test('quiz back control is unavailable while an answer transition is locked', async () => {

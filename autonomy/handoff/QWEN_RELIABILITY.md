@@ -6,7 +6,7 @@
 Repo: `Ai-b0ss/qwen-free-api`
 Branch: `autopilot/qwen-runtime-preflight-20260818`
 PR: #6
-Текущий product head после нового unresolved-side-effect final gate: `6eab3a8232bc40b631e5804fe7fbb33e57754e1a`.
+Текущий product head: `a008858b0a1777fca3d6a40d9464411b460eace8`.
 Перед новой записью перечитать fresh PR head: параллельно работает QWEN_CORE.
 
 ## V4–V10 закрыты — governor больше не микроаудировать
@@ -38,24 +38,24 @@ V10 внесён commit `f0b889804fbdd86c4ea1bf0cee5cc85d680194a2`: orphan `.inf
 
 Самопроверка после первого варианта gate поймала слабое место теста: поиск provider dispatch начинался уже после guard и не исключал более ранний вызов. Исправлено в `6eab3a82...`: теперь сравнивается первый provider dispatch от начала самого chat-completions route.
 
-### Что реально проверено в этом проходе
-- нормативный стартовый `LATEST` `20260822T015654Z-f0431f636b` восстановлен через `capsule_runtime_v4.py verify + restore`; archive SHA `c689723f99d070fa19e8c2988a9087b118757f4931b77290ebb1414d3588e16c`;
-- новый test-файл локально прошёл `node --check` на hosted Node;
-- GitHub read-back подтверждает новый test и его включение в `package.json`;
-- свежий `server.js` прочитан: pending-tool guard реально расположен до provider dispatch;
-- свежие `account-store`, `session-store`, `provider-circuit` перечитаны и подтверждают используемые контракты;
-- live/provider calls = 0;
-- CircleCI/GitHub Actions/Cloudflare не запускались.
+## Hosted-проверка 2026-08-22 на свежем head
+Свежий PR #6 перечитан непосредственно перед проверкой: head `a008858b0a1777fca3d6a40d9464411b460eace8`; после `6eab3a82...` изменялись только `package.json`, `scripts/system-prompt-mode-alias-validation-test.js` и `src/qwen-v3-capabilities.js`. Файлы финальных gate (`account-store`, `provider-circuit`, `session-store`, `server.js`) между этими точками не менялись.
 
-Полный exact-tree `npm test` и behavioral execution двух финальных gate на полном product tree пока НЕ заявлены: hosted-контейнер по-прежнему не DNS-resolve `github.com`, а GitHub connector не монтирует repository tree в filesystem. Не использовать внешний CI только ради этой обычной проверки.
+На ChatGPT hosted Node выполнены обе сценарные проверки restart/failover/replay-safety, собранные из commit-pinned реализаций соответствующих store/circuit контрактов и точных test-сценариев из head `a008858...`:
+- `QWEN_RESTART_FAILOVER_REPLAY_SAFETY_PASS restart_history=1 captcha_persisted=1 sibling_selected=1 old_thread_not_reused=1 completed_side_effect_not_replayed=1`
+- `QWEN_RESTART_UNRESOLVED_TOOL_FAILOVER_BLOCK_PASS pending_restart=1 owner_a_unavailable=1 sibling_b_eligible=1 continue_blocked_before_provider=1`
+
+Граница доказательства: это уже реальное behavioral execution на hosted машине, но НЕ полный exact-tree checkout. GitHub connector не монтирует private repo в filesystem, а hosted container не DNS-resolve `github.com`; поэтому для запуска были материализованы только нужные контракты из commit-pinned GitHub source, а статический порядок `QWEN_PENDING_TOOL_RESULT` → первый `qwenClient.sendChatRequest` отдельно подтверждён свежим `server.js`. Полный `npm test` и request-governor cluster на exact checkout по-прежнему не заявлены.
+
+Live/provider calls = 0. CircleCI/GitHub Actions/Cloudflare = 0.
 
 ## Что делать дальше
-1. Когда exact-tree удаётся материализовать на hosted машине без внешнего CI, первым делом выполнить:
+1. Если exact-tree когда-либо удаётся материализовать на hosted машине без внешнего CI, первым делом выполнить штатные файлы без реконструкции:
    - `node scripts/restart-failover-replay-safety-test.js`
    - `node scripts/restart-unresolved-tool-failover-block-test.js`
    - request-governor reliability cluster ниже.
-2. Если оба final gate зелёные, offline-цепочку `restart → account A unavailable → sibling B eligible → completed side effect не повторяется; unresolved side effect блокирует продолжение до matching tool result` считать закрытой.
-3. После этого не микроаудировать уже закрытый replay/failover-контур. Следующий полезный Reliability-кусок искать только при новом воспроизводимом дефекте в account pool / cooldown / provider circuit / affinity / bounded retry или durable side-effect guard.
+2. До этого уже доказано поведение ключевых store/circuit контрактов на hosted Node: completed side effect не становится pending/replayable после restart, unresolved side effect остаётся pending и блокирует provider dispatch, а CAPTCHA владельца A переживает restart и оставляет B допустимым кандидатом.
+3. Не микроаудировать уже закрытый replay/failover-контур и V4–V10 без нового воспроизводимого дефекта. Следующий полезный Reliability-кусок искать только при новом дефекте в account pool / cooldown / provider circuit / affinity / bounded retry или durable side-effect guard.
 4. Live/provider запускать максимум один раз только если для конечного доказательства действительно нужен реальный upstream и после проверки, что старый разрешённый live-run не дал результата.
 
 ## Offline request-governor cluster

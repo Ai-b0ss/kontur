@@ -107,7 +107,8 @@
   width: 80%;
   height: 78%;
   opacity: 0;
-  transform: translateY(24%) scale(.62);
+  overflow: hidden;
+  transform: translateY(12%) scale(.66);
 }
 .lk-first-time--hatching .lk-quiz-hatch__bird.lk-canonical-bird {
   animation: lk-hatch-bird-rise 2.3s cubic-bezier(.16,.9,.28,1.08) both;
@@ -160,26 +161,31 @@
   0%, 68% {
     opacity: 0;
     visibility: hidden;
-    transform: translateY(24%) scale(.62);
+    clip-path: inset(0 0 28% 0);
+    transform: translateY(12%) scale(.66);
   }
   69% {
     opacity: 0;
     visibility: visible;
-    transform: translateY(24%) scale(.62);
+    clip-path: inset(0 0 28% 0);
+    transform: translateY(12%) scale(.66);
   }
   77% {
-    opacity: .28;
+    opacity: .24;
     visibility: visible;
-    transform: translateY(18%) scale(.7);
+    clip-path: inset(0 0 14% 0);
+    transform: translateY(8%) scale(.76);
   }
   89% {
     opacity: .82;
     visibility: visible;
-    transform: translateY(7%) scale(.86);
+    clip-path: inset(0);
+    transform: translateY(0) scale(.9);
   }
   100% {
     opacity: 1;
     visibility: visible;
+    clip-path: inset(0);
     transform: translateY(-9%) scale(1.03);
   }
 }

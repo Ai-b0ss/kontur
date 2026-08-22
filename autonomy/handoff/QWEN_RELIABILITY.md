@@ -88,4 +88,16 @@ Worker: `QWEN_RELIABILITY`.
 - точные manifest/part материализованы локально;
 - нормативные `verify + restore` через `capsule_runtime_v4.py`: PASS.
 
-Финишный capsule update выполняется после записи этого handoff по стандартному `checkpoint -> pack v4 -> upload/readback -> CAS` протоколу. Force-write `LATEST` запрещён.
+Финиш этого прохода:
+- новая capsule `20260822T115554Z-8763a42805`;
+- source ref `Ai-b0ss/qwen-free-api@763ac0b53a7ea94bc8241e3e539b2356b08c9984`;
+- archive SHA-256 `3ebdba2e34121ab6a368bbde3f3d928c9fcdbfa88fad7fdda74834d13063467d`;
+- local `pack + verify + restore`: PASS;
+- uploaded manifest Git blob `6e59a2fb74c3a3f54f1b5db1e55bdaddf7159bd9` совпал с локальным Git blob;
+- uploaded part0 Git blob `ea14290e0ee3097b1d6e3e64b2e3ee47daf3f3a2` совпал с локальным Git blob;
+- uploaded part1 Git blob `2187638e54cf6a2b5081ca039c8ac9cef780fa2c` совпал с локальным Git blob;
+- перед CAS `LATEST` всё ещё имел стартовый blob `b622c3e0d18aa98493eb86d62d80ea4cfec55f46`;
+- старый `LATEST` сохранён как `PREVIOUS`;
+- новый `LATEST` опубликован без force-write и после записи перечитан, текущий blob `659fa97eca2345c6ca401b4788ec1d5f6e43f650`.
+
+Force-write `LATEST` запрещён и в этом проходе не использовался.

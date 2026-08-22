@@ -1,0 +1,74 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "NOTION_AGENT_CORE_INSTALL_PAYLOAD_CLOSURE_GAP",
+  "verdict": "REPRODUCED",
+  "fresh_heads": {
+    "notion_agent_pr8": "04a659a23b3d72b44b334c9e35f23c1220d73eb3",
+    "notion_core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "qwen_pr6": "25c1347588ea9621a0ff5cf11a08c5df488cce00"
+  },
+  "exact_blobs": {
+    "agent_payload_server_py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "agent_prompt_modes_py": "5dd1ff18840e6a78d1fa5612192c96891e4b1d69",
+    "agent_server_subagent_lifecycle_py": "5c9017350100a10e83072cb93f1b7aaced2c9ad7",
+    "agent_materializer_py": "2ed85ece7d3323b1619ec0963d3021c1623d0e0a",
+    "core_and_agent_integrated_upgrade_py": "0f4393e656307e3b17dfab105464de551f12a05d"
+  },
+  "observed": {
+    "integrated_upgrade_payload_names": [
+      "server.py",
+      "account_pool.py",
+      "diagnostics.py",
+      "auth_contract.py",
+      "migration_contract.py",
+      "stable_identity.py",
+      "stable_runtime_state.py",
+      "thread_state_registry.py",
+      "transport_evidence.py",
+      "conversation_segments.py"
+    ],
+    "core_static_bridge_dependencies": [
+      "notion_images.py",
+      "turn_affinity.py"
+    ],
+    "current_agent_server_direct_missing_from_deployment": [
+      "prompt_modes.py",
+      "server_subagent_lifecycle.py"
+    ],
+    "materializer_additional_direct_missing": [
+      "reservation_aware_lease.py"
+    ],
+    "server_subagent_lifecycle_level1_missing_examples": [
+      "delegation_dispatcher.py",
+      "notion_delegation_adapter.py",
+      "notion_subagent_runtime.py",
+      "server_subagent_runtime.py",
+      "subagent_entrypoint.py",
+      "subagent_tombstone_store.py"
+    ]
+  },
+  "impact": "The Agent server can be materialized/compiled in the source tree while the Core integrated installer still copies only the legacy ten-file payload into project_root/bridge. On a first integrated deployment this can publish server.py that imports local Agent modules which the transaction did not deploy or hash-bind. Runtime then depends on absent or stale modules outside the installer contract, so compile-only materialization is not an installation proof.",
+  "safety_boundary": "This is an Agent <-> Core packaging/integration defect, not a new prompt/rotation/delegation algorithm and not the current NCM28 Windows/durable replay task.",
+  "required_fix": [
+    "Define an explicit deployable local-module manifest/closure for the materialized Agent bridge.",
+    "Validate the closure before lifecycle stop or any managed source write.",
+    "Copy every required module under a runtime namespace consistent with its imports.",
+    "Include every deployed module in payload hashes, durable preimage backup, outer journal descriptors, installed marker, rollback and final verification.",
+    "Fail closed before mutation if an imported local module is outside the deployment manifest.",
+    "Add a regression that materializes the Agent pair and checks the deployed bridge import closure, not merely compile(server.py) in the source checkout."
+  ],
+  "probe": "autonomy/v3/tools/integration_notion_agent_core_payload_closure_probe.py",
+  "zero_minute": true,
+  "not_used": [
+    "CircleCI",
+    "GitHub Actions",
+    "Cloudflare",
+    "live Notion",
+    "live Qwen",
+    "native Windows",
+    "production",
+    "real user data",
+    "secrets"
+  ]
+}

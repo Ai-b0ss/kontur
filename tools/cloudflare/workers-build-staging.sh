@@ -368,7 +368,7 @@ NODE
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 const sql = fs.readFileSync('/tmp/kontur-one-user-reset-verify.sql', 'utf8');
-const statements = sql.split(/;\s*\n/).map((part) => part.trim()).filter(Boolean);
+const statements = sql.replace(/;\s*$/, '').split(/\nUNION ALL\n/i).map((part) => part.trim()).filter(Boolean);
 const rows = [];
 for (const statement of statements) {
   const command = statement.endsWith(';') ? statement : `${statement};`;
@@ -433,7 +433,7 @@ NODE
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 const sql = fs.readFileSync('/tmp/kontur-one-user-reset-verify.sql', 'utf8');
-const statements = sql.split(/;\s*\n/).map((part) => part.trim()).filter(Boolean);
+const statements = sql.replace(/;\s*$/, '').split(/\nUNION ALL\n/i).map((part) => part.trim()).filter(Boolean);
 const rows = [];
 for (const statement of statements) {
   const command = statement.endsWith(';') ? statement : `${statement};`;

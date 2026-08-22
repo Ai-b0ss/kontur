@@ -1,0 +1,26 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "worker": "NOTION_CORE",
+  "observed_at_utc": "2026-08-22T16:55:00Z",
+  "core_pr7_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_pr8_head": "eaa7e812cb502649fb5291143070b33bfc94380e",
+  "finding": "V46 composition materializer is stale against the current Agent pair-materialization contract",
+  "details": {
+    "v46_behavior": [
+      "imports tools.apply_account_pool_dynamic_reservation.apply directly",
+      "imports tools.apply_startup_status_cleanup.apply directly",
+      "therefore composes only the older base Agent account/server transforms before V41/V45"
+    ],
+    "current_agent_contract": [
+      "PR #8 names tools/materialize_agent_wiring_with_tombstones.py --check as the current pair-materialization preflight",
+      "materialize_agent_wiring_with_tombstones.materialize first runs the base pair materializer and then apply_subagent_tombstone_wiring",
+      "it requires exactly one subagent-uncertain-tasks.json marker in the resulting server source",
+      "the wrapper also hardens interrupted pair materialization journal/recovery/finalization semantics"
+    ],
+    "risk": "A V46 PASS can prove composition against an older Agent surface while omitting the current durable uncertain-child tombstone server wiring. It must not be promoted to composed product PASS or used as the basis of the final Windows gate.",
+    "resolution": "V47 uses tools.materialize_agent_wiring_with_tombstones.materialize as the Agent pair transform, then applies V41 to the resulting account_pool and V45 to reservation_aware_lease, and verifies the tombstone marker before compile/blob reporting."
+  },
+  "candidate": "autonomy/evidence/notion/20260822T1648Z_v47_agent_core_tombstone_composition_materializer.py",
+  "verdict": "V46_STALE_AGENT_COMPOSITION_GAP_PROVEN_V47_REQUIRED",
+  "windows_gate": "NOT_READY"
+}

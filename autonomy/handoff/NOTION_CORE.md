@@ -16,12 +16,21 @@ Core-relevant exact blobs from the previously revalidated V48 boundary remain un
 Сначала бесплатные exact-source Linux/Python проверки. Production, секреты и живой Notion/Codex не трогать до локальных safety gates.
 CircleCI — только один редкий финальный native-Windows proof по `autonomy/ci/CIRCLECI_GATE_POLICY.md`, через disposable `ci/notion-core-windows-final-gate`, когда Stage A + актуальный composed Stage B уже локально зелёные и Windows semantics остаются последним реальным неизвестным.
 
-Исторический digest workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3` не перезапускать.
+Исторический digest workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3` не перезапускать. На выходе этого прохода все пять старых checks всё ещё `pending`.
 
 ## Постоянная память v4
 
-Текущий канонический `LATEST` перед этим проходом: `20260822T174313Z-983e2ae2ca`, archive SHA-256 `d52325feb2e8b2c44c55ea152910565e58f34b20dfe6b4ffc48de495ede8e150`, pointer blob `ea3964022f2ceb4f09c15d8d8c74dc8baf291949`.
-Не реконструировать неизвестные bytes и не force-write pointer. При новом checkpoint соблюдать exact restore -> pack -> immutable upload/readback -> fresh LATEST read -> PREVIOUS -> CAS.
+Канонический `LATEST` на старте: `20260822T174313Z-983e2ae2ca`, archive SHA-256 `d52325feb2e8b2c44c55ea152910565e58f34b20dfe6b4ffc48de495ede8e150`, pointer blob `ea3964022f2ceb4f09c15d8d8c74dc8baf291949`.
+
+Этот checkpoint был реально восстановлен точным `capsule_runtime_v4.py` после локальной проверки его Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`. После V49 упакована новая immutable capsule:
+- `20260822T194513Z-61fd941485`;
+- archive SHA-256 `eb9e5f87f4618d63058e67fd2c3a467eff8ffb7e448e85567ddb32914b1ada3b`;
+- parts: 1;
+- part Git blob readback `d17aa2f970d5e24e7822f2b74806b06295cdff9d`;
+- manifest Git blob readback `d438dfeec560fecc2f4dd9f411eeea62a156fdce`.
+
+Перед публикацией `LATEST` был fresh-read и всё ещё имел исходный blob `ea396402...`. Старый указатель сохранён в `PREVIOUS`, затем новый опубликован CAS-обновлением именно от этого blob. Финальный `LATEST.json` указывает на новую capsule и имеет blob `ae813ed8e6810557ab3457cd8b634fc5e36bfa58`.
+Не реконструировать неизвестные bytes и не force-write pointer.
 
 ## Stage A — закрыт
 

@@ -1,0 +1,23 @@
+*** Begin Patch
+*** Update File: src/account-store.js
+@@
+   for (const file of fs.readdirSync(config.ACCOUNTS_DIR).filter((name) => name.endsWith('.json'))) {
+     try {
+       const raw = JSON.parse(fs.readFileSync(path.join(config.ACCOUNTS_DIR, file), 'utf8'));
+       if (raw && raw.token) {
+-        const account = normalize(raw, path.basename(file, '.json'));
++        const fileId = safeId(path.basename(file, '.json'));
++        const embeddedId = raw.id == null ? fileId : safeId(raw.id);
++        if (embeddedId !== fileId) {
++          throw new Error(`Account id mismatch: filename=${fileId} embedded=${embeddedId}`);
++        }
++        // The durable filename is the canonical identity. Binding the loaded
++        // object back to it prevents a stale/malformed file from aliasing a
++        // sibling account and later resurrecting after remove()/restart.
++        const account = normalize({ ...raw, id: fileId }, fileId);
+         accounts.set(account.id, account);
+         if (!monotonicCooldownUntil.has(account.id) && account.unavailableUntil > Date.now()) {
+           extendMonotonicCooldown(account.id, account.unavailableUntil - Date.now());
+         }
+       }
+*** End Patch

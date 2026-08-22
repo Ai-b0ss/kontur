@@ -20,13 +20,15 @@ test('q8 hatch and reveal stay in one persistent scene with a stable header', as
   );
 });
 
-test('the hatch uses one intact egg plus a light texture, never split shell geometry', async () => {
+test('the hatch uses the intact q8 egg, crack light, and two coherent shell halves', async () => {
   const egg = await readFile(new URL('../src/components/QuizEgg.tsx', import.meta.url), 'utf8');
 
   assert.match(egg, /className="lk-quiz-egg__base"/);
   assert.match(egg, /className="lk-quiz-egg__cracks" src="\/quiz\/egg-crack-light\.webp"/);
-  assert.doesNotMatch(egg, /lk-quiz-egg__shell/);
-  assert.doesNotMatch(egg, /clip-path|<svg|<path|<line|stroke=/);
+  assert.match(egg, /className="lk-quiz-egg__shell lk-quiz-egg__shell--left" src="\/quiz\/egg-stage-08\.webp"/);
+  assert.match(egg, /className="lk-quiz-egg__shell lk-quiz-egg__shell--right" src="\/quiz\/egg-stage-08\.webp"/);
+  assert.equal((egg.match(/src="\/quiz\/egg-stage-08\.webp"/g) ?? []).length, 2);
+  assert.doesNotMatch(egg, /<svg|<path|<line|stroke=/);
   assert.match(egg, /data-hatch-phase=\{hatchPhase\}/);
 });
 
@@ -50,8 +52,9 @@ test('bird decode gates flash while the state machine remains independent from A
   assert.match(bird, /if \(imageReady\) readyCallback\.current\?\.\(\);/);
 });
 
-test('phase CSS never reveals bird before handoff and never creates an empty frame', async () => {
+test('phase CSS never reveals bird before handoff, keeps shell continuity, and never creates an empty frame', async () => {
   const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
+  const hotfix = await readFile(new URL('../src/kontur-telegram-hotfix.css', import.meta.url), 'utf8');
 
   assert.match(
     css,
@@ -81,10 +84,20 @@ test('phase CSS never reveals bird before handoff and never creates an empty fra
     /data-hatch-phase="flash"[^\{]*\.lk-quiz-hatch__flash,[\s\S]*?data-hatch-phase="reveal"[^\{]*\.lk-quiz-hatch__flash\s*\{[\s\S]*?opacity:\s*1;/,
     'the flash overlay cannot drop to its base opacity:0 between cover and fade',
   );
-  assert.doesNotMatch(
-    css,
-    /data-hatch-phase="flash"[^\{]*\.lk-quiz-egg__base[^\{]*\{[\s\S]*?opacity:\s*0/,
-    'the cracked egg must remain until the covering flash has finished',
+  assert.match(
+    hotfix,
+    /data-hatch-phase="flash"[^\{]*\.lk-quiz-egg__base[^\{]*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*hidden;/,
+    'the intact base may disappear at flash only after the opened shell has replaced it',
+  );
+  assert.match(
+    hotfix,
+    /data-hatch-phase="flash"[^\{]*\.lk-quiz-egg__hatch-shells\s*\{[\s\S]*?opacity:\s*1;/,
+    'opened shell halves must stay painted underneath the rising flash',
+  );
+  assert.match(
+    hotfix,
+    /data-hatch-phase="reveal"[^\{]*\.lk-quiz-egg__hatch-shells,[\s\S]*?data-hatch-phase="settled"[^\{]*\.lk-quiz-egg__hatch-shells\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*hidden;/,
+    'shell halves must leave before the settled bird result is exposed',
   );
   assert.match(
     css,
@@ -153,12 +166,14 @@ test('skip cancels the active phase timer and atomically settles the result', as
 
 test('reduced motion preserves non-zero ordered phases without shake', async () => {
   const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
+  const hotfix = await readFile(new URL('../src/kontur-telegram-hotfix.css', import.meta.url), 'utf8');
 
   assert.match(css, /lk-hatch-pulse-reduced/);
   assert.match(
     css,
     /\.lk-reduced-motion[^\{]*data-hatch-phase="cracks"[^\{]*\.lk-quiz-egg__base\s*\{\s*animation:\s*none !important;/,
   );
+  assert.match(hotfix, /\.lk-reduced-motion[^\{]*data-hatch-phase="cracks"[^\{]*\.lk-quiz-egg__shell--left,[\s\S]*?animation-duration:\s*var\(--lk-hatch-cracks, 80ms\) !important;/);
   assert.match(css, /data-hatch-phase="flash"[\s\S]*?animation-duration:\s*var\(--lk-hatch-flash/);
   assert.match(css, /data-hatch-phase="reveal"[\s\S]*?animation-duration:\s*var\(--lk-hatch-reveal/);
 });

@@ -6,7 +6,7 @@
 Repo: `Ai-b0ss/qwen-free-api`
 Branch: `autopilot/qwen-runtime-preflight-20260818`
 PR: #6
-Fresh product head после этого прохода: `dd8481e9a966f4c2a7b03294527b4b0aecf403fb`.
+Fresh product head после этого прохода: `bd9ba4f6bbc936e858e4a64d11f0038a38b75b38`.
 
 Перед любой новой записью снова перечитать PR #6, `autonomy/handoff/QWEN_RELIABILITY.md` и QWEN_CORE `LATEST.json`.
 
@@ -26,76 +26,65 @@ Fresh product head после этого прохода: `dd8481e9a966f4c2a7b032
 - ordinary Qwen capability mode валидируется строго и до мутаций сессии;
 - durable owner authority больше не приводит object/number/array через `String(...)`.
 
-## Что перепроверено после QWEN_RELIABILITY
-Стартовый Core head был `d4417a49...`. Reliability закрыл оба legacy-migration дефекта и продвинул продукт до `d2540be8...`.
+## Закрыт старый RED — internal prompt mode explicit downgrade
+Fresh PR source на `7d22a71e...` уже содержит исправление в обоих местах:
+- `agent.resolveAgentSystemPromptMode()` различает отсутствие поля и явно переданное некорректное значение;
+- `subagent-agent-runner.resolveSubagentPromptMode()` делает то же самое.
 
-`compare d4417a49... → d2540be8...` показывает изменения только в:
-- `src/account-store.js`;
-- `package.json`;
-- `scripts/account-legacy-stale-source-rollback-test.js`.
+Явные `''`, whitespace, `null`, `false`, object/array и неизвестное значение больше не должны молча становиться `engineer`; отсутствие поля по-прежнему означает default `engineer`.
 
-Core-байты `session-store.js`, `server.js`, `agent.js`, owner/session/restart wiring этими reliability-коммитами не менялись. Значит exact hosted session/restart cluster прошлого прохода сохраняет силу на текущей Core-линии.
+Hosted targeted semantic PASS без provider traffic:
+`QWEN_INTERNAL_PROMPT_MODE_TARGET_PASS explicit_fail_closed=16 omitted_default=2 owner_valid=2`.
 
-Ранее exact hosted PASS без provider traffic:
-- owner authority;
-- большой owner/system checkpoint;
-- session restart + stale-backup recovery;
-- tool-result durable progress;
-- pending multi-tool restart semantics.
+Постоянный regression `scripts/internal-system-prompt-mode-explicit-test.js` теперь подключён к обычному `npm test` коммитом `6d6bee3d010fa162cc2c3e1e5509d86da539e549`.
 
 Полный exact-tree `npm test` всё ещё НЕ выполнялся; PR целиком зелёным не объявлять.
 
-## Новый воспроизводимый Core-дефект — internal prompt mode explicit downgrade
-Fresh source на `d2540be8...` показал отдельную внутреннюю неоднозначность, не закрытую внешней строгой валидацией сервера.
+## Новый воспроизводимый Core-дефект — unbounded internal mode error
+Fresh `src/agent.js` и `src/subagent-agent-runner.js` всё ещё включают нормализованное неизвестное значение режима прямо в текст ошибки:
+- `Unsupported agent system prompt mode: ${mode}`;
+- `Unsupported subagent system prompt mode: ${mode}`.
 
-Текущие функции:
-- `agent.resolveAgentSystemPromptMode(settings)` использует `String(settings.systemPromptMode || 'engineer')`;
-- `subagent-agent-runner.resolveSubagentPromptMode(options)` использует `String(options.mode || 'engineer')`.
+Для входа длиной 200000 символов это даёт ошибку примерно такой же длины. Hosted reproduction:
+`QWEN_INTERNAL_PROMPT_MODE_ERROR_BLOAT_REPRODUCED direct_len=200038 subagent_len=200041`.
 
-Поэтому явно переданные `''`, пробельная строка, `null` или `false` могут молча стать `engineer`. Если рядом передан приватный `ownerSystemPrompt`, он просто игнорируется вместо fail-closed отказа.
+Добавлен намеренно RED regression, пока НЕ подключать к `npm test`:
+- `scripts/internal-system-prompt-mode-bounded-error-test.js`;
+- commit `bd9ba4f6bbc936e858e4a64d11f0038a38b75b38`.
 
-Hosted reproduction:
-`QWEN_INTERNAL_PROMPT_MODE_EMPTY_REPRODUCED direct_owner_downgraded=1 subagent_owner_downgraded=1`.
-
-Добавлен постоянный намеренно RED regression:
-- `scripts/internal-system-prompt-mode-explicit-test.js`;
-- commit `dd8481e9a966f4c2a7b03294527b4b0aecf403fb`;
-- compare к `d2540be8...`: только новый тест, product source пока не менялся;
-- тест пока НЕ включать в `npm test`, пока source fix не внесён и targeted PASS не получен.
-
-Требуемая семантика исправления:
-1. Полное отсутствие `systemPromptMode`/`mode` может по-прежнему означать default `engineer`.
-2. Если поле явно присутствует, оно обязано быть непустой строкой `engineer|owner`.
-3. `''`, whitespace, `null`, `false`, object/array и неизвестное значение — стабильная локальная ошибка до provider call.
-4. Для `owner` приватный prompt остаётся точной непустой строкой без переписывания.
-5. После исправления прогнать новый regression + `agent-system-prompt-mode-test.js` + `subagent-owner-prompt-validation-test.js`, затем подключить новый regression к `npm test`.
+Требуемый минимальный фикс:
+1. Сохранить прежние стабильные коды `QWEN_AGENT_SYSTEM_PROMPT_MODE_INVALID` и `QWEN_SUBAGENT_MODE_INVALID`.
+2. Не включать клиентское неизвестное значение целиком в message; сообщение должно быть коротким и постоянным.
+3. Targeted local PASS: новый bounded-error regression + `internal-system-prompt-mode-explicit-test.js` + `agent-system-prompt-mode-test.js` + `subagent-owner-prompt-validation-test.js`.
+4. Только после PASS подключить bounded-error regression в `npm test`.
 
 ## QWEN_RELIABILITY coordination / CircleCI
-Fresh reliability head до Core regression: `d2540be894fa8e1a3dc4527e188010c6dd9e62e5`.
-Reliability legacy migration RED закрыты, но их exact targeted cluster ещё должен подтвердить QWEN_RELIABILITY. Core эту account/cooldown-зону не перехватывает.
+Fresh reliability handoff на входе этого прохода: product head `0da402a5...`, отдельный RED `late success clears newer cooldown`; это зона QWEN_RELIABILITY, Core её не меняет.
 
-Финальный CircleCI gate сейчас НЕ запускать:
-- Core только что добавил новый намеренно RED regression на `dd8481e9...`;
+CircleCI final gate сейчас НЕ запускать:
+- новый Core RED на `bd9ba4f6...` ещё не исправлен;
+- reliability имеет свой незакрытый targeted gate;
 - policy требует targeted local PASS и стабильный exact product SHA;
 - QWEN_CORE и QWEN_RELIABILITY не должны оба триггерить один SHA.
 
 ## Постоянная память
 Путь: `autonomy/v3/workspaces/QWEN_CORE`.
 
-Вход этого прохода:
-- LATEST blob `6d83335e69ceb5e16ce3ccd8303e932f38996f86`;
-- capsule `20260822T135230Z-7a41167f77`;
-- archive SHA-256 `f150922523962811f7926a79d0504dd9316e4115fd862fb880bf797116336787`;
+На входе этого прохода:
+- LATEST blob `99bc841354ba629744dfd860974c85685a920905`;
+- capsule `20260822T145339Z-0b65fe8863`;
+- archive SHA-256 `b93b20218adf5c34105d3f3c00ccc9a704ac8f08459e643a22ff95d74fd488d9`;
 - exact `capsule_runtime_v4.py` Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`;
 - local `git hash-object` exact runtime совпал;
 - v4 verify + restore PASS.
 
 ## Следующий точный порядок
 1. Fresh-read PR #6 + QWEN_RELIABILITY + LATEST.
-2. Исправить только internal explicit-mode downgrade в `src/agent.js` и `src/subagent-agent-runner.js`, не трогая reliability account logic.
-3. Targeted local PASS: новый regression + существующие `agent-system-prompt-mode-test.js` + `subagent-owner-prompt-validation-test.js`.
-4. Подключить новый regression в `npm test` только после PASS.
-5. После стабилизации общего SHA и закрытия reliability targeted cluster — один CircleCI final gate через disposable `ci/qwen-final-gate`, с одним владельцем SHA.
-6. Уже доказанные live/provider прогоны без новой причины не повторять.
+2. Минимально убрать unbounded echo режима в `src/agent.js` и `src/subagent-agent-runner.js`, не трогая reliability account logic.
+3. Targeted local PASS bounded-error + explicit-mode + owner-mode tests.
+4. После PASS подключить bounded-error regression в `npm test`.
+5. Затем перечитать reliability targeted result и свежий общий SHA.
+6. Только на стабильном SHA — один CircleCI final gate через disposable `ci/qwen-final-gate`, с одним владельцем SHA.
+7. Уже доказанные live/provider прогоны без новой причины не повторять.
 
 GitHub Actions, CircleCI, live/provider traffic, реальные аккаунты, секреты, Cloudflare и production в этом проходе не использовались.

@@ -25,12 +25,12 @@
 }
 
 .lk-hatch-half--left {
-  clip-path: polygon(0 0,58% 0,55% 18%,59% 32%,52% 47%,56% 60%,50% 74%,53% 100%,0 100%);
+  clip-path: polygon(0 0,54% 0,51% 17%,55% 31%,48% 46%,52% 59%,46% 73%,49% 100%,0 100%);
   transform-origin: 46% 52%;
 }
 
 .lk-hatch-half--right {
-  clip-path: polygon(50% 0,100% 0,100% 100%,45% 100%,42% 74%,48% 60%,44% 47%,51% 32%,47% 18%);
+  clip-path: polygon(53% 0,100% 0,100% 100%,48% 100%,45% 73%,51% 59%,47% 46%,54% 31%,50% 17%);
   transform-origin: 54% 52%;
 }
 
@@ -76,11 +76,11 @@
   opacity: 1;
 }
 .lk-quiz-egg[data-hatch-phase="flash"] .lk-hatch-half--left {
-  transform: translate(-22px,-2px) rotate(-6deg);
+  transform: translate(-34px,-4px) rotate(-8deg);
   opacity: 1;
 }
 .lk-quiz-egg[data-hatch-phase="flash"] .lk-hatch-half--right {
-  transform: translate(22px,-2px) rotate(6deg);
+  transform: translate(34px,-4px) rotate(8deg);
   opacity: 1;
 }
 
@@ -158,17 +158,17 @@
 }
 
 @keyframes lk-telegram-shell-left-open {
-  0%, 16% { opacity: 0; transform: none; }
-  26% { opacity: 1; transform: none; }
-  48% { opacity: 1; transform: translate(-8px,0) rotate(-2deg); }
-  76% { opacity: 1; transform: translate(-16px,-1px) rotate(-4deg); }
-  100% { opacity: 1; transform: translate(-22px,-2px) rotate(-6deg); }
+  0%, 14% { opacity: 0; transform: none; }
+  24% { opacity: 1; transform: none; }
+  42% { opacity: 1; transform: translate(-10px,0) rotate(-2deg); }
+  68% { opacity: 1; transform: translate(-22px,-2px) rotate(-5deg); }
+  100% { opacity: 1; transform: translate(-34px,-4px) rotate(-8deg); }
 }
 
 @keyframes lk-telegram-shell-right-open {
-  0%, 16% { opacity: 0; transform: none; }
-  26% { opacity: 1; transform: none; }
-  48% { opacity: 1; transform: translate(8px,0) rotate(2deg); }
-  76% { opacity: 1; transform: translate(16px,-1px) rotate(4deg); }
-  100% { opacity: 1; transform: translate(22px,-2px) rotate(6deg); }
+  0%, 14% { opacity: 0; transform: none; }
+  24% { opacity: 1; transform: none; }
+  42% { opacity: 1; transform: translate(10px,0) rotate(2deg); }
+  68% { opacity: 1; transform: translate(22px,-2px) rotate(5deg); }
+  100% { opacity: 1; transform: translate(34px,-4px) rotate(8deg); }
 }

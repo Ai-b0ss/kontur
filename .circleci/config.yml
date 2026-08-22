@@ -1,0 +1,24 @@
+version: 2.1
+
+jobs:
+  circle-account-smoke:
+    docker:
+      - image: cimg/base:stable
+    resource_class: small
+    steps:
+      - checkout
+      - run:
+          name: Prove third CircleCI account can execute
+          command: |
+            set -euo pipefail
+            echo FREE_FABRIC_CIRCLE_ACCOUNT_3_SMOKE_OK
+            uname -a
+            git rev-parse HEAD
+
+workflows:
+  circle-account-smoke:
+    jobs:
+      - circle-account-smoke:
+          filters:
+            branches:
+              only: ci/circle-account-smoke-20260823

@@ -96,8 +96,13 @@ test('the intact egg stays singular until the shell actually begins opening', as
   );
   assert.match(
     css,
-    /@keyframes lk-hatch-bird-rise[\s\S]*?0%,\s*71%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*hidden;[\s\S]*?clip-path:\s*inset\(0\);[\s\S]*?72%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*visible;[\s\S]*?78%\s*\{[\s\S]*?opacity:\s*\.18;[\s\S]*?clip-path:\s*inset\(0\);[\s\S]*?88%\s*\{[\s\S]*?opacity:\s*\.6;[\s\S]*?96%\s*\{[\s\S]*?opacity:\s*\.9;/,
+    /@keyframes lk-hatch-bird-rise[\s\S]*?0%,\s*71%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*hidden;[\s\S]*?clip-path:\s*inset\(0\);[\s\S]*?72%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*visible;[\s\S]*?76%\s*\{[\s\S]*?opacity:\s*\.24;[\s\S]*?clip-path:\s*inset\(0\);[\s\S]*?86%\s*\{[\s\S]*?opacity:\s*\.6;[\s\S]*?96%\s*\{[\s\S]*?opacity:\s*\.9;/,
     'the complete bird silhouette must stay hidden until both shell halves have opened',
+  );
+  assert.match(
+    css,
+    /\.lk-quiz-egg__shell--right\s*\{[\s\S]*?filter:\s*brightness\(1\.55\) saturate\(1\.25\);/,
+    'the naturally dark right shell half must remain visually readable while opening',
   );
   assert.match(
     css,

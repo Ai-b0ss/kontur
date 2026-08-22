@@ -74,6 +74,7 @@
 }
 .lk-quiz-egg__shell--right {
   clip-path: polygon(54% 0,100% 0,100% 100%,49% 100%,46% 73%,52% 59%,48% 46%,55% 31%,51% 17%);
+  filter: brightness(1.55) saturate(1.25);
 }
 .lk-quiz-egg__hatch-light {
   z-index: 9;
@@ -179,13 +180,13 @@
     clip-path: inset(0);
     transform: translate(8%, 4%) scale(.78);
   }
-  78% {
-    opacity: .18;
+  76% {
+    opacity: .24;
     visibility: visible;
     clip-path: inset(0);
     transform: translate(6%, 1%) scale(.84);
   }
-  88% {
+  86% {
     opacity: .6;
     visibility: visible;
     clip-path: inset(0);

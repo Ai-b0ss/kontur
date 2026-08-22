@@ -1,0 +1,55 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "worker": "NOTION_CORE",
+  "timestamp_utc": "2026-08-22T02:45:00Z",
+  "title": "V22 pre-provider durable intent tombstone for hard-crash replay safety",
+  "source": {
+    "repo": "Ai-b0ss/notion-agent-bridge",
+    "pr7_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "pr8_head": "04a659a23b3d72b44b334c9e35f23c1220d73eb3",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213"
+  },
+  "exact_source_facts": [
+    "stream_openai_responses() owns run_request() only as a local task and cancels it in generator finally when unfinished.",
+    "handle_openai_responses() calls the Notion provider before any durable exact Responses payload is written; current ConversationSegmentStore only stores content-free segment progress and its write failures are swallowed into persistence_blocked.",
+    "Server shutdown drains the subagent lifecycle and then closes account_pool; there is no Core registry for provider->durable-publication transactions."
+  ],
+  "new_gap": "V20/V21 protect graceful client disconnect only if the in-flight commit task survives long enough. They do not protect a hard process crash, host kill, or abrupt shutdown after the remote Notion thread may already have advanced but before the final canonical Responses payload is durably published. After restart there is no durable evidence that the provider may already have processed the exact request, so a retry can call the provider again.",
+  "local_reproduction": {
+    "v21_hard_crash": {
+      "provider_calls_after_exact_retry": 2,
+      "remote_turns_after_exact_retry": 2,
+      "verdict": "V21_HARD_CRASH_DUPLICATE_PROVIDER_REPRODUCED"
+    },
+    "v22_inflight_tombstone": {
+      "provider_calls_after_exact_retry": 1,
+      "retry_action": "FAIL_CLOSED_BEFORE_PROVIDER",
+      "verdict": "V22_INFLIGHT_TOMBSTONE_BLOCKS_DUPLICATE_PASS"
+    },
+    "v22_success_path": {
+      "provider_calls": 1,
+      "retry_returns_exact_saved_payload": true,
+      "verdict": "V22_SUCCESS_REPLAY_PASS"
+    },
+    "v22_crash_after_intent_before_provider": {
+      "provider_calls": 0,
+      "retry_action": "CONSERVATIVE_FAIL_CLOSED",
+      "verdict": "V22_PRE_PROVIDER_CRASH_FAIL_CLOSED_PASS"
+    }
+  },
+  "required_invariant": [
+    "Before the first operation that may advance a remote Notion thread, strictly publish a content-free durable provider-intent tombstone containing the exact request fingerprint and enough segment identity to recognize the ambiguous request after restart.",
+    "If an exact durable replay payload already exists, return it and never create a new intent tombstone or provider call.",
+    "If an unresolved intent tombstone exists for the exact request, fail closed before provider access; do not silently retry the provider.",
+    "If an unresolved intent tombstone exists for the same Notion segment but a different request arrives, do not continue that remote segment until the ambiguous outcome is reconciled or an explicitly safe fresh-segment rule is proven.",
+    "After provider success, atomically replace/clear the intent tombstone in the same strict publication that writes the canonical Responses replay payload and progress.",
+    "If the provider operation fails after intent publication and remote progress cannot be proven absent, retain the tombstone. Availability is secondary to preventing duplicate remote planning/side effects.",
+    "Intent tombstones representing uncertain remote progress must not disappear merely because the six-hour exact-response replay TTL expires; they need explicit reconciliation or a separately proven lifecycle boundary."
+  ],
+  "interaction_with_v21": "V21 server-owned detached commit tasks remain useful for client disconnect and graceful shutdown. V22 is the crash-recovery floor that makes a hard kill fail closed even when no task can finish. The combined order is strict intent publication -> provider -> canonical response -> strict final publication replacing intent -> ephemeral cache/reservation -> client projection.",
+  "product_change": false,
+  "hosted_ci_started": false,
+  "provider_traffic_started": false,
+  "native_windows_claimed": false
+}

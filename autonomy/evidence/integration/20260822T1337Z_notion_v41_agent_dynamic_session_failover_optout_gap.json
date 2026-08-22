@@ -1,0 +1,52 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "NOTION_V41_AGENT_DYNAMIC_SESSION_FAILOVER_OPT_OUT_GAP",
+  "verdict": "REPRODUCED_CANDIDATE_PASS",
+  "fresh_heads": {
+    "qwen_pr6": "d4417a49b1d063a28819030c418f7644f7503a6b",
+    "notion_agent_pr8": "71749c86125fcc60b67fc477245150c7f5587813",
+    "notion_core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144"
+  },
+  "source_contracts": {
+    "agent_reservation_aware_lease_blob": "c77b4d5214911def1729243516aec73e43f8d425",
+    "core_v41_candidate_blob": "61001c95d38303c6be114f5543b2dc825225ead0"
+  },
+  "observed_gap": [
+    "Core V41 introduces AccountLease.run(..., allow_failover=False) so every deliberate provider step after strict provider-intent publication can fail closed on ambiguous transport without switching accounts.",
+    "Agent DynamicReservationLeaseSession's ReservationAwareLease protocol and run/run_selected forwarding surface do not expose or forward allow_failover.",
+    "Therefore a unified Core+Agent server that routes a protected post-intent step through DynamicReservationLeaseSession cannot express Core V41's no-failover requirement; the underlying AccountLease default remains allow_failover=True.",
+    "On ambiguous transport the current wrapper can therefore switch A->B even though Core's durable intent was published for the selected lease/account boundary."
+  ],
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_notion_v41_agent_dynamic_session_failover_probe.py",
+    "verdict": "NOTION_V41_AGENT_DYNAMIC_SESSION_FAILOVER_OPT_OUT_GAP_REPRODUCED_CANDIDATE_PASS",
+    "current": {
+      "provider_calls": ["A", "B"],
+      "switches": 1,
+      "error": "TransportError"
+    },
+    "candidate_protected": {
+      "provider_calls": ["A"],
+      "switches": 0,
+      "error": "TransportError"
+    },
+    "candidate_default_agent": {
+      "provider_calls": ["A", "B"],
+      "switches": 1,
+      "error": "TransportError"
+    }
+  },
+  "required_integration_contract": [
+    "Extend the Agent lease protocol/session forwarding surface with caller-controlled allow_failover, defaulting to true to preserve existing Agent rotation semantics.",
+    "Core protected post-intent deliberate planner steps must call DynamicReservationLeaseSession with allow_failover=false and the flag must reach the exact underlying AccountLease.run invocation.",
+    "Reservation-driven reselection before provider entry remains allowed where the Core intent has not yet committed to a provider attempt; after strict intent, ambiguous transport must not cause sibling failover or outer recursive retry.",
+    "Regression must cover initial protected transport, planner-correction transport, default Agent failover compatibility and exact call-count/switch-count evidence."
+  ],
+  "limits": [
+    "No product file changed.",
+    "No CircleCI/GitHub Actions triggered.",
+    "No live Notion/Qwen/Codex/provider traffic.",
+    "No Windows, production, real account data or secrets used."
+  ]
+}

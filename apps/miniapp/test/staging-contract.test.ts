@@ -23,6 +23,10 @@ test('isolated staging proof is non-destructive and verifies the real local API 
   assert.match(liveSmoke, /const maxAttempts = 4/);
   assert.match(liveSmoke, /retryableStatus/);
   assert.match(liveSmoke, /STAGING_FETCH_RETRY/);
+  assert.match(liveSmoke, /const updateBase = tgId \* 100;/);
+  assert.match(liveSmoke, /const giverBase = tgId \* 10;/);
+  assert.match(liveSmoke, /const messageId = updateBase \+ offset;/);
+  assert.match(liveSmoke, /giverBase \+ index \+ 1/);
   assert.match(liveSmoke, /\/api\/v1\/auth\/telegram/);
   assert.match(liveSmoke, /\/api\/v4\/local\/hatch/);
   assert.match(liveSmoke, /\/api\/v4\/local\/egg\/open/);

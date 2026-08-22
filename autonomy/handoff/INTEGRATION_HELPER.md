@@ -1,6 +1,6 @@
 # Qwen + Notion — интеграционный помощник
 
-Обновлено: 2026-08-22 00:33 UTC.
+Обновлено: 2026-08-22 00:47 UTC.
 
 Worker id: `INTEGRATION_HELPER`.
 
@@ -19,7 +19,7 @@ Worker id: `INTEGRATION_HELPER`.
 - Notion Agent — ordinary Responses materialization/dynamic reservation + новая durable delegated cancellation/tombstone линия;
 - Notion Core — durable Responses replay/compaction ordering + native Windows rollback gate.
 
-## Новый блок — Notion durable tombstone store теряет marker при нескольких владельцах файла
+## Новый блок 1 — Notion durable tombstone store теряет marker при нескольких владельцах файла
 
 После предыдущего Integration Helper checkpoint Notion PR #8 ушёл вперёд на 32 коммита и добавил новый `payload/subagent_tombstone_store.py`. Именно свежая дельта теперь обеспечивает durable `begin_call -> local mutating tool -> resolve/uncertain` защиту через process restart.
 
@@ -40,28 +40,34 @@ Fresh exact blobs:
 Verdict:
 `NOTION_TOMBSTONE_MULTIWRITER_RACE_REPRODUCED_AND_LOCK_CONTRACT_PASS`.
 
-Current result:
-- после A: `[(child-A, call-A)]`;
-- после stale writer B: `[(child-B, call-B)]`;
-- marker `child-A/call-A` потерян.
-
 Безопасный контракт проверен на Linux-модели: весь `read current -> validate -> mutate -> fsync/replace -> publish memory` выполняется под одним общим межпроцессным lock; второй writer перечитывает canonical bytes уже внутри lock. Тогда оба marker сохраняются. `fcntl` использован только как proof-of-contract; в продукт его напрямую переносить нельзя, потому что Windows-семантика должна быть доказана нативно.
-
-Почему это стыковой дефект: одна `ServerSubagentLifecycle` действительно владеет store внутри обычного процесса, но durable store специально введён ради restart/relaunch. При кратком перекрытии старого и нового bridge-процесса или при двух владельцах одного tombstone path atomic replace сам по себе не предотвращает stale lost-update. Это может снять no-replay защиту ровно после уже начатого локального `write_file/edit_file/run_shell`.
 
 Artifacts:
 - `autonomy/v3/tools/integration_notion_tombstone_store_concurrent_writer_probe.py`;
 - `autonomy/evidence/integration/20260822T0033Z_notion_subagent_tombstone_multiwriter_lost_update.json`;
 - `autonomy/v3/candidates/NOTION_TOMBSTONE_MULTIWRITER_GUARD_20260822.patch`.
 
-Минимальный regression владельцу Notion Agent:
-- создать две независимые store instances на одном path до первой записи;
-- A `begin_call(A,a)`;
-- B `begin_call(B,b)`;
-- fresh third instance обязан видеть ОБА markers;
-- аналогично `mark_uncertain(A)` не должен быть стёрт stale `resolve/begin` другого writer;
-- финальная реализация должна иметь одну cross-process mutation transaction; in-process `asyncio.Lock` недостаточен;
-- Windows locking/replace behavior не заявлять до native gate.
+## Новый блок 2 — исчезнувший tombstone-файл после restart молча считается первым запуском
+
+У того же свежего store есть отдельная fail-open граница на стыке Agent ↔ Core lifecycle. `_load_or_initialize()` при любом `FileNotFoundError` создаёт новый пустой generation. Это правильно только на самом первом установочном запуске, но runtime не умеет отличить его от потери уже существовавшего durable no-replay файла.
+
+Детерминированное offline воспроизведение:
+1. runtime создаёт initial empty `subagent-uncertain-tasks.json`;
+2. `begin_call(child-A, call-A)` надёжно фиксируется;
+3. файл исчезает между поколениями процесса — например из-за ошибочного rollback/cleanup/deletion;
+4. новый runtime видит `FileNotFoundError`, снова создаёт пустой store;
+5. `state_uncertain=false`, `child-A` больше не блокируется.
+
+Verdict:
+`NOTION_TOMBSTONE_MISSING_RESTART_FAIL_OPEN_REPRODUCED_AND_STRICT_INSTALL_CONTRACT_PASS`.
+
+Правильная граница должна быть совместной с Core/install lifecycle: initial empty generation надо создавать в доказанном durable install/upgrade transaction до включения subagents. После того как installation established, отсутствие этого файла на runtime restart должно означать `uncertain/fail-closed`, а не «первый запуск». Upgrade/rollback тоже не должен законно стирать established no-replay generation.
+
+Artifacts:
+- `autonomy/v3/tools/integration_notion_tombstone_missing_restart_probe.py`;
+- `autonomy/evidence/integration/20260822T0045Z_notion_tombstone_missing_restart_fail_open.json`.
+
+Native Windows для lock/replace/install semantics НЕ заявлен: оба исправления надо совместить с одним будущим разрешённым Windows Core gate, а не плодить отдельный CI fanout.
 
 Основные product-файлы PR #8 не менялись, чтобы не конфликтовать с активным Notion Agent worker.
 
@@ -71,22 +77,28 @@ Artifacts:
 
 ## Постоянная память
 
-Стартовый `INTEGRATION_HELPER/LATEST` прочитан первым:
+Стартовый `INTEGRATION_HELPER/LATEST`:
 - pointer Git blob `8f68e70cfe2143f936409fd4e9165e8dde6a6cb4`;
 - capsule `20260821T225146Z-2f24453e26`;
-- archive SHA-256 `4faaa6d7e2a0a37d3b3bcf9f91fc2524132ce23fb58a693e081ff67b2d7139ed`;
-- manifest `a1a12555b44c20e82554cf551db0c0d12a5cb948`;
-- 3 parts `8192/8192/2980` chars.
+- archive SHA-256 `4faaa6d7e2a0a37d3b3bcf9f91fc2524132ce23fb58a693e081ff67b2d7139ed`.
 
-Manifest и part metadata перечитаны. В этой среде connector возвращает exact blob content, но не монтирует его как локальный файл; поэтому нормативный `capsule_runtime_v4.py restore` старой капсулы в файловой системе не был объявлен выполненным. По протоколу рабочей нижней точкой стали exact свежие GitHub source blobs. Новый `LATEST` не переключать без полного `restore -> checkpoint -> pack -> immutable upload/readback -> CAS`.
+После блока 1 опубликована новая проверенная v4-капсула:
+- capsule `20260822T003922Z-99be32295b`;
+- archive SHA-256 `f6aef8b34bdba7addf2adf66c9f1c6f28e975be0e1d5e3bda79e5717a6ea649d`;
+- manifest blob `fe5937c0acbdfecf1eb7bd44980488c83cc05003`;
+- part blobs `b1f72a41dca8f6801889268790b857aba263490a`, `5dc5b17b42a803787d2d310b961ece7453c926eb`, `c6252bf839fda8fdc30832a0df7a631ba404dff0`;
+- old LATEST preserved as PREVIOUS;
+- CAS succeeded from exact parent blob `8f68e70c...`;
+- new `LATEST.json` blob `0e8682704ee36d16003302bcdbd407a5401fc377`.
 
-Новые probe/evidence/candidate уже долговечно сохранены отдельными immutable путями, поэтому finding не зависит от локального `/mnt/data`.
+Все три uploaded parts и manifest были перечитаны; Git blob SHA совпали с локально рассчитанными байтами. Блок 2 дополнительно долговечно сохранён отдельным probe/evidence после этой capsule publication; следующий запуск должен включить его в следующую v4-капсулу, а не менять уже immutable `20260822T003922Z-99be32295b`.
 
 ## Следующее
 
-1. Notion Agent owner должен закрыть multiwriter lost-update до включения реального child-launch/restart path: общий cross-process transaction или эквивалентный доказанный CAS/lock.
-2. Сначала Linux regression на две независимые store instances/processes, затем один native Windows locking gate вместе с уже планируемым Windows Core проходом; не строить отдельный CI fanout.
-3. После product fix проверить `begin A + begin B`, `uncertain A + stale begin B`, `resolve A + concurrent begin B`, crash while lock held/recovery semantics.
-4. Integration Helper после этого ищет следующий новый стык; этот finding повторно не исследовать без изменения продукта.
+1. Notion Agent owner закрывает оба tombstone gaps согласованно: cross-process transaction для mutation + strict missing-file semantics после established install.
+2. Минимальные регрессии: две независимые store instances/processes; `begin A + begin B`; `uncertain A + stale begin B`; `resolve A + concurrent begin B`; established file -> begin mutating call -> file missing -> restart must block.
+3. Initial empty generation должен появляться из Core/install transaction, а не самовольно из runtime после того, как система считается установленной.
+4. Один будущий native Windows gate проверяет locking + replace + install/rollback вместе с уже планируемым Core Windows проходом.
+5. Integration Helper после этого ищет следующий новый стык; эти findings повторно не исследовать без изменения продукта.
 
 ZERO-MINUTE соблюдён: hosted CI/Cloudflare/live provider/Notion/Codex/production/реальные аккаунты/секреты не использовались.

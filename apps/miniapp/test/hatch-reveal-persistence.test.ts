@@ -73,7 +73,12 @@ test('the intact egg stays singular until the shell actually begins opening', as
   assert.match(
     css,
     /\.lk-quiz-egg\.is-hatching\s*>\s*\.lk-quiz-hatch\s*\{[\s\S]*?z-index:\s*7;/,
-    'the entire future-bird hatch layer must sit below the shell layer; a child z-index alone cannot beat the parent stacking context',
+    'the future-bird hatch layer must begin below the shell layer',
+  );
+  assert.match(
+    css,
+    /@keyframes lk-hatch-inline-stage[\s\S]*?18%,\s*71%\s*\{[\s\S]*?z-index:\s*7;[\s\S]*?72%,\s*100%\s*\{[\s\S]*?z-index:\s*10;/,
+    'only the complete bird layer may move above the shell after the opening is established',
   );
   assert.match(
     css,
@@ -86,7 +91,7 @@ test('the intact egg stays singular until the shell actually begins opening', as
   );
   assert.match(
     css,
-    /@keyframes lk-hatch-bird-rise[\s\S]*?0%,\s*78%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*hidden;[\s\S]*?clip-path:\s*inset\(0\);[\s\S]*?transform:\s*translate\(18%,\s*4%\) scale\(\.82\);[\s\S]*?79%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*visible;[\s\S]*?86%\s*\{[\s\S]*?opacity:\s*\.28;[\s\S]*?clip-path:\s*inset\(0\);[\s\S]*?transform:\s*translate\(12%,\s*0\) scale\(\.88\);[\s\S]*?94%\s*\{[\s\S]*?opacity:\s*\.78;/,
+    /@keyframes lk-hatch-bird-rise[\s\S]*?0%,\s*71%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*hidden;[\s\S]*?clip-path:\s*inset\(0\);[\s\S]*?72%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*visible;[\s\S]*?78%\s*\{[\s\S]*?opacity:\s*\.18;[\s\S]*?clip-path:\s*inset\(0\);[\s\S]*?88%\s*\{[\s\S]*?opacity:\s*\.6;[\s\S]*?96%\s*\{[\s\S]*?opacity:\s*\.9;/,
     'the complete bird silhouette must stay hidden until both shell halves have opened',
   );
   assert.match(

@@ -1,0 +1,60 @@
+{
+  "schema": "notion_core_v33_stage_b_store_foundation_evidence_v1",
+  "created_at_utc": "2026-08-22T08:30:00Z",
+  "worker": "NOTION_CORE",
+  "source_floor": {
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "stage_a_candidate": "V32_STAGE_A_EXACT_LOCAL_FLOOR_PASS"
+  },
+  "candidate": {
+    "name": "V33_STAGE_B_STORE_FOUNDATION",
+    "state_version": 3,
+    "legacy_read_versions": [2, 3],
+    "provider_intents": "separate top-level content-free ledger keyed by stable conversation storage key",
+    "max_unresolved_provider_intents": 128,
+    "replay_ttl_seconds": 21600,
+    "max_replay_bytes": 524288,
+    "max_total_replay_bytes": 8388608,
+    "completed_request_fingerprint_ring": 32,
+    "get_returns_detached_copy": true,
+    "strict_write_failure_is_observable": true,
+    "strict_write_failure_rolls_back_in_memory_state_and_leaves_store_blocked": true
+  },
+  "local_cases": {
+    "legacy_v2_read_then_first_strict_mutation_promotes_v3": "PASS",
+    "unresolved_provider_intent_survives_restart": "PASS",
+    "duplicate_provider_attempt_is_blocked": "PASS",
+    "finalize_atomically_clears_intent_and_publishes_exact_replay": "PASS",
+    "restart_returns_same_response_and_call_ids": "PASS",
+    "detached_get_prevents_live-object alias mutation": "PASS",
+    "begin_intent_write_failure_rolls_back_and_blocks_store": "PASS",
+    "final_write_failure_preserves_previous_durable_intent_and_exposes_no_replay": "PASS",
+    "oversize_replay_becomes_fail-closed_tombstone": "PASS",
+    "replay_ttl_removes_payload_but_retains_request_tombstone": "PASS",
+    "total_replay_budget_evicts_payload_not_request_identity": "PASS",
+    "unresolved_intent_survives_conversation_ttl_and_lru_pressure": "PASS",
+    "unresolved_intent_capacity_rejects_new_work_without_evicting_old_evidence": "PASS",
+    "missing_stable_conversation_identity_rejected_before_intent": "PASS",
+    "v3_state_loaded_by_v32_stage_a_floor_is_fail_closed": "PASS"
+  },
+  "verdict": "DURABLE_REPLAY_V33_STORE_FOUNDATION_PASS",
+  "not_yet_proven": [
+    "real server integration ordering provider-intent -> provider -> canonical payload -> strict finalize -> ephemeral cache/reservation -> client",
+    "request fingerprint includes turn_id/request_kind and full segment context on exact server path",
+    "stale retry >32 prefix gate on exact server path",
+    "stream/non-stream projections from one canonical durable payload",
+    "disconnect and hard-crash detached commit ownership",
+    "compaction exact durable replay/legacy behavior on exact server path",
+    "removed persisted account rehydration behavior",
+    "Codex shell environment protection combined with current probe",
+    "native Windows semantics"
+  ],
+  "safety": {
+    "product_branch_mutated": false,
+    "hosted_ci_started": false,
+    "live_notion_or_codex": false,
+    "secrets_touched": false
+  },
+  "next": "Integrate V33 store with the exact V32 server candidate locally. Build one canonical request fingerprint including stable turn/request/context identity, enforce begin_provider_intent before any provider entry, finalize exact Responses/compaction payload before ephemeral state/client projection, then run crash/retry/stream/compaction matrix."
+}

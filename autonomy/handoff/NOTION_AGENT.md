@@ -6,7 +6,7 @@
 Repo: `Ai-b0ss/notion-agent-bridge`
 Branch: `autonomy/notion-prompt-modes-20260819`
 Draft PR: #8
-Текущий Agent head: `04a659a23b3d72b44b334c9e35f23c1220d73eb3` (315 commits).
+Текущий Agent head: `f58f0123b370ad786d337337eb03a6a4ce9963b3` (322 commits).
 Core/NCM28 PR #7 `candidate/ncm28-windows-fixed-v1` без отдельной Core-необходимости не менять.
 На каждом запуске сначала восстановить собственный v4 LATEST/PREVIOUS по нормативному протоколу, затем перечитать fresh PR head/blobs. Не force-write при CAS конфликте.
 
@@ -21,91 +21,81 @@ Core/NCM28 PR #7 `candidate/ncm28-windows-fixed-v1` без отдельной Co
 - stateful Notion child session не повторяет objective/completed local tools при legitimate provider failover;
 - atomic tool-batch validation и bounded child model turns;
 - cancellation during started local tool становится uncertain, а safe pre-side-effect cancellation остаётся retryable;
-- pair commit journal/recovery, post-replace drift, exclusive journal publication и POSIX directory ordering.
+- pair commit journal/recovery, post-replace drift, exclusive journal publication и POSIX directory ordering;
+- durable two-phase no-replay store для mutating local tools поверх rebind/restart;
+- path-alias hardening durable tombstone store на POSIX/Linux.
 
-## Новый закрытый блок: no-replay через rebind/restart
-PR body ещё частично описывает tombstone как in-process-only — на текущей линии это устарело.
+## Новый закрытый блок: canonical child launch boundary
+Коммиты:
+- `ab5c547e0819fed041d7532526bc8948c5cd62a2` — `ServerSubagentLifecycle.launch()` теперь сначала строит и валидирует `DelegationRequest`, затем передаёт дальше уже канонический `SubagentLaunch`;
+- `f58f0123b370ad786d337337eb03a6a4ce9963b3` — регрессия lifecycle/rebind обновлена под канонический identity и добавлена проверка malformed runtime `task_id`.
 
-### Rebind boundary
-- `af8cce3a47630738aef751e6f7106b5108d394f3` — `ServerSubagentLifecycle` держит uncertain task ids поверх pool generations;
-- `f9e04412d1f92c6a592da547646a5188b7e99bb9` — uncertain child остаётся blocked после rebind; plain safe cancellation retryable.
-
-### Durable two-phase store
-Наивный `edb53e59...` считать superseded.
-Актуально:
-- `98644b79c1a8f1f1379cda66c0e4ed4c7d307b7a` — `payload/subagent_tombstone_store.py`, VERSION 2.
 Контракт:
-1. explicit durable empty canonical до delegated work;
-2. `begin_call(task_id, call_id)` durably пишет inflight ДО mutating local tool;
-3. `resolve_call` удаляет marker только после положительно подтверждённого success;
-4. crash/failed resolve оставляет previous canonical с inflight, поэтому restart fail-closed;
-5. corrupt/unreadable store блокирует subagents, не требует падения обычного bridge;
-6. на диске только task/call ids — без objective/args/prompt/account/thread/output.
-- `09cea03c18730451d797a66d31b515f3dd58f34a` — restart/failed-resolve/corrupt regressions.
+1. `task_id`, `parent_turn_id`, `objective`, target и budget валидируются ДО tombstone/pool/provider state;
+2. downstream entrypoint получает уже canonical identities (`strip()` aliases не живут дальше lifecycle boundary);
+3. tombstone/no-replay lookup работает по тому же canonical `task_id`;
+4. runtime `task_id=None` больше не падает сырым `AttributeError`, а закрывается через `DelegationPolicyError` до provider work;
+5. локальная семантическая проверка boundary: **PASS 3/3** — canonical downstream identity, malformed task id fail-closed, whitespace alias не обходит uncertain-task lookup.
 
-### Mutating local tool boundary
-- `d93c67129c4362cb7e40c550346db3f8511738fb` — `DelegationSideEffectUncertainError(RuntimeError)` для non-cancel unknown outcome;
-- `a733fa1b075cb0bb61dfce0b6f0c5580856a22c9` — delegated loop не превращает его в retryable result;
-- `810a30dc8e93318578a27d46063dfca757b8e93f` — SubagentLifecycle tombstone-ит cancellation и non-cancellation uncertainty;
-- `57b09b81c92bbe6c0a8375b9a1e70103046c362d` — один shared store принадлежит server lifecycle и переживает rebind;
-- `555a52a8a8f6511ae14e819b5465ddce737ec2f1` — `write_file`, `edit_file`, `run_shell`: durable begin before call; **любой outcome кроме confirmed `ok=true` остаётся uncertain**. Structured `isError=true` тоже НЕ replay-safe: write/shell мог частично изменить проект;
-- `1f83611e467ef7031f09c834bca0543f69a6f90e` — актуальный durable write-guard regression;
-- старый `tests/test_server_subagent_durable_tool_guard.py` удалён `f9615b7e...`, потому что ошибочно считал structured mutating error безопасным повтором;
-- `5c89e2ca01a37099514cbc7c73b8922967b9008d` — local uncertain RuntimeError не является provider failover error;
-- `0ca44dd6df901fa848cede6be32e61235a75dcfb` — новый lifecycle с тем же durable path после process restart блокирует старый inflight task; corrupt store блокирует до entrypoint.
+## Durable no-replay — актуальное состояние
+`payload/subagent_tombstone_store.py` VERSION 2:
+- durable empty canonical создаётся до delegated work;
+- `begin_call(task_id, call_id)` пишет inflight ДО mutating local tool;
+- `resolve_call` удаляет marker только после подтверждённого success;
+- crash/failed resolve оставляет inflight и restart fail-closed;
+- corrupt/unreadable store блокирует subagents, обычный bridge может продолжить;
+- на диске только task/call ids — без prompt/args/account/thread/output.
 
-### Path-alias hardening — 2026-08-22
-- `78c81987721ab5d4a7b32fb62e516ca7859fe61f` — durable tombstone store теперь fail-closed проверяет непосредственного родителя и существующий canonical state перед чтением/заменой: symlink/junction parent запрещён; существующий state обязан быть обычным файлом с `st_nlink == 1`;
-- `04a659a23b3d72b44b334c9e35f23c1220d73eb3` — регрессии на symlink final path, symlink parent и hardlinked canonical state;
-- локальная сфокусированная семантическая проверка: normal restart state + symlink-parent rejection + hardlink rejection = PASS;
-- это POSIX/Linux доказательство. Native Windows durability/path semantics этим НЕ доказаны и остаются target-OS/Core gate.
+Mutating local tools `write_file`, `edit_file`, `run_shell`: любой outcome кроме подтверждённого `ok=true` остаётся uncertain; локальная uncertainty не считается provider failover error.
 
-## Materialization — актуальный путь
-Frozen product preimages пока не считать заменёнными:
+Path hardening на POSIX/Linux:
+- symlink/junction final path запрещён;
+- symlink/junction parent/ancestor запрещён;
+- existing state должен быть обычным файлом с `st_nlink == 1`.
+Native Windows semantics этим не доказаны и остаются отдельным target-OS/Core gate.
+
+## Materialization — главный незакрытый продуктовый рубеж
+Frozen product preimages всё ещё НЕ заменены:
 - `payload/server.py` Git blob `f02cef6a0ffc202c75fbe71c520c72ac19ff876d`;
-- `payload/account_pool.py` перед применением перечитать fresh (исторический exact был `11cea792...`).
-Большие product файлы вручную не переписывать.
+- `payload/account_pool.py` Git blob `11cea792a2f5aaa40ee1515faddfd44e76cbb23f`.
 
-Helper обнаружил стык: основной `tools/materialize_agent_wiring.py` использует `apply_startup_status_cleanup.py`; одно изменение `apply_server_subagent_lifecycle_wiring.py` само по себе tombstone path в финальную пару не гарантировало.
+Обычный `/v1/responses` поэтому пока не считать финально переведённым на `DynamicReservationLeaseSession`.
 
-Поэтому актуальный композиционный путь:
-- `317eb19d9b38be67fa249a3c04b8f3d3dcc7618f` — standalone server lifecycle materializer тоже знает tombstone path;
-- `8782b20d6f3c53be4a5b3e67e9bb413152e1dfec` — `tools/apply_subagent_tombstone_wiring.py`, один deterministic anchor;
-- `ae6bb379bb319e4d850ef1b1e275e6902fb13371` — `tools/materialize_agent_wiring_with_tombstones.py`: вызывает существующий hardened pair materializer, затем добавляет tombstone path и для записи использует ТОТ ЖЕ `commit_pair`; crash protocol не форкнут;
-- `b6302670a119d0c0426f276a3b0d760b8a5a45c3` — exact-current-preimage materialization regression: один tombstone path + DynamicReservationLeaseSession/reselect contracts + compile обоих файлов.
+Актуальный путь:
+- `tools/apply_account_pool_dynamic_reservation.py` — `reselect_avoiding(...)`, transport-evidence fail-closed;
+- `tools/apply_startup_status_cleanup.py` — exact `server.py` transform: owner-mode isolation, startup cleanup, owner-aware reservations, `LeaseTransportContext`, dynamic lease session и fresh operation после фактической смены аккаунта;
+- `tools/apply_subagent_tombstone_wiring.py` — deterministic tombstone-path wiring;
+- `tools/materialize_agent_wiring.py` — парная транзакция, journal/backups/recovery/race guards;
+- `tools/materialize_agent_wiring_with_tombstones.py` — композиционный wrapper поверх того же pair transaction.
 
-Stable runtime path в generated server:
-`stable_conversation_state_path(ACCOUNT_HOME).with_name("subagent-uncertain-tasks.json")`.
+Большие product файлы вручную не переписывать. Следующий проход должен уже материализовать exact-пару, а не продолжать боковой аудит при отсутствии нового воспроизводимого дефекта.
 
 ## Постоянная память
-Текущий проверенный v4 `LATEST` после этого прохода:
-- capsule `20260822T020611Z-1e763e461f`;
-- archive SHA-256 `922d4ce7a5adb2a9c82c7f6d8d2955af70138a445345847ffc980da9bd73612d`;
-- все 10 immutable parts и manifest перечитаны после загрузки; Git blob SHA совпали с локально рассчитанными;
-- canonical `capsule_runtime_v4.py verify` и `restore` = PASS;
-- публикация `LATEST` прошла CAS с исходного blob `e6b40f16241607c96580df95935db900927d0f54`; старый LATEST сохранён как PREVIOUS.
+Текущий проверенный v4 `LATEST`:
+- capsule `20260822T054449Z-620952bc2f`;
+- archive SHA-256 `67f0ea8a9761fdc88cb105dbca8a7d12238deaf3910fb738dce40d7ce5c386bd`;
+- локальные `pack → verify → restore` = PASS;
+- все 5 immutable parts и manifest после загрузки перечитаны; их Git blob SHA совпали с локально рассчитанными;
+- публикация `LATEST` прошла CAS с исходного blob `aa8a3537bee846da7e40fc89da30379e795cdd0f`;
+- прежний LATEST `20260822T040635Z-e00776b282` сохранён в `PREVIOUS`.
+
+Важно: первая попытка capsule `20260822T054240Z-19a641cb04` была оставлена immutable и НЕ опубликована, потому что readback `part-0002.b64` не совпал с локальным Git blob. Не использовать её как pointer target.
 
 ## Что НЕ заявлено
 - Полный exact-tree Agent cluster на текущем head ещё не прогнан.
-- Native Windows durability нового store НЕ доказана Linux/POSIX fsync. Windows/NCM28 остаётся Core acceptance gate.
-- Ordinary `/v1/responses` не считать финально materialized до exact pair apply/readback.
-- Real server child-launch не включать до зелёного restart/no-replay cluster.
+- Native Windows durability нового store не доказана Linux/POSIX проверками.
+- Ordinary `/v1/responses` не считать materialized до exact pair apply/readback.
+- Живой Codex/Notion acceptance на текущем head не выполнялся.
 
 ## Следующий точный шаг
-1. Fresh-read PR #8 head и blobs.
-2. На exact tree локально прогнать минимум:
-   - `python -m unittest tests.test_subagent_tombstone_store`
-   - `python -m unittest tests.test_server_subagent_uncertain_rebind`
-   - `python -m unittest tests.test_server_subagent_tombstone_restart`
-   - `python -m unittest tests.test_server_subagent_durable_tool_guard_v2`
-   - `python -m unittest tests.test_delegated_uncertain_failover_boundary`
-   - existing delegated cancellation/tool-loop/lifecycle/reservation tests
-   - `python -m unittest tests.test_materialize_agent_wiring_with_tombstones`.
-3. Если cluster green: `python tools/materialize_agent_wiring_with_tombstones.py --check` на exact frozen pair; прочитать generated diff/blobs/compile.
-4. Только после check/readback применить wrapper без `--check`, затем снова readback exact product blobs/diff и повторить combined prompt/routing/failover/delegation tests.
-5. Отдельно доказать target-OS restart с реально настроенным `tombstone_path`; Linux proof не выдавать за Windows.
-6. Затем bounded authorized two-slot Codex Responses tool-loop и fresh-thread/full-history failover без повторных side effects.
-7. После Agent acceptance синхронизировать на свежий Core, не ломая NCM28/Windows line.
+1. Fresh-read PR #8 head и оба product blobs; при чужих новых изменениях не перетирать их.
+2. Получить exact tree локально без реконструкции неизвестных байтов.
+3. Прогнать локальный Agent cluster, включая prompt/routing/reservations/delegation/tool-loop/lifecycle/no-replay.
+4. `python tools/materialize_agent_wiring_with_tombstones.py --check` на exact blobs `11cea792... + f02cef6a...`.
+5. Если green — применить парную транзакцию, перечитать оба product blobs/diff/compile и повторить combined tests уже на materialized source.
+6. Отдельно доказать: `A transport fail → B late-reserved → 0 provider calls through B → C fresh recovery → old thread не переносится → transport evidence closes on C → completed local side effect не повторяется`.
+7. Только после крепкого локального PASS — один bounded authorized Codex/Notion project probe, затем two-slot и failover acceptance.
+8. После Agent acceptance синхронизировать на свежий Core без поломки NCM28/Windows line.
 
 ## Стоп-условие
-После зелёного exact materialization + restart no-replay cluster не продолжать бесконечный косметический аудит. Переходить к bounded real acceptance и Core synchronization.
+После зелёного exact materialization + restart/no-replay cluster не продолжать косметический аудит. Переходить к bounded real acceptance и Core synchronization.

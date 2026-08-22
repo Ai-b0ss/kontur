@@ -1,0 +1,124 @@
+diff --git a/payload/account_pool.py b/payload/account_pool.py
+--- a/payload/account_pool.py
++++ b/payload/account_pool.py
+@@
+ class AccountPoolCoolingDown(AccountPoolExhausted):
+@@
+         self.retry_after = retry_after
++
++
++class ProviderOutcomeUncertain(RuntimeError):
++    """A provider attempt may have progressed remotely; automatic retry is unsafe."""
+@@
+ @dataclass(frozen=True, slots=True)
+ class LeaseTransportContext:
+     request_kind: str
+     model: str
+     turn_identity: str | None = None
+     stream: bool = True
++    fail_closed_on_ambiguous_transport: bool = False
++
++
++def is_ambiguous_provider_transport(error: Exception) -> bool:
++    return (
++        isinstance(error, httpx.HTTPError)
++        or isinstance(error, NotionAgentError) and error.code == ErrorCode.TRANSPORT
++    )
+@@
+             except Exception as error:
+@@
+                 if not is_failover_error(error):
+@@
+                     raise
+                 duration_ms = round((time.monotonic() - started_at) * 1000)
++                if (
++                    self._transport_context is not None
++                    and self._transport_context.fail_closed_on_ambiguous_transport
++                    and is_ambiguous_provider_transport(error)
++                ):
++                    # Durable Responses writes a provider-intent tombstone before
++                    # entering Notion.  A transport error after that point does not
++                    # prove that the remote thread stayed unchanged.  Preserve the
++                    # slot failure/cooldown bookkeeping, but do not run the same
++                    # logical request on a sibling account and accidentally clear
++                    # the unresolved durable intent with a later success.
++                    if isinstance(error, NotionAgentError) and error.code == ErrorCode.TRANSPORT:
++                        if self._pending_transport_failure is not None:
++                            self._record_transport_outcome(
++                                final_success=False,
++                                retry_scheduled=False,
++                            )
++                        self._record_transport_failure(error, duration_ms=duration_ms)
++                    if self._slot is not None:
++                        await self._pool._record_failure(self._slot, error, duration_ms)
++                        log_event(
++                            log,
++                            "account_failover_suppressed",
++                            level=logging.WARNING,
++                            account_number=self._slot.number,
++                            account_id=self._slot.account_id,
++                            account_file=self._pool._account_file(self._slot),
++                            reason="provider_outcome_uncertain",
++                        )
++                    raise ProviderOutcomeUncertain(
++                        "Provider outcome is uncertain; automatic retry was suppressed"
++                    ) from error
+                 if isinstance(error, NotionAgentError) and error.code == ErrorCode.TRANSPORT:
+@@
+                     self._record_transport_failure(error, duration_ms=duration_ms)
+                 try:
+                     await self._switch_account(error, duration_ms=duration_ms)
+
+diff --git a/payload/server.py b/payload/server.py
+--- a/payload/server.py
++++ b/payload/server.py
+@@
+ from account_pool import (
+@@
+     AccountPoolCoolingDown,
+     AccountPoolExhausted,
++    ProviderOutcomeUncertain,
+@@
+             transport_context=LeaseTransportContext(
+                 request_kind=ncm21_request_kind(request_kind, model),
+                 model=model,
+                 turn_identity=turn_key or conversation_key,
+                 stream=bool(body.get("stream", False)),
++                # Apply only in the combined V22+ candidate, after the durable
++                # provider-intent tombstone was successfully published.
++                fail_closed_on_ambiguous_transport=True,
+             ),
+@@
+     except AccountPoolCoolingDown as exc:
+@@
+         return JSONResponse(
+@@
+         )
++    except ProviderOutcomeUncertain as exc:
++        # V22 durable intent remains unresolved.  Exact retry must be handled by
++        # the replay/intent gate before any new provider call.
++        log_event(
++            log,
++            "provider_outcome_uncertain",
++            level=logging.WARNING,
++            status_code=503,
++            **exception_fields(exc),
++        )
++        return JSONResponse(
++            {
++                "error": {
++                    "message": str(exc),
++                    "type": "provider_outcome_uncertain",
++                }
++            },
++            status_code=503,
++        )
+@@
+             transport_context=LeaseTransportContext(
+                 request_kind="compaction",
+                 model=model,
+                 turn_identity=turn_key or conversation_key,
+                 stream=False,
++                # Same rule for durable compaction replay once V16/V22 is applied.
++                fail_closed_on_ambiguous_transport=True,
+             ),

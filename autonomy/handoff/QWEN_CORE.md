@@ -6,7 +6,7 @@
 Repo: `Ai-b0ss/qwen-free-api`
 Branch: `autopilot/qwen-runtime-preflight-20260818`
 PR: #6
-Fresh product head: `a8144c851603e2a17397dac21f6fb316e7b07e0a`.
+Fresh product head после Core-прохода: `31155ebd920afde8ea0dce2e3ede7c1a9200f740`.
 Перед новой записью снова перечитать fresh PR head и `autonomy/handoff/QWEN_RELIABILITY.md`: reliability-worker работает параллельно.
 
 ## Уже закрыто — не открывать заново без нового воспроизведения
@@ -21,61 +21,67 @@ Fresh product head: `a8144c851603e2a17397dac21f6fb316e7b07e0a`.
 - explicit owner V2→V6 и строгая ранняя валидация system-prompt mode/owner aliases;
 - direct agent и coding-subagents принимают owner prompt только как непустую строку без преобразования;
 - мягкие ошибки локальных инструментов используют `Error:`-контракт;
-- обязательные аргументы инструментов теперь валидируются перед handler.
+- обязательные аргументы инструментов валидируются перед handler.
 
-## Required tool arguments — ЗАКРЫТО В PRODUCT
-Ранее воспроизведённый дефект с missing `path/content/new` уже исправлен на текущей линии.
+## Новый воспроизведённый Core-gap — обычный Qwen capability mode остаётся неоднозначным
+`src/qwen-v3-mode.js` всё ещё использует мягкую цепочку `body.qwen_mode || body.qwenMode || options...` и `normalizeMode()` возвращает `null` для неизвестного значения.
 
-Доказательство fresh source:
-- fix commit: `58274c71989b5eeba1041fcce1903c4595ac14fd` (`fix: enforce required tool arguments before handlers`);
-- current `src/tool-executor.js` blob: `73cc969019a4e4c8190515929a20a799c617d319`;
-- `validateRequiredToolArguments()` вызывается до `HANDLERS[name]`;
-- missing/null required -> `Error:` без side effect;
-- required string с неверным типом -> `Error:`;
-- пустой/пробельный required `path` запрещён;
-- явно переданные `content: ''` и `new: ''` остаются допустимыми;
-- regression `scripts/tool-required-arguments-regression-test.js` blob `a49d1c9829a1e9ac3444dccf7c3aad6f176ae9d8`;
-- current `package.json` blob `757a25b926d926b994b42b1b1eef3ba2c6ca622d` уже включает этот regression в обычный `npm test`.
+Из-за этого:
+- явно переданный неизвестный `qwen_mode` молча превращается в Auto/runtime/reasoning fallback;
+- пустой snake-case alias может быть замаскирован camel-case alias;
+- конфликт `qwen_mode=fast` + `qwenMode=thinking` молча выбирает первый;
+- аналогичная неоднозначность есть у options aliases и reasoning-effort aliases.
 
-Полный exact-tree `npm test` в этом проходе не выполнялся; весь PR зелёным не объявлять.
+Hosted-воспроизведение:
+`QWEN_CAPABILITY_MODE_AMBIGUITY_REPRODUCED invalid_explicit_masked=1 empty_alias_masked=1 conflicting_alias_silently_preferred=1`.
+
+Добавлен отдельный RED regression, пока намеренно НЕ включён в `npm test`:
+- `scripts/qwen-mode-alias-validation-test.js`;
+- commit `9668ec2e8b2c97a4db2a78cc863d5f73bfdd0df7`;
+- blob `1248702c217624f83c67a47fdaa1782e2fda8abc`.
+
+Был подготовлен строгий `qwen-v3-mode.js` и exact targeted test дал:
+`QWEN_MODE_ALIAS_VALIDATION_PASS empty_fail_closed=2 conflict_fail_closed=2 malformed_fail_closed=2 explicit_precedence=1 equivalent_aliases=1 bounded_error=1`.
+Но продуктовый кандидат был полностью откатан commit `31155ebd920afde8ea0dce2e3ede7c1a9200f740`, потому что дополнительный self-review показал важный порядок: сервер сейчас вызывает capability `resolveMode()` только внутри `preparePublicPayloadGoverned()`, уже после возможных `sessionStore.clear/toolMemo.clear`. Если просто сделать `resolveMode()` строгим, плохой запрос начнёт падать слишком поздно и наружу уйдёт generic 500.
+
+То есть финальный ремонт должен быть атомарным:
+1. строгая presence-aware alias validation в `qwen-v3-mode.js`;
+2. ранний preflight этого режима в `server.js` рядом с уже существующими `explicitPromptMode()` / `explicitOwnerSystemPrompt()` — до session mutation/recovery/provider;
+3. внешний HTTP 400 `invalid_request_error` со стабильным ограниченным кодом `QWEN_MODE_INVALID`;
+4. server regression: invalid/blank/conflicting aliases -> 400, session clears=0, memo clears=0, provider calls=0;
+5. только после targeted PASS включить оба теста в `npm test`.
+
+Не считать RED regression продуктовым ухудшением: он не подключён к обычному набору, а `src/qwen-v3-mode.js` после отката снова exact blob `8c4722120a0472e4e0343d679690c6b56c012dee`.
+
+## Targeted checks этого прохода
+- входная QWEN_CORE capsule `20260822T094914Z-2250bd0200` восстановлена из GitHub parts; archive SHA-256 `30691094bb941c839e1ab23780c0d4b7a14476494163acc3d9b0499d5431b088` совпал;
+- exact owner helper/test blobs `b1e99adb...` / `d8b115dc...` материализованы и прошли `OWNER_SYSTEM_PROMPT_VALIDATION_PASS ...`;
+- строгий Qwen-mode кандидат + RED regression локально прошли targeted check до отката кандидата.
+
+Полный exact-tree `npm test` не выполнялся; весь PR зелёным не объявлять.
 
 ## QWEN_RELIABILITY coordination
-Fresh reliability handoff подтверждает отдельную работу над pre-dispatch account availability/chat-create race. Узкую account/cooldown/failover механику не перехватывать.
-Текущий общий head `a8144c851603e2a17397dac21f6fb316e7b07e0a` уже включает и Core required-args fix, и reliability regression wiring.
+Fresh reliability handoff прочитан. Reliability сейчас владеет отдельным воспроизведённым `account-local cooldown vs wall-clock jump` gap и уже добавил свой RED regression на product head `454e25eb...`. Узкую account/cooldown/failover механику не перехватывать.
 
-## CircleCI coordination
-Старый final gate для более раннего SHA с пустой status surface не считать PASS/FAIL и не повторять.
-Новый final gate разрешён только по `autonomy/ci/CIRCLECI_GATE_POLICY.md`: targeted local PASS -> fresh coordination с QWEN_RELIABILITY -> disposable `ci/qwen-final-gate` на один exact product SHA. На product-ветке CircleCI как цикл разработки не запускать.
+Из-за двух открытых RED-gap (Core mode preflight + Reliability monotonic cooldown) final CircleCI gate сейчас преждевременен. QWEN_CORE его в этом проходе не триггерил.
 
 ## Следующий точный шаг
 1. Fresh-read PR #6 + QWEN_RELIABILITY.
-2. На ChatGPT hosted машине материализовать exact owner/session/subagent/restart cluster текущего head.
-3. Локально прогнать минимум:
-   - `tool-required-arguments-regression-test.js`;
-   - `tool-command-failure-test.js`;
-   - `agent-tool-error-recovery-test.js`;
-   - owner/system-prompt tests;
-   - ближайшие session/restart/pending-tool tests;
-   - subagent owner/restart tests.
-4. Если этот targeted cluster зелёный и текущий exact head стабилен, решить с QWEN_RELIABILITY, кто единственный триггерит final CircleCI gate для этого SHA.
-5. Следующий Core-дефект брать только после воспроизведения.
-6. Уже доказанные live/provider прогоны не повторять без новой причины.
+2. Закрыть Qwen capability mode атомарно: strict `qwen-v3-mode` + server preflight + HTTP 400 + no-mutation/provider regression.
+3. Hosted targeted PASS; затем включить regression в `npm test`.
+4. После этого вернуться к exact owner/session/subagent/restart cluster и прогнать минимум tool-required/tool-command/agent-tool-error + owner/system + session/restart/pending-tool + subagent owner/restart.
+5. Только когда Core и Reliability targeted-гейты зелёные и exact product SHA стабилен, согласовать единственного владельца disposable `ci/qwen-final-gate`.
+6. Live/provider прогоны не повторять без новой причины.
 
-## Постоянная память — этот проход
-Вход:
-- LATEST blob `d8088569437a936345f394f4a7bbca9b6787a075`;
-- capsule `20260822T085753Z-94034ff6fa`;
-- archive SHA-256 `4b783dfab48b676caa7713aedc3731a71fd432e52bcdbc64ef71f3b76cc78314`;
-- exact runtime blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`;
-- v4 verify + restore: PASS.
-
-Финиш:
+## Постоянная память
+Стартовый GitHub pointer этого прохода:
+- LATEST blob `68b89ae010c52078f8b1c73eb6729e36faf580ef`;
 - capsule `20260822T094914Z-2250bd0200`;
 - archive SHA-256 `30691094bb941c839e1ab23780c0d4b7a14476494163acc3d9b0499d5431b088`;
-- local pack + verify + restore: PASS;
-- immutable readback blobs: part0 `ba4eacf484d7e4779907ce862994c0a77d8bce68`, part1 `0a907edfc2670762ffd50da05978da48ede374f0`, manifest `da8d15ea8f2320d7872f2034e49a3bd71900ea4e`;
-- перед CAS LATEST всё ещё имел стартовый blob `d8088569437a936345f394f4a7bbca9b6787a075`;
-- прежний LATEST сохранён как PREVIOUS;
-- новый LATEST опубликован без force-write, blob `68b89ae010c52078f8b1c73eb6729e36faf580ef`.
+- manifest blob `da8d15ea8f2320d7872f2034e49a3bd71900ea4e`;
+- part blobs `ba4eacf484d7e4779907ce862994c0a77d8bce68` / `0a907edfc2670762ffd50da05978da48ede374f0`;
+- v4 archive/workspace restore: PASS.
 
-GitHub Actions, новый CircleCI, live/provider traffic, аккаунты, секреты, Cloudflare и production в этом проходе не использовались.
+Новый LATEST в этом проходе намеренно не публиковался: нормативный runtime был прочитан из GitHub, но локальная ручная материализация runtime не совпала с каноническим blob `6557f906...`. Не подменять обязательный exact v4 pack/verify/CAS псевдо-checkpoint. Полезное состояние сохранено product RED-test commit + этим handoff; следующему проходу сначала снова восстановить текущий LATEST и материализовать exact runtime побайтно.
+
+GitHub Actions, CircleCI, live/provider traffic, аккаунты, секреты, Cloudflare и production в этом проходе не использовались.

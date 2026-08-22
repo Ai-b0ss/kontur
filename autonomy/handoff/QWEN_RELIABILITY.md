@@ -6,62 +6,63 @@
 Repo: `Ai-b0ss/qwen-free-api`
 Branch: `autopilot/qwen-runtime-preflight-20260818`
 PR: #6
-Fresh product head на EXIT GATE: `d2540be894fa8e1a3dc4527e188010c6dd9e62e5`.
+Fresh product head на EXIT GATE: `0da402a54bab90a63948e7b4dd4fa12a0f910028`.
 Перед любой новой записью снова fresh-read PR head: параллельно работает QWEN_CORE.
 
-## Закрыто в этом проходе — legacy migration publish-before-persist
-Исходный RED regression `scripts/account-legacy-migration-persistence-test.js` на head `d4417a49...` доказал fail-open: `migrateLegacy()` публиковал legacy account в `accounts` до durable `persist()`. При синтетическом `EIO/fsync` новый canonical file не подтверждался, но account оставался доступным в памяти до restart.
+## Последний закрытый блок — legacy migration
+Закрыты два дефекта в `src/account-store.js`:
+1. legacy account больше не публикуется в память до подтверждённого `persist()` (`a9e7d34a19e7093daf9ce99d95801d082d288b93`);
+2. повторно появившийся старый `account.json` больше не может перезаписать более новый canonical `accounts/<id>.json` (`be931bca18b99e609dd79f502d6ca4aaffa9fd07`).
 
-Исправление применено byte-preserving заменой fresh `src/account-store.js` с проверкой diff:
-- commit `a9e7d34a19e7093daf9ce99d95801d082d288b93`;
-- diff к `d4417a49...`: только 1 addition / 1 deletion — `persist(account)` теперь идёт до `accounts.set(account.id, account)`.
+Штатные регрессии:
+- `scripts/account-legacy-migration-persistence-test.js`;
+- `scripts/account-legacy-stale-source-rollback-test.js`.
+Обе включены в обычный `npm test` на product head `d2540be894fa8e1a3dc4527e188010c6dd9e62e5`.
+Hosted model checks ранее дали `LEGACY_MIGRATION_PERSISTENCE_POSTFIX_MODEL_PASS` и `LEGACY_STALE_SOURCE_ROLLBACK_MODEL_PASS`.
 
-Post-fix hosted model PASS:
-`LEGACY_MIGRATION_PERSISTENCE_POSTFIX_MODEL_PASS`.
+## Новый воспроизводимый дефект — late success очищает более новый cooldown
+Fresh-read `src/account-store.js` на `d2540be8...`/`dd8481e9...` подтвердил: `markSuccess()` безусловно делает `failures=0`, `unavailableUntil=0`, `lastError=''` и очищает монотонный cooldown.
 
-Regression включён в обычный `npm test`:
-- package commit `aec4e95bef8ee509e86e8a4554f875870d505e34`.
+Это даёт реальную гонку двух уже летящих запросов одного аккаунта:
+1. старый request A ещё выполняется;
+2. более новый request B получает CAPTCHA/rate-limit и ставит аккаунту cooldown;
+3. старый request A позже успешно завершается;
+4. текущий `markSuccess()` стирает более новую защитную паузу и снова делает аккаунт доступным.
 
-## Новый найденный и закрытый defect — stale legacy source rollback
-После первого исправления обнаружен более опасный restart-сценарий. `migrateLegacy()` выполняется до загрузки canonical `accounts/*.json`. Если старый `account.json` снова появился после crash/недолговечного rename либо предыдущая попытка его переименовать не удалась, текущая миграция могла `persist()`-ом перезаписать уже более новый canonical account старыми legacy bytes — токеном, failures/cooldown и другим состоянием.
+Офлайн-модель текущего поведения воспроизведена:
+`ACCOUNT_SUCCESS_COOLDOWN_RACE_REPRO_PASS premature_clear=1`.
 
-Reproduction model:
-`LEGACY_SOURCE_ROLLBACK_REPRO_PASS stale_legacy_overwrites_newer_canonical=1`.
+В product PR добавлен намеренно RED regression, но пока НЕ включён в `npm test`:
+- `scripts/account-success-cooldown-race-test.js`;
+- commit `0da402a54bab90a63948e7b4dd4fa12a0f910028`.
 
-Исправление:
-- commit `be931bca18b99e609dd79f502d6ca4aaffa9fd07`;
-- если canonical `accounts/<id>.json` уже существует, legacy source больше никогда его не перезаписывает;
-- legacy source best-effort переносится в `.migrated`, но даже если rename/fsync не подтверждён и файл позже снова появится, canonical guard остаётся источником истины;
-- после новой успешной миграции rename legacy source получает parent-directory sync, при этом canonical уже durable и остаётся авторитетным даже при ошибке cleanup.
+Тест требует: поздний успех старого in-flight запроса не должен очищать уже активный cooldown, failure count и lastError, установленные более новым запросом.
 
-Post-fix model PASS:
-`LEGACY_STALE_SOURCE_ROLLBACK_MODEL_PASS`.
+Минимальный кандидат исправления сохранён в control repo:
+- `autonomy/v3/candidates/QWEN_RELIABILITY_SUCCESS_COOLDOWN_RACE_20260822.patch`;
+- control commit `17cd1caafdd8633ff36454cd49b429313ee5c450`.
 
-Добавлена штатная регрессия:
-- `scripts/account-legacy-stale-source-rollback-test.js` commit `ae008495cd160a6fda7ec9c4d747169a2d409518`;
-- включена в `npm test` commit `d2540be894fa8e1a3dc4527e188010c6dd9e62e5`.
+Смысл кандидата: `markSuccess()` сначала определяет, активен ли уже wall-clock или monotonic cooldown. Если активен — обновляет только `lastUsedAt`, но не снимает cooldown/ошибку. Если активной паузы нет — сохраняет прежнюю семантику обычного успеха. Hosted model candidate PASS:
+`ACCOUNT_SUCCESS_COOLDOWN_RACE_CANDIDATE_PASS preserved_newer_cooldown=1`.
+
+Продуктовый `account-store.js` в этом проходе не переписывался целиком: доступный Contents API требует полной замены общего файла, а это неоправданный риск при параллельном QWEN_CORE. Следующий worker должен сначала fresh-read PR #6 и, если account-store bytes не изменились, применить этот маленький patch byte-safe способом, затем запустить новый regression и account-store cluster.
 
 ## Проверки / граница доказательства
-- GitHub read-back подтвердил свежий `account-store.js` и точное положение исправлений.
-- Первый фикс отдельно проверен compare: только перестановка двух строк.
-- Оба новых инварианта прошли hosted Node model checks.
-- Exact checkout закрытого репозитория в текущем контейнере недоступен из-за DNS до `github.com`; полный `npm test` всего дерева в этом проходе НЕ приписывается.
-- CircleCI НЕ запускался: policy требует сначала targeted local/exact PASS, а текущий проход добавил два свежих account-store regression. Не расходовать gate до стабилизации exact product SHA и координации с QWEN_CORE.
+- Fresh PR перед reliability write был `dd8481e9a966f4c2a7b03294527b4b0aecf403fb`; compare с `d2540be8...` показал единственный чужой файл `scripts/internal-system-prompt-mode-explicit-test.js`, то есть account-store не менялся.
+- После добавления RED regression current PR head `0da402a54bab90a63948e7b4dd4fa12a0f910028`.
+- Полный exact-tree `npm test` в этом проходе НЕ запускался и PASS не приписывается.
+- CircleCI не запускался: пока существует новый RED regression, финальный gate тратить рано.
 
 ## QWEN_CORE coordination
-Перед записью был прочитан fresh `autonomy/handoff/QWEN_CORE.md`: Core работает по session/owner authority и не трогал account-store. Fresh PR head перед первым write совпадал с reliability handoff `d4417a49...`; после reliability commits current product head `d2540be8...`.
-
-Следующий worker обязан заново fresh-read PR #6 + QWEN_CORE перед любым новым write. Если Core сдвинул head, сначала compare relevant bytes (`src/account-store.js`, package tests) и не реконструировать большой общий файл из устаревших фрагментов.
+Fresh `autonomy/handoff/QWEN_CORE.md` прочитан. Core занимается session/owner/system authority и на входе этого прохода не трогал account-store. Перед любым следующим product write снова прочитать QWEN_CORE и compare relevant bytes.
 
 ## CircleCI final gate
 Политика `autonomy/ci/CIRCLECI_GATE_POLICY.md` обязательна.
-- использовать только disposable `ci/qwen-final-gate`;
+- только disposable `ci/qwen-final-gate`;
 - один exact product SHA — один gate owner;
 - обычную product-ветку не использовать как CI-loop;
-- новый gate запускать только когда targeted проверки свежих account-store изменений реально зелёные и остаётся именно exact-tree/full-suite пробел;
-- если результат Circle недоступен, фиксировать `RESULT_ACCESS_UNAVAILABLE`, PASS не придумывать.
-
-В этом проходе CircleCI/GitHub Actions не запускались.
+- новый gate только после targeted local/exact PASS и стабильного product SHA;
+- недоступный результат = `RESULT_ACCESS_UNAVAILABLE`, не PASS.
 
 ## Уже закрыто — не переоткрывать без нового контрпримера
 - account-local/provider-wide separation;
@@ -86,15 +87,16 @@ Post-fix model PASS:
 
 ## Что делать дальше
 1. Fresh-read PR #6 + QWEN_CORE.
-2. Если relevant bytes не изменились, выполнить exact targeted cluster на fresh head: `account-legacy-migration-persistence-test.js`, `account-legacy-stale-source-rollback-test.js`, `account-store-persistence-test.js`, `account-store-interrupted-replacement-recovery-test.js`, `account-store-mutation-atomicity-test.js`.
-3. При targeted PASS и стабильном product SHA решить вместе с QWEN_CORE, кто один владеет следующим `ci/qwen-final-gate`. Не повторять старый gate SHA.
-4. После доказательства взять следующий новый воспроизводимый defect только в pool/candidates/cooldown/provider-circuit/affinity/bounded-retry/replay safety. Закрытые V4–V10 и wall-clock контрмеры без нового контрпримера не микроаудировать.
-5. Live provider/секреты/production не трогать без новой доказанной необходимости.
+2. Если `src/account-store.js` не изменился, byte-safe применить `QWEN_RELIABILITY_SUCCESS_COOLDOWN_RACE_20260822.patch`.
+3. Запустить `account-success-cooldown-race-test.js` и cluster: `account-legacy-migration-persistence-test.js`, `account-legacy-stale-source-rollback-test.js`, `account-store-persistence-test.js`, `account-store-interrupted-replacement-recovery-test.js`, `account-store-mutation-atomicity-test.js`, `account-store-cooldown-test.js`, `account-cooldown-wall-clock-jump-test.js`.
+4. Только после targeted PASS включить новый regression в обычный `npm test`.
+5. При стабильном exact product SHA согласовать с QWEN_CORE единственного владельца следующего `ci/qwen-final-gate`.
+6. Затем искать следующий новый воспроизводимый дефект только в pool/candidates/cooldown/provider-circuit/affinity/bounded-retry/replay safety.
 
 ## Постоянная память
 Worker: `QWEN_RELIABILITY`.
-`autonomy/v3/CAPSULE_RUNTIME_PROTOCOL_V2.json` перечитан; обязательны exact `capsule_runtime_v4.py`, immutable capsule, upload readback и CAS по стартовому Git blob SHA `LATEST`.
+`autonomy/v3/CAPSULE_RUNTIME_PROTOCOL_V2.json` и exact `autonomy/v3/tools/capsule_runtime_v4.py` перечитаны. Обязательны immutable capsule, upload readback и CAS по стартовому Git blob SHA `LATEST`; force-write запрещён.
 
-В этом проходе новый `LATEST` не публиковался: в текущей tool-связке нет безопасного побайтового переноса connector-response частей в runtime workspace для нормативного `restore -> checkpoint -> pack -> verify -> upload readback -> CAS`. Force-write/ручная реконструкция запрещены и не использовались. Последний проверенный `LATEST` из предыдущего handoff остаётся recovery floor, а свежий product state закреплён exact Git commits и этим handoff.
+Новый `LATEST` в этом проходе не публиковался: текущая tool-связка не даёт безопасно передать exact capsule bytes из GitHub connector в runtime workspace для нормативного `restore -> checkpoint -> pack -> verify -> upload readback -> CAS`. Ручная реконструкция/force-write не использовались. Exact product state закреплён Git commits, candidate patch и этим handoff.
 
 Live Qwen, реальные аккаунты, секреты, Cloudflare и production не трогались.

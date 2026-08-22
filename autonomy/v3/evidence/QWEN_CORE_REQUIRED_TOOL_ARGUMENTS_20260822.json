@@ -1,0 +1,45 @@
+{
+  "schema": "qwen_core_targeted_evidence_v1",
+  "date": "2026-08-22",
+  "worker": "QWEN_CORE",
+  "claim": "required tool arguments are not enforced at the executor boundary on the reproduced product bytes",
+  "reproduced_source": {
+    "repo": "Ai-b0ss/qwen-free-api",
+    "branch": "autopilot/qwen-runtime-preflight-20260818",
+    "tool_executor_blob": "afb7eb1fbb79fcd6e29cce19261f126099f0c65c"
+  },
+  "unsafe_behaviors": [
+    "read_file without path resolves the workspace root and can return a directory listing",
+    "list_dir without path silently lists the workspace root",
+    "write_file without required content coerces undefined to an empty string and can truncate/create an empty file",
+    "append_file without required content reports a successful no-op append",
+    "edit_file without required new text coerces it to an empty string and can delete the matched text"
+  ],
+  "red_regression": {
+    "path": "scripts/tool-required-arguments-regression-test.js",
+    "commits": [
+      "19ad11e065f6e7bf99996d54a11d563ecadfc646",
+      "611216da95e28d3aa23fd60fb91a309cb8792701"
+    ],
+    "blob": "a49d1c9829a1e9ac3444dccf7c3aad6f176ae9d8",
+    "wired_into_npm_test": false,
+    "reason": "kept red until the product fix is applied; CircleCI must not be used as a development loop"
+  },
+  "candidate_patch": "autonomy/v3/candidates/QWEN_CORE_REQUIRED_TOOL_ARGUMENTS_20260822.patch",
+  "targeted_model_result": "QWEN_REQUIRED_TOOL_ARGUMENTS_TARGET_PASS missing=5 explicit_empty_content=1 explicit_empty_replacement=1 blank_path=1 type_guard=1",
+  "fix_contract": [
+    "validate TOOL_DEFS required fields before HANDLER invocation",
+    "missing/null required fields fail with an Error: result before any mutation",
+    "required string fields reject non-string values instead of coercing them",
+    "required path rejects empty/whitespace values instead of resolving the workspace root",
+    "explicit empty content/new remain legal because empty-file writes and deliberate deletion are valid operations"
+  ],
+  "external_execution": {
+    "provider_traffic": 0,
+    "github_actions": 0,
+    "circleci": 0,
+    "cloudflare": 0,
+    "production": 0
+  },
+  "status": "REPRODUCED_RED_TEST_AND_BYTE_SAFE_CANDIDATE_READY"
+}

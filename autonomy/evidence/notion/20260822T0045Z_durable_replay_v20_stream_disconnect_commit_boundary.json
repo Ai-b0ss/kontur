@@ -1,0 +1,32 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "worker": "NOTION_CORE",
+  "timestamp_utc": "2026-08-22T00:45:00Z",
+  "title": "V20 streaming client-disconnect durable commit boundary",
+  "source": {
+    "repo": "Ai-b0ss/notion-agent-bridge",
+    "pr8_head": "b6302670a119d0c0426f276a3b0d760b8a5a45c3",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d"
+  },
+  "reproduction": {
+    "exact_source_fact": "stream_openai_responses() creates run_request() as an asyncio task; in generator finally, if the task is not done it calls task.cancel() and gathers it. A client disconnect / generator cancellation can therefore cancel the core request while it is between remote provider progress and local durable publication.",
+    "local_model": {
+      "current_durable_after_disconnect": false,
+      "fixed_durable_after_disconnect": true
+    }
+  },
+  "risk": "V12/V14/V15/V16/V17/V18 style durable replay is insufficient if transport cancellation can abort the provider->canonical-payload->durable-publication transaction after the Notion thread has advanced. A retry can then re-enter provider planning without a durable exact replay record.",
+  "required_invariant": "After provider execution has crossed the point where remote conversation progress may exist, loss/cancellation of the HTTP/SSE consumer must not cancel the core transaction before either (a) exact durable publication succeeds, or (b) an explicit durable/fail-closed uncertain marker is established. Transport lifetime and commit lifetime must be separated.",
+  "candidate_direction": [
+    "Before provider start, ordinary request cancellation may abort with no side effect.",
+    "After provider start, run the provider->canonical payload->strict durable publication transaction in a task whose completion is not cancelled merely because the SSE consumer disappears.",
+    "Do not mutate TurnAffinity/reservation or emit client IDs before durable publication, preserving V12+ ordering.",
+    "If durable publication fails, keep persistence blocked/fail closed; do not synthesize a replay response.",
+    "Bound the detached commit task with the existing provider/request timeout; do not create an unbounded orphan task.",
+    "Add a regression that closes the async generator after provider progress but before commit and asserts durable replay exists with provider call_count=1 on retry/restart."
+  ],
+  "verdict": "DURABLE_REPLAY_V20_STREAM_DISCONNECT_GAP_REPRODUCED",
+  "hosted_ci_started": false,
+  "provider_traffic_started": false,
+  "product_branch_mutated": false
+}

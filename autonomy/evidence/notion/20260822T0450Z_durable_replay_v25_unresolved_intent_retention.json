@@ -1,0 +1,45 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "worker": "NOTION_CORE",
+  "timestamp_utc": "2026-08-22T04:50:00Z",
+  "title": "V25 unresolved provider-intent tombstones must outlive ordinary conversation cleanup",
+  "source": {
+    "repo": "Ai-b0ss/notion-agent-bridge",
+    "pr7_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "pr8_head": "590ae476b7dee4a9a07916cb3504c70568c12552",
+    "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d"
+  },
+  "exact_source_facts": [
+    "Current ConversationSegmentStore uses a 30-day CONVERSATION_TTL and MAX_CONVERSATIONS=500.",
+    "The V12 candidate cleanup first removes entries older than the general conversation TTL and then keeps only the newest maximum entries.",
+    "V22 requires an unresolved pre-provider intent tombstone to remain until explicit reconciliation or another separately proven lifecycle boundary; the six-hour replay-response TTL must not clear it.",
+    "The V22 model stores inflight_fp/inflight_started_at inside the same segment record, so applying V22 without changing the V12 general cleanup would subject unresolved intent to ordinary TTL/capacity eviction."
+  ],
+  "new_gap": "An unresolved provider-intent tombstone can be silently deleted by the general 30-day conversation TTL or by the 500-conversation newest-entry eviction. Once deleted, an exact late retry no longer has durable evidence that the prior request may already have advanced Notion and can reach provider planning again. This defeats the hard-crash safety floor that V22 exists to provide.",
+  "local_reproduction": {
+    "ordinary_ttl": "CURRENT_GENERAL_TTL_DROPS_UNRESOLVED_INTENT_REPRODUCED",
+    "ordinary_maximum": "CURRENT_MAX_CONVERSATIONS_DROPS_UNRESOLVED_INTENT_REPRODUCED",
+    "retention_candidate": "V25_UNRESOLVED_INTENT_SURVIVES_TTL_AND_ORDINARY_CAPACITY_PASS",
+    "bounded_exhaustion": "V25_UNRESOLVED_INTENT_CAPACITY_FAIL_CLOSED_PASS",
+    "ordinary_evicted_first": "V25_ORDINARY_EVICTION_PRECEDES_UNRESOLVED_INTENT_PASS"
+  },
+  "required_invariant": [
+    "General conversation TTL must never automatically delete an unresolved provider-intent tombstone.",
+    "General MAX_CONVERSATIONS eviction must remove ordinary/finalized entries before unresolved provider-intent entries.",
+    "Unresolved intent retention must itself be bounded. Reaching that bound must fail closed for new provider work rather than silently evict an older ambiguous outcome.",
+    "Loading a state that already exceeds the unresolved-intent bound must block provider work while preserving the on-disk evidence; it must not repair by dropping ambiguous entries.",
+    "Only explicit reconciliation or a separately proven safe lifecycle transition may remove an unresolved intent."
+  ],
+  "candidate_policy": {
+    "max_unresolved_provider_intents": 128,
+    "ordinary_capacity": "MAX_CONVERSATIONS - unresolved_count",
+    "unresolved_ttl": "none; explicit reconciliation only",
+    "overflow": "fail closed before new provider intent publication"
+  },
+  "interaction_with_v22_v23_v24": "V25 is part of the V22 crash-safety floor. V23/V24 correctly suppress ambiguous transport retry while the intent exists; V25 ensures ordinary retention policy cannot later erase that proof and reopen an unsafe retry path.",
+  "hosted_ci_started": false,
+  "provider_traffic_started": false,
+  "product_change": false,
+  "native_windows_claimed": false
+}

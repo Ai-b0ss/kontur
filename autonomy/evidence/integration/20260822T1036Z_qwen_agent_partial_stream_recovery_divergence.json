@@ -1,0 +1,47 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "QWEN_AGENT_PARTIAL_STREAM_RECOVERY_DIVERGENCE",
+  "verdict": "REPRODUCED",
+  "fresh_source": {
+    "repo": "Ai-b0ss/qwen-free-api",
+    "pr": 6,
+    "head": "454e25ebf7b12bc7db02e4d6f44548be55474edc",
+    "agent_js_blob": "14c635588d5e3aa6e67e0c16c26a1829380db222",
+    "agent_captcha_owner_test_blob": "947be762f1a3026df09596b2659e8057b4a8f5d2"
+  },
+  "source_observation": [
+    "consumeQwenStream emits text/reasoning immediately while the upstream stream is still open.",
+    "If the same attempt later ends with WAF_CAPTCHA_CHALLENGE or the recognized empty/dead-thread error, runTurn discards only the upstream route and transparently retries on another eligible account.",
+    "No rollback/reset event retracts text/reasoning already emitted by the failed attempt.",
+    "The local chat history records only the successful retry result because the failed consumeQwenStream promise never returns a result to runTurn."
+  ],
+  "reproduction": {
+    "failed_attempt_visible_text": "PARTIAL_FROM_A",
+    "retry_visible_text": "FINAL_FROM_B",
+    "caller_visible_combined_text": "PARTIAL_FROM_AFINAL_FROM_B",
+    "local_history_text": "FINAL_FROM_B",
+    "diverged": true
+  },
+  "risk": [
+    "The caller can observe a transcript that is not the transcript retained by the agent for the next model turn.",
+    "Transparent account failover can splice two different provider attempts into one visible assistant stream.",
+    "A downstream coding client that treats emitted text/reasoning as committed output cannot reconcile it from the saved local history after restart/failover."
+  ],
+  "candidate_contract": [
+    "Track whether the current upstream attempt emitted any externally visible text/reasoning before a recoverable stream error.",
+    "Transparent retry is allowed only while the failed attempt emitted nothing externally visible.",
+    "If output already escaped, fail closed instead of automatically appending a replacement-account stream, unless a future protocol adds an explicit reset/replace event that every caller understands.",
+    "Do not change account cooldown/failover policy for failures that happen before external output."
+  ],
+  "required_regression": "First account emits a text delta and then WAF_CAPTCHA_CHALLENGE; second account is available. Assert that the implementation does not emit text from both attempts as one successful turn. Existing zero-output CAPTCHA recovery must remain green.",
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_qwen_agent_partial_stream_recovery_probe.py",
+    "result": "QWEN_AGENT_PARTIAL_STREAM_RECOVERY_DIVERGENCE_REPRODUCED"
+  },
+  "limits": [
+    "No product file changed.",
+    "No provider/Qwen/Notion/Codex traffic.",
+    "No CircleCI/GitHub Actions/Cloudflare/Windows/production/secrets."
+  ]
+}

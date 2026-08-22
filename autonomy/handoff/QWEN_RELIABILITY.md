@@ -6,10 +6,49 @@
 Repo: `Ai-b0ss/qwen-free-api`
 Branch: `autopilot/qwen-runtime-preflight-20260818`
 PR: #6
-Fresh product head после этого прохода: `b49bec79def089680941ef4bd29cc2ded1198b69`.
+Fresh product head после этого прохода: `1fa05ec1e7b8c78be844e8131ee1f58167625f5f`.
 Перед новой записью перечитать fresh PR head и exact blobs: параллельно работает QWEN_CORE.
 
-## Новый закрытый дефект — crash между двумя rename больше не теряет аккаунт
+## Новый воспроизведённый дефект — cooldown может измениться между affinity-решением и provider dispatch
+Fresh `src/qwen-client.js` на head до теста `5b6fb7f4a7df608548bf4f098832c6b4d7ce2fff` делает в `sendChatRequest()` два отдельных `canReuseOriginalChatId(...)`.
+
+Опасная последовательность:
+1. первый `canReuseOriginalChatId(A, oldChatId, A)` видит A доступным и решает переиспользовать старый Qwen thread;
+2. параллельный уже летящий запрос получает CAPTCHA/rate-limit и переводит канонический A в cooldown;
+3. второй `canReuseOriginalChatId(...)` уже возвращает false, поэтому `markProviderAttempt()` **не вызывается**;
+4. несмотря на это код всё равно делает `axios.post(...)` на A с прежним `accountChatId`.
+
+Итог: свежий cooldown может быть обойдён непосредственно перед completion dispatch, а provider request одновременно не попадает в request-wide attempted-account budget.
+
+Hosted deterministic model выполнен без live Qwen:
+`AFFINITY_COOLDOWN_RACE_REPRO first=true second=false attempted=[] provider_calls=1`.
+
+Продуктовый регресс уже добавлен безопасным отдельным файлом:
+- `scripts/pre-dispatch-account-availability-test.js`
+- commit `1fa05ec1e7b8c78be844e8131ee1f58167625f5f`.
+
+Тест пока намеренно **не включён** в штатный `npm test`, потому что продуктовый фикс ещё не применён и тест должен быть красным на старой реализации.
+
+Точный минимальный patch сохранён в control repo:
+`autonomy/v3/candidates/QWEN_RELIABILITY_PRE_DISPATCH_COOLDOWN_RACE_20260822.patch`
+(commit `5948e09045bbaca99d51b6ced909af5395a6f4e8`).
+
+Правильная граница:
+- после локальной подготовки completion headers и непосредственно перед provider dispatch заново проверить `accountStore.isAvailable(account)` на каноническом состоянии;
+- если аккаунт уже охлаждён/заблокирован — `continue` к bounded sibling failover без provider call;
+- после успешной свежей проверки всегда вызвать `markProviderAttempt(attemptContext, account)` перед `axios.post`, независимо от того, был ли thread переиспользован или только что создан;
+- вызовы идут синхронно до начала `axios.post`, поэтому между свежей проверкой и фактическим стартом provider call другой JS callback не успевает изменить cooldown.
+
+Большой общий `qwen-client.js` целиком через Contents API в этом проходе не перезаписывался: hosted filesystem не имеет DNS до GitHub, а полная ручная реконструкция активно используемого файла ради нескольких строк создаёт риск затереть параллельную работу. Следующий byte-safe/git patch executor может применить готовый patch без новой разведки.
+
+## CircleCI final gate — старый exact gate не повторять
+Gate для product SHA `b49bec79def089680941ef4bd29cc2ded1198b69`, config commit `94f8ba55d75f076c58673bff3aabce7b8a756c54`, был запущен ранее.
+Fresh GitHub combined-status check этого exact gate commit в текущем проходе снова вернул `statuses=[]`.
+Это остаётся `RESULT_ACCESS_PENDING_OR_UNAVAILABLE`, не PASS и не FAIL. Повторно тот же SHA не триггерить.
+
+Product branch уже ушёл вперёд, поэтому новый CircleCI gate допустим только после нового targeted PASS на выбранном финальном product SHA и координации с QWEN_CORE; обычную product-ветку для CircleCI не использовать.
+
+## Предыдущий закрытый дефект — crash между двумя rename больше не теряет аккаунт
 В `src/account-store.js::persist()` порядок замены был:
 1. fsync нового temp;
 2. `old canonical -> .txn-backup-<suffix>`;
@@ -42,18 +81,6 @@ Post-fix hosted behavioral model:
 
 Граница доказательства: product diff перечитан и узкий; behavioral model реально выполнен на Node. Полный exact-tree `npm test` на product branch не заявлен.
 
-## CircleCI final gate — один exact SHA уже запущен
-После targeted PASS остался именно exact-tree/full-suite пробел, поэтому по `autonomy/ci/CIRCLECI_GATE_POLICY.md` использован разрешённый disposable gate.
-
-- exact product SHA: `b49bec79def089680941ef4bd29cc2ded1198b69`;
-- `ci/qwen-final-gate` force-передвинут только на этот product SHA;
-- затем поверх него единственным gate-only изменением восстановлен изолированный `.circleci/config.yml`;
-- gate config commit: `94f8ba55d75f076c58673bff3aabce7b8a756c54`;
-- config использует `node:22.23.1-bookworm`, `npm ci --ignore-scripts --no-audit --no-fund`, затем полный офлайн `npm test`;
-- live Qwen/provider/production внутри gate отсутствуют.
-
-Сразу после запуска GitHub combined status ещё пуст (`statuses=[]`). Это **не PASS и не FAIL**; текущий статус: `RESULT_ACCESS_PENDING_OR_UNAVAILABLE`. QWEN_CORE не должен повторно запускать gate для SHA `b49bec79...`. Следующий reliability/Core проход сначала читает status/evidence этого exact gate commit и только при реальном доступном результате делает вывод.
-
 ## Предыдущий закрытый дефект — preferred reuse не пробивает distinct-account budget
 Request-wide distinct-account budget уже защищён: reuse-credit выдаётся только если preferred id уже attempted и сам preferred всё ещё присутствует в fresh canonical eligible. Исправление `5ee53c157f5beeee9560830f0b0dfcc3a2ec30de`, регресс включён commit `23891cbc845996726ba5e0477c8542ff8361cf4d`.
 Targeted PASS: `QWEN_PREFERRED_REUSE_DISTINCT_BUDGET_PASS`.
@@ -79,11 +106,13 @@ Targeted PASS: `QWEN_PREFERRED_REUSE_DISTINCT_BUDGET_PASS`.
 Hosted behavior ранее подтверждён для обоих сценариев.
 
 ## Что делать дальше
-1. В начале следующего прохода проверить result exact gate commit `94f8ba55...`; не триггерить повторно тот же SHA.
-2. Fresh-read PR #6 и QWEN_CORE handoff; не пересекаться с его `server.js`/owner-system-prompt работой.
-3. Следующий поиск ограничивать reliability-зоной: account pool/candidates/cooldown, provider-wide circuit, preferred/current, account/thread affinity, request-wide bounded retry, crash recovery account-state и replay safety.
-4. Особо проверить соседние crash windows account-state, но не делать бесконечный микроаудит уже закрытой cleanup-after-commit логики. Нужен новый воспроизводимый контрпример.
-5. Live/provider/production/секреты без новой доказанной необходимости не трогать.
+1. Fresh-read PR #6, `qwen-client.js` и QWEN_CORE handoff.
+2. Если pre-dispatch race ещё не закрыт параллельной работой — применить `QWEN_RELIABILITY_PRE_DISPATCH_COOLDOWN_RACE_20260822.patch` byte-safe способом.
+3. Запустить `node scripts/pre-dispatch-account-availability-test.js`; после PASS добавить его в текущую цепочку `npm test`, fresh-reading `package.json` перед записью.
+4. Затем искать следующий новый воспроизводимый reliability-дефект только в account pool/candidates/cooldown, provider-wide circuit, preferred/current, account/thread affinity, request-wide bounded retry, crash recovery account-state и replay safety.
+5. Не переоткрывать V4–V10 и закрытые cleanup/replay-инварианты без нового контрпримера.
+6. Live/provider/production/секреты без новой доказанной необходимости не трогать.
+7. Circle gate `94f8ba55...` не повторять; новый exact gate только по policy после targeted PASS и координации с QWEN_CORE.
 
 ## Offline request-governor cluster
 - `node scripts/request-governor-inflight-no-autoclear-test.js`
@@ -99,8 +128,7 @@ Hosted behavior ранее подтверждён для обоих сценар
 
 ## Постоянная память / старт этого прохода
 Worker: `QWEN_RELIABILITY`.
-На старте прочитан `LATEST.json`: capsule `20260822T055538Z-4086c0ad8f`, archive SHA-256 `51331c58b77cf3c6d4282c572170bf75d3eb4376516d21d1de0532ae76869346`, pointer blob SHA `939afdf804a98c87185aa44ca9dfa42d9e8fce2b`.
-Manifest: schema `free_fabric_worker_capsule_v4`, 1 part, source ref `Ai-b0ss/qwen-free-api@23891cbc845996726ba5e0477c8542ff8361cf4d`; part reread separately, Git blob `493545c3fe82fc34faae431a223e180f833aa55d`.
-Runtime protocol `CAPSULE_RUNTIME_PROTOCOL_V2.json` и implementation `autonomy/v3/tools/capsule_runtime_v4.py` прочитаны. Force-write `LATEST` запрещён; публикация только после полноценного pack/verify/reread/CAS.
+Runtime protocol `CAPSULE_RUNTIME_PROTOCOL_V2.json` и implementation `autonomy/v3/tools/capsule_runtime_v4.py` прочитаны; force-write `LATEST` запрещён, публикация только после полноценного pack/verify/reread/CAS.
 
-Новая capsule в этом проходе пока не публиковалась: product/handoff уже сохранены в exact Git commits; не подменять нормативный v4 pack ручной реконструкцией только ради обновления указателя. Следующий запуск должен либо полноценно материализовать текущий workspace и провести v4 finish, либо оставить старый проверенный `LATEST` источником истины и продолжить от exact Git source.
+Последний ранее проверенный `LATEST` из входного handoff: capsule `20260822T055538Z-4086c0ad8f`, archive SHA-256 `51331c58b77cf3c6d4282c572170bf75d3eb4376516d21d1de0532ae76869346`, pointer blob SHA `939afdf804a98c87185aa44ca9dfa42d9e8fce2b`.
+В этом проходе новая capsule не публиковалась: текущий полезный результат сохранён точными Git-коммитами в product/control handoff. Не подменять нормативный v4 pack ручной реконструкцией только ради обновления указателя.

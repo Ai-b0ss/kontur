@@ -1,0 +1,49 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "NOTION_DYNAMIC_RESERVATION_HISTORICAL_AVOID_LIVENESS_GAP",
+  "verdict": "REPRODUCED_OFFLINE",
+  "source": {
+    "repository": "Ai-b0ss/notion-agent-bridge",
+    "branch": "autonomy/notion-prompt-modes-20260819",
+    "pr": 8,
+    "head": "57bafc097d610e8055ab28f2fadc36a85af8200a",
+    "reservation_aware_lease_blob": "c77b4d5214911def1729243516aec73e43f8d425",
+    "test_dynamic_reservation_lease_session_blob": "c84a0d932ed1935907100e4d9277766d04a43e52"
+  },
+  "current_semantics": {
+    "refresh": "self._avoided.update(current_reserved)",
+    "reselect": "self._avoided.update(account_ids)",
+    "consequence": "transient reservations become permanent exclusions for the lifetime of DynamicReservationLeaseSession"
+  },
+  "reproduction": {
+    "accounts": ["A", "B"],
+    "sequence": [
+      "session starts on A",
+      "A becomes reserved before provider work, so A is added permanently and session moves to B",
+      "A is later released",
+      "B becomes reserved",
+      "B is added permanently; historical avoid set is now A+B",
+      "selection fails although A is currently free"
+    ],
+    "historical_avoided": ["A", "B"],
+    "free_account_at_failure": "A",
+    "selected": null,
+    "failed_with_free_account": true
+  },
+  "coverage_gap": "Current test_dynamic_reservation_lease_session.py covers late reservation and recovery/reselection, but not release of a previously reserved account followed by reservation of the replacement slot.",
+  "safe_contract": [
+    "Do not conflate persistent exclusions with the current reservation snapshot.",
+    "A transiently reserved account may become eligible again after release.",
+    "If that account already participated in provider work, re-entry must preserve the existing fresh/full-history recovery rule and must never reuse stale cross-account thread affinity implicitly.",
+    "Keep a bounded anti-livelock budget, but do not exhaust the pool solely because every slot was transiently reserved at different times."
+  ],
+  "regression": "autonomy/v3/tools/integration_notion_dynamic_reservation_historical_avoid_probe.py",
+  "scope": {
+    "product_files_changed": false,
+    "circleci_triggered": false,
+    "live_notion_or_codex": false,
+    "secrets_or_real_accounts": false,
+    "production": false
+  }
+}

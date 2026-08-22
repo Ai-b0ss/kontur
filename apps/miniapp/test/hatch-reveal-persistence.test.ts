@@ -81,7 +81,7 @@ test('the intact egg stays singular until the shell actually begins opening', as
   );
   assert.match(
     css,
-    /@keyframes lk-hatch-bird-rise[\s\S]*?0%,\s*68%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*hidden;[\s\S]*?69%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*visible;[\s\S]*?77%\s*\{[\s\S]*?opacity:\s*\.28;/,
+    /@keyframes lk-hatch-bird-rise[\s\S]*?0%,\s*68%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*hidden;[\s\S]*?clip-path:\s*inset\(0 0 28% 0\);[\s\S]*?69%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*visible;[\s\S]*?77%\s*\{[\s\S]*?opacity:\s*\.24;[\s\S]*?clip-path:\s*inset\(0 0 14% 0\);/,
     'the bird must stay hidden until the shell has started to open',
   );
   assert.match(
@@ -159,4 +159,3 @@ test('skip and reduced-motion finish through the same hatch finalizer and cancel
     'reduced motion must collapse time but still reach reveal through the same finalizer',
   );
 });
-

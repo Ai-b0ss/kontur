@@ -223,7 +223,7 @@
   width: 108px;
 }
 .lk-first-time.lk-first-time--questions .lk-question--egg {
-  top: 252px;
+  top: 255px;
 }
 
 @media (max-width: 360px), (max-height: 650px) {
@@ -236,7 +236,7 @@
     width: 70px;
   }
   .lk-first-time.lk-first-time--questions .lk-question--egg {
-    top: 178px;
+    top: 182px;
   }
   .lk-first-time.lk-first-time--hatching .lk-quiz-egg-stage,
   .lk-first-time.lk-first-time--reveal .lk-quiz-egg-stage {

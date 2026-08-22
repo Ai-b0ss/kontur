@@ -134,7 +134,7 @@ test('flash cover is driven by animationend, with a timeout only as backup', asy
 test('q8 copy and the old reveal-signal are not mounted under the result bird', async () => {
   const screen = await readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8');
 
-  assert.match(screen, /stage === 'questions' && question &&/);
+  assert.match(screen, /stage !== 'hatching' && stage !== 'reveal' && question &&/);
   assert.doesNotMatch(screen, /className="lk-reveal-signal"/);
 });
 

@@ -560,7 +560,7 @@ export function LocalKontur() {
           </button>
         </section>
 
-        {stage === 'questions' && question && (
+        {stage !== 'hatching' && stage !== 'reveal' && question && (
           <section className="lk-question lk-question--egg" key={index} aria-hidden={stage !== 'questions'}>
             <span className="lk-question-number">{String(index + 1).padStart(2, '0')}</span>
             <p className="lk-kicker">выбирай первое, что ближе</p>

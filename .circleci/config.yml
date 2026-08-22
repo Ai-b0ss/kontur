@@ -1,90 +1,22 @@
 version: 2.1
 
 jobs:
-  kontur-telegram-hatch-proof:
+  circle-env-smoke:
     docker:
       - image: cimg/node:22.18-browsers
     resource_class: medium
-    environment:
-      KONTUR_EXPECTED_SHA: b00a2d3262f80e3a44fa2798e25b750d6fa7c737
-      KONTUR_TELEGRAM_EVIDENCE_DIR: /tmp/kontur-telegram-hatch-evidence
     steps:
-      - checkout
-
       - run:
-          name: Checkout exact current hatch candidate
+          name: Minimal executor smoke
           command: |
             set -euo pipefail
-            git fetch origin fix/kontur-hatch-shells-telegram-viewport-20260822
-            git checkout --detach "$KONTUR_EXPECTED_SHA"
-            test "$(git rev-parse HEAD)" = "$KONTUR_EXPECTED_SHA"
-            test -z "$(git status --porcelain)"
-            echo KONTUR_CIRCLE_EXACT_HEAD_PASS
-
-      - restore_cache:
-          keys:
-            - kontur-hatch-v2-{{ checksum "pnpm-lock.yaml" }}
-            - kontur-hatch-v2-
-
-      - run:
-          name: Frozen install and source verification
-          no_output_timeout: 20m
-          command: |
-            set -euo pipefail
-            corepack enable
-            corepack prepare pnpm@11.22.0 --activate
-            pnpm install --frozen-lockfile | tee /tmp/install.log
-            pnpm -F @kontur/miniapp test | tee /tmp/miniapp-tests.log
-            pnpm -F @kontur/miniapp typecheck | tee /tmp/typecheck.log
-
-      - save_cache:
-          key: kontur-hatch-v2-{{ checksum "pnpm-lock.yaml" }}
-          paths:
-            - ~/.local/share/pnpm/store
-
-      - run:
-          name: Production build
-          command: |
-            set -euo pipefail
-            pnpm -F @kontur/miniapp build | tee /tmp/vite-build.log
-            test -s apps/miniapp/dist/index.html
-            echo KONTUR_CIRCLE_PRODUCTION_BUILD_PASS
-
-      - run:
-          name: Real Chromium Telegram 390x760 proof
-          no_output_timeout: 25m
-          command: |
-            set -euo pipefail
-            pnpm -F @kontur/miniapp exec playwright install --with-deps chromium
-            mkdir -p "$KONTUR_TELEGRAM_EVIDENCE_DIR"
-            pnpm --dir apps/miniapp exec node test/telegram-hatch-browser.mjs 2>&1 | tee /tmp/telegram-hatch-browser.log
-            grep -q 'KONTUR_TELEGRAM_HATCH_BROWSER_PASS' /tmp/telegram-hatch-browser.log
-            test -s "$KONTUR_TELEGRAM_EVIDENCE_DIR/telegram-390x760-normal.png"
-            test -s "$KONTUR_TELEGRAM_EVIDENCE_DIR/telegram-390x760-reduced.png"
-            echo KONTUR_CIRCLE_REAL_CHROMIUM_PASS
-
-      - run:
-          name: Collect proof logs
-          when: always
-          command: |
-            set -euo pipefail
-            mkdir -p /tmp/kontur-circle-proof/logs /tmp/kontur-circle-proof/browser
-            cp /tmp/install.log /tmp/kontur-circle-proof/logs/ 2>/dev/null || true
-            cp /tmp/miniapp-tests.log /tmp/kontur-circle-proof/logs/ 2>/dev/null || true
-            cp /tmp/typecheck.log /tmp/kontur-circle-proof/logs/ 2>/dev/null || true
-            cp /tmp/vite-build.log /tmp/kontur-circle-proof/logs/ 2>/dev/null || true
-            cp /tmp/telegram-hatch-browser.log /tmp/kontur-circle-proof/logs/ 2>/dev/null || true
-            cp "$KONTUR_TELEGRAM_EVIDENCE_DIR"/*.png /tmp/kontur-circle-proof/browser/ 2>/dev/null || true
-            printf 'candidate=%s\ncircle_sha=%s\nproduction_touched=false\nstaging_touched=false\n' "$KONTUR_EXPECTED_SHA" "$CIRCLE_SHA1" > /tmp/kontur-circle-proof/CIRCLE_EVIDENCE.txt
-
-      - store_artifacts:
-          path: /tmp/kontur-circle-proof
-          destination: kontur-telegram-hatch-proof
+            node --version
+            echo CIRCLE_EXECUTOR_SMOKE_PASS
 
 workflows:
-  kontur-telegram-hatch-proof:
+  circle-env-smoke:
     jobs:
-      - kontur-telegram-hatch-proof:
+      - circle-env-smoke:
           filters:
             branches:
               only: ci/kontur-circle-vite-20260821

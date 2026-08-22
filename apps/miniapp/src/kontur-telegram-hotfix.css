@@ -101,6 +101,14 @@
   pointer-events: none;
 }
 
+/* Keep reduced-motion ordering without letting the restored shell split run
+   for the normal 500ms while the rest of the state machine is shortened. */
+.lk-reduced-motion .lk-quiz-egg[data-hatch-phase="cracks"] .lk-quiz-egg__shell--left,
+.lk-reduced-motion .lk-quiz-egg[data-hatch-phase="cracks"] .lk-quiz-egg__shell--right,
+.lk-reduced-motion .lk-quiz-egg[data-hatch-phase="cracks"] .lk-quiz-egg__hatch-light {
+  animation-duration: var(--lk-hatch-cracks, 80ms) !important;
+}
+
 /* Telegram's visible Mini App viewport is shorter than the physical iPhone
    screen because its own header occupies the top. On those heights the
    absolute reveal panel used to start underneath the egg ring. Move and trim

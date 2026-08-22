@@ -6,50 +6,50 @@
 Repo: `Ai-b0ss/qwen-free-api`
 Branch: `autopilot/qwen-runtime-preflight-20260818`
 PR: #6
-Fresh product head на EXIT GATE: `92277b8beb7a8a3f698571678bada7451baa9f81`.
-Перед новой записью обязательно fresh-read PR head, потому что параллельно работает QWEN_CORE.
+Fresh product head на EXIT GATE этого прохода: `d4417a49b1d063a28819030c418f7644f7503a6b`.
+Перед новой записью обязательно fresh-read PR head: параллельно работает QWEN_CORE.
 
-## Закрыто в этом проходе — forward wall-clock jump больше не снимает provider-wide circuit раньше времени
-До этого общий защитный контур провайдера (`provider-circuit.json`) проверял истечение только по persisted `until <= Date.now()`. Если часы VM/NTP прыгали вперёд во время уже работающего процесса, активный WAF/trust/provider-pressure circuit мог быть удалён раньше реального времени и соседние аккаунты снова становились доступными.
+## Новый воспроизведённый reliability-gap — legacy migration publish-before-persist
+Fresh `src/account-store.js` остался неизменным относительно reliability head; параллельные изменения между `92277b8...` и началом этого прохода затрагивали только `src/session-store.js`, его тесты и `package.json`.
 
-Воспроизведение до исправления:
-`PROVIDER_CIRCUIT_WALL_CLOCK_JUMP_REPRO_PASS premature_release=1`.
+В `migrateLegacy()` сейчас порядок такой:
+1. прочитать старый `account.json`;
+2. `accounts.set(account.id, account)` — опубликовать account в памяти;
+3. `persist(account)` — только после этого попытаться надёжно создать новый `config/accounts/<id>.json`.
 
-Product fix:
-- `469e8188271eb61237795e6bbf73f5f5bb406994` — добавлен регрессионный тест `scripts/provider-circuit-wall-clock-jump-test.js`;
-- `498c923ce923d5bf9365a206dc8d6d22cae9a677` — `src/provider-circuit.js` получил in-process monotonic deadline на `process.hrtime.bigint()`;
-- `afad16b274e6f54c466584391542e6e59ec77262` — новый тест включён в обычный `npm test`.
+Если `persist()` падает на `fsync/rename/EIO`, общий `catch` только пишет warning. В памяти account уже остаётся доступным, хотя durable migration не состоялась и после restart этот account отсутствует. Это тот же класс fail-open, который в обычном `save()` уже специально закрыт схемой «persist first, publish second».
 
-Новый контракт:
-- persisted `until` остаётся restart-floor и формат файла не меняется;
-- после успешного `trip()` монотонный deadline устанавливается/продлевается;
-- при первом обычном `current()` в новом процессе активный persisted circuit получает монотонную защиту на оставшееся wall-clock время;
-- circuit удаляется автоматически только когда одновременно истекли wall-clock и in-process monotonic сроки;
-- `retryAfterMs()` без явного тестового `now` учитывает оба срока;
-- явный глобальный `clear()` снимает и persisted, и monotonic состояние;
-- per-account clear по-прежнему не открывает provider-wide circuit.
+Hosted/local reproduction:
+`LEGACY_MIGRATION_FAIL_OPEN_REPRO_PASS in_memory_account_after_failed_persist=1`.
 
-Hosted/local модель нового инварианта прошла:
-`PROVIDER_CIRCUIT_MONOTONIC_MODEL_PASS wall_clock_jump_blocked=1`.
+В product-ветку добавлен RED regression, пока намеренно НЕ включён в `npm test`:
+- `scripts/account-legacy-migration-persistence-test.js`;
+- commit `d4417a49b1d063a28819030c418f7644f7503a6b`.
 
-Полный exact-tree `npm test` не заявлять: внешний final gate не запускался, а доступный hosted-контейнер не имеет прямого exact checkout закрытого product repo.
+Тест создаёт legacy `account.json`, синтетически роняет fsync нового account-файла и требует:
+- `accountStore.get('legacy-a') === null`;
+- canonical `accounts/legacy-a.json` не появился;
+- legacy source сохранён для следующей попытки миграции.
 
-## Fresh-source / параллельная работа
-Стартовый PR head был `cd4696f5730d928892d1080e6c7bf12a175819f1`.
-Перед product write PR сдвинулся до `090ced48c44480fbd72583e4dfac8640ceecec12`; compare показал единственное параллельное изменение в `src/qwen-v3-mode.js`, `provider-circuit.js` и `package.json` не менялись.
-После reliability commits QWEN_CORE добавил/исправил qwen-mode preflight. EXIT compare `763ac0b... -> 92277b8...` показывает только `package.json` и `scripts/server-qwen-mode-preflight-test.js`; текущий `package.json` по-прежнему содержит `provider-circuit-wall-clock-jump-test.js`. Reliability-изменения не затёрты.
+Точный минимальный кандидат исправления сохранён в каноне:
+`autonomy/v3/candidates/QWEN_RELIABILITY_LEGACY_MIGRATION_PERSISTENCE_20260822.patch`
+(commit control branch `81b124ac457a5ad51bdc90b8cb6fe32166d83047`).
+Он только переставляет `accounts.set()` после успешного `persist()`; hosted model нового инварианта прошёл:
+`LEGACY_MIGRATION_PERSISTENCE_CANDIDATE_PASS fail_closed=1`.
+
+Сам большой `src/account-store.js` в этом проходе через GitHub Contents API не заменял целиком: доступный write-path требует полной замены общего файла, а ради двух строк это создаёт ненужный риск затереть параллельную работу. Следующему byte-safe/git-patch исполнителю не нужно повторять разведку — применить готовый patch к fresh head, прогнать новый regression + `account-store-persistence-test.js` + `account-store-interrupted-replacement-recovery-test.js`, затем только после PASS включить regression в `npm test`.
 
 ## QWEN_CORE coordination
-Core продолжает tool/system-prompt/mode линию. Reliability не трогал её продуктовые файлы и не запускал final CircleCI gate. Один exact gate SHA должен запускать только один владелец после fresh coordination.
+Fresh QWEN_CORE handoff прочитан. Core работает по durable owner/session authority и меняет `session-store`; reliability не трогал эту область. После чтения handoff Core product head ушёл вперёд, но compare до свежего pre-write head подтверждал отсутствие изменений `account-store.js`/`qwen-client.js`/`provider-circuit.js`.
 
 ## CircleCI final gate
 Политика `autonomy/ci/CIRCLECI_GATE_POLICY.md` перечитана.
 - использовать только disposable `ci/qwen-final-gate`;
-- не запускать product-ветку как CI-loop;
-- старые SHA с недоступным результатом повторно не триггерить;
-- новый gate — только после targeted local/hosted PASS, когда остаётся exact-tree/full-suite gap и после fresh координации с QWEN_CORE.
+- один exact SHA — один владелец;
+- product branch не использовать как CI-loop;
+- пока есть новый RED regression, final gate не запускать.
 
-В этом проходе CircleCI не запускался: общий head продолжает двигаться QWEN_CORE, поэтому тратить редкий финальный gate сейчас преждевременно.
+В этом проходе CircleCI/GitHub Actions не запускались.
 
 ## Уже закрыто — не переоткрывать без нового контрпримера
 - account-local/provider-wide separation;
@@ -57,47 +57,40 @@ Core продолжает tool/system-prompt/mode линию. Reliability не �
 - account/thread affinity;
 - request-wide distinct-account budget и preferred-reuse edge;
 - completion/chat-create fresh pre-dispatch availability races;
-- локальная подготовка/локальная persistence classification;
-- cleanup-after-commit durability;
+- local request preparation / local persistence classification;
+- cleanup-after-commit durability для account/provider/session state;
 - account interrupted replacement recovery;
 - stream checkpoint-before-release;
 - late stream CAPTCHA/transport/empty SSE;
 - pending mutating tool replay guard;
-- session stale-backup fail-closed;
-- durable request governor V4–V10 и unknown-outcome inflight marker no-autoclear;
+- stale session/subagent backup fail-closed;
+- durable request governor V4–V10 и unknown-outcome inflight no-autoclear;
 - completed mutating side effect не повторяется после restart/failover;
 - unresolved mutating tool call блокирует `continue` до provider dispatch;
-- in-process forward wall-clock jump не сокращает account-local cooldown;
-- in-process forward wall-clock jump не сокращает provider-wide circuit.
+- forward wall-clock jump внутри живого процесса не сокращает account cooldown;
+- forward wall-clock jump внутри живого процесса не сокращает provider-wide circuit.
 
 ## Что делать дальше
-1. Fresh-read PR #6 и QWEN_CORE before any write.
-2. Не переоткрывать два wall-clock дефекта без нового контрпримера.
-3. До final gate искать только новый воспроизводимый дефект в pool/candidates/cooldown/provider circuit/affinity/bounded retry/replay safety.
-4. Если общий head стабилен и QWEN_CORE не запускает тот же SHA, использовать `ci/qwen-final-gate` ровно один раз для exact-tree `npm ci && npm test`.
-5. Live provider/секреты/production не трогать без новой доказанной необходимости.
+1. Fresh-read PR #6 + QWEN_CORE перед любой записью.
+2. Если `account-store.js` не менялся по смыслу — byte-safe применить `QWEN_RELIABILITY_LEGACY_MIGRATION_PERSISTENCE_20260822.patch`.
+3. Targeted PASS нового regression + двух соседних account-store tests.
+4. После PASS включить regression в обычный `npm test`.
+5. Затем взять следующий новый воспроизводимый дефект в pool/candidates/cooldown/provider circuit/affinity/bounded retry/replay safety; закрытые V4–V10 и wall-clock контрмеры заново не аудировать без контрпримера.
+6. Final CircleCI — только на стабильном exact product SHA и после свежей координации с QWEN_CORE.
+7. Live provider/секреты/production не трогать без новой доказанной необходимости.
 
 ## Постоянная память
 Worker: `QWEN_RELIABILITY`.
-`autonomy/v3/CAPSULE_RUNTIME_PROTOCOL_V2.json` и `autonomy/v3/tools/capsule_runtime_v4.py` перечитаны.
+`autonomy/v3/CAPSULE_RUNTIME_PROTOCOL_V2.json` и exact `autonomy/v3/tools/capsule_runtime_v4.py` перечитаны.
 
 Старт этого прохода:
-- `LATEST` capsule `20260822T105753Z-02993b42b7`;
-- pointer blob SHA `b622c3e0d18aa98493eb86d62d80ea4cfec55f46`;
-- archive SHA-256 `7e5dc59f9ba7bd5672259a811bfc50a24b324df2bd93c2b8770b8196ad607da8`;
-- точные manifest/part материализованы локально;
-- нормативные `verify + restore` через `capsule_runtime_v4.py`: PASS.
-
-Финиш этого прохода:
-- новая capsule `20260822T115554Z-8763a42805`;
-- source ref `Ai-b0ss/qwen-free-api@763ac0b53a7ea94bc8241e3e539b2356b08c9984` — exact head в момент `pack`; более поздние Core-only изменения перечислены выше;
+- `LATEST` capsule `20260822T115554Z-8763a42805`;
+- pointer blob SHA `659fa97eca2345c6ca401b4788ec1d5f6e43f650`;
 - archive SHA-256 `3ebdba2e34121ab6a368bbde3f3d928c9fcdbfa88fad7fdda74834d13063467d`;
-- local `pack + verify + restore`: PASS;
-- uploaded manifest Git blob `6e59a2fb74c3a3f54f1b5db1e55bdaddf7159bd9` совпал с локальным Git blob;
-- uploaded part0 Git blob `ea14290e0ee3097b1d6e3e64b2e3ee47daf3f3a2` совпал с локальным Git blob;
-- uploaded part1 Git blob `2187638e54cf6a2b5081ca039c8ac9cef780fa2c` совпал с локальным Git blob;
-- перед CAS `LATEST` всё ещё имел стартовый blob `b622c3e0d18aa98493eb86d62d80ea4cfec55f46`;
-- старый `LATEST` сохранён как `PREVIOUS`;
-- новый `LATEST` опубликован без force-write и после записи перечитан, текущий blob `659fa97eca2345c6ca401b4788ec1d5f6e43f650`.
+- manifest schema `free_fabric_worker_capsule_v4`, parts=2;
+- обе части перечитаны отдельно;
+- собранный локально архив имеет exact size 1560 и SHA-256 `3ebdba2e...`; оба workspace-файла совпали с manifest SHA (`CHECKPOINT.md` `7af569...`, `RESULTS.json` `c99f20...`).
 
-Force-write `LATEST` запрещён и в этом проходе не использовался.
+Новый `LATEST` в этом проходе не публиковался: exact runtime-файл был прочитан, но безопасного byte-transport из connector response в runtime workspace для нормативного `pack -> verify -> restore -> upload readback -> CAS` в этой среде не было. Force-write/ручная реконструкция указателя запрещены и не использовались. Текущий проверенный `LATEST` остаётся источником истины; свежий product/test state также закреплён exact Git history и этим handoff.
+
+Live Qwen, реальные аккаунты, секреты, Cloudflare и production не трогались.

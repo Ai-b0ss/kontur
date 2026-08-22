@@ -179,7 +179,9 @@ test('equipped palette stays on the same canonical bird from hatch through Home'
   assert.match(screen, /<CanonicalBirdVisual resultId=\{currentBird\.resultId\} palette=\{state\.player\.palette\} \/>/);
   assert.doesNotMatch(screen, /<ResultBird resultId=\{currentBird\.resultId\}/);
   assert.match(renderer, /data-image-ready=\{imageReady \? 'true' : 'false'\}/);
-  assert.match(renderer, /onLoad=\{\(\) => setLoadedAsset\(asset\.src\)\}/);
+  assert.match(renderer, /image\.decode\(\)\.then\(afterPaint, afterPaint\)/);
+  assert.match(renderer, /requestAnimationFrame\(\(\) => window\.requestAnimationFrame/);
+  assert.match(renderer, /onLoad=\{\(event\) => markImageReady\(event\.currentTarget\)\}/);
   assert.match(renderer, /palette && imageReady &&/);
 });
 

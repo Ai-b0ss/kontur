@@ -194,6 +194,10 @@ async function canonicalBird(page, root, label, expectTint = true) {
 }
 
 async function revealLayout(page, label) {
+  await page.waitForFunction(() => {
+    const panel = document.querySelector('.lk-reveal--inline');
+    return panel && Number(getComputedStyle(panel).opacity) > .99;
+  });
   const actual = await page.evaluate(() => {
     const rect = (element) => {
       const value = element?.getBoundingClientRect();
@@ -210,6 +214,7 @@ async function revealLayout(page, label) {
     const birdRect = rect(bird);
     return {
       position: panel ? getComputedStyle(panel).position : null,
+      opacity: panel ? Number(getComputedStyle(panel).opacity) : 0,
       panel: panelRect,
       bird: birdRect,
       hookCopy: paintState('.lk-hook-copy'),
@@ -223,6 +228,7 @@ async function revealLayout(page, label) {
     ok(!state.present || (state.opacity === 0 && state.visibility === 'hidden' && state.pointerEvents === 'none'), `${label}: stale ${surface} still paints or accepts input`);
   }
   ok(actual.position === 'absolute', `${label}: reveal panel lost absolute layout`);
+  ok(actual.opacity > .99, `${label}: reveal panel did not finish its entrance`);
   ok(actual.panel && actual.panel.left >= -1 && actual.panel.right <= actual.viewport.width + 1, `${label}: reveal panel overflows horizontally`);
   ok(actual.panel && actual.panel.top >= -1 && actual.panel.bottom <= actual.viewport.height + 1, `${label}: reveal panel overflows vertically`);
   ok(actual.separated, `${label}: reveal copy overlaps the canonical bird`);

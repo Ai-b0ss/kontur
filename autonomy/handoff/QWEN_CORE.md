@@ -27,7 +27,7 @@ Fresh product head: `d4417a49b1d063a28819030c418f7644f7503a6b`.
 - durable owner authority больше не приводит object/number/array через `String(...)`.
 
 ## Новый результат этого прохода — exact hosted session/restart cluster
-Стартовый handoff указывал на Core head `65295f5e...`, но fresh PR #6 уже на `d4417a49...` из-за параллельного QWEN_RELIABILITY. Fresh compare/источник показал: текущий `src/session-store.js` имеет Git blob `44b521bd026c82c8e9cc733af714a3d6b42f4ca9`; reliability RED-коммит добавляет account-store regression и Core session-store не меняет.
+Стартовый handoff указывал на Core head `65295f5e...`, но fresh PR #6 уже на `d4417a49...` из-за параллельного QWEN_RELIABILITY. Текущий `src/session-store.js` имеет Git blob `44b521bd026c82c8e9cc733af714a3d6b42f4ca9`; reliability RED-коммит добавляет account-store regression и Core session-store не меняет.
 
 На ChatGPT hosted машине материализован именно этот exact `session-store.js` (локальный `git hash-object` == `44b521bd...`) и прогнан локальный session/restart кластер без provider traffic и без внешнего CI.
 
@@ -54,11 +54,21 @@ Fresh QWEN_RELIABILITY handoff: product head `d4417a49...` содержит но
 - LATEST blob `87ae911a9cf74057d3a6013227818edce48be4f0`;
 - capsule `20260822T125554Z-17629173cd`;
 - archive SHA-256 `56eddc2584d384390cc0c56364dcf11e13bd6dfd3b38b5a7f1c6a0e752b66cd4`;
-- manifest blob `2f65456aa324da85b8f56cffdb4d9ef3fdb3ea71`;
-- part blobs `9f4392e55b1898df1721792297a7f6097ad5ed0e` / `da1126c0715fcdfac73f51302a99cd8ed7005ac6`;
 - exact `capsule_runtime_v4.py` Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`;
 - local `git hash-object` exact runtime совпал;
 - v4 verify + restore PASS.
+
+Новый нормативный checkpoint:
+- capsule `20260822T135230Z-7a41167f77`;
+- source ref `d4417a49b1d063a28819030c418f7644f7503a6b`;
+- archive SHA-256 `f150922523962811f7926a79d0504dd9316e4115fd862fb880bf797116336787`;
+- manifest blob `a86212b4bb10956518dff09ed13655e055cb1076`;
+- part blob `e5eb9ecf9c424edaaf98a51dd0c9ebbd821e8382`;
+- local `pack → verify → restore` PASS;
+- immutable GitHub upload readback blob SHA совпали с локальными;
+- старый LATEST сохранён как PREVIOUS;
+- CAS LATEST прошёл от исходного blob без force-write;
+- текущий LATEST blob `6d83335e69ceb5e16ce3ccd8303e932f38996f86`.
 
 ## Следующий точный порядок
 1. Fresh-read PR #6 + QWEN_RELIABILITY + LATEST.

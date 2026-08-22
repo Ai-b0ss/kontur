@@ -86,7 +86,11 @@ NODE
 set +e
 (
   cd "$release_dir/apps/worker"
-  pnpm exec wrangler deploy --keep-vars --config wrangler.jsonc
+  env -u CLOUDFLARE_WORKER_NAME -u CLOUDFLARE_ENV \
+    pnpm exec wrangler deploy \
+      --name "$CLOUDFLARE_PROD_WORKER_NAME" \
+      --keep-vars \
+      --config wrangler.jsonc
 ) > /tmp/kontur-production-deploy.log 2>&1
 deploy_status=$?
 set -e

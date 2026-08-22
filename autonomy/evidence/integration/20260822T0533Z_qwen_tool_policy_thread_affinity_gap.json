@@ -1,0 +1,45 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "QWEN_TOOL_POLICY_THREAD_AFFINITY_GAP",
+  "verdict": "REPRODUCED_OFFLINE_CANDIDATE_CONTRACT_PASS",
+  "fresh_product_head": "8c5a08f13668d28888f150b994f5d9e76f51f4cc",
+  "fresh_blobs": {
+    "server.js": "read fresh at exact head; existingChatId still depends only on rollover + saved-account availability",
+    "src/chat-adapter.js": "read fresh at exact head; toolPromptHash is SHA-256(first 16 hex) of exact generated tool prompt",
+    "src/tools.js": "f2b4004ddbb8cd6ff45aa63ef2bba1265a566d84",
+    "scripts/opencode-thread-affinity-test.js": "eea0de44dcc0649e982d101a766f1f6212efd496"
+  },
+  "observed_contract": [
+    "sessionStore persists toolPromptHash beside the upstream chatId/account",
+    "server chooses existingChatId before preparing the current tool prompt and does not compare the stored toolPromptHash with the requested tool policy",
+    "chat-adapter computes a different toolPromptHash when tool definitions or tool_choice change",
+    "therefore the same upstream Qwen thread is reused even after the exact tool prompt changes"
+  ],
+  "risk": [
+    "old upstream thread context can retain a previous tool catalogue or previous tool-choice rule while the new turn carries a different one",
+    "permission narrowing such as read-write to read-only can leave stale write-capability instructions in the remote thread",
+    "future Notion-to-Qwen delegated tool policy would inherit the same stale-authority boundary if it reuses this API/session contract"
+  ],
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_qwen_tool_policy_thread_affinity_probe.py",
+    "result": "QWEN_TOOL_POLICY_THREAD_AFFINITY_GAP_REPRODUCED_CANDIDATE_PASS",
+    "checks": [
+      "current decision reuses chat-old after read-write -> read-only tool policy change",
+      "candidate forces fresh thread when exact tool-prompt hash changes",
+      "candidate keeps owned thread when hash is unchanged",
+      "legacy record without a stored hash rebases once instead of assuming equivalence",
+      "tool_choice policy change also forces a fresh thread"
+    ]
+  },
+  "candidate_contract": [
+    "derive the exact requested toolPromptHash before selecting existingChatId, using the same canonical builder/continuation semantics as chat-adapter",
+    "reuse an upstream chatId only when saved account is available, rollover is false, and stored toolPromptHash exactly matches the requested hash",
+    "on mismatch or legacy missing hash, create a fresh upstream thread and send full local history/current tool policy",
+    "do not weaken account/thread ownership, retry budget, pending-tool replay guard or provider failover semantics"
+  ],
+  "limits": [
+    "No product file was changed.",
+    "No hosted CI, live Qwen/Notion/Codex, Cloudflare, Windows, production, real account data or secrets were used."
+  ]
+}

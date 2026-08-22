@@ -6,7 +6,7 @@ jobs:
       - image: cimg/node:22.18-browsers
     resource_class: medium
     environment:
-      KONTUR_EXPECTED_SHA: b00a2d3262f80e3a44fa2798e25b750d6fa7c737
+      KONTUR_EXPECTED_SHA: a43af7c736440696fc97d213eca88f1e2e10bb10
       KONTUR_TELEGRAM_EVIDENCE_DIR: /tmp/kontur-telegram-hatch-evidence
     steps:
       - checkout
@@ -58,6 +58,7 @@ jobs:
             cp /tmp/kontur-circle-diagnostic/status.txt docs/product/evidence/runtime/circle-browser-diagnostic/status.txt 2>/dev/null || true
             cp /tmp/kontur-circle-diagnostic/playwright-install.log docs/product/evidence/runtime/circle-browser-diagnostic/playwright-install.log 2>/dev/null || true
             cp /tmp/kontur-circle-diagnostic/browser.log docs/product/evidence/runtime/circle-browser-diagnostic/browser.log 2>/dev/null || true
+            cp "$KONTUR_TELEGRAM_EVIDENCE_DIR"/*.png docs/product/evidence/runtime/circle-browser-diagnostic/ 2>/dev/null || true
             git add docs/product/evidence/runtime/circle-browser-diagnostic
             if ! git diff --cached --quiet; then
               git commit -m "evidence: capture Circle browser diagnostic"

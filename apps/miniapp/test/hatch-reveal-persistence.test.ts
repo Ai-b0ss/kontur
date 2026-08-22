@@ -20,13 +20,14 @@ test('q8 hatch and reveal stay in one persistent scene with a stable header', as
   );
 });
 
-test('the hatch uses the intact q8 egg, crack light, and two coherent shell halves', async () => {
+test('the hatch uses the intact q8 egg, one crack texture, and two coherent halves', async () => {
   const egg = await readFile(new URL('../src/components/QuizEgg.tsx', import.meta.url), 'utf8');
 
   assert.match(egg, /className="lk-quiz-egg__base"/);
   assert.match(egg, /className="lk-quiz-egg__cracks" src="\/quiz\/egg-crack-light\.webp"/);
-  assert.match(egg, /className="lk-quiz-egg__shell lk-quiz-egg__shell--left" src="\/quiz\/egg-stage-08\.webp"/);
-  assert.match(egg, /className="lk-quiz-egg__shell lk-quiz-egg__shell--right" src="\/quiz\/egg-stage-08\.webp"/);
+  assert.equal((egg.match(/src="\/quiz\/egg-crack-light\.webp"/g) ?? []).length, 1);
+  assert.match(egg, /className="lk-hatch-half lk-hatch-half--left" src="\/quiz\/egg-stage-08\.webp"/);
+  assert.match(egg, /className="lk-hatch-half lk-hatch-half--right" src="\/quiz\/egg-stage-08\.webp"/);
   assert.equal((egg.match(/src="\/quiz\/egg-stage-08\.webp"/g) ?? []).length, 2);
   assert.doesNotMatch(egg, /<svg|<path|<line|stroke=/);
   assert.match(egg, /data-hatch-phase=\{hatchPhase\}/);
@@ -87,17 +88,17 @@ test('phase CSS never reveals bird before handoff, keeps shell continuity, and n
   assert.match(
     hotfix,
     /data-hatch-phase="flash"[^\{]*\.lk-quiz-egg__base[^\{]*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*hidden;/,
-    'the intact base may disappear at flash only after the opened shell has replaced it',
+    'the intact base may disappear at flash only after the opened halves have replaced it',
   );
   assert.match(
     hotfix,
-    /data-hatch-phase="flash"[^\{]*\.lk-quiz-egg__hatch-shells\s*\{[\s\S]*?opacity:\s*1;/,
-    'opened shell halves must stay painted underneath the rising flash',
+    /data-hatch-phase="flash"[^\{]*\.lk-hatch-halves\s*\{[\s\S]*?opacity:\s*1;/,
+    'opened halves must stay painted underneath the rising flash',
   );
   assert.match(
     hotfix,
-    /data-hatch-phase="reveal"[^\{]*\.lk-quiz-egg__hatch-shells,[\s\S]*?data-hatch-phase="settled"[^\{]*\.lk-quiz-egg__hatch-shells\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*hidden;/,
-    'shell halves must leave before the settled bird result is exposed',
+    /data-hatch-phase="reveal"[^\{]*\.lk-hatch-halves,[\s\S]*?data-hatch-phase="settled"[^\{]*\.lk-hatch-halves\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*hidden;/,
+    'halves must leave before the settled bird result is exposed',
   );
   assert.match(
     css,
@@ -173,7 +174,7 @@ test('reduced motion preserves non-zero ordered phases without shake', async () 
     css,
     /\.lk-reduced-motion[^\{]*data-hatch-phase="cracks"[^\{]*\.lk-quiz-egg__base\s*\{\s*animation:\s*none !important;/,
   );
-  assert.match(hotfix, /\.lk-reduced-motion[^\{]*data-hatch-phase="cracks"[^\{]*\.lk-quiz-egg__shell--left,[\s\S]*?animation-duration:\s*var\(--lk-hatch-cracks, 80ms\) !important;/);
+  assert.match(hotfix, /\.lk-reduced-motion[^\{]*data-hatch-phase="cracks"[^\{]*\.lk-hatch-half--left,[\s\S]*?animation-duration:\s*var\(--lk-hatch-cracks, 80ms\) !important;/);
   assert.match(css, /data-hatch-phase="flash"[\s\S]*?animation-duration:\s*var\(--lk-hatch-flash/);
   assert.match(css, /data-hatch-phase="reveal"[\s\S]*?animation-duration:\s*var\(--lk-hatch-reveal/);
 });

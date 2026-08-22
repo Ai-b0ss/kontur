@@ -1,0 +1,59 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "QWEN_SUBAGENT_SESSION_ID_TUPLE_COLLISION",
+  "verdict": "REPRODUCED_CURRENT_COLLISION_CANDIDATE_PASS",
+  "checked_at_utc": "2026-08-22T19:35:00Z",
+  "fresh_heads": {
+    "qwen_pr_6": "8d7a54dd0a5f4eb95e178d91101ac347c9acea80",
+    "notion_agent_pr_8": "78e0642002af6e8eafa6a7fcafe5dae134a99ae2",
+    "notion_core_pr_7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144"
+  },
+  "source": {
+    "repo": "Ai-b0ss/qwen-free-api",
+    "path": "src/subagent-dispatcher.js",
+    "blob": "33a5586f81237e9f9e31b84c2536d8f876e7c523",
+    "current_rule": "sessionId = `${options.sessionPrefix}-${task.id}`",
+    "relevant_validation": "sessionPrefix and task.id both independently allow '-'"
+  },
+  "reproduction": {
+    "pair_a": {
+      "session_prefix": "delegate-parent-a",
+      "task_id": "b-c"
+    },
+    "pair_b": {
+      "session_prefix": "delegate-parent-a-b",
+      "task_id": "c"
+    },
+    "current_session_id_a": "delegate-parent-a-b-c",
+    "current_session_id_b": "delegate-parent-a-b-c",
+    "collision": true
+  },
+  "impact": [
+    "Two logically different subagent identities can address the same explicit Qwen/OpenCode session key.",
+    "Because that key is sent as x-opencode-session-id, a collision can share durable checkpoint/thread/account affinity between unrelated child tasks.",
+    "This is especially relevant to the future Notion-to-Qwen adapter, which requires deterministic restart-safe child identities."
+  ],
+  "candidate_contract": {
+    "rule": "Derive the complete provider session id from an unambiguous canonical tuple, rather than concatenating independently valid fields with an allowed delimiter.",
+    "example": "subagent-session-<sha256(canonical_json([sessionPrefix, taskId]))[:48]>",
+    "requirements": [
+      "same tuple -> same session id",
+      "different tuples that collide under raw '-' concatenation -> different session ids",
+      "ASCII-safe bounded result",
+      "no provider account id, remote thread id, prompt text, or secret in the identity"
+    ]
+  },
+  "probe": {
+    "path": "autonomy/v3/tools/integration_qwen_subagent_session_id_tuple_collision_probe.py",
+    "hosted_result": "QWEN_SUBAGENT_SESSION_TUPLE_COLLISION_REPRODUCED_CANDIDATE_PASS"
+  },
+  "scope": {
+    "product_files_changed": false,
+    "circleci_triggered": false,
+    "github_actions_triggered": false,
+    "live_qwen_or_notion": false,
+    "secrets_or_real_accounts": false,
+    "production": false
+  }
+}

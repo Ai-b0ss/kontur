@@ -20,7 +20,11 @@ export function CanonicalBirdVisual({
   const imageReady = loadedAsset === asset.src;
   const frameStyle = size ? ({ width: size, height: size } satisfies CSSProperties) : undefined;
   const tintStyle = palette ? ({
-    background: `linear-gradient(145deg, ${palette.crest} 0 18%, ${palette.body} 28% 51%, ${palette.wing} 57% 76%, ${palette.tail} 82% 100%)`,
+    background: [
+      `radial-gradient(circle at 47% 27%, ${palette.crest} 0 10%, transparent 25%)`,
+      `radial-gradient(ellipse at 44% 53%, ${palette.belly} 0 18%, transparent 39%)`,
+      `linear-gradient(145deg, ${palette.body} 0 27%, ${palette.wing} 38% 66%, ${palette.tail} 76% 91%, ${palette.beak} 100%)`,
+    ].join(', '),
     WebkitMaskImage: `url(${asset.src})`,
     maskImage: `url(${asset.src})`,
   } satisfies CSSProperties) : undefined;
@@ -33,7 +37,7 @@ export function CanonicalBirdVisual({
 
   return (
     <span
-      className={`lk-canonical-bird ${className}`.trim()}
+      className={`lk-canonical-bird${palette ? ' has-coloring' : ''} ${className}`.trim()}
       style={frameStyle}
       data-bird-result={resultId}
       data-image-ready={imageReady ? 'true' : 'false'}

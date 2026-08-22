@@ -1,0 +1,33 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "worker": "NOTION_CORE",
+  "timestamp_utc": "2026-08-22T03:10:00Z",
+  "source": {
+    "repo": "Ai-b0ss/notion-agent-bridge",
+    "pr8_head": "04a659a23b3d72b44b334c9e35f23c1220d73eb3",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d"
+  },
+  "candidate": "autonomy/evidence/notion/20260822T0310Z_durable_replay_v21_commit_task_registry_candidate.py",
+  "harness": "autonomy/evidence/notion/20260822T0310Z_durable_replay_v21_commit_task_registry_harness.py",
+  "verdict": "DURABLE_REPLAY_V21_COMMIT_TASK_REGISTRY_CANDIDATE_PASS",
+  "proved": [
+    "commit-critical task remains strongly owned independently of client/SSE consumer lifetime",
+    "normal completion removes task from registry",
+    "task exceptions are explicitly observed by the registry",
+    "graceful bounded drain waits for a finishing commit task",
+    "drain timeout cancels remaining tasks only after the bounded wait",
+    "registry rejects new commit tasks after shutdown drain begins"
+  ],
+  "safety_dependency": "Cancellation after drain timeout is only replay-safe when V22 pre-provider durable intent tombstones are already integrated. Without V22 a hard/forced cancellation after remote provider progress can still leave no durable record.",
+  "integration_order": [
+    "instantiate one server-level registry",
+    "streaming Responses must submit commit-critical work to this registry rather than a generator-owned task",
+    "shutdown must drain this registry before closing account_pool",
+    "V22 intent publication must precede provider access so a timeout cancellation leaves a durable uncertain marker",
+    "do not emit provider-derived SSE content or IDs before final durable publication"
+  ],
+  "product_change": false,
+  "hosted_ci_started": false,
+  "provider_traffic_started": false,
+  "native_windows_claimed": false
+}

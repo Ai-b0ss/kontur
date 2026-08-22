@@ -79,7 +79,7 @@ Git blob: `8c36e9cbca05498c43a48bc2094756ce8c854d4b`.
    - `payload/reservation_aware_lease.py` `c77b4d5214911def1729243516aec73e43f8d425`;
    - `payload/conversation_segments.py` `553bd3496c21a7949c3a5dfa03f33b9e09293213`;
 4. вызывает V48, который отдельно фиксирует пять current Agent transformation helpers и выполняет Agent pair/tombstone materialization + V41/V45;
-5. fresh-verifies exact Codex probe/test preimages and обязательный shell-env patch;
+5. fresh-verifies exact Codex probe/test preimages и обязательный shell-env patch;
 6. в `--apply` режиме применяет shell-env patch только после `git apply --check`, компилирует изменённые Python-файлы и печатает readback blob hashes.
 
 Сам V50 до публикации прошёл `py_compile` и CLI smoke. Его Git readback blob совпал с локально рассчитанным. **Это ещё не composed PASS**: exact checkout PR #8 в текущем контейнере не материализован, поэтому V50 `check/apply` и объединённая матрица ещё обязательны.
@@ -125,14 +125,35 @@ V50 проверяет эти preimages и patch до композиции и п
 
 Не объявлять composed PASS по отдельным старым зелёным тестам.
 
+## Fresh publication boundary — 2026-08-23 01:xx MSK
+
+Контроллер правильно заметил, что GitHub connector теперь имеет lossless low-level путь `create_blob -> create_tree -> create_commit -> update_ref(force=false)`. Это закрывает техническую проблему атомарного Git-коммита, но **не снимает текущий owner freeze на CircleCI**.
+
+Fresh exact `.circleci/config.yml` PR #8 показывает, что любой обычный push именно в `autonomy/notion-prompt-modes-20260819` соответствует пяти Linux workflows (`agent-contracts`, `server-wiring-rehearsal`, `prompt-contracts`, `routing-contracts`, `delegation-contracts`). Поэтому сейчас нельзя просто сдвинуть ref PR #8 materialized-pair коммитом: такой push способен запустить Circle и нарушить более свежий прямой запрет владельца.
+
+CircleCI документирует `[ci skip]`, но тип текущей GitHub↔Circle интеграции в этом проходе не доказан; при owner freeze не использовать skip-tag как неподтверждённый обход запрета.
+
+Fresh Agent v4 capsule `20260822T220058Z-f18a1b833d` тоже не является byte bridge для pair: её manifest содержит только `CHECKPOINT.json` и `README.md`, а не materialized `payload/account_pool.py`/`payload/server.py`. Поэтому hashes `c9ca6f3b...` / `ba52edc7...` доказаны, но сами exact transformed bytes сейчас не лежат в долговечном handoff-объекте, доступном Core без повторной материализации.
+
+Безопасный путь до снятия Circle freeze:
+1. не двигать PR #8 ref;
+2. заново получить exact transformed pair на disposable local executor из frozen preimages/toolchain и проверить blobs `c9ca6f3b...` / `ba52edc7...`;
+3. сохранить сами exact transformed bytes в v4 capsule/другом долговечном content-addressed handoff (или создать Git blobs/tree/commit без обновления ref — это не VCS push event);
+4. Core собирает и гоняет composition/Stage-B на этих байтах;
+5. после явной owner-разморозки Circle — один fast-forward product ref update и только затем финальные disposable gates.
+
+Дополнительная обязательная поправка финального экзамена: `tests/test_subagent_tombstone_post_replace_sync_failure.py` существует и локально зелёный, но текущие штатные Circle Agent suites его не запускают. Финальный composed local suite и будущий disposable gate обязаны включить этот regression явно; зелёный gate без него не считать приёмкой.
+
 ## Следующий порядок
 
-1. Materialize exact PR #8 `ee0ae241...` в disposable checkout.
+1. Materialize exact PR #8 `ee0ae241...` в disposable checkout **без сдвига product ref во время Circle freeze**.
 2. Запустить V50 без `--apply`; любой blob/head mismatch = STOP и fresh re-freeze, а не patch-by-guess.
 3. На копии выполнить V50 `--apply`, readback/compile.
 4. На тех же bytes прогнать полный Agent+Core cluster выше; исправлять только воспроизводимый корневой дефект.
-5. Только после exact-local composed green создать один disposable `ci/notion-core-windows-final-gate` и выполнить bounded native Windows Server 2022 proof с exact logs/artifacts.
-6. Windows FAIL считать реальным дефектом; повторять только после релевантного изменения байтов. Старые pending/no-step результаты не считать PASS.
-7. После Windows PASS — один bounded authorized `codex exec -> bridge -> Notion -> local tool -> verifier FAIL -> correction -> VERIFY_OK`, с доказанным stable conversation id через initial/tool-result/retry/restart.
+5. Зафиксировать exact materialized/composed bytes долговечно через v4/CAS; не публиковать их в Circle-triggering product ref до явной разморозки владельца.
+6. После явной owner-разморозки: fast-forward exact product materialization, readback; затем один disposable `ci/notion-core-windows-final-gate` и bounded native Windows Server 2022 proof с exact logs/artifacts.
+7. Windows FAIL считать реальным дефектом; повторять только после релевантного изменения байтов. Старые pending/no-step результаты не считать PASS.
+8. После Windows PASS — один bounded authorized `codex exec -> bridge -> Notion -> local tool -> verifier FAIL -> correction -> VERIFY_OK`, с доказанным stable conversation id через initial/tool-result/retry/restart.
+9. После composed+Windows green собрать и на том же native Windows gate проверить owner-facing PowerShell doctor, который выдаёт `NOTION_WINDOWS_READY` либо первый точный blocker и не печатает секреты.
 
 Product PR #7/#8, live Notion/Codex, секреты и пользовательские данные в текущем Core-проходе не менялись.

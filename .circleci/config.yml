@@ -1,0 +1,22 @@
+version: 2.1
+
+jobs:
+  control-config-check:
+    docker:
+      - image: cimg/base:stable
+    resource_class: small
+    steps:
+      - checkout
+      - run:
+          name: Validate control-plane Circle wiring
+          command: |
+            set -euo pipefail
+            echo KONTUR_CONTROL_CIRCLE_CONFIG_OK
+
+workflows:
+  control-config-check:
+    jobs:
+      - control-config-check:
+          filters:
+            branches:
+              only: ci/kontur-control-config-check

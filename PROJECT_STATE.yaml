@@ -64,7 +64,7 @@ verification:
     live_synthetic_auth_economy_persistence: true
     production_touched: false
   production:
-    status: "deployed"
+    status: "deployed_user_data_reset"
     worker: "kontur-igor"
     origin: "https://kontur-igor.igorekglukhovskii43.workers.dev"
     runtime: "b153d4c96a775484c0cfc3b454029f9e4dadaf75"
@@ -74,8 +74,19 @@ verification:
     telegram_webhook_boundary: "pass"
     d1_data_preserved: true
     post_deploy_counts: {users: 5, hatched: 4}
+    current_counts: {users: 0, hatched: 0, grants: 0}
     deploy_executor: "Cloudflare Workers Builds kontur-igor-staging"
     deploy_build_id: "dcb9cbe8-e1da-4b2a-8fa4-7e0a081d7af3"
+    data_reset:
+      status: "pass"
+      executor_commit: "51a0669b"
+      all_mutable_tables_proof_commit: "60fd17c7"
+      mutable_tables_checked: 62
+      mutable_rows_remaining: 0
+      static_seeds_preserved: true
+      schema_and_migrations_preserved: true
+      one_shot_harness_restored_commit: "23f6d016"
+      backup: "UNKNOWN_not_captured_in_available_executor_evidence"
     telegram_entry:
       bot: "@kontur_igor_test_bot"
       public_page: "pass"
@@ -95,13 +106,13 @@ historical_preview:
 release_boundary:
   merge_main: "owner_constrained"
   production_promotion: "completed_owner_authorized_2026-08-22"
-  production_d1_write_or_reset: "owner_constrained"
+  production_d1_write_or_reset: "completed_owner_authorized_2026-08-22"
   production_secret_or_telegram_change: "owner_constrained"
   direct_production_deploy: "fail_closed"
   permitted_current_remote_target: "none_after_one_time_release"
 
 control:
   handoff_issue: "Ai-b0ss/kontur#9"
-  current_owner_directive: "2026-08-22 accepted b153d4c9 production rollout"
+  current_owner_directive: "2026-08-22 destructive production participant data reset"
   direct_main_push: false
   merge_requires_owner_permission: true

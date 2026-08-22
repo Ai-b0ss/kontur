@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# PR #23 temporary observability trigger for independent PR #22 frame proof.
 export TARGET_SHA='32298ee88dfbcbfd207c476496b55737c26c44a3'
 WORK='/tmp/kontur-pr22-independent-proof'
 EVIDENCE_REPO_DIR='.evidence/pr22-independent-frame-proof'
@@ -44,9 +45,6 @@ if (m.exactHead !== process.env.TARGET_SHA) throw new Error(`wrong exact head ${
 console.log(`PR22_INDEPENDENT_CHROMIUM_PASS head=${m.exactHead}`);
 NODE
 
-# Try to persist the exact generated artifacts into this isolated executor branch.
-# If the Cloudflare Git checkout is read-only, the push fails and the build fails closed;
-# no production target is referenced anywhere in this script.
 cd - >/dev/null
 mkdir -p "$EVIDENCE_REPO_DIR"
 cp "$KONTUR_BROWSER_EVIDENCE_DIR/motion-3-q8-to-reveal.webm" "$EVIDENCE_REPO_DIR/motion-3-q8-to-reveal.webm"

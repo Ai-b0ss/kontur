@@ -43,33 +43,33 @@ const webhookHeaders = {
   'content-type': 'application/json',
   'X-Telegram-Bot-Api-Secret-Token': webhookSecret,
 };
-await jsonFetch('/telegram/webhook', {
-  method: 'POST',
-  headers: webhookHeaders,
-  body: JSON.stringify({
-    update_id: tgId,
-    message: {
-      message_id: tgId,
-      from: { id: tgId, username: `release_staging_${tgId}` },
-      chat: { id: tgId, type: 'private' },
-      text: '/start',
-    },
-  }),
+async function webhook(update) {
+  return jsonFetch('/telegram/webhook', {
+    method: 'POST',
+    headers: webhookHeaders,
+    body: JSON.stringify(update),
+  });
+}
+
+await webhook({
+  update_id: tgId,
+  message: {
+    message_id: tgId,
+    from: { id: tgId, username: `release_staging_${tgId}` },
+    chat: { id: tgId, type: 'private' },
+    text: '/start',
+  },
 });
-await jsonFetch('/telegram/webhook', {
-  method: 'POST',
-  headers: webhookHeaders,
-  body: JSON.stringify({
-    update_id: tgId + 1,
-    chat_member: {
-      chat: { id: mainChatId, type: 'supergroup' },
-      from: { id: tgId, username: `release_staging_${tgId}` },
-      new_chat_member: {
-        user: { id: tgId, username: `release_staging_${tgId}` },
-        status: 'member',
-      },
+await webhook({
+  update_id: tgId + 1,
+  chat_member: {
+    chat: { id: mainChatId, type: 'supergroup' },
+    from: { id: tgId, username: `release_staging_${tgId}` },
+    new_chat_member: {
+      user: { id: tgId, username: `release_staging_${tgId}` },
+      status: 'member',
     },
-  }),
+  },
 });
 
 const auth = await jsonFetch('/api/v1/auth/telegram', {
@@ -79,8 +79,41 @@ const auth = await jsonFetch('/api/v1/auth/telegram', {
 });
 if (typeof auth?.token !== 'string' || !auth.token.includes('.')) fail('auth did not return JWT');
 if (auth?.state?.hatched !== false) fail('fresh synthetic player is already hatched');
+if (auth?.state?.player?.wallet !== 0) fail('fresh synthetic wallet is not zero', auth?.state);
 
 const headers = { authorization: `Bearer ${auth.token}`, 'content-type': 'application/json' };
+async function localState() {
+  return jsonFetch('/api/v4/local/state', { headers });
+}
+
+function wormUpdate(giverId, messageId) {
+  return {
+    update_id: messageId,
+    message: {
+      message_id: messageId,
+      from: { id: giverId, username: `release_giver_${giverId}` },
+      chat: { id: mainChatId, type: 'supergroup' },
+      text: '/worm',
+      reply_to_message: {
+        message_id: tgId,
+        from: { id: tgId, username: `release_staging_${tgId}` },
+      },
+    },
+  };
+}
+
+// Self-reward and a repeated giver→receiver reward must not mint worms. Five
+// distinct trusted webhook updates then fund the exact five-worm reward egg.
+await webhook(wormUpdate(tgId, tgId + 10));
+if ((await localState())?.state?.player?.wallet !== 0) fail('self /worm minted currency');
+const givers = Array.from({ length: 5 }, (_, index) => tgId + 1000 + index);
+for (let index = 0; index < givers.length; index += 1) {
+  await webhook(wormUpdate(givers[index], tgId + 20 + index));
+}
+await webhook(wormUpdate(givers[0], tgId + 30));
+const funded = await localState();
+if (funded?.state?.player?.wallet !== 5) fail('five unique /worm grants did not fund exactly five', funded?.state);
+
 const questions = await jsonFetch('/api/v4/local/questions', { headers });
 if (!Array.isArray(questions?.questions) || questions.questions.length !== 8) fail('current MVP must expose exactly eight questions');
 if (questions.questions.some((q) => !Array.isArray(q?.options) || q.options.length !== 4)) fail('current MVP question shape mismatch');
@@ -93,7 +126,7 @@ const hatch = await jsonFetch('/api/v4/local/hatch', {
 });
 if (!hatch?.role || hatch?.state?.hatched !== true) fail('current MVP hatch failed');
 if (hatch?.state?.egg?.cost !== 5) fail('current MVP egg cost must be 5');
-if (hatch?.state?.player?.wallet !== 5) fail('synthetic proof wallet was not preserved');
+if (hatch?.state?.player?.wallet !== 5) fail('hatch did not preserve the five earned worms', hatch?.state);
 
 const pull = await jsonFetch('/api/v4/local/egg/open', {
   method: 'POST',
@@ -119,6 +152,7 @@ if (persisted?.state?.egg?.cost !== 5) fail('persisted current MVP egg cost chan
 console.log(JSON.stringify({
   ok: true,
   webhookBootstrap: true,
+  wormFunding: { distinctGivers: givers.length, selfRejected: true, repeatRejected: true, wallet: 5 },
   questions: questions.questions.length,
   role: hatch.role,
   eggCost: persisted.state.egg.cost,

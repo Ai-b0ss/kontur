@@ -12,21 +12,19 @@ CircleCI теперь разрешён только как редкий дока
 
 ## Постоянная память
 
-Текущий проверенный v4 `LATEST`:
-- capsule `20260822T060802Z-2f8776e109`;
-- archive SHA-256 `4f4cf0451a1205fdd8ed990e3a6fcbd9c0f930973a0f31517207c091b6771ab1`;
-- parts: 3;
-- part blobs: `048220f6c54521b9cf027237ea4a74d30439c0ed`, `c9fdd0c9c904b6e01288dfc868f1ea53d97a4dd7`, `aef17ff4340449e7a3768133af45274911da8360`;
-- manifest blob `078d7537e3b49bf467080ea4c7ac15641b1807b7`;
-- `LATEST.json` blob после CAS: `72443419f2fafd3c5249a3e3d701150e9d030a6e`.
+Fresh v4 `LATEST` на старте текущего запуска:
+- capsule `20260822T064521Z-22a279609f`;
+- archive SHA-256 `1f693c04ca4529d3a5bb0b521b446f308f1956d53c12a9c78fdb6bc5727ef19c`;
+- parts: 2;
+- `LATEST.json` Git blob `2a4c6154c0afe0a6254103b271f3f41189cfff65`.
 
-В этом запуске capsule `20260822T060802Z-2f8776e109` восстановлена локально точным `capsule_runtime_v4.py`; Git blob самого runtime повторно совпал с каноническим `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`. Все три части прошли v4 verify, archive SHA совпал, workspace/checkpoint восстановлен без реконструкции неизвестных bytes.
+Эта capsule восстановлена локально из точных immutable parts: обе части прошли `chars`/SHA-256, собранный archive совпал по размеру и SHA-256, а `CHECKPOINT.json` после extract совпал с manifest по размеру и SHA-256. Verdict: `V4_LATEST_EXACT_RESTORE_PASS`. Неизвестные bytes не реконструировались.
 
 ## NCM28 / Windows
 
 Существующий digest workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3` НЕ перезапускать. Fresh read-only status: все пять задач (`auth`, `codex`, `migration`, `runtime`, `outside-digest`) всё ещё `pending`.
 
-Новый final Windows gate пока **не запускать**: Stage A после свежего self-review ещё не закрыт, Stage B v3 candidate ещё не собран. Когда оба локально зелёные, один bounded Windows gate должен совместить точный `auth-rollback` callsite, PowerShell runtime-restore replace proof и полный NCM28/Core gate на exact candidate SHA. Runtime restore v3 остаётся Linux-PASS; нативная PowerShell replace-семантика не доказана.
+Новый final Windows gate пока **не запускать**: Stage A ещё не закрыт полностью, Stage B v3 candidate ещё не собран. Когда оба локально зелёные, один bounded Windows gate должен совместить точный `auth-rollback` callsite, PowerShell runtime-restore replace proof и полный NCM28/Core gate на exact candidate SHA. Runtime restore v3 остаётся Linux-PASS; нативная PowerShell replace-семантика не доказана.
 
 ## Durable Responses / Codex replay — текущая граница
 
@@ -87,7 +85,7 @@ V30 правильно добавлял `ConversationSegmentStore.require_persis
 
 ### V31 — исправленный Stage-A floor для ordinary + compaction
 
-Подготовлен новый exact-preimage materializer на тех же проверенных blobs:
+Подготовлен exact-preimage materializer на проверенных blobs:
 - `conversation_segments=553bd3496c21a7949c3a5dfa03f33b9e09293213`;
 - `server=f02cef6a0ffc202c75fbe71c520c72ac19ff876d`.
 
@@ -95,20 +93,23 @@ V31 вставляет один и тот же post-`get()` `require_persistence
 1. ordinary Responses — после `affinity/get(segment)` и до account lease/provider;
 2. compaction — после `conversation_segments.get()` и до fingerprint/lease/provider.
 
-Локально доказано:
+Ранее локально доказано:
 - V30 ordinary blocked-after-get => provider count 0;
-- реальная V30 compaction-форма при blocked-after-get => provider count 1 (дефект воспроизведён);
+- реальная V30 compaction-форма при blocked-after-get => provider count 1;
 - V31 compaction blocked-after-get => provider count 0;
 - healthy compaction => provider count 1;
 - materializer Python compile PASS;
 - оба exact textual anchors трансформируются отдельно и fail-closed по count.
 
-Материалы:
-- `autonomy/evidence/notion/20260822T0705Z_v31_stage_a_compaction_floor_evidence.json`;
-- `..._harness.py`;
-- `..._materializer.py`.
+Новый exact-source результат текущего запуска:
+- `payload/conversation_segments.py` материализован локально и его Git blob вычислен как точный `553bd3496c21a7949c3a5dfa03f33b9e09293213`;
+- V31 transform на этом полном exact файле компилируется;
+- настоящий преобразованный `ConversationSegmentStore` прошёл local real-class harness: healthy persistent v2 PASS; unsupported v3 fail-closed; corrupt JSON fail-closed; cleanup-triggered NCM28 write failure, возникший внутри `get()`, становится виден post-get gate и fail-closed; `path=None` остаётся допустимым in-memory режимом;
+- verdict: `V31_EXACT_CONVERSATION_STORE_REAL_CLASS_PASS`.
 
-**Product branch не изменён. Stage A пока не объявлять PASS**, пока V31 не выполнит exact full-file `--check`, isolated apply и реальные current regressions.
+Материал: `autonomy/evidence/notion/20260822T0745Z_v31_exact_store_real_class_evidence.json`.
+
+Граница доказательства: exact `server.py` blob и оба нужных anchors подтверждены через GitHub, но полный exact server пока не материализован в файловой системе текущего container. Уже собранный локальный surrogate имеет другой Git blob и **отброшен как недоказательный**. Поэтому Stage A всё ещё `NOT_YET_EXACT_LOCAL_PASS`; нельзя считать её закрытой только по store-half.
 
 ## Остальные обязательные V12–V25 инварианты
 
@@ -132,9 +133,9 @@ V31 вставляет один и тот же post-`get()` `require_persistence
 
 ## Следующий порядок
 
-1. Read-only проверить исторический Windows digest; не перезапускать.
-2. Восстановить fresh v4 `LATEST` exact runtime — выполнено в этом запуске.
-3. Материализовать полный exact PR8 checkout локально и прогнать **V31** materializer в read-only режиме; затем isolated apply и реальные current tests. Assertions Stage A: unsupported v3/corrupt state/get-cleanup write failure => provider count 0 для ordinary и compaction; healthy v2 => прежнее поведение.
+1. Read-only проверить исторический Windows digest; не перезапускать — выполнено, all-five-pending.
+2. Восстановить fresh v4 `LATEST` exact runtime — выполнено для `20260822T064521Z-22a279609f`.
+3. Доматериализовать **точный** `server.py` blob `f02cef6a...` без аппроксимации, прогнать V31 full-file `--check`, isolated apply и реальные current ordinary+compaction regressions. Assertions Stage A: unsupported v3/corrupt state/get-cleanup write failure => provider count 0 для ordinary и compaction; healthy v2 => прежнее поведение.
 4. Только после Stage-A exact local PASS собрать Stage-B v3 store: legacy v2 read path + separate `provider_intents` ledger + exact replay/conversation state, сохраняя V12–V29. Зафиксировать `minimum_safe_rollback_commit` как Stage-A commit-кандидат до любой v3 publication.
 5. Real-class offline matrix: retry/restart/distinct turn/stale retry >32/tool/final/forced NCM28 write/cleanup-write failure/blocked retry/stream↔non-stream/client disconnect/hard-crash intent/ambiguous transport/account removed/TTL+size/oversize/compaction exact+restart+legacy/unresolved intent >30d + >500 pressure + capacity/missing conversation identity/v3->Stage-A rollback failclosed.
 6. Совместить shell-env patch локально.

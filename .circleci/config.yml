@@ -1,0 +1,67 @@
+version: 2.1
+
+jobs:
+  kontur-production-readonly-probe:
+    docker:
+      - image: cimg/base:stable
+    resource_class: small
+    environment:
+      PROD_ORIGIN: https://kontur-igor.igorekglukhovskii43.workers.dev
+      EXPECT_ROOT_SHA: 5ede16eabf0296fb734a449bf0d81ef92e2fedd7bfeeaa144532c1ed69c5f37a
+      EXPECT_EGG01_SHA: ac5a7a4205b3cf55b8cea477b49794b48ded19cf084973fd87a642f56277b199
+      EXPECT_EGG08_SHA: 6a0da2124b06d7c6440cd236024c017e36776007c0a1f0d903b74c977802bdc7
+      EXPECT_MAGPIE_SHA: 0970a813282898ceee151e1bab5ba09fd161f470ce5b596af9351dcebc1717a1
+      EXPECT_WOODPECKER_SHA: 2b83bdfac6d20169be522f876278c4d61e1c03f2a4e252e84917024797a85867
+      EXPECT_JAY_SHA: 96d6cb22ca6504500779f790804706e53c3084d62ca5a87dcb7c5e2ba88fc30b
+      EXPECT_CRANE_SHA: e96c549bafd11d84bbe081f9ee57abaa601ceb301016d987feadc3e006a84dcf
+      EXPECT_OWL_SHA: 3953a0b8d448d1dca11f08d1c2bb06a01fd2dfa039c9e26220dc44b392690993
+      EXPECT_KOTOSOV_SHA: b073f8520d13cd387c4bb5019a98f26e5e031f1ca5b8ff2f79dbabff4c5cce8f
+    steps:
+      - run:
+          name: Verify exact public generation and fresh database
+          command: |
+            set -euo pipefail
+            mkdir -p /tmp/probe
+            get() { curl -fsS --retry 5 --retry-delay 3 -H 'Cache-Control: no-cache, no-store, max-age=0' "$PROD_ORIGIN$1?probe=${CIRCLE_SHA1}" -o "$2"; }
+            get / /tmp/probe/root.html
+            printf '%s  %s\n' "$EXPECT_ROOT_SHA" /tmp/probe/root.html | sha256sum -c -
+            get /quiz/egg-stage-01.webp /tmp/probe/egg01.webp
+            printf '%s  %s\n' "$EXPECT_EGG01_SHA" /tmp/probe/egg01.webp | sha256sum -c -
+            get /quiz/egg-stage-08.webp /tmp/probe/egg08.webp
+            printf '%s  %s\n' "$EXPECT_EGG08_SHA" /tmp/probe/egg08.webp | sha256sum -c -
+            get /results/magpie.webp /tmp/probe/magpie.webp
+            printf '%s  %s\n' "$EXPECT_MAGPIE_SHA" /tmp/probe/magpie.webp | sha256sum -c -
+            get /results/woodpecker.webp /tmp/probe/woodpecker.webp
+            printf '%s  %s\n' "$EXPECT_WOODPECKER_SHA" /tmp/probe/woodpecker.webp | sha256sum -c -
+            get /results/jay.webp /tmp/probe/jay.webp
+            printf '%s  %s\n' "$EXPECT_JAY_SHA" /tmp/probe/jay.webp | sha256sum -c -
+            get /results/crane-collectible.svg /tmp/probe/crane.svg
+            printf '%s  %s\n' "$EXPECT_CRANE_SHA" /tmp/probe/crane.svg | sha256sum -c -
+            get /results/owl.webp /tmp/probe/owl.webp
+            printf '%s  %s\n' "$EXPECT_OWL_SHA" /tmp/probe/owl.webp | sha256sum -c -
+            get /results/kotosov.webp /tmp/probe/kotosov.webp
+            printf '%s  %s\n' "$EXPECT_KOTOSOV_SHA" /tmp/probe/kotosov.webp | sha256sum -c -
+            curl -fsS --retry 5 --retry-delay 3 "$PROD_ORIGIN/api/v1/health?probe=${CIRCLE_SHA1}" -o /tmp/probe/health.json
+            python3 - <<'PY'
+            import json
+            x=json.load(open('/tmp/probe/health.json'))
+            assert x.get('ok') is True, x
+            assert x.get('devMode') is False, x
+            assert x.get('driver') == 'd1', x
+            assert int(x.get('startedBot', -1)) == 0, x
+            assert int(x.get('hatched', -1)) == 0, x
+            assert int(x.get('grants', -1)) == 0, x
+            print('FRESH_PRODUCTION_DATABASE_PASS', x)
+            PY
+            code=$(curl -sS -o /tmp/probe/webhook-negative.txt -w '%{http_code}' -X POST "$PROD_ORIGIN/telegram/webhook" -H 'Content-Type: application/json' -H 'X-Telegram-Bot-Api-Secret-Token: deliberately-wrong' --data '{"update_id":1}')
+            test "$code" = 403
+            sha256sum /tmp/probe/* | tee /tmp/probe/SHA256SUMS.txt
+            echo KONTUR_PRODUCTION_EXACT_GENERATION_FRESH_DB_AND_BOT_ROUTE_PASS
+      - store_artifacts:
+          path: /tmp/probe
+          destination: kontur-production-readonly-probe
+
+workflows:
+  production-readonly-probe:
+    jobs:
+      - kontur-production-readonly-probe

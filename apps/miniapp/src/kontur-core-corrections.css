@@ -19,8 +19,9 @@
   grid-area: 1 / 1;
   width: 100%;
   height: 100%;
-  opacity: .19;
+  opacity: .68;
   mix-blend-mode: color;
+  filter: saturate(1.16);
   pointer-events: none;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
@@ -168,23 +169,23 @@
   17%, 100% { opacity: 1; transform: scale(1); }
 }
 @keyframes lk-hatch-base-fade {
-  0%, 45% { opacity: 1; }
+  0%, 56% { opacity: 1; }
   68%, 100% { opacity: 0; }
 }
 @keyframes lk-hatch-bird-rise {
-  0%, 24% {
+  0%, 58% {
     opacity: 0;
     transform: translateY(24%) scale(.62);
   }
-  38% {
+  68% {
     opacity: .34;
     transform: translateY(19%) scale(.68);
   }
-  54% {
+  79% {
     opacity: .72;
     transform: translateY(11%) scale(.78);
   }
-  72% {
+  90% {
     opacity: 1;
     transform: translateY(1%) scale(.93);
   }
@@ -194,24 +195,37 @@
   }
 }
 @keyframes lk-shell-left-open {
-  0%, 52% { transform: none; opacity: 1; }
-  75% { transform: translate(-9%, -6%) rotate(-4deg); opacity: .96; }
+  0%, 52% { transform: none; opacity: 0; }
+  53%, 58% { transform: none; opacity: 1; }
+  78% { transform: translate(-9%, -6%) rotate(-4deg); opacity: .96; }
   100% { transform: translate(-18%, -12%) rotate(-7deg); opacity: 0; }
 }
 @keyframes lk-shell-right-open {
-  0%, 52% { transform: none; opacity: 1; }
-  75% { transform: translate(9%, -6%) rotate(4deg); opacity: .96; }
+  0%, 52% { transform: none; opacity: 0; }
+  53%, 58% { transform: none; opacity: 1; }
+  78% { transform: translate(9%, -6%) rotate(4deg); opacity: .96; }
   100% { transform: translate(18%, -12%) rotate(7deg); opacity: 0; }
 }
 @keyframes lk-hatch-light-window {
-  0%, 25% { opacity: 0; }
-  38% { opacity: .35; }
-  54% { opacity: .88; }
+  0%, 29% { opacity: 0; }
+  41% { opacity: .35; }
+  56% { opacity: .88; }
   68% { opacity: 1; }
   82%, 100% { opacity: 0; }
 }
 
+/* The hook reserves real breathing room above and below the egg.  The old
+   short-screen override put the image box directly under the headline and
+   let its shadow read as an overlap. */
+.lk-first-time.lk-first-time--hook .lk-quiz-egg-stage {
+  top: clamp(300px, 34.8dvh, 348px);
+}
+
 @media (max-width: 360px), (max-height: 650px) {
+  .lk-first-time.lk-first-time--hook .lk-quiz-egg-stage {
+    top: 190px;
+    width: 168px;
+  }
   .lk-first-time.lk-first-time--hatching .lk-quiz-egg-stage,
   .lk-first-time.lk-first-time--reveal .lk-quiz-egg-stage {
     top: calc(50% - 24px);

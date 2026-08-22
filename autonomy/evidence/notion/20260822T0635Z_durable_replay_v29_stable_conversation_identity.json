@@ -1,0 +1,31 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "id": "DURABLE_REPLAY_V29_STABLE_CONVERSATION_IDENTITY",
+  "created_at_utc": "2026-08-22T06:35:00Z",
+  "source": {
+    "core_pr7_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_integration_head": "f58f0123b370ad786d337337eb03a6a4ce9963b3",
+    "turn_affinity_blob": "f4bc004ec08cbaf3f1118dec0926015ab41b8bd3",
+    "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "real_codex_probe_blob": "2f6d5873606975771b5ab418d5f9d45cd602304c",
+    "synthetic_live_probe_blob": "ea1a15dac84ce426312131c63dfee207abadd974"
+  },
+  "finding": "Durable provider-intent/replay safety requires a stable conversation key before the first provider call. The exact current key is client_metadata.thread_id or session_id. ConversationSegmentStore.get/put intentionally become no-ops for key=None. Therefore a Responses request without thread_id/session_id cannot publish V22/V28 provider intent, cannot recover exact replay after restart, and cannot safely execute a tool-producing provider turn under the new crash contract. The synthetic bridge probe explicitly supplies thread_id, but the real Codex CLI project probe only validates end behavior and currently does not prove what metadata the actual Codex binary sends on the wire.",
+  "local_results": [
+    "V29_NONE_CONVERSATION_KEY_HAS_NO_DURABLE_INTENT_SLOT_REPRODUCED",
+    "V29_SYNTHETIC_PROBE_HAS_STABLE_THREAD_ID_CONFIRMED",
+    "V29_REAL_CODEX_METADATA_EVIDENCE_GAP_CONFIRMED",
+    "DURABLE_REPLAY_V29_STABLE_IDENTITY_FAILCLOSED_MODEL_PASS"
+  ],
+  "required_invariant": [
+    "Before any provider-entering ordinary Responses or compaction operation, durable Core mode requires a non-empty codex_conversation_key derived from stable client metadata.",
+    "If stable conversation identity is absent, fail closed before provider entry; do not invent an identity from request body, turn_id, random UUID, connection state, or process-local cache because tool-result continuation/restart must resolve to the same durable namespace.",
+    "The bounded real Codex acceptance probe must capture/sanitize the incoming request metadata and prove that the actual target Codex build supplies a stable thread_id or session_id across initial turn, tool-result continuation, retry and process restart. No secret or owner prompt bytes may be recorded.",
+    "If the target Codex build does not supply a stable conversation id, add an explicit client-side bridge metadata mechanism before live acceptance rather than weakening durable replay safety."
+  ],
+  "interaction_with_v28": "V28's provider_intents ledger is keyed by conversation_storage_key(stable_conversation_key). V29 is therefore a prerequisite for creating a new intent. Existing exact replay lookup may proceed only when the same stable key is present.",
+  "product_change": false,
+  "hosted_ci_started": false,
+  "provider_traffic_started": false,
+  "native_windows_claimed": false
+}

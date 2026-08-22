@@ -16,17 +16,20 @@ Core-relevant exact blobs on that head:
 Сначала бесплатные exact-source Linux/Python проверки. Production, секреты и живой Notion/Codex не трогать до локальных safety gates.
 CircleCI — только один редкий финальный native-Windows proof по `autonomy/ci/CIRCLECI_GATE_POLICY.md`, через disposable `ci/notion-core-windows-final-gate`, когда Stage A + актуальный composed Stage B уже локально зелёные и Windows semantics остаются последним реальным неизвестным.
 
-Исторический digest workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3` не перезапускать.
+Исторический digest workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3` не перезапускать. На выходе этого прохода все пять старых checks всё ещё `pending`.
 
 ## Постоянная память v4
 
-Канонический проверенный `LATEST` на старте этого прохода:
-- capsule `20260822T124805Z-7a66179727`;
-- archive SHA-256 `6f87c85b580999d6e03bde8eb0701b7dbede291d0155edb8a2e13fd4555287f6`;
-- parts: 1;
-- `LATEST.json` Git blob `18ce26b25c5b8f00c1e8eca449a593531d2fd331`.
+На старте был восстановлен точным `capsule_runtime_v4.py` проверенный `LATEST` `20260822T124805Z-7a66179727`, archive SHA-256 `6f87c85b580999d6e03bde8eb0701b7dbede291d0155edb8a2e13fd4555287f6`.
 
-`LATEST`, manifest и единственный part перечитаны. Не переключать pointer без полного точного `capsule_runtime_v4.py restore -> pack -> readback -> CAS`; неизвестные bytes не реконструировать и force-write не делать.
+После V47 создана новая immutable capsule:
+- `20260822T164624Z-da2720d075`;
+- archive SHA-256 `0ab562b0e83f3c444b5f4ac56102d845ec71ee40da6fb240be7be3d2899c479e`;
+- parts: 1;
+- part Git blob readback `5e4dfa17a1a7a029ca71e337d1d09f49042d8eac`;
+- manifest Git blob readback `f3e72e754171da4de926af49e88cf5cc97b36648`.
+
+Старый `LATEST` сохранён как `PREVIOUS`, затем новый указатель опубликован через CAS от родительского blob `18ce26b25c5b8f00c1e8eca449a593531d2fd331`. Финальный readback `LATEST.json` имеет blob `4e8f74da04b45501f7e2c566a549bd42aab37a94`. Не реконструировать неизвестные bytes и не force-write pointer.
 
 ## Stage A — закрыт
 
@@ -61,7 +64,7 @@ Evidence: `autonomy/evidence/notion/20260822T1240Z_v34_v35_exact_store_integrati
 
 `20260822T1605Z_v46_agent_core_composition_materializer.py` напрямую применяет только старые `apply_account_pool_dynamic_reservation` и `apply_startup_status_cleanup`, затем V41/V45.
 
-Свежий PR #8 теперь требует текущий pair materializer `tools/materialize_agent_wiring_with_tombstones.py`. Он не только запускает базовый pair transform, но и накладывает `apply_subagent_tombstone_wiring`, требует ровно один `subagent-uncertain-tasks.json` marker и содержит актуальные journal/recovery/finalization guards.
+Свежий PR #8 требует текущий pair materializer `tools/materialize_agent_wiring_with_tombstones.py`. Он запускает базовый pair transform, затем `apply_subagent_tombstone_wiring`, требует ровно один `subagent-uncertain-tasks.json` marker и содержит актуальные guards для interrupted pair materialization journal/recovery/finalization.
 
 Следствие: V46 может быть зелёным на старой Agent-поверхности и при этом не доказывать нынешний Agent↔Core composed product. Использовать его как основание final Windows gate нельзя.
 

@@ -101,6 +101,8 @@
   overflow: hidden;
   border-radius: 50%;
   isolation: isolate;
+  opacity: 0;
+  visibility: hidden;
   background: #151716;
   box-shadow: inset 0 0 0 1px rgba(217,255,252,.12);
 }
@@ -149,6 +151,11 @@
 .lk-quiz-egg[data-hatch-phase="settled"] .lk-quiz-egg__base,
 .lk-quiz-egg[data-hatch-phase="settled"] .lk-quiz-egg__cracks {
   opacity: 0;
+}
+.lk-quiz-egg[data-hatch-phase="reveal"] .lk-quiz-hatch__frame,
+.lk-quiz-egg[data-hatch-phase="settled"] .lk-quiz-hatch__frame {
+  opacity: 1;
+  visibility: visible;
 }
 .lk-quiz-egg[data-hatch-phase="reveal"] .lk-quiz-hatch__flash {
   animation: lk-hatch-flash-out 180ms ease-out both;

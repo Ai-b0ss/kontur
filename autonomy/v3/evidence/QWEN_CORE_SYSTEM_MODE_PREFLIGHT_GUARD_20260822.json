@@ -1,0 +1,34 @@
+{
+  "schema": "qwen_core_evidence_v1",
+  "worker": "QWEN_CORE",
+  "date_utc": "2026-08-22",
+  "finding": "SYSTEM_PROMPT_MODE_STRICT_VALIDATION_HAPPENS_TOO_LATE_FOR_SERVER_SESSION_MUTATION",
+  "verdict": "REPRODUCED_AND_CANDIDATE_PASS",
+  "qwen_pr6_head": "a008858b0a1777fca3d6a40d9464411b460eace8",
+  "exact_blobs": {
+    "server.js": "12369bc5aca9206ba7daabd8521e7cf642b03c88",
+    "src/qwen-v3-capabilities.js": "75bcc50f85a3056ddc7dafc55cb98f5995a5eac7",
+    "scripts/system-prompt-mode-alias-validation-test.js": "381abf2d0d262f4cce1eaa40869d30eab7b708cd"
+  },
+  "observed_gap": "server.js uses a lenient local explicitPromptMode before sessionStore.clear/toolMemo.clear, while the later qwen-v3 resolver is strict. Conflicting or blank explicit aliases can therefore reach session mutation before the later validation rejects the request.",
+  "candidate": "autonomy/v3/candidates/QWEN_CORE_SYSTEM_MODE_PREFLIGHT_GUARD_20260822.patch",
+  "candidate_semantics": [
+    "Detect whether the request explicitly supplied a mode in body or headers.",
+    "If absent, preserve null so durable prompt authority may be inherited.",
+    "If present, delegate immediately to the canonical strict qwen-v3 resolver before any session mutation.",
+    "Keep body precedence over a transport header, matching the current qwen-v3 contract."
+  ],
+  "hosted_targeted_result": "QWEN_SYSTEM_PROMPT_MODE_ALIAS_VALIDATION_PASS empty_fail_closed=2 conflict_fail_closed=2 malformed_fail_closed=1 body_precedence=1 equivalent_aliases=1 bounded_error=1 server_preflight_no_mutation=4",
+  "hosted_assertions": {
+    "session_clear_before_reject": 0,
+    "memo_clear_before_reject": 0,
+    "provider_calls": 0,
+    "http_status": 400,
+    "error_code": "QWEN_SYSTEM_PROMPT_MODE_INVALID"
+  },
+  "limits": [
+    "The candidate was applied and tested on exact server bytes locally, but not pushed to qwen-free-api in this run because the GitHub write surface replaces the whole large file and an exact byte-preserving product write was not completed safely.",
+    "Full exact-tree npm test was not run.",
+    "No GitHub Actions, CircleCI, Cloudflare or Qwen provider traffic was used."
+  ]
+}

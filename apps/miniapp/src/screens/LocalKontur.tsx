@@ -272,18 +272,28 @@ export function LocalKontur() {
     }
   }, [stage, hatchPhase, hatchMinimumElapsed, hatchReady, birdAssetReady]);
 
+  const beginHatchReveal = useCallback(() => {
+    setHatchPhase((current) => (current === 'flash' ? 'reveal' : current));
+  }, []);
+
   useEffect(() => {
-    if (stage !== 'hatching' || (hatchPhase !== 'flash' && hatchPhase !== 'reveal')) return;
+    if (stage !== 'hatching') return;
+    if (hatchPhase === 'reveal') {
+      if (hatchPhaseTimer.current) window.clearTimeout(hatchPhaseTimer.current);
+      hatchPhaseTimer.current = window.setTimeout(finishHatchReveal, timings.reveal);
+      return () => {
+        if (hatchPhaseTimer.current) window.clearTimeout(hatchPhaseTimer.current);
+        hatchPhaseTimer.current = null;
+      };
+    }
+    if (hatchPhase !== 'flash') return;
     if (hatchPhaseTimer.current) window.clearTimeout(hatchPhaseTimer.current);
-    hatchPhaseTimer.current = window.setTimeout(
-      hatchPhase === 'flash' ? () => setHatchPhase('reveal') : finishHatchReveal,
-      hatchPhase === 'flash' ? timings.flash : timings.reveal,
-    );
+    hatchPhaseTimer.current = window.setTimeout(beginHatchReveal, timings.flash + 64);
     return () => {
       if (hatchPhaseTimer.current) window.clearTimeout(hatchPhaseTimer.current);
       hatchPhaseTimer.current = null;
     };
-  }, [stage, hatchPhase, finishHatchReveal, timings.flash, timings.reveal]);
+  }, [stage, hatchPhase, beginHatchReveal, finishHatchReveal, timings.flash, timings.reveal]);
 
   const pick = (answer: number) => {
     if (shouldBlockQuizAnswer(answerLock.current, actionLock.current, busy)) return;
@@ -537,7 +547,9 @@ export function LocalKontur() {
             hatchPhase={stage === 'reveal' ? 'settled' : hatchPhase}
             resultId={hatchReady ? revealResultId : undefined}
             palette={reveal?.state.player.palette ?? state?.player.palette ?? null}
+            timings={timings}
             onBirdReady={() => setBirdAssetReady(true)}
+            onFlashCovered={beginHatchReveal}
           />
         </div>
 
@@ -548,7 +560,7 @@ export function LocalKontur() {
           </button>
         </section>
 
-        {question && (
+        {stage === 'questions' && question && (
           <section className="lk-question lk-question--egg" key={index} aria-hidden={stage !== 'questions'}>
             <span className="lk-question-number">{String(index + 1).padStart(2, '0')}</span>
             <p className="lk-kicker">выбирай первое, что ближе</p>
@@ -579,7 +591,6 @@ export function LocalKontur() {
 
         {showingReveal && (
           <section className="lk-reveal lk-reveal--inline">
-            <div className="lk-reveal-signal" aria-hidden="true"><span /><span /><span /></div>
             <p className="lk-kicker">это твоя птица</p>
             <h1>{bird.name}</h1>
             <p className="lk-lead">{revealNote || bird.note}</p>

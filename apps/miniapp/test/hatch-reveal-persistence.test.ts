@@ -68,13 +68,23 @@ test('phase CSS never reveals bird before handoff and never creates an empty fra
   );
   assert.match(
     css,
-    /@keyframes lk-hatch-flash-in[\s\S]*?100%\s*\{\s*opacity:\s*\.82;/,
+    /@keyframes lk-hatch-flash-in[\s\S]*?100%\s*\{\s*opacity:\s*1;/,
     'flash must still cover the frame at the egg-to-bird state handoff',
   );
   assert.match(
     css,
-    /@keyframes lk-hatch-flash-out[\s\S]*?0%\s*\{\s*opacity:\s*\.82;/,
+    /@keyframes lk-hatch-flash-out[\s\S]*?0%\s*\{\s*opacity:\s*1;/,
     'the reveal phase must begin under the same opaque flash',
+  );
+  assert.match(
+    css,
+    /data-hatch-phase="flash"[^\{]*\.lk-quiz-hatch__flash,[\s\S]*?data-hatch-phase="reveal"[^\{]*\.lk-quiz-hatch__flash\s*\{[\s\S]*?opacity:\s*1;/,
+    'the flash overlay cannot drop to its base opacity:0 between cover and fade',
+  );
+  assert.doesNotMatch(
+    css,
+    /data-hatch-phase="flash"[^\{]*\.lk-quiz-egg__base[^\{]*\{[\s\S]*?opacity:\s*0/,
+    'the cracked egg must remain until the covering flash has finished',
   );
   assert.match(
     css,
@@ -111,6 +121,23 @@ test('result bird clips inside a stable circle while glow remains outside', asyn
   );
 });
 
+test('flash cover is driven by animationend, with a timeout only as backup', async () => {
+  const screen = await readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8');
+  const egg = await readFile(new URL('../src/components/QuizEgg.tsx', import.meta.url), 'utf8');
+
+  assert.match(egg, /event\.animationName !== 'lk-hatch-flash-in'/);
+  assert.match(screen, /onFlashCovered=\{beginHatchReveal\}/);
+  assert.match(screen, /current === 'flash' \? 'reveal'/);
+  assert.match(screen, /timings\.flash \+ 64/);
+});
+
+test('q8 copy and the old reveal-signal are not mounted under the result bird', async () => {
+  const screen = await readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8');
+
+  assert.match(screen, /stage === 'questions' && question &&/);
+  assert.doesNotMatch(screen, /className="lk-reveal-signal"/);
+});
+
 test('skip cancels the active phase timer and atomically settles the result', async () => {
   const screen = await readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8');
 
@@ -132,8 +159,8 @@ test('reduced motion preserves non-zero ordered phases without shake', async () 
     css,
     /\.lk-reduced-motion[^\{]*data-hatch-phase="cracks"[^\{]*\.lk-quiz-egg__base\s*\{\s*animation:\s*none !important;/,
   );
-  assert.match(css, /data-hatch-phase="flash"[\s\S]*?animation-duration:\s*120ms !important;/);
-  assert.match(css, /data-hatch-phase="reveal"[\s\S]*?animation-duration:\s*180ms !important;/);
+  assert.match(css, /data-hatch-phase="flash"[\s\S]*?animation-duration:\s*var\(--lk-hatch-flash/);
+  assert.match(css, /data-hatch-phase="reveal"[\s\S]*?animation-duration:\s*var\(--lk-hatch-reveal/);
 });
 
 test('profile numbers are inert background and refresh has no font glyph', async () => {

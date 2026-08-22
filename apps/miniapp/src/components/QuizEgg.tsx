@@ -42,7 +42,6 @@ export function QuizEgg({
       className={`lk-quiz-egg${hatching ? ' is-hatching' : ''}`}
       data-stage={model.stage}
       data-hatch-phase={hatchPhase}
-      style={hatchStyle}
       aria-label={`Яйцо: этап ${model.stage} из 8`}
     >
       <span className="lk-quiz-egg__ring" style={{ '--lk-egg-progress': `${model.progressDegrees}deg` } as CSSProperties} aria-hidden="true" />
@@ -50,7 +49,7 @@ export function QuizEgg({
       <img className="lk-quiz-egg__base" src={model.asset} alt="" width="1101" height="1429" draggable={false} />
       <img className="lk-quiz-egg__cracks" src="/quiz/egg-crack-light.webp" alt="" aria-hidden="true" draggable={false} />
       {hatching && resultId && (
-        <div className="lk-quiz-hatch" aria-hidden="true">
+        <div className="lk-quiz-hatch" style={hatchStyle} aria-hidden="true">
           <span className="lk-quiz-hatch__halo" />
           <span className="lk-quiz-hatch__flash" onAnimationEnd={handleFlashAnimationEnd} />
           <span className="lk-quiz-hatch__frame">

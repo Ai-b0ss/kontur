@@ -273,6 +273,29 @@ async function revealLayout(page, label) {
   return actual;
 }
 
+async function dropLayout(page, label) {
+  const actual = await page.evaluate(() => {
+    const rect = (selector) => {
+      const value = document.querySelector(selector)?.getBoundingClientRect();
+      return value ? { top: value.top, right: value.right, bottom: value.bottom, left: value.left, width: value.width, height: value.height } : null;
+    };
+    return {
+      image: rect('.lk-drop .lk-result-bird'),
+      heading: rect('.lk-drop h2'),
+      copy: rect('.lk-drop > p:not(.lk-kicker)'),
+      button: rect('.lk-drop .lk-button'),
+      viewport: { width: innerWidth, height: innerHeight },
+    };
+  });
+  for (const [surface, value] of Object.entries({ image: actual.image, heading: actual.heading, copy: actual.copy, button: actual.button })) {
+    ok(value && value.left >= -1 && value.right <= actual.viewport.width + 1, `${label}: ${surface} overflows horizontally`);
+  }
+  ok(actual.image && actual.heading && actual.image.bottom <= actual.heading.top + 1, `${label}: canonical bird overlaps the coloring title`);
+  ok(actual.heading && actual.copy && actual.heading.bottom <= actual.copy.top + 1, `${label}: coloring title overlaps its copy`);
+  ok(actual.copy && actual.button && actual.copy.bottom <= actual.button.top + 1, `${label}: coloring copy overlaps the equip action`);
+  return actual;
+}
+
 async function answer(page) {
   await page.locator('.lk-options button').first().click();
   await page.waitForTimeout(330);
@@ -328,7 +351,7 @@ try {
   await page.getByRole('button', { name: 'что дальше' }).waitFor({ timeout: 4000 }); visual.reveal = await canonicalBird(page, '.lk-quiz-hatch', '320 reveal', true, true); continuity.revealBird = visual.reveal.resultId; continuity.revealTint = visual.reveal.tintInlineStyle; ok(continuity.revealBird === continuity.hatchBird && continuity.revealTint === continuity.hatchTint, 'hatch/reveal continuity failed'); visual.smallRevealLayout = await revealLayout(page, '320 reveal'); await screenshot(page, '06-bird-reveal.png');
   await page.getByRole('button', { name: 'что дальше' }).click(); await screenshot(page, '07-worm-loop.png'); await page.getByRole('button', { name: 'к моей птице' }).click();
   visual.home = await canonicalBird(page, '.lk-bird-stage--home', '320 Home', true, true); continuity.homeBird = visual.home.resultId; continuity.homeTint = visual.home.tintInlineStyle; ok(continuity.homeBird === continuity.revealBird && continuity.homeTint === continuity.revealTint, 'reveal/Home continuity failed'); viewports.smallHome = await layout(page, '320 home', 320, 568); await screenshot(page, '08-home.png');
-  await page.getByRole('button', { name: 'открыть яйцо' }).click(); await page.getByRole('button', { name: 'надеть окрас' }).waitFor({ timeout: 2000 }); visual.drop = await canonicalBird(page, '.lk-drop', '320 coloring drop', true, true); continuity.dropBird = visual.drop.resultId; ok(continuity.dropBird === continuity.homeBird, 'drop changed identity'); await page.locator('.lk-drop').screenshot({ path: join(evidence, '09-new-coloring-drop.png') }); artifacts.push({ name: '09-new-coloring-drop.png', sha256: await hash(join(evidence, '09-new-coloring-drop.png')) }); await page.getByRole('button', { name: 'надеть окрас' }).click(); await page.waitForTimeout(100);
+  await page.getByRole('button', { name: 'открыть яйцо' }).click(); await page.getByRole('button', { name: 'надеть окрас' }).waitFor({ timeout: 2000 }); visual.drop = await canonicalBird(page, '.lk-drop', '320 coloring drop', true, true); visual.dropLayout = await dropLayout(page, '320 coloring drop'); continuity.dropBird = visual.drop.resultId; ok(continuity.dropBird === continuity.homeBird, 'drop changed identity'); await page.locator('.lk-drop').screenshot({ path: join(evidence, '09-new-coloring-drop.png') }); artifacts.push({ name: '09-new-coloring-drop.png', sha256: await hash(join(evidence, '09-new-coloring-drop.png')) }); await page.getByRole('button', { name: 'надеть окрас' }).click(); await page.waitForTimeout(100);
   visual.equipped = await canonicalBird(page, '.lk-bird-stage--home', '320 equipped Home', true, true); continuity.equippedBird = visual.equipped.resultId; continuity.equippedTint = visual.equipped.tintInlineStyle; ok(continuity.equippedBird === continuity.homeBird && continuity.equippedTint !== continuity.homeTint, 'equip identity/cosmetic contract failed'); await page.reload({ waitUntil: 'networkidle' }); await page.getByRole('button', { name: 'посмотреть тест заново' }).waitFor(); await page.evaluate(() => window.scrollTo(0, 0)); visual.reload = await canonicalBird(page, '.lk-bird-stage--home', '320 reload Home', true, true); continuity.reloadBird = visual.reload.resultId; continuity.reloadTint = visual.reload.tintInlineStyle; ok(continuity.reloadBird === continuity.equippedBird && continuity.reloadTint === continuity.equippedTint, 'reload persistence failed'); await screenshot(page, '10-reload-persistence.png');
   await page.getByRole('button', { name: 'посмотреть тест заново' }).click(); await toQuestion(page, 8); await page.locator('.lk-options button').first().click(); await page.waitForTimeout(350); visual.replayHatch = await canonicalBird(page, '.lk-quiz-hatch', '320 replay hatch'); continuity.replayBird = visual.replayHatch.resultId; continuity.replayTint = visual.replayHatch.tintInlineStyle; ok(continuity.replayBird === continuity.reloadBird && continuity.replayTint === continuity.reloadTint, 'replay changed identity/palette'); await page.getByRole('button', { name: 'что дальше' }).waitFor({ timeout: 4000 }); visual.replayReveal = await canonicalBird(page, '.lk-quiz-hatch', '320 replay reveal', true, true); ok(visual.replayReveal.resultId === continuity.reloadBird && visual.replayReveal.tintInlineStyle === continuity.reloadTint, 'replay reveal changed identity/palette'); visual.replayRevealLayout = await revealLayout(page, '320 replay reveal'); await screenshot(page, '11-replay-same-bird.png'); await small.context.close();
 

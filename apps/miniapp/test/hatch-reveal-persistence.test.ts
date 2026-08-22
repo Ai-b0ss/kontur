@@ -111,12 +111,17 @@ test('hatch and reveal preserve the exact final bird pose without a state-change
   assert.ok(css.includes(finalPose));
 });
 
-test('reward bird art cannot intercept the equip action', async () => {
+test('reward bird art stays clear of copy and cannot intercept the equip action', async () => {
   const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
   assert.match(
     css,
     /\.lk-bird-stage--drop,[\s\S]*?\.lk-bird-stage--drop \.lk-result-bird\s*\{[\s\S]*?pointer-events:\s*none;/,
-    'the reward illustration may overlap decoratively but must be click-through',
+    'the reward illustration must be click-through',
+  );
+  assert.match(
+    css,
+    /\.lk-drop \.lk-bird-stage--drop\s*\{[\s\S]*?height:\s*310px;[\s\S]*?margin-bottom:\s*0;/,
+    'the canonical reward master must reserve enough layout height to stay clear of its title',
   );
   assert.match(
     css,

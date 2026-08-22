@@ -41,6 +41,12 @@
   position: relative;
   z-index: 2;
 }
+/* The canonical master is taller than the legacy reward stage. Reserve its
+   painted height so the tail cannot cover the coloration title/copy. */
+.lk-drop .lk-bird-stage--drop {
+  height: 310px;
+  margin-bottom: 0;
+}
 
 /* q8 shell and bird stay inside one QuizEgg from opening through result.
    Repeat the state class so this rule beats the legacy two-class selector even

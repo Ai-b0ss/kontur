@@ -143,7 +143,7 @@ test('current product has exactly six unique canonical identities and no /birds 
   assert.equal(new Set(Object.values(RESULT_ASSETS).map((asset) => asset.src)).size, 6);
   for (const asset of Object.values(RESULT_ASSETS)) assert.doesNotMatch(asset.src, /^\/birds\//);
   assert.equal(RESULT_ASSETS.kotosov.src, '/results/kotosov.webp');
-  assert.equal(RESULT_ASSETS.crane.src, '/results/crane-collectible.svg');
+  assert.equal(RESULT_ASSETS.crane.src, '/results/crane.webp');
 
   const currentRenderer = await readFile(new URL('../src/components/LocalBirdVisual.tsx', import.meta.url), 'utf8');
   assert.match(currentRenderer, /CanonicalBirdVisual/);
@@ -185,6 +185,18 @@ test('equipped palette stays on the same canonical bird from hatch through Home'
   assert.match(renderer, /palette && imageReady &&/);
 });
 
+test('all six palette channels visibly recolor the canonical bird', async () => {
+  const renderer = await readFile(new URL('../src/components/CanonicalBirdVisual.tsx', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
+  for (const channel of ['body', 'belly', 'wing', 'tail', 'crest', 'beak']) {
+    assert.match(renderer, new RegExp(`palette\\.${channel}`), channel);
+  }
+  assert.match(renderer, /radial-gradient/);
+  assert.match(renderer, /linear-gradient/);
+  assert.match(css, /\.lk-canonical-bird__tint\s*\{[\s\S]*?opacity:\s*\.68;/);
+  assert.match(css, /mix-blend-mode:\s*color;/);
+});
+
 test('reveal state removes stale hook and question surfaces and wins the final CSS order', async () => {
   const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
   assert.match(css, /\.lk-first-time\.lk-first-time--reveal \.lk-hook-copy,[\s\S]*?visibility:\s*hidden;[\s\S]*?pointer-events:\s*none;/);
@@ -206,14 +218,18 @@ test('replay keeps the saved bird identity instead of presenting a temporary new
   assert.doesNotMatch(replayBranch, /resolveRole|selectBirdResult|personalizedBirdNote/);
 });
 
-test('responsive QA contract covers 320x568, 430x1000, safe area and reduced motion', async () => {
+test('responsive QA contract covers 320x568, 390x844, 430x1000, safe area and reduced motion', async () => {
   const baseCss = await readFile(new URL('../src/local-kontur.css', import.meta.url), 'utf8');
   const correctionCss = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
+  const browserAcceptance = await readFile(new URL('./browser-acceptance.mjs', import.meta.url), 'utf8');
   assert.match(correctionCss, /@media \(max-width: 360px\), \(max-height: 650px\)/);
   assert.match(correctionCss, /@media \(min-width: 361px\) and \(min-height: 651px\)/);
   assert.match(baseCss, /env\(safe-area-inset-bottom\)/);
   assert.match(correctionCss, /\.lk-reduced-motion/);
+  assert.match(browserAcceptance, /width:\s*390,\s*height:\s*844/);
+  assert.match(browserAcceptance, /hookSeparation\(medium\.page, '390 hook'\)/);
   assert.ok(320 <= 360 && 568 <= 650);
+  assert.ok(390 >= 361 && 844 >= 651);
   assert.ok(430 >= 361 && 1000 >= 651);
 });
 

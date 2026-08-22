@@ -26,12 +26,30 @@ function telegramInitData() {
 }
 
 async function jsonFetch(path, init = {}) {
-  const response = await fetch(`${origin}${path}`, { ...init, signal: AbortSignal.timeout(15_000) });
-  const text = await response.text();
-  let body;
-  try { body = text ? JSON.parse(text) : null; } catch { body = text; }
-  if (!response.ok) fail(`${path} returned HTTP ${response.status}`, body);
-  return body;
+  const maxAttempts = 4;
+  const retryableStatus = new Set([408, 425, 429, 500, 502, 503, 504]);
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    let response;
+    let text;
+    try {
+      response = await fetch(`${origin}${path}`, { ...init, signal: AbortSignal.timeout(30_000) });
+      text = await response.text();
+    } catch (error) {
+      if (attempt === maxAttempts) throw error;
+      console.error(`STAGING_FETCH_RETRY path=${path} attempt=${attempt} reason=network`);
+      await new Promise((resolve) => setTimeout(resolve, attempt * 750));
+      continue;
+    }
+    let body;
+    try { body = text ? JSON.parse(text) : null; } catch { body = text; }
+    if (response.ok) return body;
+    if (!retryableStatus.has(response.status) || attempt === maxAttempts) {
+      fail(`${path} returned HTTP ${response.status}`, body);
+    }
+    console.error(`STAGING_FETCH_RETRY path=${path} attempt=${attempt} status=${response.status}`);
+    await new Promise((resolve) => setTimeout(resolve, attempt * 750));
+  }
+  fail(`${path} exhausted retry policy`);
 }
 
 // Exercise the production-style Telegram boundary without contacting Telegram:

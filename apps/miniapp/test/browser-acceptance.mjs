@@ -319,7 +319,7 @@ try {
   ok(await page.locator('.lk-quiz-egg').getAttribute('data-stage') === '1', 'q1 is not egg stage 1'); await screenshot(page, '03-quiz-q1.png');
   for (let q = 1; q < 4; q += 1) await answer(page);
   visual.q4Question = await waitForQuestionPaint(page); ok(await page.locator('.lk-quiz-egg').getAttribute('data-stage') === '4', 'q4 is not egg stage 4'); await screenshot(page, '04-quiz-q4.png');
-  const back = page.getByRole('button', { name: '← назад' }); ok(await back.isVisible(), 'back absent before q4 answer'); await page.locator('.lk-options button').first().click(); ok(await back.count() === 0, 'back active during locked answer transition'); await page.waitForTimeout(330);
+  const back = page.getByRole('button', { name: '← назад' }); ok(await back.isVisible(), 'back absent before q4 answer'); await page.locator('.lk-options button').first().click(); ok(await back.count() === 0, 'back active during locked answer transition'); await page.waitForTimeout(330); await waitForQuestionPaint(page);
   for (let q = 5; q < 8; q += 1) await answer(page);
   visual.q8Question = await waitForQuestionPaint(page); ok(await page.locator('.lk-quiz-egg').getAttribute('data-stage') === '8', 'q8 is not egg stage 8'); await screenshot(page, '05-quiz-q8.png');
   await page.locator('.lk-options button').first().click(); ok(await page.locator('main.is-egg-responding').count() === 1, 'q8 response gesture absent'); ok(await page.locator('main.lk-first-time--hatching').count() === 0, 'hatching started before gesture end'); ok(await page.getByRole('button', { name: '← назад' }).count() === 0, 'back active during q8 transition');

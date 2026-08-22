@@ -1,0 +1,28 @@
+{
+  "archive": {
+    "parts": 1,
+    "sha256": "7d93815bd165648af95470a947e9ff730a564cc331c51bff9babd27d8c8c6c2d",
+    "size": 1012
+  },
+  "capsule_id": "20260822T095123Z-7991a947ca",
+  "created_at_utc": "2026-08-22T09:51:23Z",
+  "parts": [
+    {
+      "chars": 1352,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "a00cfe963a51a9aaea4bc0ced2efc754c8c0ec186faf48e2dc1e9c656b3e3577"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "worker": "NOTION_CORE",
+  "workspace": {
+    "CHECKPOINT.json": {
+      "mode": "0o644",
+      "sha256": "f3f86d5a7435a9545b604212a42b167b49fba315e8a3688a4c30898f8ad233ae",
+      "size": 1238,
+      "type": "file"
+    }
+  }
+}

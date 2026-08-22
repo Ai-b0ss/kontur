@@ -1,0 +1,48 @@
+diff --git a/payload/account_pool.py b/payload/account_pool.py
+--- a/payload/account_pool.py
++++ b/payload/account_pool.py
+@@
+     async def run(
+         self,
+         operation: Callable[[NotionAgentClient], Awaitable[T]],
+         *,
+         retry_operation: Callable[[NotionAgentClient], Awaitable[T]] | None = None,
++        allow_failover: bool = True,
+     ) -> T:
+@@
+             except Exception as error:
+@@
+                 if not is_failover_error(error):
+@@
+                     raise
+                 duration_ms = round((time.monotonic() - started_at) * 1000)
+                 if isinstance(error, NotionAgentError) and error.code == ErrorCode.TRANSPORT:
+                     if self._pending_transport_failure is not None:
+                         self._record_transport_outcome(final_success=False, retry_scheduled=True)
+                     self._record_transport_failure(error, duration_ms=duration_ms)
++                if not allow_failover:
++                    if self._slot is not None:
++                        await self._pool._record_failure(self._slot, error, duration_ms)
++                    if self._pending_transport_failure is not None:
++                        self._record_transport_outcome(
++                            final_success=False,
++                            retry_scheduled=False,
++                        )
++                    log_event(
++                        log,
++                        "account_failover_suppressed",
++                        level=logging.WARNING,
++                        account_id=(self._slot.account_id if self._slot is not None else None),
++                        reason="durable_provider_intent",
++                    )
++                    raise
+                 try:
+                     await self._switch_account(error, duration_ms=duration_ms)
+*** End Patch
+
+# Stage-B server integration requirement:
+# Every provider call made after ConversationSegmentStore.begin_provider_intent(...)
+# must call lease.run(..., allow_failover=False). The existing outer
+# foreground transport recursion in handle_openai_responses must also be disabled
+# for that request. An unresolved durable provider intent then becomes the only
+# safe retry boundary until a typed lower-layer proof of NO_REMOTE_PROGRESS exists.

@@ -1,0 +1,28 @@
+{
+  "schema": "integration_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "observed_at_utc": "2026-08-22T04:40:00Z",
+  "scope": "Notion Agent <-> shared Qwen/Notion owner-mode contract",
+  "fresh_notion_pr_head": "590ae476b7dee4a9a07916cb3504c70568c12552",
+  "fresh_qwen_pr_head": "a008858b0a1777fca3d6a40d9464411b460eace8",
+  "notion_prompt_modes_blob": "5dd1ff18840e6a78d1fa5612192c96891e4b1d69",
+  "finding": "Notion requested_prompt_mode silently defaults an explicitly empty notion_prompt_mode to engineer and silently prefers notion_prompt_mode when prompt_mode conflicts. Qwen Core's fresh shared-mode boundary now rejects empty/malformed/conflicting aliases fail-closed.",
+  "current_reproduction": {
+    "missing_mode": "engineer",
+    "explicit_empty_notion_prompt_mode": "engineer (silently accepted)",
+    "notion_prompt_mode_engineer_plus_prompt_mode_owner": "engineer (conflict silently ignored)"
+  },
+  "candidate_contract": {
+    "missing_all_aliases": "default engineer",
+    "present_empty_or_blank_alias": "reject stable local invalid-mode error before provider/session mutation",
+    "present_conflicting_aliases": "reject stable local invalid-mode error",
+    "equivalent_aliases_after trim/lower": "accept",
+    "valid_single_alias": "accept"
+  },
+  "offline_probe": "autonomy/v3/tools/integration_notion_prompt_mode_alias_parity_probe.py",
+  "offline_verdict": "NOTION_PROMPT_MODE_ALIAS_PARITY_GAP_REPRODUCED",
+  "product_mutation": false,
+  "hosted_ci": false,
+  "provider_traffic": false,
+  "native_windows_claimed": false
+}

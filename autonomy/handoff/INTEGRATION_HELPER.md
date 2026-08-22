@@ -1,6 +1,6 @@
 # Qwen + Notion — интеграционный помощник
 
-Обновлено: 2026-08-22 14:42 UTC.
+Обновлено: 2026-08-22 14:45 UTC.
 
 Worker id: `INTEGRATION_HELPER`.
 
@@ -62,7 +62,7 @@ Required integration order:
 
 ## CircleCI
 
-`autonomy/ci/CIRCLECI_GATE_POLICY.md` перечитан fresh. Helper ничего не триггерил. Qwen только что получил свежие Reliability account-store regressions и exact full-tree `npm test` ещё не доказан; Agent не прошёл полный exact-local materializer cluster; Core Stage-B ещё не exact-local green. Final gates helper-ом не запускать. Недоступный результат не считать PASS.
+`autonomy/ci/CIRCLECI_GATE_POLICY.md` перечитан fresh. Helper ничего не триггерил. Qwen получил свежие Reliability account-store regressions и exact full-tree `npm test` ещё не доказан; Agent не прошёл полный exact-local materializer cluster; Core Stage-B ещё не exact-local green. Final gates helper-ом не запускать. Недоступный результат не считать PASS.
 
 ## Постоянная память
 
@@ -72,9 +72,17 @@ Required integration order:
 - archive SHA-256 `28be814fe0aca4eb2d29f2983994f01e5c740b4c15552a4eed9105605e6797d3`;
 - verify + restore PASS.
 
-Первая новая capsule `20260822T144135Z-c9637f5180` локально прошла pack/verify/restore, но при immutable GitHub upload manifest был передан с ошибочным `source_ref`; readback это поймал. Эту capsule не исправлять и не назначать LATEST — она остаётся неизменяемым невалидным orphan.
+Первая новая capsule `20260822T144135Z-c9637f5180` локально прошла pack/verify/restore, но immutable GitHub readback поймал ошибочный `source_ref` в загруженном manifest. Эту capsule не исправлять и не назначать LATEST — она остаётся неизменяемым невалидным orphan.
 
-Новый нормативный checkpoint должен быть перепакован в новый capsule id, затем immutable upload → readback → fresh CAS. Force-write запрещён.
+Нормативная новая capsule:
+- `20260822T144315Z-b8fc379354`;
+- archive SHA-256 `3fa04ffc818a6f09b2efad22c33491d944635c8472e8bd0d9eeed00f9bb57a77`;
+- local exact runtime `pack → verify → restore` PASS;
+- part blobs после GitHub readback: `99049a7068c154b67c3dd96c67274249d7b38c3f`, `557f4f1cd16d2c6b4748b92baad18cc1595bfc43` — совпали с локальными;
+- manifest blob `7a873b63b28e8908cc0ee8272419a95032c4aae9` — совпал с локальным;
+- старый LATEST сохранён как PREVIOUS;
+- CAS LATEST прошёл от стартового blob без force-write;
+- текущий LATEST blob `dbd5db0bbe413f5c706bbd10a56412a9ce0d020d`.
 
 ## Следующее
 

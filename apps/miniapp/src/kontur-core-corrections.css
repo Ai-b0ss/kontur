@@ -144,6 +144,7 @@
   visibility: hidden;
   opacity: 0;
   animation: none;
+  transition: none;
   transform: translateY(-18px);
   pointer-events: none;
 }

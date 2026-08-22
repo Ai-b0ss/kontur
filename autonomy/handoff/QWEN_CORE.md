@@ -6,7 +6,7 @@
 Repo: `Ai-b0ss/qwen-free-api`
 Branch: `autopilot/qwen-runtime-preflight-20260818`
 PR: #6
-Fresh product head после этого прохода: `ee1c596534dc926edcdef97886801bfd36fe4ae3`.
+Fresh product head на завершение прохода: `e21baa6c29edfc2b592db01106fcd9c32f752a21`.
 
 Перед любой новой записью снова перечитать PR #6, `autonomy/handoff/QWEN_RELIABILITY.md` и QWEN_CORE `LATEST.json`.
 
@@ -27,52 +27,66 @@ Fresh product head после этого прохода: `ee1c596534dc926edcdef9
 - durable owner authority не приводит object/number/array через `String(...)`;
 - internal prompt mode различает отсутствие поля и явно переданное некорректное значение;
 - bounded internal-mode error regression включён в обычный `npm test`;
-- plain subagent dispatcher строго валидирует owner/engineer, приватный prompt, task prompt/id.
+- plain subagent dispatcher строго валидирует owner/engineer, приватный prompt, task prompt/id и explicit sessionPrefix.
 
-## Новый закрытый дефект — explicit malformed sessionPrefix молча становился новой случайной сессией
-До исправления `dispatchSubagents()` строил prefix через `String(options.sessionPrefix || generated)`. Поэтому явно переданные `''`, `null`, `false`, `0` не отклонялись, а незаметно заменялись новым случайным `subagent-<uuid>`. Для повторяемой/восстанавливаемой задачи это могло тихо потерять ожидаемую идентичность сессии и начать новую цепочку.
+## Закрытый Core-дефект этого прохода — malformed explicit sessionPrefix молча становился новой случайной сессией
+До исправления `dispatchSubagents()` строил prefix через `String(options.sessionPrefix || generated)`. Явно переданные `''`, `null`, `false`, `0` незаметно заменялись новым случайным `subagent-<uuid>`. Для повторяемой/восстанавливаемой задачи это могло потерять ожидаемую идентичность сессии и начать новую цепочку.
 
 Исправлено:
-- `6f4a79154f349b2b8f03d23b55fbb73b03a3ad91` — добавлен `resolveSessionPrefix()`: отсутствие поля по-прежнему создаёт свежий prefix, но явно переданное некорректное значение fail-closed с `QWEN_SUBAGENT_SESSION_ID_INVALID` до запроса;
+- `6f4a79154f349b2b8f03d23b55fbb73b03a3ad91` — добавлен `resolveSessionPrefix()`: отсутствие поля по-прежнему создаёт fresh prefix, но явно переданное некорректное значение fail-closed с `QWEN_SUBAGENT_SESSION_ID_INVALID` до запроса;
 - `ee1c596534dc926edcdef97886801bfd36fe4ae3` — `subagent-dispatcher-test.js` закрепляет malformed prefix + omitted-prefix generation.
 
-Diff `8d7a54d... -> ee1c596...` ограничен только `src/subagent-dispatcher.js` и его test (`+50/-7`). Hosted targeted semantic PASS без provider traffic:
+Diff `8d7a54d... -> ee1c596...` ограничен `src/subagent-dispatcher.js` и его test. Hosted targeted semantic PASS без provider traffic:
 `QWEN_SUBAGENT_SESSION_PREFIX_TARGET_PASS invalid=8 omitted_generated=1 exact_valid=1 provider_calls=0`.
 
-## Текущий targeted Core / Reliability статус
-Fresh compare `0c8b0c8... -> 8d7a54d...` показал: session/restart/agent Core-байты не менялись; менялись только `account-store`, package wiring и plain subagent dispatcher/test. Поэтому ранее полученные exact session/restart/owner targeted PASS остаются применимы к неизменённым Core-байтам; новый dispatcher-кусок дополнительно проверен targeted PASS выше.
+Fresh read-back на более новом product head `e21baa6...` подтверждает, что Core-файл `src/subagent-dispatcher.js` остаётся на blob `ad3cc72c7a317c5d2ed8aed2ea13f9f2d4f6d721`; новый Reliability commit меняет только `src/account-store.js`.
 
-Fresh `QWEN_RELIABILITY.md` фиксирует targeted PASS для текущего account-store product fix; единственный commit после reliability handoff до `8d7a54d...` добавлял только дополнительный account filename regression, без изменения `account-store`. Наши два новых Core-коммита account/provider bytes не трогают. Значит targeted Core + Reliability доказательства сейчас сведены на product SHA `ee1c596...` без повторного provider traffic.
+## Core targeted status
+Fresh compare `0c8b0c8... -> 8d7a54d...` показал, что session/restart/agent Core-байты не менялись; менялись account-store/package/plain-subagent участки. Ранее полученные exact session/restart/owner targeted PASS поэтому сохраняют силу для неизменённых Core-байтов. Новый dispatcher-кусок отдельно имеет targeted PASS выше.
 
-## Финальный CircleCI gate — ЗАПУЩЕН один раз на exact product SHA
-Согласно `autonomy/ci/CIRCLECI_GATE_POLICY.md`, disposable branch `ci/qwen-final-gate` сначала принудительно передвинут ровно на product SHA `ee1c596534dc926edcdef97886801bfd36fe4ae3` (разрешённое policy исключение только для gate branch).
+Дополнительно точный plain-subagent dispatcher cluster после предыдущего prompt/id fix локально проходил `subagent dispatcher: PASS`; текущая sessionPrefix правка не затрагивает account/provider слой.
 
-Затем на gate branch создан один изолированный config commit:
-`246dcfcf810c9cfb01fc4ca72b9d99a50504bb2b`.
+## Координация с QWEN_RELIABILITY
+После Core-head `ee1c596...` продукт ушёл на `e21baa6c29edfc2b592db01106fcd9c32f752a21` одним reliability-owned commit `fix(account): reject noncanonical durable filenames`, `src/account-store.js +5/-1`.
 
-Gate semantics:
-1. Linux: Node 22.23.1, locked `npm ci --ignore-scripts --no-audit --no-fund`, полный `npm test`, artifact log.
-2. Windows запускается только ПОСЛЕ Linux PASS (`requires`). Native `windows-server-2022-gui:current`, exact Node 22.23.1 zip from nodejs.org, locked npm ci, полный `npm test`, artifact log.
-3. Никаких runtime secrets, provider/live calls, deploy/production действий.
+Поэтому:
+- Core не переносит и не правит этот account-store участок;
+- предыдущий final-gate SHA `ee1c596...` уже НЕ является текущим финальным product SHA;
+- fresh `package.json` до этого reliability commit содержал `account-store-filename-identity-test.js`, но не содержал свежий `account-store-noncanonical-filename-test.js`; решение о targeted verify/wiring нового reliability regression принадлежит QWEN_RELIABILITY.
 
-GitHub combined-status surface для gate commit пока возвращает пустой список. Это НЕ PASS и НЕ FAIL. По policy текущая классификация: `RESULT_ACCESS_UNAVAILABLE/PENDING_SURFACE`. Второй gate на этот же product SHA не запускать.
+На PR #6 оставлен coordination comment `5382307301`, чтобы второй worker не принял старый gate за финальный и не дублировал его.
 
-## Постоянная память
-Путь: `autonomy/v3/workspaces/QWEN_CORE`.
+## CircleCI final gate: первый запуск теперь только исторический/суперседированный
+Disposable branch `ci/qwen-final-gate` был привязан к product SHA `ee1c596534dc926edcdef97886801bfd36fe4ae3`; isolated gate config commit `246dcfcf810c9cfb01fc4ca72b9d99a50504bb2b` задаёт Linux full npm test -> native Windows Server 2022 full npm test, без runtime secrets/provider/live traffic.
 
+GitHub combined-status surface для `246dc...` всё ещё пустой: `RESULT_ACCESS_UNAVAILABLE`, не PASS/FAIL. Этот gate НЕ повторять на `ee1c596...`.
+
+Из-за нового product commit `e21baa6...` даже возможный будущий PASS старого gate не закрывает финальный DONE. Новый финальный gate разрешён только после стабилизации общего свежего product SHA и targeted PASS обоих workers.
+
+## Постоянная память — v4/CAS завершены
 Стартовый pointer этого прохода:
 - LATEST blob `abaccea380ab01f0b8ab79d748cf7e6f58dc2324`;
 - capsule `20260822T185158Z-ccda10dbcb`;
 - archive SHA-256 `5cf14b1a86027f65b6758f2ccbeadc8dab2c7cf165bd376faa448552e2287ab8`.
 
-Новая capsule должна публиковаться только нормативным `capsule_runtime_v4.py` и только через CAS от этого стартового blob. При любом несовпадении parent SHA — force-write запрещён, оставить immutable orphan и принять более нового писателя.
+Canonical `capsule_runtime_v4.py` материализован exact: 8079 bytes, Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`. Входная capsule прошла нормативные `verify + restore`.
+
+Новый immutable checkpoint:
+- capsule `20260822T195727Z-4e872f4673`;
+- source_ref `e21baa6c29edfc2b592db01106fcd9c32f752a21`;
+- archive SHA-256 `7bf98f451656d9db54a160f278d25b2eba3e9555a035b8f33c9da26d03ab3c5e`;
+- parts Git blobs `bfdca067dbaae54a25b084855c85b5c9bbd21a8d` и `b4ee3c0c9239839cd97158a94eedb424b189b546`;
+- manifest Git blob `f41520e631a2d733d18d833583a42d0960f77bd3`.
+
+Перед публикацией LATEST был перечитан и всё ещё имел исходный CAS parent `abaccea3...`. Старый LATEST сохранён в PREVIOUS. Новый LATEST опубликован через CAS, текущий blob `dfdc3261480360e5735398cef6bedddb16a917b6`; force-write не использовался.
 
 ## Следующий точный порядок
-1. Fresh-read PR #6, QWEN_RELIABILITY и gate commit status.
-2. Не повторять CircleCI для `ee1c596...`.
-3. Если Linux gate FAIL — взять первый доказанный корень из exact full suite, исправить только его, локально targeted verify, затем новый gate только на изменённом product SHA.
-4. Если Linux PASS, дождаться native Windows результата того же workflow. Windows FAIL — реальный blocker; чинить Windows-корень и повторять только после релевантного изменения product bytes.
-5. Если оба PASS — записать exact evidence и проверить отсутствие свежего серьёзного RED в Core/Reliability; только тогда `QWEN_CORE_DONE`.
-6. Уже доказанные live/provider прогоны без новой причины не повторять.
+1. Fresh-read PR #6 + QWEN_RELIABILITY + LATEST.
+2. Проверить завершение нового reliability filename/noncanonical fix и regression wiring; account-store не редактировать из Core.
+3. Старый Circle gate `ee1c596...` не повторять и не считать финальным.
+4. Когда общий product SHA стабилен и targeted Core+Reliability зелёные на нём, ровно один worker запускает новый final gate: Linux locked full exact-tree `npm test` -> native Windows locked full offline suite на том же product SHA.
+5. Linux/Windows FAIL — чинить только первый доказанный корень и повторять gate лишь после релевантного изменения байтов.
+6. Оба PASS + отсутствие свежего серьёзного RED = можно объявлять `QWEN_CORE_DONE`/Windows-ready.
+7. Уже доказанные live/provider прогоны без новой причины не повторять.
 
-Live/provider traffic, реальные аккаунты, секреты, Cloudflare, production и GitHub Actions в этом проходе не использовались.
+В этом проходе live/provider traffic, реальные аккаунты, секреты, Cloudflare, production и GitHub Actions не использовались.

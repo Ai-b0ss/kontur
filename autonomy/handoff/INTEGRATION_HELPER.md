@@ -1,6 +1,6 @@
 # Qwen + Notion — интеграционный помощник
 
-Обновлено: 2026-08-22 15:35 UTC.
+Обновлено: 2026-08-22 15:45 UTC.
 
 Worker id: `INTEGRATION_HELPER`.
 
@@ -19,14 +19,14 @@ Fresh heads:
 
 ## Finding N — Agent может сменить аккаунт между первым provider step и planner correction
 
-Fresh Agent `payload/reservation_aware_lease.py` blob `c77b4d5214911def1729243516aec73e43f8d425` специально держит один `DynamicReservationLeaseSession` через initial round и последующие correction rounds. Перед **каждым** provider attempt `_run()` снова читает foreground reservations. Если текущий аккаунт стал зарезервирован, `_LeaseAccountBecameReserved` приводит к `_reselect()`, а при наличии `retry_operation` последующая correction идёт fresh/recovery путём на новом аккаунте.
+Fresh Agent `payload/reservation_aware_lease.py` blob `c77b4d5214911def1729243516aec73e43f8d425` держит один `DynamicReservationLeaseSession` через initial round и correction rounds. Перед каждым provider attempt `_run()` снова читает foreground reservations. Если текущий аккаунт стал зарезервирован, `_LeaseAccountBecameReserved` приводит к `_reselect()`, а при `retry_operation` correction идёт fresh/recovery путём на новом аккаунте.
 
-Это безопасно до первого provider entry и именно такой случай уже разрешён Finding L / `20260822T1518Z_agent_core_failover_composition_gap.md`.
+До первого provider entry такая reselection уже признана допустимой в Finding L / `20260822T1518Z_agent_core_failover_composition_gap.md`.
 
-Новый конфликт возникает **после** первого provider step:
+Новый конфликт возникает позже:
 - Core V37 требует route/account до strict provider intent;
-- Core V42 для deliberate planner correction требует тот же lease/account и `allow_failover=false` на каждом deliberate step;
-- Agent wrapper после успешного первого вызова A всё ещё способен увидеть новую чужую reservation(A) и перед correction перейти A→B.
+- Core V42 требует deliberate planner correction на том же lease/account и `allow_failover=false`;
+- Agent после успешного первого вызова A всё ещё может увидеть новую foreign reservation(A) и перед correction перейти A→B.
 
 Offline probe:
 `autonomy/v3/tools/integration_notion_postfirst_provider_reservation_reselect_probe.py`
@@ -34,23 +34,19 @@ Offline probe:
 Verdict:
 `NOTION_POSTFIRST_PROVIDER_RESERVATION_RESELECT_REPRODUCED_CANDIDATE_PASS`.
 
-Текущая модель:
-- first provider step: A;
-- после него появляется foreign reservation(A);
-- correction: B;
-- provider accounts: `[A, B]`.
+Текущая модель: first=A → после него reservation(A) → correction=B → provider accounts `[A, B]`.
 
 Безопасный контракт:
-- сохранить текущую reselection до **первого** provider entry;
-- после первого provider step durable-intent sequence фиксирует выбранный account для последующих deliberate correction steps;
-- новая foreign reservation этого аккаунта после provider entry => fail closed **до** следующего provider I/O, intent остаётся unresolved; correction на B не запускать;
-- `allow_failover=false` всё равно обязан дойти до `AccountLease.run`, но этого одного недостаточно: reservation reselection происходит уровнем выше transport failover.
+- сохранить reselection до первого provider entry;
+- после первого provider step зафиксировать выбранный account для deliberate correction steps того же durable intent;
+- foreign reservation после provider entry => fail closed до следующего provider I/O, unresolved intent сохранить, correction на B не запускать;
+- `allow_failover=false` всё равно должен дойти до `AccountLease.run`, но одного transport-флага недостаточно: reservation reselection происходит уровнем выше.
 
 Evidence:
 `autonomy/evidence/integration/20260822T1535Z_notion_postfirst_provider_reservation_reselect_gap.json`.
 
 Required composed regression:
-1. pre-first-provider reservation A → B остаётся разрешённой;
+1. pre-first-provider reservation A→B остаётся разрешённой;
 2. first=A success → reservation(A) → correction не делает provider call B;
 3. unresolved intent сохраняется;
 4. ordinary Agent behavior вне protected durable-intent sequence не теряет rotation.
@@ -86,18 +82,24 @@ Artifacts:
 
 ## Постоянная память
 
-Стартовый canonical LATEST в начале этого run:
+Стартовый canonical LATEST, зафиксированный в начале run:
 - blob `e39659e68f5c9adf4323bce9bff72e97c069948b`;
 - capsule `20260822T144315Z-b8fc379354`;
 - archive SHA-256 `3fa04ffc818a6f09b2efad22c33491d944635c8472e8bd0d9eeed00f9bb57a77`;
-- manifest/parts были перечитаны, archive восстановлен и workspace hashes совпали.
+- стартовая capsule восстановлена и workspace hashes совпали.
 
-Новый v4 checkpoint для Finding N должен быть опубликован только после `pack → verify → restore`, immutable upload/readback и CAS проверки этого LATEST blob. Force-write запрещён.
+Для Finding N собрана новая v4 capsule:
+- `20260822T154334Z-2606ae1840`;
+- archive SHA-256 `03f3fbabb457dfe6cb75446bf3ca5e10d03bbb03dddba2ecdb7adeede469d1e0`;
+- local `pack → verify → restore` PASS;
+- immutable GitHub upload + readback PASS: part blobs `def8fb2c6d58adecf770092a21404a1faf10216b`, `807341d872fb6839102625d73689acc93687840d`; manifest blob `be65ab78b97d228a682e952dbb59fe5031c19325` — все совпали с локально рассчитанными Git blob SHA.
+
+Перед CAS `LATEST` был перечитан и уже имел blob `dbd5db0bbe413f5c706bbd10a56412a9ce0d020d`, отличный от стартового CAS SHA. Поэтому новый checkpoint оставлен immutable orphan, `PREVIOUS` и `LATEST` не переписывались, force-write не использовался. Это штатный CAS-conflict по v4 protocol.
 
 ## Следующее
 
 1. Notion Core + Agent забирают Findings L + M + N вместе при combined Stage-B materialization.
-2. Не путать два вида смены аккаунта: transport failover (`allow_failover`) и Agent reservation reselection; protected durable-intent sequence должен закрывать оба после первого provider entry.
+2. Не путать transport failover (`allow_failover`) и Agent reservation reselection; protected durable-intent sequence должен закрывать оба после первого provider entry.
 3. Helper не должен первым триггерить owning Circle gate; после локального composed green только red-team exact SHA/status/artifacts.
 4. Native Windows остаётся отдельным недоказанным gate.
 

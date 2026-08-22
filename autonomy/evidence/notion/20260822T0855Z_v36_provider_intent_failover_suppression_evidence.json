@@ -1,0 +1,46 @@
+{
+  "schema": "notion_core_v36_provider_intent_failover_suppression_evidence_v1",
+  "created_at_utc": "2026-08-22T08:55:00Z",
+  "worker": "NOTION_CORE",
+  "source": {
+    "core_pr": 7,
+    "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_integration_pr": 8,
+    "fresh_agent_head": "60ea23501cda46a6244311174b1db4e27f596c2c",
+    "account_pool_blob": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d"
+  },
+  "defect": {
+    "name": "existing AccountLease.run can re-enter provider after durable provider-intent publication",
+    "severity": "blocking_duplicate_remote_side_effect_risk",
+    "reproduced": true,
+    "exact_source_reason": "AccountLease.run treats NotionAgentError(TRANSPORT) and httpx errors as failover-eligible, calls _switch_account(), and continues the while-loop with retry_operation when supplied. The transport evidence itself records provider_call_entered=true and response_progress_observation_complete=false, so the failure does not prove that Notion made no remote progress. If Stage-B server publishes provider_intent and then uses current lease.run unchanged, one logical exact request can call Notion again on a sibling account inside the same HTTP request before the durable intent is rechecked.",
+    "outer_retry_reason": "handle_openai_responses also contains an additional foreground transport recursion after AccountPoolExhausted; Stage-B must suppress this retry once a durable provider intent exists."
+  },
+  "local_model": {
+    "script": "/mnt/data/v36_provider_intent_failover_model.py",
+    "results": [
+      "V34_SERVER_WITH_EXISTING_LEASE_FAILOVER_DUPLICATE_PROVIDER_ENTRY_REPRODUCED",
+      "V36_PROVIDER_INTENT_FAILOVER_SUPPRESSION_MODEL_PASS"
+    ],
+    "cases": {
+      "current_failover_after_ambiguous_transport_calls_provider_twice": "PASS_REPRODUCED",
+      "allow_failover_false_keeps_provider_call_count_one": "PASS",
+      "no_account_switch_when_durable_intent_owns_retry_boundary": "PASS"
+    }
+  },
+  "candidate": {
+    "patch": "autonomy/evidence/notion/20260822T0855Z_v36_provider_intent_failover_suppression.patch",
+    "api": "AccountLease.run(..., allow_failover: bool = True)",
+    "compatibility": "Default remains true, preserving existing Agent/rotation behavior outside the Core durable-intent path.",
+    "stage_b_rule": "After begin_provider_intent succeeds, server calls lease.run(..., allow_failover=False) and does not perform the existing outer foreground transport recursion. The unresolved intent remains fail-closed until exact durable finalization or a future typed PROVEN_NO_REMOTE_PROGRESS signal exists."
+  },
+  "safety_boundary": {
+    "agent_rotation_policy_changed": false,
+    "product_branch_mutated": false,
+    "hosted_ci_started": false,
+    "live_notion_or_codex": false,
+    "native_windows_gate_ready": false
+  },
+  "next": "Fold V35 retention cleanup and V36 failover suppression into the Stage-B exact server/store candidate. Run local real-class retry/restart/transport/compaction/stream matrix before any Windows gate."
+}

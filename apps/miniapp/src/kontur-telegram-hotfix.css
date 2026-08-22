@@ -2,7 +2,7 @@
    Keep the PR #22 flash handoff, but restore an actual two-half shell opening
    and reserve enough vertical room for the first reveal line in short WebViews. */
 
-.lk-quiz-egg__hatch-shells {
+.lk-hatch-halves {
   position: absolute;
   z-index: 9;
   inset: 0;
@@ -11,8 +11,7 @@
   pointer-events: none;
 }
 
-.lk-quiz-egg__shell,
-.lk-quiz-egg__hatch-light {
+.lk-hatch-half {
   position: absolute;
   inset: 0;
   display: block;
@@ -22,39 +21,29 @@
   pointer-events: none;
 }
 
-.lk-quiz-egg__shell--left {
+.lk-hatch-half--left {
   clip-path: polygon(0 0,54% 0,51% 17%,55% 31%,48% 46%,52% 59%,46% 73%,49% 100%,0 100%);
   transform-origin: 47% 55%;
 }
 
-.lk-quiz-egg__shell--right {
+.lk-hatch-half--right {
   clip-path: polygon(54% 0,100% 0,100% 100%,49% 100%,46% 73%,52% 59%,48% 46%,55% 31%,51% 17%);
   transform-origin: 53% 55%;
 }
 
-.lk-quiz-egg__hatch-light {
-  z-index: 10;
-  opacity: 0;
-  filter: drop-shadow(0 0 8px #fff) drop-shadow(0 0 18px rgba(90,200,213,.82));
-}
-
 /* During the crack phase the intact q8 egg becomes two coherent halves.
-   The old base fades only after the halves are visibly present, so there is
-   never an empty ring before the flash. */
-.lk-quiz-egg[data-hatch-phase="cracks"] .lk-quiz-egg__hatch-shells {
+   The existing PR #22 crack-light image remains the only crack texture. */
+.lk-quiz-egg[data-hatch-phase="cracks"] .lk-hatch-halves {
   opacity: 1;
 }
 .lk-quiz-egg[data-hatch-phase="cracks"] .lk-quiz-egg__base {
   animation: lk-telegram-base-open var(--lk-hatch-cracks, 500ms) cubic-bezier(.4,0,.2,1) both;
 }
-.lk-quiz-egg[data-hatch-phase="cracks"] .lk-quiz-egg__shell--left {
+.lk-quiz-egg[data-hatch-phase="cracks"] .lk-hatch-half--left {
   animation: lk-telegram-shell-left-open var(--lk-hatch-cracks, 500ms) cubic-bezier(.2,.8,.2,1) both;
 }
-.lk-quiz-egg[data-hatch-phase="cracks"] .lk-quiz-egg__shell--right {
+.lk-quiz-egg[data-hatch-phase="cracks"] .lk-hatch-half--right {
   animation: lk-telegram-shell-right-open var(--lk-hatch-cracks, 500ms) cubic-bezier(.2,.8,.2,1) both;
-}
-.lk-quiz-egg[data-hatch-phase="cracks"] .lk-quiz-egg__hatch-light {
-  animation: lk-telegram-crack-light var(--lk-hatch-cracks, 500ms) ease-out both;
 }
 
 /* At flash start the opened shell stays visible underneath the rising white
@@ -65,21 +54,20 @@
   visibility: hidden;
   animation: none;
 }
-.lk-quiz-egg[data-hatch-phase="flash"] .lk-quiz-egg__hatch-shells {
+.lk-quiz-egg[data-hatch-phase="flash"] .lk-hatch-halves {
   opacity: 1;
 }
-.lk-quiz-egg[data-hatch-phase="flash"] .lk-quiz-egg__shell--left {
+.lk-quiz-egg[data-hatch-phase="flash"] .lk-hatch-half--left {
   transform: translate(-13px,-3px) rotate(-3deg);
   opacity: .9;
 }
-.lk-quiz-egg[data-hatch-phase="flash"] .lk-quiz-egg__shell--right {
+.lk-quiz-egg[data-hatch-phase="flash"] .lk-hatch-half--right {
   transform: translate(13px,-3px) rotate(3deg);
   opacity: .9;
 }
-.lk-quiz-egg[data-hatch-phase="flash"] .lk-quiz-egg__hatch-light { opacity: .9; }
 
-.lk-quiz-egg[data-hatch-phase="reveal"] .lk-quiz-egg__hatch-shells,
-.lk-quiz-egg[data-hatch-phase="settled"] .lk-quiz-egg__hatch-shells {
+.lk-quiz-egg[data-hatch-phase="reveal"] .lk-hatch-halves,
+.lk-quiz-egg[data-hatch-phase="settled"] .lk-hatch-halves {
   opacity: 0;
   visibility: hidden;
 }
@@ -103,9 +91,8 @@
 
 /* Keep reduced-motion ordering without letting the restored shell split run
    for the normal 500ms while the rest of the state machine is shortened. */
-.lk-reduced-motion .lk-quiz-egg[data-hatch-phase="cracks"] .lk-quiz-egg__shell--left,
-.lk-reduced-motion .lk-quiz-egg[data-hatch-phase="cracks"] .lk-quiz-egg__shell--right,
-.lk-reduced-motion .lk-quiz-egg[data-hatch-phase="cracks"] .lk-quiz-egg__hatch-light {
+.lk-reduced-motion .lk-quiz-egg[data-hatch-phase="cracks"] .lk-hatch-half--left,
+.lk-reduced-motion .lk-quiz-egg[data-hatch-phase="cracks"] .lk-hatch-half--right {
   animation-duration: var(--lk-hatch-cracks, 80ms) !important;
 }
 
@@ -158,11 +145,4 @@
   66% { opacity: 1; transform: translate(2px,0) rotate(.5deg); }
   82% { opacity: 1; transform: translate(7px,-1px) rotate(1.5deg); }
   100% { opacity: .96; transform: translate(13px,-3px) rotate(3deg); }
-}
-
-@keyframes lk-telegram-crack-light {
-  0%, 40% { opacity: 0; }
-  58% { opacity: .34; }
-  76% { opacity: .82; }
-  100% { opacity: 1; }
 }

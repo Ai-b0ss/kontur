@@ -87,7 +87,7 @@ NODE
   set +e
   (
     cd "$release_dir/apps/worker"
-    env -u WRANGLER_CI_OVERRIDE_NAME -u CLOUDFLARE_WORKER_NAME -u CLOUDFLARE_ENV \
+    env -u WRANGLER_CI_OVERRIDE_NAME -u WRANGLER_CI_MATCH_TAG -u CLOUDFLARE_WORKER_NAME -u CLOUDFLARE_ENV \
       pnpm exec wrangler deploy \
         --name "$CLOUDFLARE_PROD_WORKER_NAME" \
         --keep-vars \

@@ -1,114 +1,149 @@
 version: 2.1
 
 jobs:
-  kontur-final-clean-verify:
+  kontur-core-browser-acceptance:
     docker:
-      - image: cimg/node:22.18
-    resource_class: small
+      - image: cimg/node:22.18-browsers
+    resource_class: medium
+    environment:
+      KONTUR_EXPECTED_SHA: aafa42b9777357fadf54a7127bcd178db35c1d84
+      KONTUR_BROWSER_EVIDENCE_DIR: /tmp/kontur-core-evidence/browser
+      KONTUR_STAGING_ORIGIN: https://kontur-igor-staging.igorekglukhovskii43.workers.dev
     steps:
       - checkout
 
       - run:
-          name: Checkout exact integrated PR12 head without patching
+          name: Checkout exact clean PR12 head without overlay
           command: |
             set -euo pipefail
-            TARGET_HEAD=5ec223a539f2e3f97eef549fbe8306361281187b
             git fetch origin fix/kontur-core-visual-continuity-20260818
-            git checkout --detach "$TARGET_HEAD"
-            test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
-            test "$(git status --porcelain)" = ""
-            echo KONTUR_EXACT_INTEGRATED_HEAD_PASS
+            git checkout --detach "$KONTUR_EXPECTED_SHA"
+            test "$(git rev-parse HEAD)" = "$KONTUR_EXPECTED_SHA"
+            test -z "$(git status --porcelain)"
+            git diff --exit-code
+            printf 'repo=Ai-b0ss/kontur\nbranch=fix/kontur-core-visual-continuity-20260818\nhead=%s\nclean=true\npatch_overlay=false\n' "$KONTUR_EXPECTED_SHA" | tee /tmp/kontur-source.txt
+            echo KONTUR_EXACT_CLEAN_HEAD_PASS
 
       - restore_cache:
           keys:
-            - kontur-pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
-            - kontur-pnpm-v1-
+            - kontur-core-browser-v2-{{ checksum "pnpm-lock.yaml" }}
+            - kontur-core-browser-v2-
 
       - run:
-          name: Install exact locked Linux dependencies
+          name: Frozen Linux install and native binaries
           command: |
             set -euo pipefail
             corepack enable
-            corepack prepare pnpm@11 --activate
-            node --version
-            pnpm --version
-            pnpm install --frozen-lockfile
+            corepack prepare pnpm@11.22.0 --activate
+            node --version | tee /tmp/node-version.txt
+            pnpm --version | tee /tmp/pnpm-version.txt
+            pnpm install --frozen-lockfile | tee /tmp/install.log
             test -d node_modules/.pnpm/@rollup+rollup-linux-x64-gnu@4.62.3
             test -d node_modules/.pnpm/@esbuild+linux-x64@0.25.12
             echo LINUX_NATIVE_DEPS_PASS
 
       - save_cache:
-          key: kontur-pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+          key: kontur-core-browser-v2-{{ checksum "pnpm-lock.yaml" }}
           paths:
             - ~/.local/share/pnpm/store
 
       - run:
-          name: Full Mini App tests
+          name: Product regressions
+          no_output_timeout: 20m
           command: |
             set -euo pipefail
-            pnpm -F @kontur/miniapp test | tee /tmp/kontur-tests.log
+            pnpm -F @kontur/miniapp test | tee /tmp/miniapp-tests.log
+            pnpm -F @kontur/core test | tee /tmp/core-tests.log
+            pnpm -F @kontur/db test | tee /tmp/db-tests.log
+            pnpm -F @kontur/bot test | tee /tmp/bot-tests.log
+            pnpm -F @kontur/worker test | tee /tmp/worker-tests.log
 
       - run:
-          name: TypeScript verification
+          name: TypeScript contracts
           command: |
             set -euo pipefail
-            pnpm -F @kontur/miniapp typecheck | tee /tmp/kontur-typecheck.log
+            pnpm -r --if-present typecheck | tee /tmp/typecheck.log
 
       - run:
-          name: Production Vite build
+          name: Canonical production build and served-dist smoke
           command: |
             set -euo pipefail
-            pnpm -F @kontur/miniapp build | tee /tmp/kontur-build.log
+            pnpm -F @kontur/miniapp build | tee /tmp/vite-build.log
             test -f apps/miniapp/dist/index.html
-            find apps/miniapp/dist -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/kontur-dist.sha256
-            echo KONTUR_FINAL_CLEAN_VITE_PASS
+            find apps/miniapp/dist -type f -print0 | sort -z | xargs -0 sha256sum | tee /tmp/dist.sha256
+            (cd apps/miniapp/dist && python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/dist-http.log 2>&1) &
+            server_pid=$!
+            trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+            for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4173/index.html -o /tmp/dist-index.html && break; sleep 1; done
+            test -s /tmp/dist-index.html
+            kill "$server_pid" 2>/dev/null || true
+            wait "$server_pid" 2>/dev/null || true
+            trap - EXIT
+            echo PRODUCTION_DIST_HTTP_PASS
 
       - run:
-          name: Served production-build smoke
+          name: Real Chromium behavior, viewport, motion and continuity proof
+          no_output_timeout: 25m
           command: |
             set -euo pipefail
-            (pnpm -F @kontur/miniapp exec vite preview --host 127.0.0.1 --port 4173 > /tmp/kontur-preview.log 2>&1 & echo $! > /tmp/kontur-preview.pid)
-            for i in $(seq 1 30); do
-              if curl -fsS http://127.0.0.1:4173/ -o /tmp/kontur-index.html; then break; fi
-              sleep 1
-            done
-            test -s /tmp/kontur-index.html
-            grep -q '<div id="root"' /tmp/kontur-index.html
-            kill "$(cat /tmp/kontur-preview.pid)" 2>/dev/null || true
-            echo KONTUR_FINAL_SERVED_BUILD_PASS
+            pnpm -F @kontur/miniapp exec playwright install --with-deps chromium
+            pnpm -F @kontur/miniapp test:browser:kontur | tee /tmp/browser-acceptance.log
+            test -s "$KONTUR_BROWSER_EVIDENCE_DIR/browser-acceptance.json"
+            node -e 'const f=require(process.env.KONTUR_BROWSER_EVIDENCE_DIR+"/browser-acceptance.json"); if(f.result!=="PASS"||f.exactHead!==process.env.KONTUR_EXPECTED_SHA||f.consoleErrors.length) process.exit(1)'
+            for f in 01-hook.png 02-hook-start-before.png 03-quiz-q1.png 04-quiz-q4.png 05-quiz-q8.png 06-bird-reveal.png 07-worm-loop.png 08-home.png motion-1-hook-to-q1.webm motion-2-q1-q4-q8-cracks.webm motion-3-q8-to-reveal.webm; do test -s "$KONTUR_BROWSER_EVIDENCE_DIR/$f"; done
+            echo REAL_CHROMIUM_ARTIFACT_GATE_PASS
 
       - run:
-          name: Write final clean evidence
+          name: Read-only staging assets and unauthorized API boundary
+          command: |
+            set -euo pipefail
+            curl -fsS "$KONTUR_STAGING_ORIGIN/" -o /tmp/staging-index.html
+            curl -fsS "$KONTUR_STAGING_ORIGIN/results/kotosov.webp" -o /tmp/staging-kotosov.webp
+            curl -fsS "$KONTUR_STAGING_ORIGIN/results/crane-collectible.svg" -o /tmp/staging-crane.svg
+            test "$(sha256sum apps/miniapp/public/results/kotosov.webp | awk '{print $1}')" = "$(sha256sum /tmp/staging-kotosov.webp | awk '{print $1}')"
+            test "$(sha256sum apps/miniapp/public/results/crane-collectible.svg | awk '{print $1}')" = "$(sha256sum /tmp/staging-crane.svg | awk '{print $1}')"
+            code="$(curl -sS -o /tmp/staging-unauth.json -w '%{http_code}' "$KONTUR_STAGING_ORIGIN/api/v4/local/state")"
+            test "$code" = 401
+            echo STAGING_READONLY_BOUNDARY_PASS
+
+      - run:
+          name: Collect evidence
           when: always
           command: |
             set -euo pipefail
-            mkdir -p /tmp/kontur-final-clean-evidence
+            mkdir -p /tmp/kontur-core-evidence/logs
+            cp /tmp/kontur-source.txt /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
+            cp /tmp/node-version.txt /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
+            cp /tmp/pnpm-version.txt /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
+            cp /tmp/install.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
+            cp /tmp/miniapp-tests.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
+            cp /tmp/core-tests.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
+            cp /tmp/db-tests.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
+            cp /tmp/bot-tests.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
+            cp /tmp/worker-tests.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
+            cp /tmp/typecheck.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
+            cp /tmp/vite-build.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
+            cp /tmp/dist.sha256 /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
+            cp /tmp/browser-acceptance.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
             {
-              echo "integrated_head=5ec223a539f2e3f97eef549fbe8306361281187b"
-              echo "circle_sha=$CIRCLE_SHA1"
+              echo "kontur_head=$KONTUR_EXPECTED_SHA"
+              echo "circle_trigger=$CIRCLE_SHA1"
               echo "circle_branch=$CIRCLE_BRANCH"
-              echo "node=$(node --version 2>/dev/null || true)"
-              echo "pnpm=$(pnpm --version 2>/dev/null || true)"
               echo "utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            } > /tmp/kontur-final-clean-evidence/FINAL_CLEAN_EVIDENCE.txt
-            cp /tmp/kontur-tests.log /tmp/kontur-final-clean-evidence/ 2>/dev/null || true
-            cp /tmp/kontur-typecheck.log /tmp/kontur-final-clean-evidence/ 2>/dev/null || true
-            cp /tmp/kontur-build.log /tmp/kontur-final-clean-evidence/ 2>/dev/null || true
-            cp /tmp/kontur-dist.sha256 /tmp/kontur-final-clean-evidence/ 2>/dev/null || true
-            cp /tmp/kontur-preview.log /tmp/kontur-final-clean-evidence/ 2>/dev/null || true
+              echo "clean=true"
+              echo "patch_overlay=false"
+              echo "production_touched=false"
+              echo "staging_mutation=false"
+            } > /tmp/kontur-core-evidence/CIRCLE_EVIDENCE.txt
 
       - store_artifacts:
-          path: apps/miniapp/dist
-          destination: kontur-miniapp-dist-final-clean
-
-      - store_artifacts:
-          path: /tmp/kontur-final-clean-evidence
-          destination: kontur-final-clean-evidence
+          path: /tmp/kontur-core-evidence
+          destination: kontur-core-browser-acceptance
 
 workflows:
-  kontur-final-clean-gate:
+  kontur-core-browser-acceptance:
     jobs:
-      - kontur-final-clean-verify:
+      - kontur-core-browser-acceptance:
           filters:
             branches:
               only: ci/kontur-circle-vite-20260821

@@ -1,0 +1,53 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "NOTION_V47_THREE_FILE_PUBLICATION_GAP",
+  "verdict": "REPRODUCED_UNSAFE_PUBLICATION_WINDOW_AND_SAFE_STAGING_CONTRACT_PASS",
+  "fresh_heads": {
+    "qwen_pr6": "b4541d111c0e57d1352cbbbe80e72eff292dd7ef",
+    "notion_agent_pr8": "57bafc097d610e8055ab28f2fadc36a85af8200a",
+    "notion_core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144"
+  },
+  "source_blobs": {
+    "agent_materialize_agent_wiring_py": "current fresh source read on PR8; pair transaction owns account_pool.py + server.py only",
+    "agent_materialize_with_tombstones_py": "859039a5e408bc84e7046372cdb509131eb37a97",
+    "agent_reservation_aware_lease_py": "c77b4d5214911def1729243516aec73e43f8d425",
+    "core_v46_composition_materializer_py": "76fc60af515cc6a9a0212ff6bcf1de957f6631c3",
+    "core_v47_composition_materializer_py": "184db01aad3fb4db12d3f3a1190824cabfa070d6"
+  },
+  "observed_contract": [
+    "Agent crash-safe materializer journals and commits only account_pool.py + server.py.",
+    "Core V45 additionally changes payload/reservation_aware_lease.py so DynamicReservationLeaseSession can forward allow_failover=False.",
+    "V47 composes all three files, but its --apply path is explicitly disposable and writes account_pool.py, server.py, reservation_aware_lease.py directly rather than under one product publication protocol.",
+    "Therefore a real composed publication protocol is still missing for the third file."
+  ],
+  "reproduced_failure_window": {
+    "state": {
+      "account_pool": "new",
+      "server": "new",
+      "reservation_aware_lease": "old"
+    },
+    "effect": "a protected Stage-B caller that passes allow_failover=False reaches the old wrapper contract and is incompatible; the existing pair journal can regard account_pool+server as fully new while knowing nothing about the wrapper"
+  },
+  "safe_staging_candidate": [
+    "First publish/read-back/compile the V45 reservation_aware_lease.py compatibility shim. Its default allow_failover=True path preserves old Agent behavior and does not require V41 AccountLease support.",
+    "Only after wrapper verification, atomically publish account_pool.py + server.py through the existing Agent pair journal/recovery protocol.",
+    "A crash after wrapper-first but before the pair commit is backward-compatible; a successful pair commit cannot expose protected Stage-B without wrapper support.",
+    "Recovery/evidence must distinguish wrapper-prepared from pair-committed and must never claim final composed PASS from only the two-file journal."
+  ],
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_notion_v47_three_file_publish_probe.py",
+    "result": "REPRODUCED_UNSAFE_THREE_FILE_PUBLICATION_GAP_AND_SAFE_STAGING_CONTRACT_PASS"
+  },
+  "required_regression": [
+    "wrapper-old + server/account-new must never be a publishable/final state",
+    "wrapper-new + server/account-old keeps default Agent behavior",
+    "wrapper-new + pair-new supports protected allow_failover=False",
+    "crash/restart at each publication boundary converges without weakening exact preimage guards"
+  ],
+  "limits": [
+    "No Notion/Qwen product file was changed.",
+    "No CircleCI/GitHub Actions/provider/Notion/Codex traffic.",
+    "No Windows, production, user data, account state or secrets."
+  ]
+}

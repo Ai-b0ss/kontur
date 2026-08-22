@@ -209,7 +209,7 @@
    short-screen override put the image box directly under the headline and
    let its shadow read as an overlap. */
 .lk-first-time.lk-first-time--hook .lk-quiz-egg-stage {
-  top: clamp(330px, 42dvh, 386px);
+  top: clamp(330px, 44dvh, 386px);
   width: min(62vw, 268px);
 }
 .lk-first-time.lk-first-time--questions .lk-quiz-egg-stage {

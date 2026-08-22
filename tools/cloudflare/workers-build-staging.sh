@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Minimal post-reset read-only diagnostic. Never writes production D1.
+# Read-only proof that the production participant reset reached the core state.
 export CLOUDFLARE_STAGING_D1_DATABASE_ID='22786b4b-99cc-4ca5-a18b-932e8781021b'
 export CLOUDFLARE_PROD_D1_DATABASE_NAME='kontur'
 export CLOUDFLARE_PROD_D1_DATABASE_ID='91e39e7e-70fc-4551-8d3e-48235e70f985'
@@ -28,7 +28,7 @@ pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_PROD_D1_DATABASE_NA
   > /tmp/kontur-reset-core-counts.json
 
 curl -fsS -H 'Cache-Control: no-cache, no-store, max-age=0' \
-  "$CLOUDFLARE_PROD_ORIGIN/api/v1/health?kontur_reset_diagnostic=core" \
+  "$CLOUDFLARE_PROD_ORIGIN/api/v1/health?kontur_reset_proof=core" \
   > /tmp/kontur-reset-health.json
 
 node --input-type=module <<'NODE'
@@ -44,14 +44,13 @@ const visit = (value) => {
 };
 visit(raw);
 if (!counts) throw new Error('core counts missing');
+if (counts.users !== 0 || counts.profiles !== 0 || counts.hatched !== 0 || counts.onboarding !== 0 || counts.wallets !== 0) {
+  throw new Error(`participant reset incomplete users=${counts.users} profiles=${counts.profiles} hatched=${counts.hatched} onboarding=${counts.onboarding} wallets=${counts.wallets}`);
+}
+if (counts.colorings <= 0) throw new Error('coloring catalog was erased');
 const health = JSON.parse(fs.readFileSync('/tmp/kontur-reset-health.json', 'utf8'));
 if (health.ok !== true || health.devMode !== false || health.driver !== 'd1') throw new Error('production health mismatch');
-fs.writeFileSync('apps/miniapp/dist/production-reset-status.json', JSON.stringify({
-  mode: 'minimal-read-only-post-reset-diagnostic',
-  ...counts,
-  health: {ok: health.ok, devMode: health.devMode, driver: health.driver},
-}, null, 2) + '\n');
-console.log(`RESET_CORE_DIAGNOSTIC_READY users=${counts.users} onboarding=${counts.onboarding}`);
+console.log(`PRODUCTION_RESET_CORE_PASS users=${counts.users} onboarding=${counts.onboarding} colorings=${counts.colorings}`);
 NODE
 
 node tools/cloudflare/make-staging-config.mjs

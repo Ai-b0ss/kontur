@@ -14,9 +14,18 @@ User authorization: CircleCI may now be used, but only as a bounded evidence res
 
 ## Qwen
 Gate branch: `Ai-b0ss/qwen-free-api:ci/qwen-final-gate`.
-Purpose: exact locked dependency install + full offline `npm test` on one final Qwen head.
-Current first gate is based on product SHA `23891cbc845996726ba5e0477c8542ff8361cf4d`; latest gate config commit `0b012a1b2faddde8b6a6889135224e3ad46d5dc7` pins the public official image `node:22.23.1-bookworm`, matching the established Qwen runtime Node version.
-For a later run: fresh-read PR #6 head; only after targeted local PASS, move `ci/qwen-final-gate` to that exact product SHA; then re-apply the isolated Qwen gate `.circleci/config.yml` as the sole gate-branch commit. The first ref move should not run the old product workflow because its branch filter excludes the gate branch; the config commit is the intended single trigger.
+Purpose: prove one exact final Qwen product SHA on both Linux and native Windows before DONE.
+
+Required final evidence on the SAME exact product SHA:
+- exact locked dependency install;
+- full offline `npm test` / equivalent complete available suite on Linux;
+- native Windows Server Circle executor, not Wine/emulation;
+- on Windows: locked dependency install plus the complete Windows-compatible offline suite, including restart/session/subagent/provider/account/replay regressions that touch filesystem/process/path semantics;
+- no production deploy, provider calls, secrets, or real-account traffic.
+
+A Linux-only green gate is no longer sufficient for QWEN DONE because the owner will resume real use on Windows on 25 August 2026. Any Windows failure is a real blocker until the root cause is fixed and the relevant gate is rerun on changed bytes.
+
+Current historical gate configs may be diagnostic/stale and must not be reused blindly. For a later final run: fresh-read PR #6 head; only after current targeted Core + Reliability checks and full local/exact-tree Linux suite are green enough to choose a stable product SHA, move `ci/qwen-final-gate` to that exact product SHA; then apply one isolated final `.circleci/config.yml` containing BOTH Linux and native-Windows jobs as the sole gate-branch commit. The first ref move should not be treated as evidence; the config commit is the intended trigger.
 QWEN_CORE and QWEN_RELIABILITY coordinate through their handoffs; do not both trigger for the same SHA.
 
 ## Notion Agent

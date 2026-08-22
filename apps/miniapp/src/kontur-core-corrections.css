@@ -120,8 +120,8 @@
   opacity: 1;
   transform: translateY(-9%) scale(1.03);
 }
-.lk-first-time--reveal .lk-quiz-egg__shell--left { transform: translate(-18%, -12%) rotate(-7deg); opacity: 0; }
-.lk-first-time--reveal .lk-quiz-egg__shell--right { transform: translate(18%, -12%) rotate(7deg); opacity: 0; }
+.lk-first-time--reveal .lk-quiz-egg__shell--left { transform: translateX(-18px); opacity: 0; }
+.lk-first-time--reveal .lk-quiz-egg__shell--right { transform: translateX(18px); opacity: 0; }
 .lk-first-time--reveal .lk-quiz-egg__hatch-light { opacity: 0; }
 /* Reveal keeps the persistent hatch art, but all earlier quiz/hook surfaces
    must leave both the paint and hit-test trees. Repeat the state class so
@@ -192,16 +192,16 @@
 @keyframes lk-shell-left-open {
   0%, 56% { transform: none; opacity: 0; }
   62% { transform: none; opacity: .58; }
-  66% { transform: none; opacity: 1; }
-  82% { transform: translate(-9%, -6%) rotate(-4deg); opacity: .96; }
-  100% { transform: translate(-18%, -12%) rotate(-7deg); opacity: 0; }
+  66% { transform: translateX(0); opacity: 1; }
+  78% { transform: translateX(-12px); opacity: .72; }
+  88%, 100% { transform: translateX(-18px); opacity: 0; }
 }
 @keyframes lk-shell-right-open {
   0%, 56% { transform: none; opacity: 0; }
   62% { transform: none; opacity: .58; }
-  66% { transform: none; opacity: 1; }
-  82% { transform: translate(9%, -6%) rotate(4deg); opacity: .96; }
-  100% { transform: translate(18%, -12%) rotate(7deg); opacity: 0; }
+  66% { transform: translateX(0); opacity: 1; }
+  78% { transform: translateX(12px); opacity: .72; }
+  88%, 100% { transform: translateX(18px); opacity: 0; }
 }
 @keyframes lk-hatch-light-window {
   0%, 30% { opacity: 0; }

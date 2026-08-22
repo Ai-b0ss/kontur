@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - fix/kontur-core-visual-continuity-20260818
-    paths:
-      - .github/workflows/kontur-staging-nondestructive.yml
 
 permissions:
   contents: read
@@ -79,3 +77,8 @@ jobs:
           code="$(curl -sS -o "$RUNNER_TEMP/unauth.json" -w '%{http_code}' "$STAGING_ORIGIN/api/v4/local/state")"
           test "$code" = "401"
           echo "KONTUR_STAGING_NONDESTRUCTIVE_PASS head=$GITHUB_SHA origin=$STAGING_ORIGIN d1=$STAGING_D1_ID production_d1_untouched=$PROD_D1_ID"
+      - name: Verify current MVP economy and persistence on synthetic staging identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          STAGING_TG_ID="$((700000000 + GITHUB_RUN_NUMBER))" node tools/cloudflare/live-release-staging-smoke.mjs

@@ -1,0 +1,76 @@
+*** Begin Patch
+*** Update File: server.js
+@@
+ const requestGovernor = require('./src/request-governor');
+ const qwenV3Capabilities = require('./src/qwen-v3-capabilities'); // QWEN_V3_CAPABILITY_LAYER
++const { explicitOwnerSystemPrompt } = require('./src/owner-system-prompt');
+@@
+-function explicitOwnerSystemPrompt(body = {}) {
+-  if (typeof body.owner_system_prompt === 'string') return body.owner_system_prompt;
+-  if (typeof body.ownerSystemPrompt === 'string') return body.ownerSystemPrompt;
+-  return null;
+-}
+-
+ function explicitPromptMode(body = {}, headers = {}) {
+@@
+     const telemetryRun = quotaTelemetry.instrument(req, res, {
+       sessionKey,
+       model: publicBody.model || '',
+       stream: streamRequested,
+     });
+     const compactionDisabled = commandHandler.isCompressorDisabled(sessionKey);
+     const compaction = !compactionDisabled && isCompactionRequest(req, publicBody);
+-    if (!hasExplicitSessionId(req, publicBody) && isInitialConversation(publicBody.messages)) {
+-      sessionStore.clear(sessionKey);
+-      toolMemo.clear(sessionKey);
+-    }
+ 
+     try {
++      // Validate every explicit authority alias before any session mutation,
++      // checkpoint recovery or provider work. A malformed current owner field
++      // must never be treated as "field absent" and replaced by stale durable
++      // authority from the previous request.
++      explicitPromptMode(publicBody, req.headers);
++      explicitOwnerSystemPrompt(publicBody);
++      if (!hasExplicitSessionId(req, publicBody) && isInitialConversation(publicBody.messages)) {
++        sessionStore.clear(sessionKey);
++        toolMemo.clear(sessionKey);
++      }
++
+       const requestAttemptContext = {
+@@
+       };
+       accountStore.load();
+       const record = sessionStore.getRecord(sessionKey);
+-      explicitPromptMode(publicBody, req.headers);
+       assertRecoveredPromptAuthority(record, publicBody, req.headers);
+@@
+         if (err && err.code === 'QWEN_SYSTEM_PROMPT_MODE_INVALID') {
+           return res.status(400).json({
+@@
+           });
+         }
++        if (err && err.code === 'QWEN_OWNER_SYSTEM_PROMPT_INVALID') {
++          return res.status(400).json({
++            error: {
++              message: 'Invalid Qwen owner system prompt',
++              type: 'invalid_request_error',
++              code: 'QWEN_OWNER_SYSTEM_PROMPT_INVALID',
++            },
++          });
++        }
+*** Update File: src/qwen-v3-capabilities.js
+@@
+ const mode = require('./qwen-v3-mode');
+ const vision = require('./qwen-v3-vision');
+ const skills = require('./skills');
++const { explicitOwnerSystemPrompt: explicitOwnerPrompt } = require('./owner-system-prompt');
+@@
+-function explicitOwnerPrompt(body = {}) {
+-  if (typeof body.owner_system_prompt === 'string') return body.owner_system_prompt;
+-  if (typeof body.ownerSystemPrompt === 'string') return body.ownerSystemPrompt;
+-  return null;
+-}
+-
+ function looksLikeOpenCodeEnvelope(text, ctx = {}) {
+*** End Patch

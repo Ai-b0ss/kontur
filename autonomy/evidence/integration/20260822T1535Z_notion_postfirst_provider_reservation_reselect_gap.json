@@ -1,0 +1,56 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "created_at_utc": "2026-08-22T15:35:00Z",
+  "finding": "NOTION_POSTFIRST_PROVIDER_RESERVATION_RESELECT_GAP",
+  "verdict": "REPRODUCED_CANDIDATE_CONTRACT_PASS",
+  "exact_inputs": {
+    "notion_agent_pr": 8,
+    "notion_agent_head": "eaa7e812cb502649fb5291143070b33bfc94380e",
+    "reservation_aware_lease_blob": "c77b4d5214911def1729243516aec73e43f8d425",
+    "core_v37_route_before_intent_evidence": "autonomy/evidence/notion/20260822T0905Z_v37_route_before_intent_evidence.json",
+    "core_v42_retry_boundary_evidence": "autonomy/evidence/notion/20260822T1255Z_v42_protected_server_retry_boundary.json",
+    "prior_agent_core_failover_review": "autonomy/evidence/notion/20260822T1518Z_agent_core_failover_composition_gap.md"
+  },
+  "source_facts": [
+    "DynamicReservationLeaseSession deliberately outlives one AccountLease selection and refreshes reservations immediately before every provider attempt.",
+    "If the current account becomes reserved, _run catches _LeaseAccountBecameReserved and _reselect may move a later round to another account; when retry_operation exists the fresh/recovery operation is used on that replacement.",
+    "The current source explicitly describes later planner-correction rounds moving after reservation-driven reselection.",
+    "Core V37 requires local route/account selection before strict provider-intent publication.",
+    "Core V42 requires deliberate planner correction under a protected intent to remain on the same lease/account and forbids implicit account switching."
+  ],
+  "new_boundary": "The previous composition review allowed reservation-driven reselection before provider entry. This finding is narrower and later: after the first canonical provider step has already executed under a durable intent, a newly appearing reservation can still make the Agent wrapper move a planner-correction step from account A to B. That violates Core V42's same-lease/account proof even when transport failover itself is disabled.",
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_notion_postfirst_provider_reservation_reselect_probe.py",
+    "result": "NOTION_POSTFIRST_PROVIDER_RESERVATION_RESELECT_REPRODUCED_CANDIDATE_PASS",
+    "current": {
+      "first_provider_account": "A",
+      "reservation_added_after_first_provider_step": "A",
+      "correction_provider_account": "B",
+      "provider_accounts": ["A", "B"]
+    },
+    "candidate": {
+      "first_provider_account": "A",
+      "reservation_added_after_first_provider_step": "A",
+      "correction_provider_call": "blocked_before_provider_io",
+      "provider_accounts": ["A"],
+      "pre_first_provider_reselection_A_to_B_preserved": true
+    }
+  },
+  "required_contract": [
+    "Keep current safe reservation reselection before the first provider entry of a canonical durable-intent sequence.",
+    "Once the first provider step has started/succeeded under that intent, freeze the selected account for all deliberate correction steps belonging to the same intent.",
+    "If a foreign reservation appears on that account after provider entry, fail closed before the next provider call and preserve the unresolved durable intent; do not silently move the correction to a sibling account.",
+    "Transport failover remains separately controlled by Core allow_failover=false; fixing only that flag is insufficient for this Agent-level reselection path.",
+    "Regression must cover initial A success -> reservation(A) -> correction, plus the pre-first-provider reservation case where A->B remains allowed."
+  ],
+  "safety": {
+    "product_branch_changed": false,
+    "hosted_ci_started": false,
+    "live_provider_started": false,
+    "live_notion_started": false,
+    "windows_started": false,
+    "production_changed": false,
+    "secrets_accessed": false
+  }
+}

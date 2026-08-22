@@ -1,0 +1,40 @@
+--- a/payload/account_pool.py
++++ b/payload/account_pool.py
+@@
+     async def run(
+         self,
+         operation: Callable[[NotionAgentClient], Awaitable[T]],
+         *,
+         retry_operation: Callable[[NotionAgentClient], Awaitable[T]] | None = None,
++        allow_failover: bool = True,
+     ) -> T:
+@@
+                 duration_ms = round((time.monotonic() - started_at) * 1000)
+                 if isinstance(error, NotionAgentError) and error.code == ErrorCode.TRANSPORT:
+                     if self._pending_transport_failure is not None:
+-                        self._record_transport_outcome(final_success=False, retry_scheduled=True)
++                        self._record_transport_outcome(
++                            final_success=False,
++                            retry_scheduled=allow_failover,
++                        )
+                     self._record_transport_failure(error, duration_ms=duration_ms)
++                if not allow_failover:
++                    if self._slot is not None:
++                        await self._pool._record_failure(self._slot, error, duration_ms)
++                    if self._pending_transport_failure is not None:
++                        self._record_transport_outcome(
++                            final_success=False,
++                            retry_scheduled=False,
++                        )
++                    log_event(
++                        log,
++                        "account_failover_suppressed",
++                        level=logging.WARNING,
++                        account_number=(self._slot.number if self._slot is not None else None),
++                        account_id=(self._slot.account_id if self._slot is not None else None),
++                        account_file=(self._pool._account_file(self._slot) if self._slot is not None else None),
++                        reason="caller_disabled_failover",
++                    )
++                    raise
+                 try:
+                     await self._switch_account(error, duration_ms=duration_ms)

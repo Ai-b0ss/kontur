@@ -1,0 +1,41 @@
+{
+  "schema": "notion_core_v49_agent_no_replay_composition_blocker_v1",
+  "worker": "NOTION_CORE",
+  "observed_at_utc": "2026-08-22T19:45:00Z",
+  "core_pr7_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_pr8_head": "78e0642002af6e8eafa6a7fcafe5dae134a99ae2",
+  "agent_previous_v48_revalidated_head": "57bafc097d610e8055ab28f2fadc36a85af8200a",
+  "compare_previous_to_current": {
+    "ahead_by": 1,
+    "changed_files": [
+      "tests/test_subagent_tombstone_post_replace_sync_failure.py"
+    ],
+    "meaning": "V48 frozen product/toolchain inputs were not changed by this commit, but the new regression proves V48 did not freeze a sufficient Agent safety boundary."
+  },
+  "fresh_agent_boundary": {
+    "payload/subagent_tombstone_store.py": {
+      "git_blob": "b0e0ac9d911e5311729e997d8715d45857744549",
+      "status": "VULNERABLE_POST_REPLACE_SYNC_FAILURE_BOUNDARY"
+    },
+    "tests/test_subagent_tombstone_post_replace_sync_failure.py": {
+      "git_blob": "68f124aeac6cceb8de0313d3a2750f68a900901d",
+      "status": "NEW_REGRESSION_PRESENT"
+    }
+  },
+  "root_cause": "SubagentTombstoneStore._persist_snapshot replaces the canonical marker file before syncing the parent directory. During resolve_call, a forced parent-sync failure after successful replace can leave the canonical pathname without the inflight no-replay marker. A fresh process can then load clean state and replay an already-completed local side effect.",
+  "composition_verdict": "V48_FROZEN_INPUTS_STILL_FRESH_BUT_FINAL_COMPOSITION_BLOCKED",
+  "windows_gate": "FORBIDDEN_UNTIL_AGENT_FIX_AND_FRESH_COMPOSED_GREEN",
+  "required_after_agent_fix": [
+    "Fresh-read PR #8 exact head and changed product bytes.",
+    "Require the new post-replace-sync regression to pass without weakening it, together with the restart/tombstone cluster.",
+    "Freeze the exact fixed payload/subagent_tombstone_store.py blob and regression-test blob as part of the next composed Core<->Agent proof; do not inherit V48 PASS automatically.",
+    "Re-run composed tombstone/restart boundary together with V41/V45 protected no-failover and Stage-B orchestration.",
+    "Only after exact-local composed green may the single native-Windows final gate be triggered."
+  ],
+  "live_or_hosted_actions": {
+    "circleci_triggered": false,
+    "github_actions_triggered": false,
+    "notion_or_codex_live_traffic": false,
+    "product_branches_mutated": false
+  }
+}

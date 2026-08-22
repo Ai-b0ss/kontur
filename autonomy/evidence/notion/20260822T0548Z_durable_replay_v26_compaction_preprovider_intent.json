@@ -1,0 +1,21 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "id": "DURABLE_REPLAY_V26_COMPACTION_PREPROVIDER_INTENT",
+  "created_at_utc": "2026-08-22T05:48:00Z",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_integration_head": "f58f0123b370ad786d337337eb03a6a4ce9963b3",
+  "finding": "V16 makes the exact compaction payload durable only after the Notion/provider compaction call. Therefore a hard crash after provider progress but before that final publication can make an exact retry call the provider a second time unless the V22 pre-provider durable intent boundary also covers request_kind=compaction.",
+  "source_evidence": {
+    "v16_overlay": "autonomy/evidence/notion/20260821T1948Z_durable_compaction_replay_v16_overlay.patch",
+    "v22_harness": "autonomy/evidence/notion/20260822T0245Z_durable_replay_v22_preprovider_intent_tombstone_harness.py"
+  },
+  "local_results": [
+    "V16_COMPACTION_PREPUBLICATION_CRASH_REPRODUCED",
+    "V26_COMPACTION_PREPROVIDER_INTENT_PASS",
+    "V26_COMPACTION_EXACT_REPLAY_PASS"
+  ],
+  "required_invariant": "Every provider-entering operation, including /v1/responses/compact, must strictly publish its content-free request intent before the first possible remote Notion action. Exact durable replay/existing unresolved-intent checks happen before creation of a new intent. Only after successful intent publication may compaction call the provider. Successful final publication stores the exact compact payload and clears that exact intent atomically.",
+  "failure_policy": "If compaction intent publication fails, provider call count must remain zero. If the process crashes or transport becomes ambiguous after intent publication and before final exact replay publication, retry must fail closed without a second provider call. V23/V24 transport ambiguity rules apply equally to compaction.",
+  "integration_note": "Apply this requirement when materializing V22 into the combined V12..V25 server candidate; V16 alone is insufficient. The V25 unresolved-intent retention/capacity policy must count unresolved compaction intents identically to normal Responses intents.",
+  "verdict": "V26_COMPACTION_INTENT_BOUNDARY_REQUIRED_AND_MODEL_PASS"
+}

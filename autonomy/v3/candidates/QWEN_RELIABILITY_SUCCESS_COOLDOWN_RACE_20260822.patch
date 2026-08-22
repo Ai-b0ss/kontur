@@ -1,0 +1,30 @@
+diff --git a/src/account-store.js b/src/account-store.js
+--- a/src/account-store.js
++++ b/src/account-store.js
+@@
+ function markSuccess(account) {
+   const target = canonicalAccount(account);
+   if (!target) return;
++  const activeCooldown = Boolean(
++    (target.unavailableUntil && target.unavailableUntil > Date.now()) ||
++    Number(monotonicCooldownUntil.get(target.id) || 0) > monotonicNowMs()
++  );
+   commitMutation(target, (next) => {
+-    next.failures = 0;
+-    next.unavailableUntil = 0;
+-    next.lastError = '';
+     next.lastUsedAt = Date.now();
++    // A success can arrive from a request that was already in flight before a
++    // newer concurrent request established CAPTCHA/rate-limit cooldown. Such a
++    // late success must not erase the newer safety state. Once no cooldown is
++    // active, normal success semantics reset the old failure metadata.
++    if (!activeCooldown) {
++      next.failures = 0;
++      next.unavailableUntil = 0;
++      next.lastError = '';
++    }
+   });
+-  clearMonotonicCooldown(target.id);
++  if (!activeCooldown) clearMonotonicCooldown(target.id);
+   activeId = target.id;
+ }

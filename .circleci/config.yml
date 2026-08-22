@@ -92,7 +92,7 @@ jobs:
           command: |
             set -euo pipefail
             pnpm -F @kontur/miniapp exec playwright install --with-deps chromium
-            pnpm -F @kontur/miniapp test:browser:kontur | tee /tmp/browser-acceptance.log
+            pnpm -F @kontur/miniapp test:browser:kontur 2>&1 | tee /tmp/browser-acceptance.log
             test -s "$KONTUR_BROWSER_EVIDENCE_DIR/browser-acceptance.json"
             node -e 'const f=require(process.env.KONTUR_BROWSER_EVIDENCE_DIR+"/browser-acceptance.json"); if(f.result!=="PASS"||f.exactHead!==process.env.KONTUR_EXPECTED_SHA||f.consoleErrors.length) process.exit(1)'
             for f in 01-hook.png 02-hook-start-before.png 03-quiz-q1.png 04-quiz-q4.png 05-quiz-q8.png 06-bird-reveal.png 07-worm-loop.png 08-home.png 09-new-coloring-drop.png 10-reload-persistence.png 11-replay-same-bird.png 12-large-hook.png 13-large-home.png 14-reduced-motion-reveal.png motion-1-hook-to-q1.webm motion-2-q1-q4-q8-cracks.webm motion-3-q8-to-reveal.webm; do test -s "$KONTUR_BROWSER_EVIDENCE_DIR/$f"; done
@@ -146,8 +146,8 @@ jobs:
           when: always
           command: |
             set -euo pipefail
-            evidence_branch="evidence/kontur-core-2d84a05f-drop-diagnostic-20260822"
-            target="docs/product/evidence/runtime/2d84a05f-drop-diagnostic"
+            evidence_branch="evidence/kontur-core-2d84a05f-drop-diagnostic2-20260822"
+            target="docs/product/evidence/runtime/2d84a05f-drop-diagnostic2"
             git switch --create "$evidence_branch" "$KONTUR_EXPECTED_SHA"
             mkdir -p "$target/browser" "$target/logs"
             cp "$KONTUR_BROWSER_EVIDENCE_DIR"/*.png "$target/browser/" 2>/dev/null || true
@@ -159,7 +159,7 @@ jobs:
             git config user.name "Kontur Acceptance Bot"
             git config user.email "kontur-acceptance@users.noreply.github.com"
             git add "$target"
-            git commit -m "evidence: preserve 2d84a05f drop diagnostic evidence"
+            git commit -m "evidence: preserve 2d84a05f drop diagnostic 2"
             git push origin "HEAD:refs/heads/$evidence_branch"
             echo "EVIDENCE_BRANCH_PASS branch=$evidence_branch"
 

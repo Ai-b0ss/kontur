@@ -1,0 +1,193 @@
+name: Kontur final guarded production release 2026-08-22
+
+on:
+  push:
+    branches:
+      - release/kontur-2026-08-22
+    paths:
+      - .release-trigger/production-20260822.txt
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kontur-production-release
+  cancel-in-progress: false
+
+env:
+  SOURCE_SHA: 635bb2a1cd920d55e3d57facda99c9a9e7148675
+  CLOUDFLARE_ACCOUNT_ID: 7a5b709a066fca0ee563c42b3e5c4f10
+  PROD_WORKER_NAME: kontur-igor
+  PROD_D1_NAME: kontur
+  PROD_D1_ID: 91e39e7e-70fc-4551-8d3e-48235e70f985
+  STAGING_D1_ID: 22786b4b-99cc-4ca5-a18b-932e8781021b
+  PROD_ORIGIN: https://kontur-igor.igorekglukhovskii43.workers.dev
+
+jobs:
+  guarded-reset-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Checkout exact KONTUR_CORE_DONE source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$SOURCE_SHA"
+          git checkout --detach "$SOURCE_SHA"
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test -z "$(git status --porcelain)"
+          echo EXACT_SOURCE_PASS
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install and verify exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare pnpm@11.22.0 --activate
+          pnpm install --frozen-lockfile
+          pnpm -r --if-present test
+          pnpm -r --if-present typecheck
+          pnpm -F @kontur/miniapp build
+          test -f apps/miniapp/dist/index.html
+
+      - name: Require Cloudflare credential
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+
+      - name: Generate fail-closed production config
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const src='apps/worker/wrangler.jsonc';
+          const out='apps/worker/wrangler.production.generated.jsonc';
+          const raw=fs.readFileSync(src,'utf8').replace(/^\uFEFF/,'');
+          const c=JSON.parse(raw);
+          if(c.name!==process.env.PROD_WORKER_NAME) throw new Error('production Worker identity mismatch');
+          const db=(c.d1_databases||[]).find(x=>x?.binding==='DB');
+          if(!db || db.database_name!==process.env.PROD_D1_NAME || db.database_id!==process.env.PROD_D1_ID) throw new Error('production D1 identity mismatch');
+          if(db.database_id===process.env.STAGING_D1_ID) throw new Error('staging D1 leaked into production config');
+          c.vars={...(c.vars||{}),DEV_MODE:'false',EXPERIENCE_V2_ENABLED:'false',EXPERIENCE_V3_ENABLED:'false',ZERO_SEASON_ENABLED:'true',LIVE_CAMPAIGN_V5_ENABLED:'false',LIVE_CAMPAIGN_V5_PUBLISH_ENABLED:'false',V5_LLM_PROVIDER:'disabled'};
+          fs.writeFileSync(out,JSON.stringify(c,null,2)+'\n');
+          console.log('PRODUCTION_CONFIG_PASS');
+          NODE
+
+      - name: Verify production D1 identity before any write
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler d1 info "$PROD_D1_NAME" --config wrangler.production.generated.jsonc --json > "$RUNNER_TEMP/prod-d1-info.json"
+          grep -q "$PROD_D1_ID" "$RUNNER_TEMP/prod-d1-info.json"
+          if grep -q "$STAGING_D1_ID" "$RUNNER_TEMP/prod-d1-info.json"; then exit 41; fi
+          echo PRODUCTION_D1_IDENTITY_PASS
+
+      - name: Capture rollback evidence BEFORE reset
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler d1 execute "$PROD_D1_NAME" --remote --config wrangler.production.generated.jsonc --json --command "SELECT (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM profiles WHERE hatched_at IS NOT NULL) AS hatched, (SELECT COUNT(*) FROM worm_grants) AS grants" > "$RUNNER_TEMP/pre-reset-counts.json"
+          pnpm -F @kontur/worker exec wrangler d1 time-travel info "$PROD_D1_NAME" --config wrangler.production.generated.jsonc --json > "$RUNNER_TEMP/time-travel-before-reset.json"
+          test -s "$RUNNER_TEMP/time-travel-before-reset.json"
+          pnpm -F @kontur/worker exec wrangler d1 export "$PROD_D1_NAME" --remote --config wrangler.production.generated.jsonc --output="$RUNNER_TEMP/kontur-production-before-reset.sql" --skip-confirmation
+          test -s "$RUNNER_TEMP/kontur-production-before-reset.sql"
+          sha256sum "$RUNNER_TEMP/kontur-production-before-reset.sql" > "$RUNNER_TEMP/kontur-production-before-reset.sha256"
+          echo ROLLBACK_EVIDENCE_PASS
+
+      - name: Upload rollback evidence before destructive action
+        uses: actions/upload-artifact@v4
+        with:
+          name: kontur-production-before-reset-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/kontur-production-before-reset.sql
+            ${{ runner.temp }}/kontur-production-before-reset.sha256
+            ${{ runner.temp }}/time-travel-before-reset.json
+            ${{ runner.temp }}/pre-reset-counts.json
+            ${{ runner.temp }}/prod-d1-info.json
+
+      - name: Reset ALL Kontur participant state and reapply schema
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler d1 execute "$PROD_D1_NAME" --remote --config wrangler.production.generated.jsonc --json --command "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' ORDER BY name" > "$RUNNER_TEMP/prod-tables.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const data=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/prod-tables.json','utf8'));
+          const names=[];
+          const walk=v=>{if(Array.isArray(v))v.forEach(walk);else if(v&&typeof v==='object'){if(typeof v.name==='string')names.push(v.name);Object.values(v).forEach(walk)}};
+          walk(data);
+          const uniq=[...new Set(names)].filter(n=>!n.startsWith('sqlite_')&&!n.startsWith('_cf_'));
+          if(!uniq.includes('users')||!uniq.includes('profiles')||uniq.length<3) throw new Error('unexpected production schema; refusing reset');
+          const q=s=>'"'+s.replaceAll('"','""')+'"';
+          fs.writeFileSync(process.env.RUNNER_TEMP+'/prod-reset.sql',['PRAGMA foreign_keys=OFF;',...uniq.map(n=>`DROP TABLE IF EXISTS ${q(n)};`),'PRAGMA foreign_keys=ON;'].join('\n'));
+          console.log(`RESET_PLAN_PASS tables=${uniq.length}`);
+          NODE
+          pnpm -F @kontur/worker exec wrangler d1 execute "$PROD_D1_NAME" --remote --config wrangler.production.generated.jsonc --file "$RUNNER_TEMP/prod-reset.sql"
+          pnpm -F @kontur/worker exec wrangler d1 migrations apply "$PROD_D1_NAME" --remote --config wrangler.production.generated.jsonc
+
+      - name: Deploy exact new Kontur to the existing bot Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm -F @kontur/worker exec wrangler deploy --keep-vars --config wrangler.production.generated.jsonc | tee "$RUNNER_TEMP/wrangler-deploy.log"
+
+      - name: Wait for exact frontend convergence
+        env:
+          RELEASE_ORIGIN: ${{ env.PROD_ORIGIN }}
+          RELEASE_EVIDENCE_DIR: ${{ runner.temp }}
+          RELEASE_EVIDENCE_PREFIX: prod-final
+          RELEASE_PROPAGATION_TIMEOUT_MS: '180000'
+        run: node tools/cloudflare/wait-for-deployed-assets.mjs
+
+      - name: Verify fresh database and live protected bot route
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS -H 'Cache-Control: no-cache, no-store, max-age=0' "$PROD_ORIGIN/api/v1/health?release=$SOURCE_SHA" -o "$RUNNER_TEMP/prod-health.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/prod-health.json','utf8'));
+          if(x.ok!==true||x.devMode!==false||x.driver!=='d1'||Number(x.startedBot)!==0||Number(x.hatched)!==0||Number(x.grants)!==0) throw new Error('fresh production health mismatch: '+JSON.stringify(x));
+          console.log('FRESH_DATABASE_PASS');
+          NODE
+          code=$(curl -sS -o "$RUNNER_TEMP/webhook-negative.txt" -w '%{http_code}' -X POST "$PROD_ORIGIN/telegram/webhook" -H 'Content-Type: application/json' -H 'X-Telegram-Bot-Api-Secret-Token: deliberately-wrong' --data '{"update_id":1}')
+          test "$code" = "403"
+          echo TELEGRAM_WEBHOOK_ROUTE_PROTECTED_PASS
+
+      - name: Upload final production evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: kontur-production-final-evidence-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/prod-health.json
+            ${{ runner.temp }}/prod-final-root.html
+            ${{ runner.temp }}/prod-final-egg01.webp
+            ${{ runner.temp }}/prod-final-egg08.webp
+            ${{ runner.temp }}/wrangler-deploy.log
+            ${{ runner.temp }}/webhook-negative.txt

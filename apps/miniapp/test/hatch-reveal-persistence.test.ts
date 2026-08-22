@@ -82,6 +82,11 @@ test('the intact egg stays singular until the shell actually begins opening', as
   );
   assert.match(
     css,
+    /\.lk-quiz-egg\.is-hatching\s*>\s*\.lk-quiz-hatch \.lk-quiz-hatch__glow,[\s\S]*?\.lk-quiz-hatch__core\s*\{[\s\S]*?display:\s*none;/,
+    'the legacy full-stage white masks must not erase the readable shell halves',
+  );
+  assert.match(
+    css,
     /\.lk-quiz-hatch__bird\.lk-canonical-bird\s*\{[\s\S]*?z-index:\s*7;/,
     'the canonical bird should stay on the bounded hatch layer',
   );

@@ -6,12 +6,11 @@
 Repo: `Ai-b0ss/qwen-free-api`
 Branch: `autopilot/qwen-runtime-preflight-20260818`
 PR: #6
-Core V6 commit: `d58a7aa6ed7e5c8fd1b50e78d50ad4fb11af7439`.
-Последний проверенный общий PR head: `f0b889804fbdd86c4ea1bf0cee5cc85d680194a2`.
-`compare d58a7aa6… → f0b88980…` = ровно один commit вперёд, изменён только `src/request-governor.js`; V6 остаётся предком текущей линии и параллельным QWEN_RELIABILITY не вытеснен.
+Последний проверенный общий PR head: `25c1347588ea9621a0ff5cf11a08c5df488cce00`.
+Core V6 `d58a7aa6ed7e5c8fd1b50e78d50ad4fb11af7439` остаётся предком текущей линии.
 Перед следующей записью снова перечитать fresh PR head и exact blobs.
 
-## Уже закрыто — не исследовать заново
+## Уже закрыто — не исследовать заново без нового воспроизведения
 - tool-result continuation/restart + pending-tool replay guard;
 - streaming tool checkpoint до выпуска клиенту;
 - assistant/system/project persistence;
@@ -20,57 +19,48 @@ Core V6 commit: `d58a7aa6ed7e5c8fd1b50e78d50ad4fb11af7439`.
 - stale-backup recovery fail-closed;
 - message-based system prompt exact checkpoint + `QWEN_SYSTEM_CHECKPOINT_REJECTED`;
 - local checkpoint failure не штрафует provider account;
-- explicit owner V2→V5: durable detached owner authority, sticky restart, stale-backup authority block, invalid mode HTTP 400, project-only recovery block, owner checkpoint bound;
-- malformed/ambiguous detached owner authority V6 теперь интегрирован в product.
+- explicit owner V2→V6: durable detached owner authority, sticky restart, stale-backup authority block, invalid mode HTTP 400, project-only recovery block, exact owner checkpoint, malformed/conflicting detached owner aliases rejected before session/provider I/O.
 
-## V6 — сделано в этом проходе
-До исправления `server.js` и V3 capability path трактовали неверный тип `owner_system_prompt`/`ownerSystemPrompt` как отсутствие поля; при durable owner state это могло восстановить старый private prompt. Два конфликтующих alias также могли молча выбрать snake_case.
+## Новый Core-факт этого запуска — owner prompt в прямом агенте и coding-subagents
+Найден отдельный дефект ниже серверного V6: `src/subagent-agent-runner.js` и `src/agent.js` принимали в owner-mode нестроковый `ownerSystemPrompt`, потому что проверяли его через неявный `String(...)`. Объект/массив/число могли превратиться в `[object Object]`, `PRIVATE`, `42` и т.п. вместо явного отказа. Это нарушало инвариант: приватный prompt владельца должен оставаться именно переданной строкой, без самовольного преобразования нашим кодом.
 
-Существующие helper-контракты уже были в product:
-- `0c9ab74d1c9b0cb88ae013043674bb72e42b91df` — `server-explicit-owner-rehydrate-test.js` содержит malformed/conflict RED-сценарии;
-- `df2453e3d232f94f91e3e39f5d251dc0683817c3` — строгий общий `src/owner-system-prompt.js`;
-- `4be61e2f392fb38ecfafbddeb0ba1cc8d3cd316b` — standalone validator regression.
+Исправлено:
+- `53f2dc0cacf4fec2633c92cb3a2f25ed36ff3317` — `src/subagent-agent-runner.js`: owner prompt обязан быть непустой строкой; валидная строка сохраняется без `String(...)`; код ошибки `QWEN_SUBAGENT_OWNER_PROMPT_INVALID`.
+- `8a7af9d2af9e1541cd4dfaaed4ef58607b3df56c` — новый `scripts/subagent-owner-prompt-validation-test.js`.
+- `e558e8dc286a283eee3b75680bf4968ce0a346b5` — этот тест подключён к обычному `npm test`.
+- `4254364dae026cf9c4c6f19e5183a7ccbbe8ee1a` — `src/agent.js`: прямой agent owner-mode тоже отвергает нестроковый/пустой prompt и передаёт валидную строку без преобразования; код `QWEN_AGENT_OWNER_PROMPT_INVALID`.
+- `25c1347588ea9621a0ff5cf11a08c5df488cce00` — существующий `agent-system-prompt-mode-test.js` расширен malformed cases и проверкой `provider_calls=0` для невалидного owner prompt.
 
-В этом проходе:
-- `23ccc34400a1246be3ef6df63e6799fe22c9639d` — `src/qwen-v3-capabilities.js` переведён на общий строгий validator;
-- `d58a7aa6ed7e5c8fd1b50e78d50ad4fb11af7439` — `server.js` переведён на тот же validator; validation выполняется внутри error boundary, но до initial-session `clear`, restore, durable rehydrate и provider I/O; добавлен стабильный HTTP 400 `QWEN_OWNER_SYSTEM_PROMPT_INVALID`.
+`compare f0b88980… → 25c13475…` подтверждает узкие изменения Core-файлов: `src/agent.js` +7/-5, `src/subagent-agent-runner.js` +9/-7, плюс тесты/package wiring. В этом же интервале параллельный исполнитель добавил независимый `scripts/restart-failover-replay-safety-test.js`; его не считать частью этой Core-правки.
 
 Проверено на ChatGPT hosted машине без provider/CI:
-- exact `src/owner-system-prompt.js` blob `2b4266f4700410bb97a2b40f83a29c6ad4d833c1`;
-- exact `scripts/owner-system-prompt-test.js` blob `7233fd3c5af419cc8bb569b358485319eb9b9cad`;
-- `node scripts/owner-system-prompt-test.js` -> `OWNER_SYSTEM_PROMPT_VALIDATION_PASS malformed=1 alias_conflict=1 identical_alias=1 bounded_error=1`;
-- diff `23ccc344… -> d58a7aa6…` затрагивает только `server.js`, 21 additions / 12 deletions. Функциональные hunks соответствуют V6. Есть один побочный comment-only mojibake diff в старом верхнем комментарии; функциональный код не затронут. Не переписывать большой `server.js` только ради этой косметики без byte-safe способа.
-
-Полный `server-explicit-owner-rehydrate-test.js` и полный `npm test` на exact tree в этом проходе не запускались: exact private tree целиком на hosted машину не материализован. Не объявлять весь PR зелёным по одному targeted PASS.
+`QWEN_SUBAGENT_OWNER_PROMPT_TARGET_PASS malformed=4 empty=3 exact=1 engineer=1`.
+Полный exact-tree `npm test` в этом запуске не выполнялся; не объявлять весь PR зелёным по targeted PASS.
 
 ## Следующий точный шаг
-1. Перечитать fresh PR head и подтвердить, что `d58a7aa6…` остаётся предком текущей линии.
-2. На hosted машине материализовать максимально полный exact owner/session cluster и выполнить минимум:
-   - `node scripts/server-explicit-owner-rehydrate-test.js`
-   - `node scripts/session-explicit-owner-authority-test.js`
-   - `node scripts/session-explicit-owner-recovery-test.js`
-   - `node scripts/server-system-checkpoint-rejected-test.js`
-   - `node --check server.js`
-   - `node --check src/qwen-v3-capabilities.js`
-   - `node --check src/owner-system-prompt.js`
-3. Если cluster green — переходить к следующему воспроизводимому Core-дефекту в restart/tool-result/OpenCode/subagents/skills. Не открывать заново уже доказанные инварианты без нового воспроизведения.
-4. Финальный большой рубеж: после офлайн exact-tree проверки — один доказанный live многошаговый `read_file → tool result → следующий Qwen turn → bash → tool result → final`, затем restart/failover; старые provider-прогоны не дублировать.
+1. Перечитать fresh PR head.
+2. На hosted машине материализовать exact owner/subagent cluster и выполнить минимум:
+   - `node scripts/agent-system-prompt-mode-test.js`
+   - `node scripts/subagent-owner-prompt-validation-test.js`
+   - `node scripts/subagent-agent-runner-test.js`
+   - соседние restart/session tests, которые реально удаётся материализовать exact-byte.
+3. Если cluster green — искать следующий воспроизводимый Core-дефект в restart/tool-result/OpenCode/subagents/skills/errors; узкую механику cooldown/account selection не забирать у QWEN_RELIABILITY.
+4. Финальный большой рубеж после офлайн exact-tree проверки: один доказанный live многошаговый `read_file → tool result → следующий Qwen turn → bash → tool result → final`, затем restart/failover; уже доказанные provider-прогоны не повторять.
 
 ## Постоянная память
-Старт этого прохода:
-- LATEST blob SHA `2b569616905f3f7becca542c5e628d6c8128de32`;
-- capsule `20260821T235937Z-a7790a150d`;
-- archive SHA-256 `bf058145225d1884929dac6c404d889d1fc7de4f4613a267d895e23ecbd413ba`;
+Старт этого запуска:
+- LATEST blob SHA `a19e0ff35d548058c9fac980dc70bb6e1b8582ea`;
+- capsule `20260822T005305Z-0f5e9b4388`;
+- archive SHA-256 `61ba2e546e9748827ad41c4ff0ee6d64c25946e9398e5119a3e2fd625b98f4ef`;
 - exact `capsule_runtime_v4.py` blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`;
 - exact v4 verify + restore: PASS.
 
-После работы опубликован новый нормативный v4 checkpoint:
-- capsule `20260822T005305Z-0f5e9b4388`;
-- archive SHA-256 `61ba2e546e9748827ad41c4ff0ee6d64c25946e9398e5119a3e2fd625b98f4ef`;
-- 2 parts; uploaded part Git blobs `8ff944193bf2d79e6506f91963b1d716dfbe610a` и `5a63e7cf315017aa39ee4ece3784a00652150be3` точно совпали с локальными `git hash-object`;
-- manifest Git blob `c48a370a4a500374bd22005e7a39044dad719bdb` точно совпал с локальным;
-- exact v4 verify после упаковки: PASS;
-- перед CAS LATEST всё ещё имел исходный blob `2b569616…`, поэтому старый LATEST сохранён как PREVIOUS, новый опубликован без force-write;
-- текущий LATEST blob `a19e0ff35d548058c9fac980dc70bb6e1b8582ea` и указывает на новую capsule.
+После работы:
+- первая immutable попытка `20260822T015730Z-8d59c62ffc` признана INVALID ORPHAN: parts были точными, но вручную переданный manifest потерял финальный newline, и Git blob не совпал с локальным. Manifest/LATEST этой capsule не использовать; существующие immutable bytes не ремонтировать поверх.
+- заново выполнен exact v4 pack, новая capsule `20260822T015852Z-1450c67340`, archive SHA-256 `79a573694361065945d29438de9352c108f99c714a5b8359ca1cb1c3744215ae`.
+- uploaded part Git blobs `12f85b2c67788cbf5c9320b57a5ae67e0f48e4ff` и `955611fba1153f4bcebf3f7079fd3b80177e2363` совпали с локальными `git hash-object`.
+- uploaded manifest Git blob `c2acb718276ca886a060366b26452bddd5357cef` совпал с локальным; exact v4 verify после pack: PASS.
+- перед CAS LATEST всё ещё имел стартовый blob `a19e0ff35d548058c9fac980dc70bb6e1b8582ea`; старый LATEST сохранён как PREVIOUS, новый опубликован без force-write.
+- опубликованный новый LATEST content blob после CAS: `a98a4448ba804df73657ddfdceb0f98ced7217e1`.
 
 Live Qwen/provider traffic, GitHub Actions/CircleCI/Cloudflare и production не использовались.

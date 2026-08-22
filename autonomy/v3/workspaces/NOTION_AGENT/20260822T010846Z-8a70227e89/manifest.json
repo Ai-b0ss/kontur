@@ -1,0 +1,28 @@
+{
+  "archive": {
+    "parts": 10,
+    "sha256": "416d421445860586b3c71bb9ad0cff7f80f9aa257f7af7b498f3770e17efbe2d",
+    "size": 3532
+  },
+  "capsule_id": "20260822T010846Z-8a70227e89",
+  "created_at_utc": "2026-08-22T01:08:46Z",
+  "parts": [
+    {"chars": 512, "index": 0, "name": "part-0000.b64", "sha256_text": "7bf1fd7353a11658f2f4e8fca6c69f0fabc014e95146a93b60f29bbcb867317f"},
+    {"chars": 512, "index": 1, "name": "part-0001.b64", "sha256_text": "a167b8767ee184fdec78c5f8b8a140c1b262a340fb437ecbafdca016a0c812bf"},
+    {"chars": 512, "index": 2, "name": "part-0002.b64", "sha256_text": "4148ca64d02ed69e13698140de777a8cb8f99a4dff2c62f4bc76f770b19e9393"},
+    {"chars": 512, "index": 3, "name": "part-0003.b64", "sha256_text": "53ef7aa0f8ca046b7d61f30ade50384059c153a59a95f3e4e2c11d076b3d2065"},
+    {"chars": 512, "index": 4, "name": "part-0004.b64", "sha256_text": "75e1ba682f8e76b8d998ec509679078da331916f1a10766c51fd7d40708fa7a9"},
+    {"chars": 512, "index": 5, "name": "part-0005.b64", "sha256_text": "29b65d99072598cb9c5ddc9cc0f55b67e8b3d3e10b6d6c9140cbea402f9a7694"},
+    {"chars": 512, "index": 6, "name": "part-0006.b64", "sha256_text": "d39e6b7adb30c069cfae30d001f1c5084d80cfbf57d655b1da2e1bed23e61a16"},
+    {"chars": 512, "index": 7, "name": "part-0007.b64", "sha256_text": "e02e55ff131b58e7e6986eee78243df62e620cf33367129dd76a2d3cdabc41f5"},
+    {"chars": 512, "index": 8, "name": "part-0008.b64", "sha256_text": "cbe9c93a9ce0d007f647a66943af7db6263bd97dd322bae97d892aed88284371"},
+    {"chars": 104, "index": 9, "name": "part-0009.b64", "sha256_text": "6053f6861fbdce10f64af59194c6a898424f5ecd037d1a04411f2cfa1329246d"}
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@be44d01b710d7e9dd8ef646b26d52abfb274e496",
+  "worker": "NOTION_AGENT",
+  "workspace": {
+    "CHECKPOINT.json": {"mode": "0o644", "sha256": "f0065dc18829960bfad0c6f0bb4200fb46f6793662fc47799aa386c6175b0a14", "size": 8487, "type": "file"},
+    "README.md": {"mode": "0o644", "sha256": "3a773027ac28c5da3c37380d5f1755e9718e84f3bb504e142303bc6c2ba4be62", "size": 323, "type": "file"}
+  }
+}

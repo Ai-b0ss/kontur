@@ -1,0 +1,40 @@
+{
+  "archive": {
+    "parts": 2,
+    "sha256": "b93b20218adf5c34105d3f3c00ccc9a704ac8f08459e643a22ff95d74fd488d9",
+    "size": 1670
+  },
+  "capsule_id": "20260822T145339Z-0b65fe8863",
+  "created_at_utc": "2026-08-22T14:53:39Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "0a6df06ff6a8659f1cd0d43be666cf561cf44c9b023742e428cb1510846fb555"
+    },
+    {
+      "chars": 180,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "3af925a7e8b64520edf17a169a0903be7957f98521ea1bd0146678c47a7e56f6"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "dd8481e9a966f4c2a7b03294527b4b0aecf403fb",
+  "worker": "QWEN_CORE",
+  "workspace": {
+    "CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "39a5e1ea8ebcd6d0d578236e5edacde3382b9f8af69ae0d9a50acfd5c3e72a9a",
+      "size": 1854,
+      "type": "file"
+    },
+    "EVIDENCE.txt": {
+      "mode": "0o644",
+      "sha256": "b7af8f9194bb42131ec7765de1dd0bb3aad25ec6e6318b8b9f5f7b70e30e78e2",
+      "size": 770,
+      "type": "file"
+    }
+  }
+}

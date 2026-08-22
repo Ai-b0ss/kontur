@@ -138,10 +138,11 @@ jobs:
 
       - run:
           name: Publish sanitized immutable evidence branch
+          when: always
           command: |
             set -euo pipefail
-            evidence_branch="evidence/kontur-core-aafa42b9-20260822"
-            target="docs/product/evidence/runtime/aafa42b9"
+            evidence_branch="evidence/kontur-core-aafa42b9-diag-20260822"
+            target="docs/product/evidence/runtime/aafa42b9-diag"
             git switch --create "$evidence_branch" "$KONTUR_EXPECTED_SHA"
             mkdir -p "$target/browser" "$target/logs"
             cp "$KONTUR_BROWSER_EVIDENCE_DIR"/*.png "$target/browser/"
@@ -153,7 +154,7 @@ jobs:
             git config user.name "Kontur Acceptance Bot"
             git config user.email "kontur-acceptance@users.noreply.github.com"
             git add "$target"
-            git commit -m "evidence: preserve aafa42b9 browser and staging proof"
+            git commit -m "evidence: preserve aafa42b9 diagnostic browser and staging evidence"
             git push origin "HEAD:refs/heads/$evidence_branch"
             echo "EVIDENCE_BRANCH_PASS branch=$evidence_branch"
 

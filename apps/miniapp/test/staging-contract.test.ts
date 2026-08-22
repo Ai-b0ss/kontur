@@ -16,6 +16,10 @@ test('isolated staging proof is non-destructive and verifies the real local API 
   assert.match(liveSmoke, /https:\/\/kontur-igor-staging\./);
   assert.match(liveSmoke, /X-Telegram-Bot-Api-Secret-Token/);
   assert.match(liveSmoke, /chat_member/);
+  assert.match(liveSmoke, /text: '\/worm'/);
+  assert.match(liveSmoke, /distinctGivers/);
+  assert.match(liveSmoke, /selfRejected/);
+  assert.match(liveSmoke, /repeatRejected/);
   assert.match(liveSmoke, /\/api\/v1\/auth\/telegram/);
   assert.match(liveSmoke, /\/api\/v4\/local\/hatch/);
   assert.match(liveSmoke, /\/api\/v4\/local\/egg\/open/);

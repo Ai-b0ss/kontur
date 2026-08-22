@@ -6,40 +6,41 @@
 Repo: `Ai-b0ss/qwen-free-api`
 Branch: `autopilot/qwen-runtime-preflight-20260818`
 PR: #6
-Fresh product head после этого прохода: `cd4696f5730d928892d1080e6c7bf12a175819f1`.
+Fresh product head после этого прохода: `763ac0b53a7ea94bc8241e3e539b2356b08c9984`.
 Перед новой записью обязательно fresh-read PR head, потому что параллельно работает QWEN_CORE.
 
-## Закрыто в этом проходе — wall-clock jump больше не снимает account-local cooldown раньше времени
-Ранее `account-store.isAvailable()` проверял локальный cooldown только по persisted `unavailableUntil <= Date.now()`. При скачке системных часов вперёд текущий процесс мог посчитать 10-минутную CAPTCHA или 6-часовой rate-limit уже истёкшими без фактического ожидания.
+## Закрыто в этом проходе — forward wall-clock jump больше не снимает provider-wide circuit раньше времени
+До этого общий защитный контур провайдера (`provider-circuit.json`) проверял истечение только по persisted `until <= Date.now()`. Если часы VM/NTP прыгали вперёд во время уже работающего процесса, активный WAF/trust/provider-pressure circuit мог быть удалён раньше реального времени и соседние аккаунты снова становились доступными.
 
-В product внесён отдельный in-process monotonic guard:
-- persisted `unavailableUntil` сохранён как restart-floor и формат состояния не менялся;
-- при успешном `markFailure`/`markCaptchaChallenge` после durable persist устанавливается/продлевается monotonic deadline по `process.hrtime.bigint()`;
-- `isAvailable()` требует окончания и wall-clock cooldown, и in-process monotonic deadline;
-- `load()` не стирает уже действующий monotonic deadline и удаляет только записи исчезнувших аккаунтов;
-- `reset()` и успешный `markSuccess()` явно снимают monotonic deadline;
-- `remove()` удаляет его;
-- после настоящего restart monotonic map пуст, поэтому действует старый persisted wall-clock floor.
+Воспроизведение до исправления:
+`PROVIDER_CIRCUIT_WALL_CLOCK_JUMP_REPRO_PASS premature_release=1`.
 
-Product fix commit:
-- `85771bf526123d752620cc409bc1fbd8578dd4f1` — `fix: keep account cooldown monotonic in-process`.
+Product fix:
+- `469e8188271eb61237795e6bbf73f5f5bb406994` — добавлен регрессионный тест `scripts/provider-circuit-wall-clock-jump-test.js`;
+- `498c923ce923d5bf9365a206dc8d6d22cae9a677` — `src/provider-circuit.js` получил in-process monotonic deadline на `process.hrtime.bigint()`;
+- `afad16b274e6f54c466584391542e6e59ec77262` — новый тест включён в обычный `npm test`.
 
-Регрессия:
-- `scripts/account-cooldown-wall-clock-jump-test.js` уже существовала как RED test;
-- `3cd46477096da9efa88addaeeade61085cc9271a` включает её в обычный `npm test`;
-- `cd4696f5730d928892d1080e6c7bf12a175819f1` усиливает тест: после скачка часов вызывается `store.load()`, как делает реальный HTTP-путь, и guard обязан сохраниться.
+Новый контракт:
+- persisted `until` остаётся restart-floor и формат файла не меняется;
+- после успешного `trip()` монотонный deadline устанавливается/продлевается;
+- при первом обычном `current()` в новом процессе активный persisted circuit получает монотонную защиту на оставшееся wall-clock время;
+- circuit удаляется автоматически только когда одновременно истекли wall-clock и in-process monotonic сроки;
+- `retryAfterMs()` без явного тестового `now` учитывает оба срока;
+- явный глобальный `clear()` снимает и persisted, и monotonic состояние;
+- per-account clear по-прежнему не открывает provider-wide circuit.
 
 Hosted/local модель нового инварианта прошла:
-`ACCOUNT_COOLDOWN_MONOTONIC_MODEL_PASS`.
-Полный exact-tree `npm test` не заявлять: в этой среде прямой checkout закрытого GitHub-репозитория недоступен по DNS, а новый CircleCI gate не запускался.
+`PROVIDER_CIRCUIT_MONOTONIC_MODEL_PASS wall_clock_jump_blocked=1`.
+
+Полный exact-tree `npm test` не заявлять: внешний final gate не запускался, а доступный hosted-контейнер не имеет прямого exact checkout закрытого product repo.
 
 ## Fresh-source / параллельная работа
-Перед product write PR #6 успел сдвинуться с `454e25eb...` до `1072e1c4...`; compare показал, что параллельные изменения касались только `src/qwen-v3-mode.js` и его теста. `src/account-store.js` не менялся. Contents API создал reliability commit поверх свежего branch head; read-back commit `85771bf...` показывает узкий diff только `src/account-store.js`.
-
-После reliability commits текущий PR head подтверждён как `cd4696f...`.
+Стартовый PR head был `cd4696f5730d928892d1080e6c7bf12a175819f1`.
+Перед product write PR сдвинулся до `090ced48c44480fbd72583e4dfac8640ceecec12`; compare показал единственное параллельное изменение в `src/qwen-v3-mode.js`, `provider-circuit.js` и `package.json` не менялись.
+После reliability commits QWEN_CORE добавил ещё один отдельный тест `scripts/server-qwen-mode-preflight-test.js`; свежий head `763ac0b53a7ea94bc8241e3e539b2356b08c9984`. Reliability-изменения не затёрты.
 
 ## QWEN_CORE coordination
-QWEN_CORE handoff перечитан перед работой. Core занимается tool/system-prompt линией; account/cooldown/failover механику Reliability не отдаёт. Новый final CircleCI gate должен запускать только один владелец после fresh coordination.
+Core продолжает tool/system-prompt/mode линию. Reliability не трогал её файлы и не запускал final CircleCI gate. Один exact gate SHA должен запускать только один владелец после fresh coordination.
 
 ## CircleCI final gate
 Политика `autonomy/ci/CIRCLECI_GATE_POLICY.md` перечитана.
@@ -48,7 +49,7 @@ QWEN_CORE handoff перечитан перед работой. Core заним�
 - старые SHA с недоступным результатом повторно не триггерить;
 - новый gate — только после targeted local/hosted PASS, когда остаётся exact-tree/full-suite gap и после fresh координации с QWEN_CORE.
 
-В этом проходе CircleCI не запускался. Целевой инвариант проверен локально, но параллельная Core-линия ещё движется; преждевременно тратить финальный gate на нестабильный общий head.
+В этом проходе CircleCI не запускался: общий head продолжает двигаться QWEN_CORE, поэтому тратить редкий финальный gate сейчас преждевременно.
 
 ## Уже закрыто — не переоткрывать без нового контрпримера
 - account-local/provider-wide separation;
@@ -66,13 +67,14 @@ QWEN_CORE handoff перечитан перед работой. Core заним�
 - durable request governor V4–V10 и unknown-outcome inflight marker no-autoclear;
 - completed mutating side effect не повторяется после restart/failover;
 - unresolved mutating tool call блокирует `continue` до provider dispatch;
-- in-process forward wall-clock jump не сокращает account-local cooldown.
+- in-process forward wall-clock jump не сокращает account-local cooldown;
+- in-process forward wall-clock jump не сокращает provider-wide circuit.
 
 ## Что делать дальше
-1. Fresh-read PR #6 и QWEN_CORE handoff.
-2. Не переоткрывать wall-clock cooldown без нового контрпримера; первым делом получить exact-tree выполнение нового теста при следующем разрешённом финальном gate либо через доступный hosted checkout.
-3. До gate искать только новый воспроизводимый дефект в pool/candidates/cooldown/provider circuit/affinity/bounded retry/replay safety.
-4. Если появится новый cooldown defect, обязательно проверять реальный `accountStore.load()` между запросами — monotonic guard должен переживать reload текущего процесса.
+1. Fresh-read PR #6 и QWEN_CORE before any write.
+2. Не переоткрывать два wall-clock дефекта без нового контрпримера.
+3. До final gate искать только новый воспроизводимый дефект в pool/candidates/cooldown/provider circuit/affinity/bounded retry/replay safety.
+4. Если общий head стабилен и QWEN_CORE не запускает тот же SHA, использовать `ci/qwen-final-gate` ровно один раз для exact-tree `npm ci && npm test`.
 5. Live provider/секреты/production не трогать без новой доказанной необходимости.
 
 ## Постоянная память
@@ -80,20 +82,10 @@ Worker: `QWEN_RELIABILITY`.
 `autonomy/v3/CAPSULE_RUNTIME_PROTOCOL_V2.json` и `autonomy/v3/tools/capsule_runtime_v4.py` перечитаны.
 
 Старт этого прохода:
-- `LATEST` capsule `20260822T055538Z-4086c0ad8f`;
-- pointer blob SHA `939afdf804a98c87185aa44ca9dfa42d9e8fce2b`;
-- archive SHA-256 `51331c58b77cf3c6d4282c572170bf75d3eb4376516d21d1de0532ae76869346`;
-- нормативные `verify + restore`: PASS.
-
-Финиш этого прохода:
-- новая capsule `20260822T105753Z-02993b42b7`;
-- source ref `Ai-b0ss/qwen-free-api@cd4696f5730d928892d1080e6c7bf12a175819f1`;
+- `LATEST` capsule `20260822T105753Z-02993b42b7`;
+- pointer blob SHA `b622c3e0d18aa98493eb86d62d80ea4cfec55f46`;
 - archive SHA-256 `7e5dc59f9ba7bd5672259a811bfc50a24b324df2bd93c2b8770b8196ad607da8`;
-- local `pack + verify + restore`: PASS;
-- uploaded manifest Git blob `4ec2f67af6dd7b0f555045c866193ae81be323af` совпал с локальным Git blob;
-- uploaded part0 Git blob `ac6e67fd995b1a30cb8c7a60cd7cc71438a5732b` совпал с локальным Git blob;
-- перед CAS `LATEST` всё ещё имел стартовый blob `939afdf804a98c87185aa44ca9dfa42d9e8fce2b`;
-- старый `LATEST` сохранён как `PREVIOUS`;
-- новый `LATEST` опубликован без force-write и после записи перечитан, текущий blob `b622c3e0d18aa98493eb86d62d80ea4cfec55f46`.
+- точные manifest/part материализованы локально;
+- нормативные `verify + restore` через `capsule_runtime_v4.py`: PASS.
 
-Force-write `LATEST` запрещён и в этом проходе не использовался.
+Финишный capsule update выполняется после записи этого handoff по стандартному `checkpoint -> pack v4 -> upload/readback -> CAS` протоколу. Force-write `LATEST` запрещён.

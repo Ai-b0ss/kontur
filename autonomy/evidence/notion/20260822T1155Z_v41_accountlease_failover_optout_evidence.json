@@ -1,0 +1,43 @@
+{
+  "schema": "notion_core_v41_accountlease_failover_optout_v1",
+  "created_at_utc": "2026-08-22T11:55:00Z",
+  "worker": "NOTION_CORE",
+  "source": {
+    "core_pr": 7,
+    "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_pr": 8,
+    "fresh_agent_head": "efab0a496b5b90a3d631560540e80269a29dbf91",
+    "account_pool_blob": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d"
+  },
+  "finding": "Exact AccountLease.run has no caller-controlled failover switch. Any failover-eligible exception reaches _switch_account; therefore Stage-B protected provider steps cannot yet enforce the V36/V40 invariant without changing account_pool.py.",
+  "candidate": {
+    "patch": "autonomy/evidence/notion/20260822T1155Z_v41_accountlease_failover_optout_exact_candidate.patch",
+    "api": "AccountLease.run(..., allow_failover: bool = True)",
+    "compatibility": "Default true preserves existing Agent rotation/failover behavior. Core may pass false only after strict provider-intent publication.",
+    "disabled_path": "Record the failing selected account once, record transport outcome retry_scheduled=false when applicable, do not call _switch_account, re-raise the original error.",
+    "enabled_path": "Existing behavior remains unchanged."
+  },
+  "local_model": {
+    "allow_failover_false": {"original_error_propagated": true, "record_failure_calls": 1, "switch_account_calls": 0, "retry_scheduled": false},
+    "allow_failover_true": {"switch_account_calls": 1, "existing_retry_path_preserved": true},
+    "verdict": "V41_ACCOUNTLEASE_FAILOVER_OPTOUT_MODEL_PASS"
+  },
+  "self_review": {
+    "double_failure_record_on_disabled_path": false,
+    "reason": "The exact current run() does not call _record_failure before _switch_account for ordinary failover-eligible exceptions; _switch_account normally owns that accounting. The opt-out path must therefore record once before re-raising.",
+    "transport_retry_outcome": "retry_scheduled=false on the opt-out path",
+    "trust_rule_denial": "Existing earlier special-case remains unchanged and exits before the new opt-out branch.",
+    "timeout": "Existing asyncio timeout remains fail-closed and exits before failover logic."
+  },
+  "stage_b": {
+    "ready_for_windows": false,
+    "remaining": "Wire V41 into exact server orchestration together with V34/V35 store: route/account acquisition before intent, strict intent, deliberate provider steps with allow_failover=false and outer foreground retry suppressed, canonical durable finalize, then cache/reservation/client projection."
+  },
+  "safety": {
+    "product_branch_mutated": false,
+    "control_force_write": false,
+    "hosted_ci_started": false,
+    "live_notion_or_codex": false
+  }
+}

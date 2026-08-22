@@ -16,7 +16,7 @@
     "current_stream_generates_reasoning_id_per_stream_attempt": true,
     "current_stream_emits_response_created_and_reasoning_before_handle_completion": true,
     "current_stream_cancels_request_task_when_client_generator_closes": true,
-    "current_nonstream_response_payload_is_constructed_after reservation_affinity_and_conversation_state_writes": true,
+    "current_nonstream_response_payload_is_constructed_after_reservation_affinity_and_conversation_state_writes": true,
     "current_same_process_affinity_cache_reconstructs_responses_ids_instead_of_replaying_exact_payload": true,
     "current_responses_initial_and_correction_and_compaction_callsites_use_lease_run_with_implicit_failover_enabled": true
   },
@@ -36,6 +36,14 @@
       "final_write_failure_no_cache_no_reservation_no_client_state": "PASS",
       "client_waiter_cancellation_does_not_cancel_commit_critical_task": "PASS"
     }
+  },
+  "exact_existing_sse_projection": {
+    "source": "responses_item_events + responses_sse copied from exact server blob f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "harness_sha256": "ce757da2d69031c0d3412b328ccf06bb78404cdf15d7a7d87d8a690e80439525",
+    "verdict": "V44_EXACT_EXISTING_RESPONSES_SSE_CANONICAL_PROJECTION_PASS",
+    "function_call_completed_event_preserves_response_id_and_call_id": true,
+    "message_completed_event_preserves_canonical_response": true,
+    "new_uuid_generation_inside_projection": false
   },
   "integration_consequence": {
     "replace_transient_affinity_cache_as_authoritative_replay": true,

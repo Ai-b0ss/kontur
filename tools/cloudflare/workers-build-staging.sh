@@ -32,9 +32,9 @@ pnpm -F @kontur/miniapp test
 pnpm -F @kontur/miniapp build
 
 run_production_release() {
-# Prove the authenticated executor resolves the exact production D1. Read only.
-pnpm -F @kontur/worker exec wrangler d1 info "$CLOUDFLARE_PROD_D1_DATABASE_NAME" --config wrangler.jsonc --json > /tmp/kontur-prod-d1-info.json
-node --input-type=module <<'NODE'
+  # Prove the authenticated executor resolves the exact production D1. Read only.
+  pnpm -F @kontur/worker exec wrangler d1 info "$CLOUDFLARE_PROD_D1_DATABASE_NAME" --config wrangler.jsonc --json > /tmp/kontur-prod-d1-info.json
+  node --input-type=module <<'NODE'
 import fs from 'node:fs';
 const raw=fs.readFileSync('/tmp/kontur-prod-d1-info.json','utf8');
 if(!raw.includes(process.env.CLOUDFLARE_PROD_D1_DATABASE_NAME)) throw new Error('production D1 name missing');
@@ -43,26 +43,27 @@ if(raw.includes(process.env.CLOUDFLARE_STAGING_D1_DATABASE_ID)) throw new Error(
 console.log('CLOUDFLARE_PROD_D1_READONLY_AUTH_PASS');
 NODE
 
-# Extract, verify and build only the accepted runtime commit.
-rm -rf "$release_dir"
-mkdir -p "$release_dir"
-git fetch --no-tags --depth=1 origin "$RELEASE_SHA"
-test "$(git rev-parse FETCH_HEAD)" = "$RELEASE_SHA"
-git archive "$RELEASE_SHA" | tar -x -C "$release_dir"
+  # Extract, verify and build only the accepted runtime commit.
+  rm -rf "$release_dir"
+  mkdir -p "$release_dir"
+  git fetch --no-tags --depth=1 origin "$RELEASE_SHA"
+  test "$(git rev-parse FETCH_HEAD)" = "$RELEASE_SHA"
+  git archive "$RELEASE_SHA" | tar -x -C "$release_dir"
 
-(
-  cd "$release_dir"
-  pnpm install --frozen-lockfile
-  pnpm -F @kontur/miniapp test
-  pnpm -F @kontur/worker test
-  pnpm typecheck
-  pnpm build
-)
+  (
+    cd "$release_dir"
+    pnpm install --frozen-lockfile
+    pnpm -F @kontur/miniapp test
+    pnpm -F @kontur/worker test
+    pnpm typecheck
+    pnpm build
+  )
 
-# Fail closed on Worker, D1 and assets identity before any production write.
-node --input-type=module <<'NODE'
+  # Fail closed on Worker, D1 and assets identity before any production write.
+  node --input-type=module <<'NODE'
 import fs from 'node:fs';
-const config = JSON.parse(fs.readFileSync('/tmp/kontur-production-b153d4c9/apps/worker/wrangler.jsonc', 'utf8'));
+const configText = fs.readFileSync('/tmp/kontur-production-b153d4c9/apps/worker/wrangler.jsonc', 'utf8').replace(/^\uFEFF/, '');
+const config = JSON.parse(configText);
 if (config.name !== process.env.CLOUDFLARE_PROD_WORKER_NAME) throw new Error('production Worker identity mismatch');
 const db = (config.d1_databases || []).find((item) => item?.binding === 'DB');
 if (!db || db.database_name !== process.env.CLOUDFLARE_PROD_D1_DATABASE_NAME || db.database_id !== process.env.CLOUDFLARE_PROD_D1_DATABASE_ID) {
@@ -73,47 +74,49 @@ if (config.assets?.directory !== '../miniapp/dist') throw new Error('production 
 console.log('CLOUDFLARE_PRODUCTION_TARGET_PASS');
 NODE
 
-# Read-only aggregate counts; no IDs or user rows leave Cloudflare.
-(
-  cd "$release_dir/apps/worker"
-  pnpm exec wrangler d1 execute "$CLOUDFLARE_PROD_D1_DATABASE_NAME" --remote --config wrangler.jsonc --json --command \
-    "SELECT (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM profiles WHERE hatched_at IS NOT NULL) AS hatched" \
-    > /tmp/kontur-prod-counts-before.json
-)
+  # Read-only aggregate counts; no IDs or user rows leave Cloudflare.
+  (
+    cd "$release_dir/apps/worker"
+    pnpm exec wrangler d1 execute "$CLOUDFLARE_PROD_D1_DATABASE_NAME" --remote --config wrangler.jsonc --json --command \
+      "SELECT (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM profiles WHERE hatched_at IS NOT NULL) AS hatched" \
+      > /tmp/kontur-prod-counts-before.json
+  )
 
-# The only production write: exact Worker/assets deploy. No D1 command,
-# migration, secret command or webhook mutation is permitted here.
-set +e
-(
-  cd "$release_dir/apps/worker"
-  env -u CLOUDFLARE_WORKER_NAME -u CLOUDFLARE_ENV \
-    pnpm exec wrangler deploy \
-      --name "$CLOUDFLARE_PROD_WORKER_NAME" \
-      --keep-vars \
-      --config wrangler.jsonc
-) > /tmp/kontur-production-deploy.log 2>&1
-deploy_status=$?
-set -e
+  # The only production write: exact Worker/assets deploy. No D1 command,
+  # migration, secret command or webhook mutation is permitted here.
+  set +e
+  (
+    cd "$release_dir/apps/worker"
+    env -u CLOUDFLARE_WORKER_NAME -u CLOUDFLARE_ENV \
+      pnpm exec wrangler deploy \
+        --name "$CLOUDFLARE_PROD_WORKER_NAME" \
+        --keep-vars \
+        --config wrangler.jsonc
+  ) > /tmp/kontur-production-deploy.log 2>&1
+  deploy_status=$?
+  set -e
 
-if [ "$deploy_status" -ne 0 ]; then
-  cat /tmp/kontur-production-deploy.log >&2
-  RELEASE_STATUS='BLOCKED' RELEASE_ERROR_LOG='/tmp/kontur-production-deploy.log' node --input-type=module <<'NODE'
-  import fs from 'node:fs';
-  const raw = fs.readFileSync(process.env.RELEASE_ERROR_LOG, 'utf8')
-    .replace(/\u001b\[[0-9;]*m/g, '')
-    .replace(/(authorization|bearer|token|secret)(\s*[:=]\s*)\S+/gi, '$1$2[REDACTED]');
-  const lines = raw.split(/\r?\n/).filter(Boolean);
-  const relevant = lines.filter((line) => /error|code|permission|auth|forbidden|unauthorized/i.test(line));
-  const error = (relevant.length ? relevant : lines.slice(-25)).slice(-25).join('\n').slice(-4000);
-  fs.mkdirSync('apps/miniapp/dist', { recursive: true });
-  fs.writeFileSync('apps/miniapp/dist/cloudflare-production-release-b153d4c9.json', JSON.stringify({
-    status: process.env.RELEASE_STATUS,
-    release: process.env.RELEASE_SHA,
-    error,
-  }, null, 2) + '\n');
-  console.log('PRODUCTION_DEPLOY_BLOCKED_DIAGNOSTIC_READY');
+  if [ "$deploy_status" -ne 0 ]; then
+    cat /tmp/kontur-production-deploy.log >&2
+    RELEASE_STATUS='BLOCKED' RELEASE_ERROR_LOG='/tmp/kontur-production-deploy.log' node --input-type=module <<'NODE'
+import fs from 'node:fs';
+const raw = fs.readFileSync(process.env.RELEASE_ERROR_LOG, 'utf8')
+  .replace(/\u001b\[[0-9;]*m/g, '')
+  .replace(/(authorization|bearer|token|secret)(\s*[:=]\s*)\S+/gi, '$1$2[REDACTED]');
+const lines = raw.split(/\r?\n/).filter(Boolean);
+const relevant = lines.filter((line) => /error|code|permission|auth|forbidden|unauthorized/i.test(line));
+const error = (relevant.length ? relevant : lines.slice(-25)).slice(-25).join('\n').slice(-4000);
+fs.mkdirSync('apps/miniapp/dist', { recursive: true });
+fs.writeFileSync('apps/miniapp/dist/cloudflare-production-release-b153d4c9.json', JSON.stringify({
+  status: process.env.RELEASE_STATUS,
+  release: process.env.RELEASE_SHA,
+  error,
+}, null, 2) + '\n');
+console.log('PRODUCTION_DEPLOY_BLOCKED_DIAGNOSTIC_READY');
 NODE
-else
+    return "$deploy_status"
+  fi
+
   cat /tmp/kontur-production-deploy.log
   (
     cd "$release_dir"
@@ -142,49 +145,51 @@ else
   )
 
   node --input-type=module <<'NODE'
-  import fs from 'node:fs';
-  const firstCounts = (path) => {
-    const records = [];
-    const visit = (value) => {
-      if (Array.isArray(value)) value.forEach(visit);
-      else if (value && typeof value === 'object') {
-        if (Number.isInteger(value.users) && Number.isInteger(value.hatched)) records.push(value);
-        Object.values(value).forEach(visit);
-      }
-    };
-    visit(JSON.parse(fs.readFileSync(path, 'utf8')));
-    if (!records[0]) throw new Error(`aggregate D1 counts missing: ${path}`);
-    return records[0];
+import fs from 'node:fs';
+const firstCounts = (path) => {
+  const records = [];
+  const visit = (value) => {
+    if (Array.isArray(value)) value.forEach(visit);
+    else if (value && typeof value === 'object') {
+      if (Number.isInteger(value.users) && Number.isInteger(value.hatched)) records.push(value);
+      Object.values(value).forEach(visit);
+    }
   };
-  const before = firstCounts('/tmp/kontur-prod-counts-before.json');
-  const after = firstCounts('/tmp/kontur-prod-counts-after.json');
-  if (after.users < before.users || after.hatched < before.hatched) throw new Error('production user data count decreased');
-  const health = JSON.parse(fs.readFileSync('/tmp/kontur-prod-health.json', 'utf8'));
-  if (health.ok !== true || health.devMode !== false || health.driver !== 'd1') throw new Error('production health mismatch');
-  fs.mkdirSync('apps/miniapp/dist', { recursive: true });
-  fs.writeFileSync('apps/miniapp/dist/cloudflare-production-release-b153d4c9.json', JSON.stringify({
-    status: 'PASS',
-    release: process.env.RELEASE_SHA,
-    exactAsset: true,
-    health: true,
-    dataPreserved: true,
-    apiBoundary: true,
-    telegramWebhookBoundary: true,
-    users: after.users,
-    hatched: after.hatched,
-  }, null, 2) + '\n');
-  console.log(`PRODUCTION_DEPLOY_PASS release=${process.env.RELEASE_SHA}`);
-  console.log('EXACT_ASSET_PASS');
-  console.log('HEALTH_PASS');
-  console.log(`DATA_PRESERVED_PASS users=${after.users} hatched=${after.hatched}`);
-  console.log('API_BOUNDARY_PASS');
-  console.log('TELEGRAM_WEBHOOK_BOUNDARY_PASS');
+  visit(JSON.parse(fs.readFileSync(path, 'utf8')));
+  if (!records[0]) throw new Error(`aggregate D1 counts missing: ${path}`);
+  return records[0];
+};
+const before = firstCounts('/tmp/kontur-prod-counts-before.json');
+const after = firstCounts('/tmp/kontur-prod-counts-after.json');
+if (after.users < before.users || after.hatched < before.hatched) throw new Error('production user data count decreased');
+const health = JSON.parse(fs.readFileSync('/tmp/kontur-prod-health.json', 'utf8'));
+if (health.ok !== true || health.devMode !== false || health.driver !== 'd1') throw new Error('production health mismatch');
+fs.mkdirSync('apps/miniapp/dist', { recursive: true });
+fs.writeFileSync('apps/miniapp/dist/cloudflare-production-release-b153d4c9.json', JSON.stringify({
+  status: 'PASS',
+  release: process.env.RELEASE_SHA,
+  exactAsset: true,
+  health: true,
+  dataPreserved: true,
+  apiBoundary: true,
+  telegramWebhookBoundary: true,
+  users: after.users,
+  hatched: after.hatched,
+}, null, 2) + '\n');
+console.log(`PRODUCTION_DEPLOY_PASS release=${process.env.RELEASE_SHA}`);
+console.log('EXACT_ASSET_PASS');
+console.log('HEALTH_PASS');
+console.log(`DATA_PRESERVED_PASS users=${after.users} hatched=${after.hatched}`);
+console.log('API_BOUNDARY_PASS');
+console.log('TELEGRAM_WEBHOOK_BOUNDARY_PASS');
 NODE
-fi
 }
 
 set +e
-run_production_release > /tmp/kontur-production-release.log 2>&1
+(
+  set -e
+  run_production_release
+) > /tmp/kontur-production-release.log 2>&1
 release_status=$?
 set -e
 cat /tmp/kontur-production-release.log
@@ -222,3 +227,10 @@ if (!db || db.database_id !== '22786b4b-99cc-4ca5-a18b-932e8781021b') throw new 
 if ('route' in c || 'routes' in c || 'triggers' in c) throw new Error('production routing/cron leaked into staging config');
 console.log('CLOUDFLARE_WORKERS_BUILD_STAGING_PREP_PASS');
 NODE
+
+if [ "$release_status" -ne 0 ]; then
+  echo "CLOUDFLARE_PRODUCTION_RELEASE_FAIL_CLOSED status=$release_status" >&2
+  exit "$release_status"
+fi
+
+echo "CLOUDFLARE_PRODUCTION_RELEASE_CONFIRMED release=$RELEASE_SHA"

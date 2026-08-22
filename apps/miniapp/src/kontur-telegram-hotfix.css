@@ -1,0 +1,148 @@
+/* Telegram Mini App hatch/reveal hotfix layered after the existing Kontur CSS.
+   Keep the PR #22 flash handoff, but restore an actual two-half shell opening
+   and reserve enough vertical room for the first reveal line in short WebViews. */
+
+.lk-hatch-halves {
+  position: absolute;
+  z-index: 9;
+  inset: 0;
+  overflow: visible;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.lk-hatch-half {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.lk-hatch-half--left {
+  clip-path: polygon(0 0,54% 0,51% 17%,55% 31%,48% 46%,52% 59%,46% 73%,49% 100%,0 100%);
+  transform-origin: 47% 55%;
+}
+
+.lk-hatch-half--right {
+  clip-path: polygon(54% 0,100% 0,100% 100%,49% 100%,46% 73%,52% 59%,48% 46%,55% 31%,51% 17%);
+  transform-origin: 53% 55%;
+}
+
+/* During the crack phase the intact q8 egg becomes two coherent halves.
+   The existing PR #22 crack-light image remains the only crack texture. */
+.lk-quiz-egg[data-hatch-phase="cracks"] .lk-hatch-halves {
+  opacity: 1;
+}
+.lk-quiz-egg[data-hatch-phase="cracks"] .lk-quiz-egg__base {
+  animation: lk-telegram-base-open var(--lk-hatch-cracks, 500ms) cubic-bezier(.4,0,.2,1) both;
+}
+.lk-quiz-egg[data-hatch-phase="cracks"] .lk-hatch-half--left {
+  animation: lk-telegram-shell-left-open var(--lk-hatch-cracks, 500ms) cubic-bezier(.2,.8,.2,1) both;
+}
+.lk-quiz-egg[data-hatch-phase="cracks"] .lk-hatch-half--right {
+  animation: lk-telegram-shell-right-open var(--lk-hatch-cracks, 500ms) cubic-bezier(.2,.8,.2,1) both;
+}
+
+/* At flash start the opened shell stays visible underneath the rising white
+   cover. The intact base must not reappear for a frame when animation-name
+   changes from cracks to flash. */
+.lk-quiz-egg[data-hatch-phase="flash"] .lk-quiz-egg__base {
+  opacity: 0;
+  visibility: hidden;
+  animation: none;
+}
+.lk-quiz-egg[data-hatch-phase="flash"] .lk-hatch-halves {
+  opacity: 1;
+}
+.lk-quiz-egg[data-hatch-phase="flash"] .lk-hatch-half--left {
+  transform: translate(-13px,-3px) rotate(-3deg);
+  opacity: .9;
+}
+.lk-quiz-egg[data-hatch-phase="flash"] .lk-hatch-half--right {
+  transform: translate(13px,-3px) rotate(3deg);
+  opacity: .9;
+}
+
+.lk-quiz-egg[data-hatch-phase="reveal"] .lk-hatch-halves,
+.lk-quiz-egg[data-hatch-phase="settled"] .lk-hatch-halves {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* Stale hook/question text must disappear synchronously at hatch start;
+   cancelling both animation and transition ports the useful 2896b711 fix
+   without reverting the newer PR #21/#22 state machine. */
+.lk-first-time.lk-first-time--hatching .lk-hook-copy,
+.lk-first-time.lk-first-time--hatching .lk-hook-action,
+.lk-first-time.lk-first-time--hatching .lk-question--egg,
+.lk-first-time.lk-first-time--reveal .lk-hook-copy,
+.lk-first-time.lk-first-time--reveal .lk-hook-action,
+.lk-first-time.lk-first-time--reveal .lk-question--egg {
+  visibility: hidden;
+  opacity: 0;
+  animation: none;
+  transition: none;
+  transform: translateY(-18px);
+  pointer-events: none;
+}
+
+/* Keep reduced-motion ordering without letting the restored shell split run
+   for the normal 500ms while the rest of the state machine is shortened. */
+.lk-reduced-motion .lk-quiz-egg[data-hatch-phase="cracks"] .lk-hatch-half--left,
+.lk-reduced-motion .lk-quiz-egg[data-hatch-phase="cracks"] .lk-hatch-half--right {
+  animation-duration: var(--lk-hatch-cracks, 80ms) !important;
+}
+
+/* Telegram's visible Mini App viewport is shorter than the physical iPhone
+   screen because its own header occupies the top. On those heights the
+   absolute reveal panel used to start underneath the egg ring. Move and trim
+   only the settled result art; question layouts are untouched. */
+@media (max-height: 820px) {
+  .lk-first-time.lk-first-time--reveal .lk-quiz-egg-stage {
+    top: 45%;
+    width: min(56vw, 230px);
+  }
+}
+
+@media (max-height: 700px) {
+  .lk-first-time.lk-first-time--reveal .lk-quiz-egg-stage {
+    top: 43%;
+    width: min(52vw, 205px);
+  }
+  .lk-first-time.lk-first-time--reveal .lk-reveal.lk-reveal--inline h1 {
+    margin-bottom: 8px;
+    font-size: clamp(38px, 11vw, 52px);
+  }
+  .lk-first-time.lk-first-time--reveal .lk-reveal.lk-reveal--inline .lk-lead {
+    margin-bottom: 12px;
+    font-size: 14px;
+    line-height: 1.38;
+  }
+}
+
+@keyframes lk-telegram-base-open {
+  0%, 52% { opacity: 1; transform: none; }
+  60% { opacity: 1; transform: translateX(-1px) rotate(-.35deg); }
+  68% { opacity: 1; transform: translateX(1px) rotate(.35deg); }
+  78% { opacity: .88; transform: none; }
+  100% { opacity: .08; transform: scale(.995); }
+}
+
+@keyframes lk-telegram-shell-left-open {
+  0%, 48% { opacity: 0; transform: none; }
+  56% { opacity: .72; transform: none; }
+  66% { opacity: 1; transform: translate(-2px,0) rotate(-.5deg); }
+  82% { opacity: 1; transform: translate(-7px,-1px) rotate(-1.5deg); }
+  100% { opacity: .96; transform: translate(-13px,-3px) rotate(-3deg); }
+}
+
+@keyframes lk-telegram-shell-right-open {
+  0%, 48% { opacity: 0; transform: none; }
+  56% { opacity: .72; transform: none; }
+  66% { opacity: 1; transform: translate(2px,0) rotate(.5deg); }
+  82% { opacity: 1; transform: translate(7px,-1px) rotate(1.5deg); }
+  100% { opacity: .96; transform: translate(13px,-3px) rotate(3deg); }
+}

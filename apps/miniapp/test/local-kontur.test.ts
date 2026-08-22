@@ -160,16 +160,16 @@ test('quiz crack/progress mapping is exactly q1=stage1 through q8=stage8', () =>
   }
 });
 
-test('q8 hatch reuses shell art inside QuizEgg and delays visible hatch until response gesture ends', async () => {
+test('q8 hatch keeps one egg, overlays light cracks, and delays pulse until response gesture ends', async () => {
   const egg = await readFile(new URL('../src/components/QuizEgg.tsx', import.meta.url), 'utf8');
   const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
   const screen = await readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8');
-  assert.match(egg, /lk-quiz-egg__hatch-shells/);
-  assert.equal((egg.match(/src="\/quiz\/egg-stage-08\.webp"/g) ?? []).length, 2);
+  assert.doesNotMatch(egg, /lk-quiz-egg__hatch-shells|lk-quiz-egg__shell/);
   assert.equal((egg.match(/src="\/quiz\/egg-crack-light\.webp"/g) ?? []).length, 1);
-  assert.match(screen, /shouldEnterQ8Hatching\(stage, eggResponding, hatchReady\)/);
-  assert.match(screen, /if \(!eggResponding && hatchReady\) setStage\('hatching'\)/);
+  assert.match(screen, /shouldEnterQ8Hatching\(stage, eggResponding, quizComplete\)/);
+  assert.match(screen, /canBeginHatchFlash\(hatchPhase, hatchMinimumElapsed, hatchReady, birdAssetReady\)/);
   assert.doesNotMatch(css, /animation-delay:\s*260ms/);
+  assert.doesNotMatch(css, /clip-path:/);
 });
 
 test('equipped palette stays on the same canonical bird from hatch through Home', async () => {
@@ -201,7 +201,10 @@ test('magpie uses real alternate plumage assets instead of a CSS color film', as
 });
 
 test('reveal state removes stale hook and question surfaces and wins the final CSS order', async () => {
+  const screen = await readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8');
   const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
+  assert.match(screen, /stage !== 'hatching' && stage !== 'reveal' && question &&/);
+  assert.doesNotMatch(screen, /className="lk-reveal-signal"/);
   assert.match(css, /\.lk-first-time\.lk-first-time--reveal \.lk-hook-copy,[\s\S]*?visibility:\s*hidden;[\s\S]*?pointer-events:\s*none;/);
   assert.match(css, /\.lk-first-time\.lk-first-time--reveal \.lk-reveal\.lk-reveal--inline\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?top:\s*auto;[\s\S]*?animation:\s*lk-reveal-inline-in/);
 });

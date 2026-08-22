@@ -1,0 +1,21 @@
+
+> kontur@ typecheck /workspace
+> pnpm -r --if-present typecheck
+
+Scope: 8 of 9 workspace projects
+packages/core typecheck$ tsc --noEmit
+packages/core typecheck: Done
+packages/contracts typecheck$ tsc --noEmit
+packages/db typecheck$ tsc --noEmit
+tools/sim typecheck$ tsc --noEmit
+packages/contracts typecheck: Done
+tools/sim typecheck: Done
+packages/db typecheck: Done
+apps/bot typecheck$ tsc --noEmit
+apps/miniapp typecheck$ tsc --noEmit
+apps/worker typecheck$ tsc --noEmit
+apps/bot typecheck: Done
+apps/worker typecheck: Done
+apps/miniapp typecheck: Done
+apps/api typecheck$ tsc --noEmit
+apps/api typecheck: Done

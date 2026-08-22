@@ -1,0 +1,38 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "QWEN_IMPLICIT_SESSION_IDENTITY_COLLISION",
+  "verdict": "REPRODUCED",
+  "qwen_pr_head": "f0b889804fbdd86c4ea1bf0cee5cc85d680194a2",
+  "source": {
+    "file": "server.js",
+    "observed_contract": "When no explicit session/conversation id is present, getOpenCodeSessionKey derives a durable-looking key from model + user/default + first user message content. That key is then used by SessionRequestGate, sessionStore, toolMemo, account/thread affinity and checkpoint recovery.",
+    "fresh_observation": "Two unrelated OpenAI-compatible conversations with the same model, absent user identity and identical first user text derive the same key."
+  },
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_qwen_implicit_session_identity_collision_probe.py",
+    "result": "PASS_REPRODUCTION",
+    "example_derived_key": "derived-v2-6ffc9b2a9344ccca5bd26afc49164f7e"
+  },
+  "risk": [
+    "Independent clients/tasks can alias the same durable Qwen session when they do not provide an explicit conversation id.",
+    "A new initial request can clear or replace durable state belonging to another logically independent conversation with the same first prompt.",
+    "Account/thread affinity and pending-tool safety can therefore be correlated to prompt content instead of a real conversation identity."
+  ],
+  "candidate_contract": [
+    "Treat explicit x-opencode-session/x-session-id/conversation/session metadata as the only authority for durable session identity.",
+    "If the client provides no explicit identity, do not persist or reuse provider chatId/account/checkpoint state across requests under a content-derived key.",
+    "A content-derived hash may remain request-local for logs/telemetry/gating, but must not become durable conversation identity.",
+    "Do not silently invent a random durable id server-side unless it is returned to the client and then supplied back on later requests."
+  ],
+  "required_regressions": [
+    "Two independent initial requests with identical first prompt and no explicit session id must not share durable state or provider chatId.",
+    "An explicit conv-A and conv-B with identical content remain isolated.",
+    "A multi-turn client that wants durable restart/continuation must supply a stable explicit conversation id.",
+    "Existing explicit OpenCode/Codex session-id paths retain sticky thread/account affinity and pending-tool protection."
+  ],
+  "limits": [
+    "No product file changed.",
+    "No hosted CI, provider traffic, real accounts, secrets, Cloudflare, Windows or production used."
+  ]
+}

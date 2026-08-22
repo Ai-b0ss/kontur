@@ -61,12 +61,20 @@ Targeted server regression на hosted машине без provider/внешне
 4. Если кластер зелёный — искать следующий воспроизводимый Core-дефект в restart/tool-result/OpenCode/subagents/skills/errors; узкую механику cooldown/account selection не забирать у QWEN_RELIABILITY.
 5. Финальный большой рубеж после офлайн exact-tree проверки: один доказанный live многошаговый `read_file → tool result → следующий Qwen turn → bash → tool result → final`, затем restart/failover; уже доказанные provider-прогоны не повторять.
 
-## Постоянная память — состояние на входе этого запуска
-- LATEST Git blob SHA: `dc12d4cb68e1c9f8522025783b8135e83939cfda`;
-- capsule: `20260822T035212Z-e334419500`;
-- archive SHA-256: `8756ecb3a92dd097385927a512bf5e45009d96c56ad0a35b60556681e8ac3065`;
-- exact `capsule_runtime_v4.py` Git blob: `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`;
-- manifest + обе parts перечитаны из GitHub и материализованы exact bytes;
-- нормативный v4 `verify + restore`: PASS.
+## Постоянная память
+Вход этого запуска:
+- LATEST blob `dc12d4cb68e1c9f8522025783b8135e83939cfda`;
+- capsule `20260822T035212Z-e334419500`;
+- archive SHA-256 `8756ecb3a92dd097385927a512bf5e45009d96c56ad0a35b60556681e8ac3065`;
+- exact `capsule_runtime_v4.py` blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`;
+- normative v4 verify+restore: PASS.
 
-После существенной работы этому запуску ещё нужно выполнить обязательный finish-protocol: обновить restored workspace → exact v4 pack → immutable upload → reread/verify each part+manifest → reread LATEST → CAS только от сохранённого parent blob `dc12d4cb...`; при изменившемся LATEST force-write запрещён.
+Финиш этого запуска:
+- новая v4 capsule `20260822T045700Z-997fae7907`;
+- archive SHA-256 `e3ecfa89d47ff888fd13a3fb2ec116391598f2cfaff507aebde89826fd644231`;
+- локальный v4 verify после pack: PASS;
+- uploaded part blobs после reread: `52faca6606f85bb4186439244526476356a57369` и `a3c55b1dba56dd914d332252923182d5af3e334c`, совпадают с локальными `git hash-object`;
+- uploaded manifest blob после reread: `9e9e255d123465e1aebb891515e61c049cfda703`, совпадает с локальным;
+- перед публикацией LATEST всё ещё имел исходный blob `dc12d4cb...`, поэтому CAS разрешён;
+- старый LATEST сохранён в PREVIOUS;
+- новый LATEST опубликован через `update_file` с exact parent SHA, без force-write; новый LATEST blob `b14aa05cc5cf51c6f0d19ed1a7e4fd1288014415`.

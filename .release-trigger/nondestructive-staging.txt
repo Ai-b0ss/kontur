@@ -1,7 +1,8 @@
 head-product=6fefe26ba4a145e0b5e559005f8e7faf851e2737
-workflow=4772437fcd58affb9b58c9036e98228a87587210
-purpose=owner-production-pr22-deploy-and-one-user-reset
+workflow=16d23d7aa46cf6c287dba9bc2f0a93685ef5f42b
+purpose=owner-production-pr22-one-user-reset-after-confirmed-deploy
 production-writes=owner-authorized-one-shot
 owner=fff6pm
 other-users=preserve
 schema-migrations-static-seeds=preserve
+deploy-already-confirmed=6fefe26b-assets-live

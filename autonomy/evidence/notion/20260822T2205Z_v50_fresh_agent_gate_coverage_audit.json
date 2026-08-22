@@ -1,0 +1,31 @@
+{
+  "worker": "NOTION_CORE",
+  "observed_at_utc": "2026-08-22T22:05:00Z",
+  "agent_pr": 8,
+  "agent_head": "ee0ae241b3ef19da7d3a69ddeecf6bb5476f91a9",
+  "core_pr": 7,
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "circle_freeze": true,
+  "circle_action": "NOT_RUN",
+  "fresh_findings": {
+    "agent_fix_present": true,
+    "mandatory_regression": "tests/test_subagent_tombstone_post_replace_sync_failure.py",
+    "mandatory_regression_blob": "0dc3e95cb987da326b63712c981138e8f1c976e1",
+    "v50_freezes_regression": true,
+    "ordinary_circle_agent_contracts_runs_regression": false,
+    "ordinary_circle_delegation_contracts_runs_regression": false,
+    "ordinary_circle_server_wiring_rehearsal_runs_regression": false,
+    "coverage_gap": "The fresh regression proving the post-replace directory-sync no-replay invariant exists and is frozen by V50, but current .circleci/config.yml does not include it in any Agent Linux contract job. Therefore a future green ordinary/final gate must not be accepted unless the composed final gate explicitly runs this regression (and the fresh tombstone/restart/cancellation cluster) on the same composed bytes."
+  },
+  "materializer": {
+    "path": "tools/materialize_agent_wiring_with_tombstones.py",
+    "status": "fresh-read",
+    "contract": "base Agent pair materialization followed by tombstone wiring; compile both product files; guarded transaction recovery/finalization"
+  },
+  "execution_surface": {
+    "container_git": "BLOCKED_DNS_GITHUB",
+    "exact_checkout_materialized": false,
+    "reason": "github.com DNS unavailable in container; connector returns content but does not mount exact checkout bytes. Unknown bytes were not reconstructed."
+  },
+  "next": "On the first exact checkout-capable surface, run V50 check/apply and the composed Stage-B matrix. The final gate manifest must explicitly include test_subagent_tombstone_post_replace_sync_failure.py plus tombstone store/restart/cancellation tests. Circle remains frozen until owner release."
+}

@@ -1,135 +1,97 @@
-# Notion — ротация, агентность, prompt-mode и делегирование
+# Notion — ротация / агентность / делегирование — финишный handoff
 
-## 2026-08-21 00:xx UTC — ordinary Responses wiring подготовлен без потери transport provenance
+Обновлено helper/red-team проходом 2026-08-22.
 
-Notion Core: `candidate/ncm28-windows-fixed-v1`, head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`. Core/NCM28 без отдельной необходимости не менять.
+## Текущая линия
+Repo: `Ai-b0ss/notion-agent-bridge`
+Branch: `autonomy/notion-prompt-modes-20260819`
+Draft PR: #8
+Последний helper head: `b6302670a119d0c0426f276a3b0d760b8a5a45c3` (311 commits).
+Core/NCM28 PR #7 `candidate/ncm28-windows-fixed-v1` без отдельной Core-необходимости не менять.
+На каждом запуске сначала восстановить собственный v4 LATEST/PREVIOUS по нормативному протоколу, затем перечитать fresh PR head/blobs. Не force-write при CAS конфликте.
 
-Рабочая ветка агентности: `autonomy/notion-prompt-modes-20260819`, draft PR #8.
+## Уже закрыто — не исследовать заново
+- engineer/owner prompt policy и owner isolation;
+- foreground reservations и sticky account/thread affinity;
+- single-slot owner re-entry / unrelated wait;
+- continuation failover только через fresh replacement thread + complete local history;
+- `DynamicReservationLeaseSession`: late reservation/reselection не переигрывает завершённые model rounds;
+- transport provenance через A→B(reserved)→C и fail-closed abort;
+- provider-neutral `DelegationRequest` / `DelegationDispatcher` без parent account/thread ids;
+- stateful Notion child session не повторяет objective/completed local tools при legitimate provider failover;
+- atomic tool-batch validation и bounded child model turns;
+- cancellation during started local tool становится uncertain, а safe pre-side-effect cancellation остаётся retryable;
+- pair commit journal/recovery, post-replace drift, exclusive journal publication и POSIX directory ordering.
 
-### Постоянная память предыдущего запуска
+## Новый закрытый блок: no-replay через rebind/restart
+PR body ещё частично описывает tombstone как in-process-only — на текущем helper head это устарело.
 
-Капсула `20260820T231109Z-95c1c452e1`, archive SHA-256 `e8517462e9b041be4a9164d80cf497170137b6dabd51af87a512d67da3c6c0b0`. В текущем запуске она повторно восстановлена нормативным `capsule_runtime_v4.py`: `verify=PASS`, `restore=PASS`; обе части и manifest были прочитаны отдельно, а стартовый Git blob `LATEST.json` — `a3aea2089c11699d1305dbe032e79ae106c75044`.
+### Rebind boundary
+- `af8cce3a47630738aef751e6f7106b5108d394f3` — `ServerSubagentLifecycle` держит uncertain task ids поверх pool generations;
+- `f9e04412d1f92c6a592da547646a5188b7e99bb9` — uncertain child остаётся blocked после rebind; plain safe cancellation retryable.
 
-### Что сделано в продуктовой ветке ранее
+### Durable two-phase store
+Наивный `edb53e59...` считать superseded.
+Актуально:
+- `98644b79c1a8f1f1379cda66c0e4ed4c7d307b7a` — `payload/subagent_tombstone_store.py`, VERSION 2.
+Контракт:
+1. explicit durable empty canonical до delegated work;
+2. `begin_call(task_id, call_id)` durably пишет inflight ДО mutating local tool;
+3. `resolve_call` удаляет marker только после положительно подтверждённого success;
+4. crash/failed resolve оставляет previous canonical с inflight, поэтому restart fail-closed;
+5. corrupt/unreadable store блокирует subagents, не требует падения обычного bridge;
+6. на диске только task/call ids — без objective/args/prompt/account/thread/output.
+- `09cea03c18730451d797a66d31b515f3dd58f34a` — restart/failed-resolve/corrupt regressions.
 
-#### 1. Динамический reservation helper сохраняет lease-level metadata
+### Mutating local tool boundary
+- `d93c67129c4362cb7e40c550346db3f8511738fb` — `DelegationSideEffectUncertainError(RuntimeError)` для non-cancel unknown outcome;
+- `a733fa1b075cb0bb61dfce0b6f0c5580856a22c9` — delegated loop не превращает его в retryable result;
+- `810a30dc8e93318578a27d46063dfca757b8e93f` — SubagentLifecycle tombstone-ит cancellation и non-cancellation uncertainty;
+- `57b09b81c92bbe6c0a8375b9a1e70103046c362d` — один shared store принадлежит server lifecycle и переживает rebind;
+- `555a52a8a8f6511ae14e819b5465ddce737ec2f1` — `write_file`, `edit_file`, `run_shell`: durable begin before call; **любой outcome кроме confirmed `ok=true` остаётся uncertain**. Structured `isError=true` тоже НЕ replay-safe: write/shell мог частично изменить проект;
+- `1f83611e467ef7031f09c834bca0543f69a6f90e` — актуальный durable write-guard regression;
+- старый `tests/test_server_subagent_durable_tool_guard.py` удалён `f9615b7e...`, потому что ошибочно считал structured mutating error безопасным повтором;
+- `5c89e2ca01a37099514cbc7c73b8922967b9008d` — local uncertain RuntimeError не является provider failover error;
+- `0ca44dd6df901fa848cede6be32e61235a75dcfb` — новый lifecycle с тем же durable path после process restart блокирует старый inflight task; corrupt store блокирует до entrypoint.
 
-`payload/reservation_aware_lease.py` принимает `lease_kwargs` и переносит их через каждый внешний reselect. Это нужно ordinary Responses, потому что `LeaseTransportContext` нельзя терять при включении динамической защиты: иначе безопасная ротация молча отключила бы transport evidence.
+## Materialization — актуальный путь
+Frozen product preimages пока не считать заменёнными:
+- `payload/server.py` Git blob `f02cef6a0ffc202c75fbe71c520c72ac19ff876d`;
+- `payload/account_pool.py` перед применением перечитать fresh (исторический exact был `11cea792...`).
+Большие product файлы вручную не переписывать.
 
-Защищённые routing-параметры (`preferred_account_id`, `wait_for_preferred_if_busy`, `avoid_account_ids`) нельзя подменить через `lease_kwargs`.
+Helper обнаружил стык: основной `tools/materialize_agent_wiring.py` использует `apply_startup_status_cleanup.py`; одно изменение `apply_server_subagent_lifecycle_wiring.py` само по себе tombstone path в финальную пару не гарантировало.
 
-Коммиты:
-- `680457a197910ae47b25931b36b4db069a546d79` — lease metadata;
-- `5761d57a01cbcba0f7e5aa9285456daf6480581c` — регрессии metadata/reselection.
+Поэтому актуальный композиционный путь:
+- `317eb19d9b38be67fa249a3c04b8f3d3dcc7618f` — standalone server lifecycle materializer тоже знает tombstone path;
+- `8782b20d6f3c53be4a5b3e67e9bb413152e1dfec` — `tools/apply_subagent_tombstone_wiring.py`, один deterministic anchor;
+- `ae6bb379bb319e4d850ef1b1e275e6902fb13371` — `tools/materialize_agent_wiring_with_tombstones.py`: вызывает существующий hardened pair materializer, затем добавляет tombstone path и для записи использует ТОТ ЖЕ `commit_pair`; crash protocol не форкнут;
+- `b6302670a119d0c0426f276a3b0d760b8a5a45c3` — exact-current-preimage materialization regression: один tombstone path + DynamicReservationLeaseSession/reselect contracts + compile обоих файлов.
 
-#### 2. Добавлен `DynamicReservationLeaseSession`
+Stable runtime path в generated server:
+`stable_conversation_state_path(ACCOUNT_HOME).with_name("subagent-uncertain-tasks.json")`.
 
-Одноразового helper-а оказалось недостаточно для реального `handle_openai_responses()`: после первой успешной модельной реплики сервер может сделать 1–3 correction rounds через тот же lease. Если поздняя reservation или transport fail возникает на correction round, нельзя заново проигрывать уже успешную первую модельную реплику.
+## Что НЕ заявлено
+- Helper записал regression tests, но НЕ заявляет их exact-tree PASS: hosted CI/live provider не запускались.
+- Native Windows durability нового store НЕ доказана Linux/POSIX fsync. Windows/NCM28 остаётся Core acceptance gate.
+- Ordinary `/v1/responses` не считать финально materialized до exact pair apply/readback.
+- Real server child-launch не включать до зелёного restart/no-replay cluster.
 
-`DynamicReservationLeaseSession` живёт на протяжении всего серверного lease-scope:
-- `run_selected(...)` для первого раунда заново решает continuation/fresh после внешнего A→B reselect;
-- обычный `run(...)` для correction rounds не переигрывает уже завершённые раунды;
-- transport retry остаётся recovery/fresh path после дополнительных reservation-reselect;
-- `session.account_id` всегда отражает фактический текущий слот для последующей affinity/reservation записи.
+## Следующий точный шаг
+1. Fresh-read PR #8 head и blobs.
+2. На exact tree локально прогнать минимум:
+   - `python -m unittest tests.test_subagent_tombstone_store`
+   - `python -m unittest tests.test_server_subagent_uncertain_rebind`
+   - `python -m unittest tests.test_server_subagent_tombstone_restart`
+   - `python -m unittest tests.test_server_subagent_durable_tool_guard_v2`
+   - `python -m unittest tests.test_delegated_uncertain_failover_boundary`
+   - existing delegated cancellation/tool-loop/lifecycle/reservation tests
+   - `python -m unittest tests.test_materialize_agent_wiring_with_tombstones`.
+3. Если cluster green: `python tools/materialize_agent_wiring_with_tombstones.py --check` на exact frozen pair; прочитать generated diff/blobs/compile.
+4. Только после check/readback применить wrapper без `--check`, затем снова readback exact product blobs/diff и повторить combined prompt/routing/failover/delegation tests.
+5. Отдельно доказать target-OS restart с реально настроенным `tombstone_path`; Linux proof не выдавать за Windows.
+6. Затем bounded authorized two-slot Codex Responses tool-loop и fresh-thread/full-history failover без повторных side effects.
+7. После Agent acceptance синхронизировать на свежий Core, не ломая NCM28/Windows line.
 
-Коммиты:
-- `5e73106628487dd109aaa576236feba94ec73cf1` — session;
-- `0baee81c29927b5673729443fac56d3af3c4b9de` — multi-round tests;
-- `c1f18054f47e24b32125e965f10a4ca9a6c2f8c2` — исправленный точный тайминг late-reservation regression.
-
-Локально внутри ChatGPT воспроизведено: первый раунд на A выполняется ровно один раз; correction на A падает transport; B становится reserved до provider call; recovery идёт на C; первый раунд не повторяется.
-
-#### 3. Дыра transport evidence при A→B(reserved)→C закрывается in-lease reselection
-
-При внутреннем transport fail `AccountLease` хранит pending transport evidence до успешного recovery. Если helper просто закрывает lease после того, как replacement B оказался reserved, pending evidence теряется вместе со старым lease.
-
-Поэтому session предпочитает in-lease hook `reselect_avoiding(...)`: reserved replacement освобождается как routing correction, без failure/cooldown accounting, а тот же `AccountLease` продолжает recovery на C и закрывает исходный pending transport event успехом C.
-
-`payload/reservation_aware_lease.py` уже умеет этот fast path и имеет консервативный fallback для старых/fake leases.
-
-Коммиты:
-- `fc8a82a3074cb68a6e5aef80d26c94ce89f3edb0` — in-lease reselect support;
-- `876de349d82e23f1a3740f15d196c0c8142859e5` — контракт: один outer lease, A transport, B получает 0 provider calls, C recovery, pending marker закрывается только на C.
-
-Для настоящего `AccountLease` подготовлен fail-closed materializer `tools/apply_account_pool_dynamic_reservation.py`, exact source blob `11cea792a2f5aaa40ee1515faddfd44e76cbb23f`.
-
-#### 4. Exact ordinary `/v1/responses` wiring подготовлен в server materializer
-
-Настоящий `payload/server.py` всё ещё имеет exact Git blob `f02cef6a0ffc202c75fbe71c520c72ac19ff876d`; большой файл напрямую не перезаписывался.
-
-`tools/apply_startup_status_cleanup.py` одним fail-closed преобразованием exact blob готовит:
-- импорт `DynamicReservationLeaseSession`;
-- owner-aware snapshot `active_account_ids(owner_turn_key=...)`;
-- startup/owner-mode/metric/reservation-policy исправления;
-- multi-account route с owner turn exemption;
-- замену direct `account_pool.lease(...)` на `DynamicReservationLeaseSession(...)`;
-- перенос точного `LeaseTransportContext` через `lease_kwargs`;
-- `run_selected(...)` для первого Responses round, чтобы replacement account никогда не получил чужой Notion thread;
-- последующие correction `lease.run(...)` остаются внутри той же logical session.
-
-Коммиты:
-- `6ab53a33751e84f2b51ab32eea9cf037e46e4540` — exact server wiring materializer;
-- `ac6c7c4585c80966fe4638b659f25ceff100769b` — fail-closed materializer contract.
-
-## 2026-08-21 00:02 UTC — найден и закрыт ещё один provenance gap при неудачном reselect
-
-Fresh PR #8 после работы: head `20e754321d9d0d0c83c13490a040f03b9fc62fb5`.
-
-При ревью exact `AccountLease` обнаружен отдельный случай: после A transport fail session может попасть на B, увидеть позднюю foreground reservation и вызвать `reselect_avoiding(...)`. Если после освобождения B безопасный C уже недоступен либо ожидание нового слота отменено, старый вариант оставлял `_pending_transport_failure` без recovery outcome: provider failure A был записан, но финальное состояние восстановления не фиксировалось.
-
-Materializer усилен:
-- при исчерпании безопасных слотов pending transport event закрывается `final_success=False, retry_scheduled=False`;
-- то же делается при любом `BaseException` во время `_acquire(...)`, включая отмену ожидания;
-- reserved B по-прежнему не получает `_record_failure` и cooldown, потому что это routing correction, а не ошибка провайдера;
-- при успешном B→C reselect pending evidence не закрывается преждевременно и остаётся до настоящего результата C.
-
-Коммиты текущего запуска:
-- `9413e528dbacc86ad8ae35a392b21bc5e41b6bf0` — fail-closed завершение transport evidence при сорванном reservation reselect;
-- `20e754321d9d0d0c83c13490a040f03b9fc62fb5` — расширенный materializer contract.
-
-### Что ещё НЕ считать закрытым
-
-- Реальный `payload/server.py` blob `f02cef...` пока не заменён материализованной версией.
-- Реальный `payload/account_pool.py` blob `11cea...` пока не заменён материализованной версией.
-- Следовательно ordinary пользовательский `/v1/responses` ещё работает на старом frozen reservation snapshot; dynamic session подготовлен, но не активен в реальном server source.
-- Новый abort-path пока подтверждён fail-closed materializer contract, но ещё должен пройти вместе с материализованным exact `account_pool.py` и локальным исполняемым сценарием.
-- Hosted CI не запускался; live Notion/Codex/provider traffic не использовался; production не трогался.
-
-### Следующий точный шаг
-
-1. Lossless получить exact `payload/account_pool.py` blob `11cea...`, применить свежий `apply_account_pool_dynamic_reservation.py`, проверить blob preimage, compile и минимальный diff.
-2. Lossless получить exact `payload/server.py` blob `f02cef...`, применить `apply_startup_status_cleanup.py`, проверить все девять preimage ровно по одному разу, compile и минимальный diff.
-3. Локально прогнать вместе: reservation/session/materializer, prompt-mode, foreground routing, cooldown/failover, delegation/tool-loop/lifecycle.
-4. Обязательные сценарии: (а) A continuation → transport fail → B поздно reserved → B 0 provider calls → C fresh/recovery → старый thread A не переносится → transport evidence A закрывается на C → local tool не повторяется; (б) тот же путь, но C недоступен/ожидание отменено → pending transport evidence закрывается неуспешным recovery outcome, B не считается failed.
-5. Только после локального PASS записать материализованные `account_pool.py` и `server.py` в продуктовую ветку и повторно сверить Git blob/diff.
-6. Затем один bounded live Codex project run; потом two-slot run; потом реальный A→B/C failover. Никаких повторных side effects.
-7. После крепкого Notion ядра — Qwen adapter под тот же `DelegationDispatcher`, без смешивания Notion account/thread state.
-
-## 2026-08-21 01:xx UTC — закрыта late-reservation утечка старого thread на correction round
-
-Fresh PR #8 после работы: head `a016664796720c085fd5356af30f6f959e4971bc`.
-
-При разборе готового ordinary Responses wiring обнаружен отдельный сценарий, который предыдущие transport-fail тесты не покрывали. Первый модельный раунд мог успешно завершиться на аккаунте A; затем сервер начинал planner correction, сохраняя `thread_id` этого ответа. Если прямо перед provider-вызовом A становился foreground-reserved другой незавершённой цепочкой, `DynamicReservationLeaseSession` корректно переезжал на B/C, но оставался в primary-фазе. В результате thread-bound correction, замкнутый на старый `thread_id` A, мог быть повторён на replacement-аккаунте.
-
-Исправлено в `payload/reservation_aware_lease.py`: после reservation-driven reselection при наличии явного `retry_operation` session переводится в recovery/fresh phase. Поэтому на новом аккаунте выполняется только свежая операция без старого Notion thread, а уже завершённый первый модельный раунд не переигрывается.
-
-Коммиты:
-- `3beae38635d1559fe87a71380e82553a70071978` — session сохраняет fresh/recovery mode после late reservation reselect;
-- `d3b48b9d5e4db9266ebe1e0153bf6b8d514d096c` — outer-reselection regression;
-- `a016664796720c085fd5356af30f6f959e4971bc` — in-lease regression: A reserved перед correction, B получает recovery, старый correction не вызывается, outer lease не пересоздаётся.
-
-Локальный семантический прогон внутри ChatGPT прошёл: первый раунд A выполняется один раз; A становится reserved до correction provider call; correction callback на B не вызывается; recovery выполняется ровно один раз на B.
-
-Это важное уточнение к будущему server materialization: correction `lease.run(..., retry_operation=initial_completion)` безопасен только вместе с текущей версией `DynamicReservationLeaseSession` не старше commit `3beae386...`.
-
-### Постоянная память этого запуска
-
-Стартовый `LATEST.json` имел Git blob `cef688dd0d6c2108a2d2b5a660c04b20a382c955` и указывал на v4 capsule `20260821T000423Z-158195d0c1`; capsule восстановилась с полной проверкой parts/archive/workspace. После работы создана и нормативно проверена новая v4 capsule `20260821T010458Z-f544e7022d`, archive SHA-256 `3e3ce8fe502a04393a3522c38314dbf946e6e84b983961a21e15ace7c03dfc67`. Загруженные part и manifest перечитаны обратно, их Git blob SHA совпали с локальными байтами. Перед публикацией `LATEST` всё ещё имел исходный blob, поэтому CAS прошёл; новый `LATEST` blob `0c7fd263a592a61ecb32b105ad4887f18bc26bea`, старый указатель сохранён в `PREVIOUS`.
-
-### Что остаётся следующим продуктовым шагом
-
-- Не считать обычный `/v1/responses` полностью защищённым: реальные `payload/server.py` (`f02cef...`) и `payload/account_pool.py` (`11cea...`) пока всё ещё старые exact bytes.
-- Lossless материализовать оба файла, применить текущие fail-closed materializers и локально прогнать prompt/routing/reservations/delegation/tool-loop/failover/lifecycle вместе с новым correction-round тестом.
-- Обязательно проверить два abort/recovery пути transport evidence и отсутствие provider-вызова через поздно reserved replacement.
-- Только после полного локального PASS записывать большие файлы и идти в один bounded live Codex project probe.
-- Hosted CI, live Notion/provider traffic и production в этом запуске не использовались.
+## Стоп-условие
+После зелёного exact materialization + restart no-replay cluster не продолжать бесконечный косметический аудит. Переходить к bounded real acceptance и Core synchronization.

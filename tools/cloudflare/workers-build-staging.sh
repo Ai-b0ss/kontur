@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Owner-authorized one-time production data reset (2026-08-22).
-# Preserve schema/migrations and static configuration; erase participant/runtime state.
-export CLOUDFLARE_STAGING_WORKER_NAME='kontur-igor-staging'
-export CLOUDFLARE_STAGING_D1_DATABASE_NAME='kontur-staging'
+# Post-reset read-only diagnostic. Never writes production D1.
 export CLOUDFLARE_STAGING_D1_DATABASE_ID='22786b4b-99cc-4ca5-a18b-932e8781021b'
 export CLOUDFLARE_PROD_D1_DATABASE_NAME='kontur'
 export CLOUDFLARE_PROD_D1_DATABASE_ID='91e39e7e-70fc-4551-8d3e-48235e70f985'
@@ -19,12 +16,10 @@ fi
 corepack enable
 corepack prepare pnpm@11 --activate
 pnpm install --frozen-lockfile
-
 node tools/handoff-safety-check.mjs
 pnpm -F @kontur/miniapp test
 pnpm -F @kontur/miniapp build
 
-# Fail closed on the exact production D1 identity before any write.
 pnpm -F @kontur/worker exec wrangler d1 info "$CLOUDFLARE_PROD_D1_DATABASE_NAME" \
   --config wrangler.jsonc --json > /tmp/kontur-prod-d1-info.json
 node --input-type=module <<'NODE'
@@ -33,184 +28,105 @@ const raw = fs.readFileSync('/tmp/kontur-prod-d1-info.json', 'utf8');
 if (!raw.includes(process.env.CLOUDFLARE_PROD_D1_DATABASE_NAME)) throw new Error('production D1 name missing');
 if (!raw.includes(process.env.CLOUDFLARE_PROD_D1_DATABASE_ID)) throw new Error('production D1 id missing');
 if (raw.includes(process.env.CLOUDFLARE_STAGING_D1_DATABASE_ID)) throw new Error('staging D1 identity appeared in production probe');
-console.log('PRODUCTION_RESET_IDENTITY_PASS');
+console.log('RESET_DIAGNOSTIC_IDENTITY_PASS');
 NODE
 
-# Snapshot aggregate counts only; no user rows are printed.
 pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_PROD_D1_DATABASE_NAME" \
   --remote --config wrangler.jsonc --json \
-  --command "SELECT (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM profiles WHERE hatched_at IS NOT NULL) AS hatched, (SELECT COUNT(*) FROM onboarding_answers) AS onboarding" \
-  > /tmp/kontur-reset-before.json
-
-# Read the live schema and derive every mutable table. Static catalog/config and
-# migration metadata are intentionally preserved so the bot remains runnable.
-pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_PROD_D1_DATABASE_NAME" \
-  --remote --config wrangler.jsonc --json \
-  --command "SELECT name, sql FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name" \
+  --command "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name" \
   > /tmp/kontur-reset-schema.json
 
 node --input-type=module <<'NODE'
 import fs from 'node:fs';
-
 const raw = JSON.parse(fs.readFileSync('/tmp/kontur-reset-schema.json', 'utf8'));
-const rows = [];
+const names = [];
 const visit = (value) => {
   if (Array.isArray(value)) return value.forEach(visit);
   if (!value || typeof value !== 'object') return;
-  if (typeof value.name === 'string' && typeof value.sql === 'string') rows.push({name: value.name, sql: value.sql});
+  if (typeof value.name === 'string') names.push(value.name);
   Object.values(value).forEach(visit);
 };
 visit(raw);
-
-const byName = new Map(rows.map((row) => [row.name, row.sql]));
-if (!byName.has('users')) throw new Error('users table missing');
-
-const preserve = new Set([
-  'd1_migrations',
-  'colorings',
-  'pilot_chats',
-  'restored_opportunities',
-  'v5_campaign_chats',
-]);
-
-const targets = new Set(
-  rows
-    .map((row) => row.name)
-    .filter((name) => !preserve.has(name))
-    .filter((name) => !name.startsWith('_cf_'))
-    .filter((name) => !/migration/i.test(name))
-);
-
-if (!targets.has('users')) throw new Error('users unexpectedly excluded from reset');
-
-const refs = new Map();
-for (const [name, sql] of byName) {
-  if (!targets.has(name)) continue;
-  const parents = new Set();
-  const re = /REFERENCES\s+(?:"([^"]+)"|`([^`]+)`|\[([^\]]+)\]|([A-Za-z_][A-Za-z0-9_]*))/gi;
-  for (const m of sql.matchAll(re)) {
-    const parent = m[1] || m[2] || m[3] || m[4];
-    if (targets.has(parent) && parent !== name) parents.add(parent);
-  }
-  refs.set(name, parents);
-}
-
-const indegree = new Map([...targets].map((name) => [name, 0]));
-for (const parents of refs.values()) {
-  for (const parent of parents) indegree.set(parent, (indegree.get(parent) || 0) + 1);
-}
-const queue = [...targets].filter((name) => indegree.get(name) === 0).sort();
-const order = [];
-while (queue.length) {
-  const child = queue.shift();
-  order.push(child);
-  for (const parent of refs.get(child) || []) {
-    indegree.set(parent, indegree.get(parent) - 1);
-    if (indegree.get(parent) === 0) {
-      queue.push(parent);
-      queue.sort();
-    }
-  }
-}
-for (const name of [...targets].sort()) if (!order.includes(name)) order.push(name);
-
-let sql = "PRAGMA foreign_keys=ON;\n";
-if (byName.has('v5_campaign_chats') && targets.has('v5_campaigns')) {
-  sql += "UPDATE v5_campaign_chats SET campaign_id=NULL, status='draft', next_event_at=NULL, armed_at=NULL, paused_at=NULL, updated_at=datetime('now');\n";
-}
-for (const name of order) {
-  const q = '"' + name.replaceAll('"', '""') + '"';
-  sql += `DELETE FROM ${q};\n`;
-}
-fs.writeFileSync('/tmp/kontur-production-reset.sql', sql);
-
-const selects = order.map((name) => {
+const preserve = new Set(['d1_migrations','colorings','pilot_chats','restored_opportunities','v5_campaign_chats']);
+const targets = [...new Set(names)]
+  .filter((name) => !preserve.has(name))
+  .filter((name) => !name.startsWith('_cf_'))
+  .filter((name) => !/migration/i.test(name))
+  .sort();
+if (!targets.includes('users')) throw new Error('users table missing from diagnostic targets');
+const selects = targets.map((name) => {
   const q = '"' + name.replaceAll('"', '""') + '"';
   const lit = name.replaceAll("'", "''");
   return `SELECT '${lit}' AS table_name, COUNT(*) AS rows FROM ${q}`;
 });
-fs.writeFileSync('/tmp/kontur-production-reset-verify.sql', selects.join('\nUNION ALL\n') + ';\n');
-fs.writeFileSync('/tmp/kontur-production-reset-targets.json', JSON.stringify(order));
-console.log(`PRODUCTION_RESET_PLAN_PASS tables=${order.length}`);
+fs.writeFileSync('/tmp/kontur-reset-counts.sql', selects.join('\nUNION ALL\n') + ';\n');
+fs.writeFileSync('/tmp/kontur-reset-targets.json', JSON.stringify(targets));
 NODE
 
-# This is the single owner-authorized destructive production write.
 pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_PROD_D1_DATABASE_NAME" \
-  --remote --config wrangler.jsonc --file /tmp/kontur-production-reset.sql
+  --remote --config wrangler.jsonc --json --file /tmp/kontur-reset-counts.sql \
+  > /tmp/kontur-reset-counts.json
 
-# Prove every mutable table selected above is now empty.
-pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_PROD_D1_DATABASE_NAME" \
-  --remote --config wrangler.jsonc --json --file /tmp/kontur-production-reset-verify.sql \
-  > /tmp/kontur-production-reset-verify.json
-
-node --input-type=module <<'NODE'
-import fs from 'node:fs';
-const raw = JSON.parse(fs.readFileSync('/tmp/kontur-production-reset-verify.json', 'utf8'));
-const found = [];
-const visit = (value) => {
-  if (Array.isArray(value)) return value.forEach(visit);
-  if (!value || typeof value !== 'object') return;
-  if (typeof value.table_name === 'string' && Number.isInteger(value.rows)) found.push(value);
-  Object.values(value).forEach(visit);
-};
-visit(raw);
-const targets = JSON.parse(fs.readFileSync('/tmp/kontur-production-reset-targets.json', 'utf8'));
-const counts = new Map(found.map((row) => [row.table_name, row.rows]));
-for (const table of targets) {
-  if (!counts.has(table)) throw new Error(`reset verification missing table ${table}`);
-  if (counts.get(table) !== 0) throw new Error(`reset verification nonzero ${table}=${counts.get(table)}`);
-}
-console.log(`PRODUCTION_RESET_EMPTY_PASS tables=${targets.length}`);
-NODE
-
-# Static seeds/config must survive.
 pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_PROD_D1_DATABASE_NAME" \
   --remote --config wrangler.jsonc --json \
-  --command "SELECT (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM colorings) AS colorings, (SELECT COUNT(*) FROM restored_opportunities) AS opportunities" \
-  > /tmp/kontur-reset-after.json
+  --command "SELECT (SELECT COUNT(*) FROM colorings) AS colorings, (SELECT COUNT(*) FROM restored_opportunities) AS opportunities, (SELECT COUNT(*) FROM pilot_chats) AS pilot_chats, (SELECT COUNT(*) FROM v5_campaign_chats) AS campaign_chats" \
+  > /tmp/kontur-reset-static.json
 
-node --input-type=module <<'NODE'
-import fs from 'node:fs';
-const records = [];
-const visit = (value) => {
-  if (Array.isArray(value)) return value.forEach(visit);
-  if (!value || typeof value !== 'object') return;
-  if (Number.isInteger(value.users) && Number.isInteger(value.colorings) && Number.isInteger(value.opportunities)) records.push(value);
-  Object.values(value).forEach(visit);
-};
-visit(JSON.parse(fs.readFileSync('/tmp/kontur-reset-after.json', 'utf8')));
-const r = records[0];
-if (!r) throw new Error('post-reset aggregate result missing');
-if (r.users !== 0) throw new Error(`users remain after reset: ${r.users}`);
-if (r.colorings <= 0) throw new Error('coloring catalog was erased');
-if (r.opportunities <= 0) throw new Error('opportunity catalog was erased');
-console.log(`PRODUCTION_RESET_SEEDS_PASS colorings=${r.colorings} opportunities=${r.opportunities}`);
-NODE
-
-# Live production must still serve normally after the reset.
 curl -fsS -H 'Cache-Control: no-cache, no-store, max-age=0' \
-  "$CLOUDFLARE_PROD_ORIGIN/api/v1/health?kontur_reset_probe=20260822" \
+  "$CLOUDFLARE_PROD_ORIGIN/api/v1/health?kontur_reset_diagnostic=20260822" \
   > /tmp/kontur-reset-health.json
+
 node --input-type=module <<'NODE'
 import fs from 'node:fs';
-const h = JSON.parse(fs.readFileSync('/tmp/kontur-reset-health.json', 'utf8'));
-if (h.ok !== true || h.devMode !== false || h.driver !== 'd1') throw new Error('production health mismatch after reset');
-console.log('PRODUCTION_RESET_HEALTH_PASS');
+const countsRaw = JSON.parse(fs.readFileSync('/tmp/kontur-reset-counts.json', 'utf8'));
+const countRows = [];
+const visitCounts = (value) => {
+  if (Array.isArray(value)) return value.forEach(visitCounts);
+  if (!value || typeof value !== 'object') return;
+  if (typeof value.table_name === 'string' && Number.isInteger(value.rows)) countRows.push(value);
+  Object.values(value).forEach(visitCounts);
+};
+visitCounts(countsRaw);
+const counts = new Map(countRows.map((r) => [r.table_name, r.rows]));
+const targets = JSON.parse(fs.readFileSync('/tmp/kontur-reset-targets.json', 'utf8'));
+for (const table of targets) if (!counts.has(table)) throw new Error(`missing count for ${table}`);
+const nonZero = targets.filter((table) => counts.get(table) !== 0).map((table) => ({table, rows: counts.get(table)}));
+
+const staticRaw = JSON.parse(fs.readFileSync('/tmp/kontur-reset-static.json', 'utf8'));
+let statics = null;
+const visitStatic = (value) => {
+  if (statics) return;
+  if (Array.isArray(value)) return value.forEach(visitStatic);
+  if (!value || typeof value !== 'object') return;
+  if (Number.isInteger(value.colorings) && Number.isInteger(value.opportunities) && Number.isInteger(value.pilot_chats) && Number.isInteger(value.campaign_chats)) statics = value;
+  Object.values(value).forEach(visitStatic);
+};
+visitStatic(staticRaw);
+if (!statics) throw new Error('static counts missing');
+const health = JSON.parse(fs.readFileSync('/tmp/kontur-reset-health.json', 'utf8'));
+if (health.ok !== true || health.devMode !== false || health.driver !== 'd1') throw new Error('production health mismatch');
+
+const marker = {
+  mode: 'read-only-post-reset-diagnostic',
+  users: counts.get('users'),
+  profiles: counts.get('profiles') ?? null,
+  onboarding_answers: counts.get('onboarding_answers') ?? null,
+  mutable_tables_checked: targets.length,
+  mutable_nonzero_count: nonZero.length,
+  mutable_nonzero: nonZero,
+  static: {
+    colorings: statics.colorings,
+    opportunities: statics.opportunities,
+    pilot_chats: statics.pilot_chats,
+    campaign_chats: statics.campaign_chats,
+  },
+  health: {ok: health.ok, devMode: health.devMode, driver: health.driver},
+};
+fs.writeFileSync('apps/miniapp/dist/production-reset-status.json', JSON.stringify(marker, null, 2) + '\n');
+console.log(`RESET_DIAGNOSTIC_READY users=${marker.users} nonzero=${nonZero.length}/${targets.length}`);
 NODE
 
-api_code="$(curl -sS -o /tmp/kontur-reset-api.txt -w '%{http_code}' \
-  "$CLOUDFLARE_PROD_ORIGIN/api/v4/local/state?kontur_reset_probe=20260822")"
-test "$api_code" = '401'
-webhook_code="$(curl -sS -o /tmp/kontur-reset-webhook.txt -w '%{http_code}' \
-  -X POST -H 'content-type: application/json' --data '{"update_id":1}' \
-  "$CLOUDFLARE_PROD_ORIGIN/telegram/webhook")"
-test "$webhook_code" = '403'
-
-echo 'PRODUCTION_USER_DATA_RESET_PASS users=0'
-echo 'PRODUCTION_RESET_API_BOUNDARY_PASS'
-echo 'PRODUCTION_RESET_TELEGRAM_BOUNDARY_PASS'
-
-# Preserve the normal isolated staging build output expected by Workers Builds.
+# Normal isolated staging deployment only.
 node tools/cloudflare/make-staging-config.mjs
 test -s apps/worker/wrangler.staging.generated.jsonc
 node --input-type=module <<'NODE'

@@ -211,7 +211,7 @@ async function questionSeparation(page, label) {
   });
   ok(actual.ring && actual.number && actual.kicker && actual.heading, `${label}: question surfaces are missing`);
   const firstTextTop = Math.min(actual.number.top, actual.kicker.top, actual.heading.top);
-  ok(actual.ring.bottom + 8 <= firstTextTop, `${label}: egg frame touches question copy ${JSON.stringify(actual)}`);
+  ok(actual.ring.bottom + 16 <= firstTextTop, `${label}: egg frame touches question copy ${JSON.stringify(actual)}`);
   return { ...actual, firstTextTop, gap: firstTextTop - actual.ring.bottom };
 }
 

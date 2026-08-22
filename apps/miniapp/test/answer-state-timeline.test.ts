@@ -25,14 +25,19 @@ test('q1..q7 advance the React visual target during the answer gesture', async (
   );
 });
 
-test('q8 visible hatch is gated by gesture completion and result readiness in React state', async () => {
+test('q8 pulse starts after gesture completion while flash remains gated by result decode', async () => {
   const screen = await readFile(screenUrl, 'utf8');
 
   assert.match(screen, /const \[hatchReady, setHatchReady\] = useState\(false\);/);
   assert.match(
     screen,
-    /if \(!eggResponding && hatchReady\) setStage\('hatching'\);/,
-    'React must not enter visible hatching until both q8 response motion and hatch result are ready',
+    /shouldEnterQ8Hatching\(stage, eggResponding, quizComplete\)/,
+    'React must enter pulse only after the q8 response gesture completes',
+  );
+  assert.match(
+    screen,
+    /canBeginHatchFlash\(hatchPhase, hatchMinimumElapsed, hatchReady, birdAssetReady\)/,
+    'API and decoded image readiness must gate handoff, not the start of the visual sequence',
   );
 });
 

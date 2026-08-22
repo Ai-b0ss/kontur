@@ -1,0 +1,45 @@
+# V20 integration overlay (apply after the combined durable-replay candidate)
+# Target: payload/server.py exact blob f02cef6a0ffc202c75fbe71c520c72ac19ff876d
+#
+# This is an integration contract patch, intentionally not product-applied under ZERO-MINUTE.
+# The exact final hunk must be rebased after V12/V14/V15/V16/V17/V18 because those patches
+# restructure handle_openai_responses()/stream_openai_responses().
+#
+# REQUIRED CHANGE
+#
+# Current exact source ends stream_openai_responses() with:
+#
+#   finally:
+#       if not task.done():
+#           task.cancel()
+#       await asyncio.gather(task, return_exceptions=True)
+#
+# That cancellation is unsafe after provider execution may have advanced the remote Notion
+# thread but before the durable replay transaction has committed.
+#
+# After the combined durable-replay refactor, split transport cancellation from transaction
+# cancellation:
+#
+#   - run_request() owns provider -> canonical payload -> strict durable publication;
+#   - once provider execution has started, closing/cancelling the SSE consumer MUST NOT cancel
+#     run_request merely because the transport disappeared;
+#   - let the bounded request task finish its durable commit (or fail closed) under the normal
+#     provider/request timeout;
+#   - do not emit IDs/result after the client is gone;
+#   - do not populate TurnAffinity/reservation before durable publication;
+#   - if persistence fails, preserve persistence_blocked/fail-closed semantics;
+#   - keep a strong reference to any detached commit task until completion and consume/log its
+#     exception so asyncio does not drop an unobserved task exception.
+#
+# REQUIRED REGRESSION
+#
+# 1. Start streaming request with a fake provider that records remote progress.
+# 2. Pause after provider progress but before durable publication.
+# 3. Close/cancel the async SSE consumer.
+# 4. Release the durable publication barrier.
+# 5. Assert the core transaction finishes and exact replay record exists.
+# 6. Retry in-process and after store restart: provider call_count == 1 and exact canonical
+#    response IDs/call_id are unchanged.
+# 7. Repeat with forced durable write failure: no TurnAffinity, no reservation, no client
+#    result; subsequent retry fails closed before provider.
+# 8. Cancellation before provider start remains abortable and creates no durable record.

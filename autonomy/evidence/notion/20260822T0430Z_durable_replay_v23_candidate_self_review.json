@@ -1,0 +1,24 @@
+{
+  "schema": "notion_core_v23_candidate_self_review_v1",
+  "created_at_utc": "2026-08-22T04:30:00Z",
+  "status": "CANDIDATE_V2_PREFERRED",
+  "supersedes_candidate": "autonomy/evidence/notion/20260822T0415Z_durable_replay_v23_transport_failclosed_candidate.patch",
+  "preferred_candidate": "autonomy/evidence/notion/20260822T0430Z_durable_replay_v23_transport_failclosed_candidate_v2.patch",
+  "finding": "The first patch created a new pending transport-evidence failure event immediately before raising ProviderOutcomeUncertain but did not close that event with a no-retry recovery outcome. V2 records retry_scheduled=false after the failure event is created, so evidence and runtime behavior agree.",
+  "preserved_invariants": [
+    "default LeaseTransportContext keeps existing pool failover behavior for NOTION_AGENT and unrelated callers",
+    "only explicit durable Core call sites enable fail_closed_on_ambiguous_transport",
+    "rate-limit and other non-transport failover classes keep their existing routing behavior",
+    "ambiguous Notion TRANSPORT and generic httpx transport failures do not invoke sibling retry in durable Core mode",
+    "failed account bookkeeping/cooldown still occurs before fail-closed return",
+    "single-account outer TRANSPORT retry in server is bypassed because ProviderOutcomeUncertain is not AccountPoolExhausted",
+    "V22 durable intent remains unresolved for exact retry/restart gate"
+  ],
+  "remaining_before_product_apply": [
+    "apply V23 only together with V22 provider-intent publication; enabling it earlier is safe but unnecessarily reduces availability",
+    "run exact account_pool/server tests on a full checkout",
+    "verify no current caller assumes every transport failure becomes AccountPoolExhausted",
+    "decide whether lower-level transport can later prove safe pre-provider failures and expose a typed PROVEN_NO_REMOTE_PROGRESS outcome"
+  ],
+  "local_harness": "autonomy/evidence/notion/20260822T0415Z_durable_replay_v23_accountlease_policy_harness.py"
+}

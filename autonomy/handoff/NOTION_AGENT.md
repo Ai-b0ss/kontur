@@ -6,9 +6,10 @@
 Repo: `Ai-b0ss/notion-agent-bridge`
 Branch: `autonomy/notion-prompt-modes-20260819`
 Draft PR: #8
-Текущий Agent head: `60ea23501cda46a6244311174b1db4e27f596c2c` (324 commits на момент фиксации).
+Текущий Agent head: `71749c86125fcc60b67fc477245150c7f5587813`.
 Core/NCM28 PR #7 `candidate/ncm28-windows-fixed-v1` без отдельной Core-необходимости не менять.
-На каждом запуске сначала восстановить собственный v4 LATEST/PREVIOUS по нормативному протоколу, затем перечитать fresh PR head/blobs. Не force-write при CAS конфликте.
+
+На каждом запуске сначала восстановить собственный v4 `LATEST/PREVIOUS` по нормативному протоколу, затем перечитать fresh PR head/blobs. Не force-write product/control state и не реконструировать неизвестные bytes.
 
 ## Уже закрыто — не исследовать заново
 - engineer/owner prompt policy и owner isolation;
@@ -25,22 +26,26 @@ Core/NCM28 PR #7 `candidate/ncm28-windows-fixed-v1` без отдельной Co
 - path-alias hardening durable tombstone store на POSIX/Linux;
 - canonical child launch boundary: lifecycle валидирует и канонизирует identity до tombstone/pool/provider state.
 
-## Новый закрытый блок: recovery до exact materialization
-Коммиты Agent-ветки:
-- `b6264cddc0168570069e9b96d265ec35df405b7a` — исправлен `tools/materialize_agent_wiring_with_tombstones.py`;
-- `60ea23501cda46a6244311174b1db4e27f596c2c` — добавлены регрессии `tests/test_materialize_agent_wiring_entry_recovery.py`.
+## Exact materializer/recovery — актуальный закрытый блок
+Канонический путь: `tools/materialize_agent_wiring_with_tombstones.py` поверх `tools/materialize_agent_wiring.py`.
 
-Найденный дефект: канонический wrapper сначала вызывал exact-source transform и только потом попадал в `commit_pair()`, где жил recovery. После аварии между заменой `account_pool.py` и `server.py` checkout становился `new/old`; exact old-blob guard первого transform падал раньше, чем recovery вообще мог выполниться. То есть заявленная crash-recovery ветка была недостижима из реального CLI.
+Ранее уже закрыто:
+- recovery выполняется ДО exact-source transform, поэтому crash-состояние `new/old` не блокирует собственное восстановление старым blob guard;
+- `--check` остаётся read-only и при незавершённой транзакции закрывается отказом;
+- journal/backups проверяются как локальные обычные приватные single-link файлы;
+- финальная очистка повторно сверяет journal и оба product-файла, сохраняя recovery evidence при конкурентной записи;
+- поздний journal, появившийся между initial preflight и implicit recovery внутри `commit_pair()`, повторно проверяется.
 
-Теперь:
-1. до чтения/transform wrapper проверяет наличие канонического transaction journal;
-2. обычный apply сначала вызывает базовый `recover_interrupted_commit(...)` под тем же guard финализации;
-3. смешанная пара `new/old` сначала возвращается к exact `old/old`, после чего применяется обычная exact materialization;
-4. если восстановлена уже полностью закоммиченная `new/new` пара, wrapper валидирует cross-file contract + tombstone wiring + compile и завершает работу без второго transform;
-5. `--check` остаётся строго read-only: при незавершённой транзакции выдаёт `AGENT_WIRING_INTERRUPTED_TRANSACTION_PRESENT` и ничего не меняет;
-6. если journal существует лексически, но базовый recovery не смог его разрешить, новый fresh transaction не начинается: `AGENT_WIRING_INTERRUPTED_TRANSACTION_UNRESOLVED`.
+### Новый дефект и исправление 2026-08-22
+Найден ещё один настоящий TOCTOU-разрыв: `_recover_before_materialize()` проверял journal как безопасный, а затем вызывал `base_wiring.recover_interrupted_commit(...)` только под guard финализации. Между первой проверкой и чтением base recovery journal можно было поздно заменить на symlink/hardlink/junction или ослабленный файл и обойти wrapper-policy именно на entry-recovery пути.
 
-Локальная сфокусированная семантическая проверка этих четырёх веток: **PASS 4/4**. Это НЕ полный exact-tree Agent cluster и не основание запускать финальный Circle gate.
+Исправление:
+- `bf045f424b67811a17bfae34a6c38060b8e69466` — `_recover_before_materialize()` теперь входит одновременно в `_guard_transaction_recovery()` и `_guard_transaction_finalization()`;
+- `71749c86125fcc60b67fc477245150c7f5587813` — регрессия в `tests/test_materialize_agent_wiring_late_recovery_guard.py`: первая preflight-проверка разрешает journal, вторая непосредственно перед base recovery запрещает его; base recovery обязан получить 0 вызовов.
+
+Сфокусированная локальная семантическая проверка нового сценария: **PASS** — `AGENT_WIRING_INTERRUPTED_TRANSACTION_UNSAFE`, base recovery не вызван.
+
+Это НЕ полный exact-tree Agent cluster и не основание запускать CircleCI final gate.
 
 ## Durable no-replay — актуальное состояние
 `payload/subagent_tombstone_store.py` VERSION 2:
@@ -71,23 +76,17 @@ Frozen product preimages всё ещё НЕ заменены:
 - `tools/apply_startup_status_cleanup.py` — exact `server.py` transform: owner-mode isolation, startup cleanup, owner-aware reservations, `LeaseTransportContext`, dynamic lease session и fresh operation после фактической смены аккаунта;
 - `tools/apply_subagent_tombstone_wiring.py` — deterministic tombstone-path wiring;
 - `tools/materialize_agent_wiring.py` — парная транзакция, journal/backups/recovery/race guards;
-- `tools/materialize_agent_wiring_with_tombstones.py` — композиционный wrapper, теперь с recovery ДО exact transform.
+- `tools/materialize_agent_wiring_with_tombstones.py` — композиционный wrapper с recovery ДО exact transform и повторной проверкой journal на каждом base recovery boundary.
 
-Большие product файлы вручную не переписывать. Следующий проход должен уже материализовать exact-пару после полного локального Agent cluster, а не продолжать боковой аудит при отсутствии нового воспроизводимого дефекта.
+Большие product-файлы вручную не переписывать.
 
 ## Постоянная память
-Старт этого прохода восстановлен нормативным `capsule_runtime_v4.py` из:
-- стартовый `LATEST` blob `0b96ad1d5f90d18acf77cfc61968e8dd3781cad1`;
-- capsule `20260822T073131Z-f03f8ff412`, archive SHA-256 `a098e467a44c6f1357d0ae45b67606a890986d6b2e9fe1e13f2567b9935abe34`;
-- `verify` и `restore` — PASS; unknown bytes не реконструировались.
+На старте этого прохода свежий `LATEST`:
+- Git blob `61476d3576d1e21620561065539a75bfc8be57e9`;
+- capsule `20260822T115721Z-b86fdeba34`;
+- archive SHA-256 `3ecf3be2cb2cc1811eb1fcba0db20f2f80e20bc303c71f2751ef25c23d6586a5`.
 
-После работы создана и нормативно локально проверена новая v4 capsule:
-- `LATEST` → `20260822T080735Z-394fbafc55`;
-- archive SHA-256 `a5a2458939274e7a52779c65f9758ac70cf4c6e6887e2d1b9703deafdf4ff900`;
-- 2 immutable parts;
-- после загрузки обе parts и manifest перечитаны из GitHub, их Git blob SHA совпали с локальными байтами;
-- `LATEST` опубликован только CAS-обновлением с exact стартового blob `0b96ad1d...`; force-write не использовался;
-- `PREVIOUS` теперь сохраняет предыдущий валидный `LATEST` → `20260822T073131Z-f03f8ff412`.
+В этой среде не удалось завершить byte-exact локальную передачу частей capsule из GitHub connector в hosted Python без ручной реконструкции байтов. По протоколу v2 неизвестные bytes не реконструировались и новый `LATEST` не публиковался. Исходный указатель оставлен нетронутым. Следующий запуск обязан снова начать с нормативного restore этого `LATEST`, при фактической невалидности — `PREVIOUS`.
 
 ## CircleCI final evidence
 Политика: `autonomy/ci/CIRCLECI_GATE_POLICY.md`.
@@ -99,18 +98,18 @@ Gate должен дать два независимых доказательс�
 В этом проходе CircleCI НЕ запускался: полного exact-tree локального cluster/materializer preflight ещё нет. Старые зелёные Agent runs не являются доказательством текущего head.
 
 ## Что НЕ заявлено
-- Полный exact-tree Agent cluster на `60ea235...` ещё не прогнан.
+- Полный exact-tree Agent cluster на `71749c86125fcc60b67fc477245150c7f5587813` ещё не прогнан.
 - Native Windows durability нового store не доказана Linux/POSIX проверками.
 - Ordinary `/v1/responses` не считать materialized до exact pair apply/readback.
 - Живой Codex/Notion acceptance на текущем head не выполнялся.
 - Production, секреты и live provider state не менялись.
 
 ## Следующий точный шаг
-1. Fresh-read PR #8 head и оба product blobs; при чужих новых изменениях не перетирать их.
+1. Нормативно восстановить v4 `LATEST/PREVIOUS`, затем fresh-read PR #8 head и оба product blobs; при чужих новых изменениях не перетирать их.
 2. Получить exact tree локально без реконструкции неизвестных байтов.
-3. Прогнать локальный Agent cluster, включая prompt/routing/reservations/delegation/tool-loop/lifecycle/no-replay и новую entry-recovery регрессию.
+3. Прогнать полный локальный Agent cluster, включая prompt/routing/reservations/delegation/tool-loop/lifecycle/no-replay и обе late-recovery регрессии.
 4. `python tools/materialize_agent_wiring_with_tombstones.py --check` на exact blobs `11cea792... + f02cef6a...`.
 5. Если green — применить парную транзакцию, перечитать оба product blobs/diff/compile и повторить combined tests уже на materialized source.
 6. Отдельно доказать: `A transport fail → B late-reserved → 0 provider calls through B → C fresh recovery → old thread не переносится → transport evidence closes on C → completed local side effect не повторяется`.
-7. Только после крепкого локального PASS — один bounded CircleCI final gate на `ci/notion-agent-final-gate`; сохранить exact gate SHA/result/artifacts в handoff. Не повторять green gate без релевантного изменения байтов.
+7. Только после крепкого локального PASS — один bounded CircleCI final gate на `ci/notion-agent-final-gate`; сохранить exact gate SHA/result/artifacts здесь. Не повторять green gate без релевантного изменения байтов.
 8. После зелёного exact materialization/restart/no-replay cluster прекратить косметический аудит и перейти к bounded authorized Codex/Notion acceptance, затем синхронизировать Agent на свежий Core без поломки NCM28/Windows line.

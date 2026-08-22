@@ -7,64 +7,61 @@
 - Branch: `autonomy/notion-prompt-modes-20260819`
 - Draft PR: #8
 - Fresh exact head: `ee0ae241b3ef19da7d3a69ddeecf6bb5476f91a9`.
-- Parent `f588e9706e69ab84965099190323bbfbde6bd557` содержит substantive durable tombstone fix/tests; `ee0ae241...` меняет только текст ожиданий cancellation lifecycle.
+- Core PR #7 frozen head: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 - Core/NCM28 без отдельной стыковой необходимости не менять.
 
 ## No-replay / tombstone — закрытый серьёзный boundary
-На exact head `ee0ae241...` уже доказан локальный кластер:
-- mandatory post-replace sync regression — 6/6 PASS;
-- tombstone/path-safety cluster — 16/16 PASS;
-- вместе с cancellation — 20/20 PASS;
-- вместе с restart lifecycle — 22/22 PASS.
+На exact head `ee0ae241...` локально доказано 22/22 PASS: mandatory post-replace regression, tombstone/path-safety, cancellation и restart lifecycle. Без нового серьёзного воспроизводимого контрпримера этот модуль не полировать.
 
-Без нового серьёзного воспроизводимого контрпримера этот модуль дальше не полировать. Приоритет — composition/materialization.
-
-## Exact frozen pair — byte bridge закрыт локально, publication path теперь доказан
-Frozen preimages:
+## Exact frozen pair / materialization
+Frozen preimages неизменны:
 - `payload/account_pool.py` = `11cea792a2f5aaa40ee1515faddfd44e76cbb23f`;
 - `payload/server.py` = `f02cef6a0ffc202c75fbe71c520c72ac19ff876d`.
 
-Isolated exact local materialization уже дал:
-- account-pool transformed Git blob: `c9ca6f3b4545e469966369a4220a6a2a60bf3697`;
-- server transformed Git blob: `ba52edc7a8528d58acd2c5bef2b86c3ca84ca298`;
-- оба compile PASS;
-- focused dynamic routing semantics 3/3 PASS.
+Изолированная exact materialization уже доказала ожидаемые результаты:
+- account pool transformed blob `c9ca6f3b4545e469966369a4220a6a2a60bf3697`;
+- server transformed blob `ba52edc7a8528d58acd2c5bef2b86c3ca84ca298`;
+- compile PASS;
+- focused routing semantics 3/3 PASS: A transport fail -> B late-reserved -> 0 provider calls through B -> C fresh recovery; late reservation before first provider attempt; correction failover without replaying completed round1.
 
-Fresh tool-surface audit этого прохода закрыл старую проблему «нельзя атомарно опубликовать два больших файла»: GitHub connector реально предоставляет low-level `create_blob -> create_tree(base_tree) -> create_commit(parent) -> update_ref(force=false)`. Поэтому после повторной локальной материализации exact bytes можно создать оба blobs, один tree и один commit, а product ref сдвинуть единственным fast-forward. Force-write не нужен.
+Fresh `tools/materialize_agent_wiring_with_tombstones.py` read confirms it still composes base pair materialization plus durable subagent tombstone wiring and guarded transaction recovery/finalization.
 
-НО: сейчас product ref НЕ двигать до локального combined green и соблюдения Circle gate policy. `payload/server.py`/`payload/account_pool.py` в PR #8 всё ещё frozen old pair; ordinary `/v1/responses` ещё не считать materialized.
+## OWNER TEMPORARY CIRCLE FREEZE — активен
+Fresh controller issue #9 содержит прямой owner freeze: до отдельной разморозки запрещено запускать/двигать Circle gates для Notion/Qwen/Kontur. Поэтому **не двигать PR #8 product ref**, если обычный push способен запустить Circle. Low-level Git blob/tree/commit surface решает атомарность, но не отменяет freeze. `[ci skip]` как неподтверждённый обход не использовать.
 
-## Delegated prompt policy — gap подтверждён, минимальный контракт локально доказан
-Fresh source подтверждает: `DelegationRequest` и `DelegationContext` на `ee0ae241...` пока не несут explicit engineer/owner policy.
+Безопасный путь до разморозки: exact transformed pair сохранить content-addressed/immutable без обновления product ref; Core может использовать эти байты для V50/composed local proof. После явной разморозки — один fast-forward product ref update с exact readback, затем bounded final gates.
 
-Минимальный кандидат проверен локально 5/5:
+## Delegated prompt policy — fresh gap и минимальный контракт
+Fresh source `payload/delegation_policy.py` / `payload/delegation_dispatcher.py` на `ee0ae241...` всё ещё не переносит explicit `engineer|owner` policy в дочерний envelope.
+
+Минимальный локальный кандидат повторно проверен 5/5 PASS:
 - `prompt_mode` только `engineer|owner`;
 - owner-mode требует непустой `owner_system_prompt`;
-- приватный owner prompt хранится только как runtime field с `repr=False`;
-- `delegated_conversation_key()` не зависит от текста owner prompt и не содержит его;
-- `DelegationContext` передаёт prompt policy адаптеру, но не печатает private prompt в repr;
-- engineer-mode принудительно отбрасывает dormant `owner_system_prompt`;
-- неверный mode/type fail-closed.
+- private owner text хранится runtime field с `repr=False`;
+- `delegated_conversation_key()` не зависит от owner text и не содержит его;
+- engineer-mode отбрасывает dormant owner text;
+- bad mode fail-closed.
 
-Этот кандидат пока НЕ записан в product branch: по owner/controller порядку сначала pair materialization + combined green; затем минимальный prompt-policy patch на тех же exact bytes, без отдельной архитектурной ветки.
+Не расширять это в отдельную архитектурную ветку. Интегрировать минимально вместе с materialized/composed bytes, не допуская owner prompt в identity/log/repr.
+
+## Gate coverage
+Core fresh audit обнаружил: текущие обычные Circle Agent suites не включают обязательный `tests/test_subagent_tombstone_post_replace_sync_failure.py`. Будущий disposable Agent/composed gate обязан включить его явно вместе с tombstone/restart/cancellation cluster; иначе green не является финальной приёмкой.
 
 ## Постоянная память v4
-Стартовый `LATEST` fresh-read:
-- pointer blob `2d0b969a1258a9113fd1ad782298dbfa6190e663`;
+Fresh start pointer:
+- `LATEST` blob `2d0b969a1258a9113fd1ad782298dbfa6190e663`;
 - capsule `20260822T220058Z-f18a1b833d`;
-- archive SHA-256 `2c35fee3733febee956e7a5c2c038edfac30bac41ed6955a021f220450cc89a9`.
+- archive SHA-256 `2c35fee3733febee956e7a5c2c038edfac30bac41ed6955a021f220450cc89a9`;
+- `PREVIOUS` capsule `20260822T205544Z-b2e41b5f6e`.
 
-Manifest и все пять immutable parts перечитаны через GitHub. В текущем hosted runtime не удалось честно передать part-0000 из connector response в локальный v4 без изменения байтов; это ограничение транспорта между connector и Python, а не доказательство порчи GitHub capsule. Поэтому unknown bytes не реконструировались, `LATEST`/`PREVIOUS` не менялись и новый pointer не публиковался.
-
-## CircleCI
-`autonomy/ci/CIRCLECI_GATE_POLICY.md` fresh-read: CircleCI разрешён только как bounded final evidence, не как цикл разработки. Старый Agent gate устарел. Новый disposable `ci/notion-agent-final-gate` — только после exact product pair commit/readback и объединённого локального green на одном SHA. Linux PASS не заменяет последующий Core native-Windows proof.
+Manifest fresh-read: five immutable parts; workspace contains only `CHECKPOINT.json` + `README.md`, so capsule не является byte bridge для transformed pair. В этом проходе новый pointer не публиковался: exact connector->local v4 byte restore/publish не был выполнен без ручной реконструкции неизвестных bytes. Старые LATEST/PREVIOUS оставлены нетронутыми согласно v2.
 
 ## Следующий точный шаг
-1. Fresh-read PR #8 head; при новом head re-freeze, не писать поверх параллельного писателя.
-2. На disposable exact checkout повторно materialize frozen pair и получить exact bytes/blobs `c9ca6f3b...` + `ba52edc7...`.
-3. Прогнать combined local prompt/routing/reservations/failover/delegation/tool-loop/lifecycle/tombstone cluster на materialized bytes.
-4. Если green, применить минимальный delegated prompt-policy contract и его локальные тесты; повторить релевантный combined cluster.
-5. Создать оба product blobs через GitHub low-level API, один tree поверх fresh parent tree и один commit. Перед `update_ref` ещё раз fresh-read PR head. Сдвигать product ref только `force=false` и только если parent всё ещё exact; иначе detached commit оставить как evidence и принять нового писателя.
-6. Readback committed `server.py`/`account_pool.py`, сверить exact blobs, compile и повторить combined local cluster.
-7. Только после stable exact local green — один disposable Agent final gate.
-8. Передать Core exact Agent head/blobs/tests через этот handoff + `kontur#9`; затем composed/native-Windows acceptance. Live Notion/Codex, secrets и production до этих gates не трогать.
+1. Fresh-read PR #8; при новом head re-freeze.
+2. На exact-checkout-capable local surface повторно materialize pair и подтвердить blobs `c9ca6f3b...` + `ba52edc7...`.
+3. Сохранить exact transformed bytes долговечно без product-ref movement (v4/content-addressed handoff или unreferenced Git objects).
+4. Прогнать combined local prompt/routing/reservations/failover/delegation/tool-loop/lifecycle/tombstone cluster на тех же bytes.
+5. Добавить минимальный delegated prompt-policy contract и повторить релевантные local tests.
+6. Передать Core exact Agent blobs/tests через этот handoff + issue #9 для V50/composed Stage-B local proof.
+7. Пока owner Circle freeze активен: Circle branches/jobs = 0 и PR #8 ref не двигать. После явной разморозки — fast-forward exact product commit/readback, затем один disposable Agent gate; Linux PASS не заменяет Core native-Windows proof.
+8. Live Notion/Codex, secrets, production — только после local composed + Windows gates.

@@ -1,0 +1,96 @@
+--- a/payload/reservation_aware_lease.py
++++ b/payload/reservation_aware_lease.py
+@@
+     async def run(
+         self,
+         operation: Callable[[Any], Awaitable[T]],
+         *,
+         retry_operation: Callable[[Any], Awaitable[T]] | None = None,
++        allow_failover: bool = True,
+     ) -> T: ...
+@@
+     async def _run(
+         self,
+         operation_for_lease: LeaseOperationFactory[T],
+         *,
+         retry_operation: Callable[[Any], Awaitable[T]] | None,
+         account_sensitive: bool,
++        allow_failover: bool,
+     ) -> T:
+@@
+             try:
+                 if guarded_retry is None:
+-                    return await lease.run(guarded_operation)
+-                return await lease.run(
+-                    guarded_operation,
+-                    retry_operation=guarded_retry,
+-                )
++                    if allow_failover:
++                        return await lease.run(guarded_operation)
++                    return await lease.run(
++                        guarded_operation,
++                        allow_failover=False,
++                    )
++                if allow_failover:
++                    return await lease.run(
++                        guarded_operation,
++                        retry_operation=guarded_retry,
++                    )
++                return await lease.run(
++                    guarded_operation,
++                    retry_operation=guarded_retry,
++                    allow_failover=False,
++                )
+@@
+     async def run_selected(
+         self,
+         operation_for_lease: LeaseOperationFactory[T],
+         *,
+         retry_operation: Callable[[Any], Awaitable[T]] | None = None,
++        allow_failover: bool = True,
+     ) -> T:
+@@
+             operation_for_lease,
+             retry_operation=retry_operation,
+             account_sensitive=True,
++            allow_failover=allow_failover,
+         )
+@@
+     async def run(
+         self,
+         operation: Callable[[Any], Awaitable[T]],
+         *,
+         retry_operation: Callable[[Any], Awaitable[T]] | None = None,
++        allow_failover: bool = True,
+     ) -> T:
+@@
+             lambda _lease: operation,
+             retry_operation=retry_operation,
+             account_sensitive=False,
++            allow_failover=allow_failover,
+         )
+@@
+ async def run_with_dynamic_reservations_on_lease(
+@@
+     retry_operation: Callable[[Any], Awaitable[T]] | None = None,
+     lease_kwargs: dict[str, Any] | None = None,
++    allow_failover: bool = True,
+ ) -> tuple[str, T]:
+@@
+         result = await session.run_selected(
+             operation_for_lease,
+             retry_operation=retry_operation,
++            allow_failover=allow_failover,
+         )
+@@
+ async def run_with_dynamic_reservations(
+@@
+     retry_operation: Callable[[Any], Awaitable[T]] | None = None,
+     lease_kwargs: dict[str, Any] | None = None,
++    allow_failover: bool = True,
+ ) -> T:
+@@
+         retry_operation=retry_operation,
+         lease_kwargs=lease_kwargs,
++        allow_failover=allow_failover,
+     )

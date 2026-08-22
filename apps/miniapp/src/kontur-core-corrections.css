@@ -222,7 +222,7 @@
 
 @media (max-width: 360px), (max-height: 650px) {
   .lk-first-time.lk-first-time--hook .lk-quiz-egg-stage {
-    top: clamp(210px, 43dvh, 252px);
+    top: clamp(210px, 44dvh, 252px);
     width: clamp(142px, 27dvh, 158px);
   }
   .lk-first-time.lk-first-time--questions .lk-quiz-egg-stage {

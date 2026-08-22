@@ -1,0 +1,89 @@
+*** Candidate only — do not apply blindly. Exact product owner must rebase on fresh Core/Agent. ***
+
+Goal: make Agent->Core deployment fail closed before lifecycle stop/source mutation when
+materialized server/account_pool import local modules that the integrated installer neither
+writes nor explicitly hash-binds as preserved runtime dependencies.
+
+--- a/integrated_upgrade.py
++++ b/integrated_upgrade.py
+@@
+-import hashlib
++import ast
++import hashlib
+@@
+ PAYLOAD_NAMES = (
+@@
+ )
++
++# Every local runtime dependency not copied by PAYLOAD_NAMES must be named and
++# hash-bound here. Do not silently rely on source-checkout modules being present
++# beside the installed bridge. The exact hashes should be filled by the owning
++# Agent/Core integration commit after its final materialized module graph is fixed.
++PRESERVED_RUNTIME_DEPENDENCY_SHA256: dict[str, str] = {
++    **R2_STATIC_DEPENDENCY_SHA256,
++    # Existing Core runtime dependencies, if deliberately preserved, belong here.
++    # New Agent modules should normally be added to PAYLOAD_NAMES instead.
++}
++
++def _local_imports(payload_root: Path, name: str) -> set[str]:
++    source = (Path(payload_root) / name).read_text(encoding="utf-8")
++    tree = ast.parse(source, filename=name)
++    out: set[str] = set()
++    for node in ast.walk(tree):
++        module = None
++        if isinstance(node, ast.ImportFrom):
++            module = node.module
++        elif isinstance(node, ast.Import):
++            for alias in node.names:
++                candidate = alias.name.split(".", 1)[0] + ".py"
++                if (Path(payload_root) / candidate).is_file():
++                    out.add(candidate)
++            continue
++        if not module:
++            continue
++        if module.startswith("payload."):
++            candidate = module.split(".", 1)[1].split(".", 1)[0] + ".py"
++        else:
++            candidate = module.split(".", 1)[0] + ".py"
++        if (Path(payload_root) / candidate).is_file():
++            out.add(candidate)
++    return out
++
++def _validate_runtime_payload_closure(payload_root: Path) -> None:
++    declared = set(PAYLOAD_NAMES) | set(PRESERVED_RUNTIME_DEPENDENCY_SHA256)
++    queue = list(PAYLOAD_NAMES)
++    seen: set[str] = set()
++    missing: set[str] = set()
++    while queue:
++        name = queue.pop()
++        if name in seen:
++            continue
++        seen.add(name)
++        for dependency in _local_imports(payload_root, name):
++            if dependency not in declared:
++                missing.add(dependency)
++            elif dependency in PAYLOAD_NAMES and dependency not in seen:
++                queue.append(dependency)
++    if missing:
++        raise IntegratedUpgradeError(
++            "RUNTIME_PAYLOAD_IMPORT_CLOSURE_INCOMPLETE",
++            ",".join(sorted(missing)),
++        )
++
+ def load_payloads(payload_root: Path) -> tuple[dict[str, bytes], dict[str, str]]:
+     payload_root = Path(payload_root)
++    # This is still before lifecycle stop and before managed source writes.
++    _validate_runtime_payload_closure(payload_root)
+     out: dict[str, bytes] = {}
+@@
+
+Required owner follow-up after this safety gate:
+1. Materialize the exact Agent server/account_pool pair first.
+2. Compute the transitive local import graph of those exact bytes.
+3. Add deployable Agent modules (prompt_modes.py, server_subagent_lifecycle.py,
+   reservation_aware_lease.py and their child graph) to the transactional payload manifest,
+   OR explicitly hash-bind a genuinely pre-installed dependency.
+4. Extend target_paths/backups/file_backups/installed files_sha256/final verification automatically
+   through the same manifest; no side-channel copy step.
+5. Regression: source-tree compile PASS is insufficient. Build a clean simulated installed bridge
+   containing only transaction-declared files and prove its local import closure is complete.

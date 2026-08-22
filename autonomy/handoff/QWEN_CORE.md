@@ -35,49 +35,51 @@ Fresh `server.js` на `36dcf242...` содержит `explicitOwnerSystemPrompt
 `QWEN_OWNER_PROMPT_MALFORMED_REPRODUCED malformed_falls_back_to_stale=1 conflicting_alias_silently_prefers_snake=1`
 
 Доказаны два случая:
-1. Сессия хранит `OLD_PRIVATE_OWNER`; клиент явно шлёт `system_prompt_mode=owner` и malformed `owner_system_prompt={text:"NEW_PRIVATE_OWNER"}`. Текущий код игнорирует malformed поле и восстанавливает `OLD_PRIVATE_OWNER`. Это неверная власть промпта: явная новая попытка не должна молча превращаться в старую.
-2. Если одновременно переданы `owner_system_prompt="A"` и `ownerSystemPrompt="B"`, текущий код молча выбирает snake_case `A`. Конфликт управляющих алиасов должен быть явной ошибкой, а не скрытым приоритетом.
+1. Сессия хранит `OLD_PRIVATE_OWNER`; клиент явно шлёт `system_prompt_mode=owner` и malformed `owner_system_prompt={text:"NEW_PRIVATE_OWNER"}`. Текущий код игнорирует malformed поле и восстанавливает `OLD_PRIVATE_OWNER`.
+2. Если одновременно переданы `owner_system_prompt="A"` и `ownerSystemPrompt="B"`, текущий код молча выбирает snake_case `A`.
 
 ### Требуемая семантика исправления
 Сделать одну раннюю проверку detached owner authority ДО `restoreCheckpoint`, ДО восстановления старого owner prompt, ДО provider traffic и без мутации session state:
 - если ни одного alias нет — текущее наследование остаётся как есть;
-- если присутствует ровно один alias — значение обязано быть строкой (пустая строка допустима как явный exact prompt, если это уже поддерживаемая семантика);
+- если присутствует ровно один alias — значение обязано быть строкой;
 - если присутствуют оба alias — оба обязаны быть строками и побайтно совпадать; иначе fail-closed;
 - стабильный bounded HTTP 400, например `QWEN_OWNER_SYSTEM_PROMPT_INVALID`, без отражения огромного/объектного входа в ошибке;
 - provider calls = 0, session mutations = 0;
-- тот же validator должен использоваться в `src/qwen-v3-capabilities.js`, чтобы standalone/не-server callers не имели другой семантики.
+- тот же validator использовать в `src/qwen-v3-capabilities.js`, чтобы standalone/не-server callers не имели другой семантики.
 
-Обязательный regression должен покрыть:
+Обязательный regression:
 - malformed snake alias при сохранённом старом owner prompt → 400, старый prompt не наследуется;
 - malformed camel alias → 400;
-- conflicting string aliases A/B → 400;
-- identical aliases A/A → допустимо и exact;
+- conflicting A/B → 400;
+- identical A/A → допустимо и exact;
 - один корректный alias → прежняя lossless семантика;
-- error payload bounded;
-- provider_calls=0 и session_mutations=0 для всех rejected случаев.
+- bounded error payload;
+- provider_calls=0 и session_mutations=0 для rejected случаев.
 
-Не вносить частичное исправление только в `qwen-v3-capabilities.js`: `server.js` сейчас способен восстановить старый detached prompt раньше `prepareInput`, поэтому валидация нужна на серверной границе тоже.
+Не вносить частичное исправление только в `qwen-v3-capabilities.js`: `server.js` способен восстановить старый detached prompt раньше `prepareInput`.
 
 ## Следующий обязательный Core gate
 1. Fresh-read PR head; не перетирать параллельные Reliability изменения.
-2. Исправить malformed/alias-conflict owner authority как один атомарный Core-пакет + regression.
-3. Затем материализовать exact session/restart cluster на hosted машине через доступные exact GitHub bytes/другой безопасный read-only путь.
-4. Выполнить targeted:
-   - `node scripts/session-explicit-owner-authority-test.js`
-   - `node scripts/session-explicit-owner-recovery-test.js`
-   - `node scripts/server-explicit-owner-rehydrate-test.js`
-   - новый malformed-owner regression
-   - `node scripts/server-system-checkpoint-rejected-test.js`
-   - `node --check server.js`
-   - `node --check src/session-store.js`
-   - `node --check src/qwen-v3-capabilities.js`
+2. Исправить malformed/alias-conflict owner authority как один атомарный Core-пакет + regression, только из exact bytes.
+3. Материализовать exact session/restart cluster на hosted машине.
+4. Выполнить targeted owner/recovery/system tests + `node --check` для затронутых файлов.
 5. После targeted PASS прогнать максимально полный local session/restart/system-prompt cluster; только затем считать explicit-owner gate закрытым.
 6. После зелёного Core offline gate переходить к финальным restart/recovery/failover/live E2E, не повторяя уже доказанные provider-прогоны без необходимости.
 
 ## Постоянная память / capsule
-В начале запуска прочитан `autonomy/v3/workspaces/QWEN_CORE/LATEST.json`: capsule `20260821T220228Z-52165ac56c`, archive SHA-256 `6b78f650eda0d20e184dc048a4818036b2879181bea8d1f30609de78fa07502e`, стартовый Git blob SHA указателя `ee6b002aa75c6d081cab14757552228d3aff1e98`.
-Manifest: `free_fabric_worker_capsule_v4`, 2 parts, source_ref `a0ec9110da9fefb32700e8996d63df53ee818df8`; обе части перечитаны из GitHub.
+Стартовый LATEST этого запуска:
+- pointer blob SHA `ee6b002aa75c6d081cab14757552228d3aff1e98`;
+- capsule `20260821T220228Z-52165ac56c`;
+- archive SHA-256 `6b78f650eda0d20e184dc048a4818036b2879181bea8d1f30609de78fa07502e`.
 
-Нормативный `capsule_runtime_v4.py` имеет Git blob SHA `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`. В этом запуске доступный перенос в hosted filesystem снова не дал доказанно exact bytes runtime. По протоколу ручная сокращённая restore/pack не использовалась. Recovery floor — exact GitHub source; новую псевдо-v4 capsule и `LATEST/PREVIOUS` не публиковать. Следующий запуск должен сначала попытаться материализовать exact runtime bytes безопасным способом; если это опять невозможно, продолжать продуктовую работу от exact GitHub source, не подделывая v4.
+Нормативный `capsule_runtime_v4.py` теперь УСПЕШНО материализован на hosted-машине точными байтами: size 8079, Git blob SHA `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`, совпадает с каноном. Обе части стартовой capsule были повторно получены exact через GitHub, их длины/SHA совпали с manifest. `verify` и `restore` через exact v4 прошли PASS. Предыдущий handoff о невозможности exact runtime materialization устарел.
 
-Live Qwen/provider traffic, GitHub Actions/CircleCI/Cloudflare и production без отдельной необходимости не запускать.
+После текущей существенной работы создан нормативный v4 checkpoint:
+- capsule `20260821T235937Z-a7790a150d`;
+- archive SHA-256 `bf058145225d1884929dac6c404d889d1fc7de4f4613a267d895e23ecbd413ba`;
+- 2 immutable parts (2048 + 44 chars), локальный `verify` PASS;
+- обе части и manifest загружены в GitHub, затем перечитаны; их Git blob SHA совпали с локальными exact bytes.
+
+Перед публикацией LATEST был перечитан и всё ещё имел стартовый blob SHA `ee6b002a...`; CAS-конфликта не было. Старый LATEST сохранён как PREVIOUS, новый LATEST опубликован через `update_file` ровно с исходным parent SHA. Новый pointer blob SHA `2b569616905f3f7becca542c5e628d6c8128de32`.
+
+Live Qwen/provider traffic, GitHub Actions/CircleCI/Cloudflare и production не использовались.

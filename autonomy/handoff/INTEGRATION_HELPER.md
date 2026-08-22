@@ -1,75 +1,73 @@
 # Qwen + Notion — интеграционный помощник
 
-Обновлено: 2026-08-22 02:35 UTC.
+Обновлено: 2026-08-22 00:33 UTC.
 
 Worker id: `INTEGRATION_HELPER`.
 
 ## Свежая координация
 
-Перед работой перечитаны `OWNER_INTENT_RU.md`, четыре основных handoff, `CAPSULE_RUNTIME_PROTOCOL_V2.json` и `capsule_runtime_v4.py`.
+Перед работой перечитаны `OWNER_INTENT_RU.md`, четыре основных handoff, `CAPSULE_RUNTIME_PROTOCOL_V2.json`, `capsule_runtime_v4.py` и свежие PR.
 
-Свежие product heads:
-- Qwen PR #6: `36dcf2424923de926e3e04848ae2e5dfa6402645`;
-- Notion PR #8: `b579a51c1f5fd93910f0059d9769f23cfd4c7d06`;
+Свежие product heads на момент проверки:
+- Qwen PR #6: `3bc544c08d6846f9d4d5db1da3076cd81504a6e1`;
+- Notion PR #8: `0ca44dd6df901fa848cede6be32e61235a75dcfb`;
 - Notion Core PR #7: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
 Не перехватывать текущую узкую работу основных работников:
-- Qwen Core — explicit owner authority durability + offline restart gate;
-- Qwen Reliability — только V9 monotonic recovery quarantine поверх уже закрытых V4–V8;
-- Notion Agent — ordinary Responses dynamic reservation/materialization + transport provenance + текущий delegated tool-loop;
+- Qwen Core — malformed/ambiguous detached owner authority и V6 alias validation;
+- Qwen Reliability — V9 monotonic recovery quarantine поверх уже закрытых V4–V8;
+- Notion Agent — ordinary Responses materialization/dynamic reservation + новая durable delegated cancellation/tombstone линия;
 - Notion Core — durable Responses replay/compaction ordering + native Windows rollback gate.
 
-## Новый блок — failover ломает account-local governor accounting
+## Новый блок — Notion durable tombstone store теряет marker при нескольких владельцах файла
 
-Fresh exact Qwen blobs на head `36dcf242...`:
-- `server.js` `09a734ebe7e8abf5b7f63c4cfbd0c9998c79ea78`;
-- `src/qwen-client.js` `2ee2c8dac717ffef23b5e21e43d939567e3b7cf0`;
-- `src/request-governor.js` `aca56575c799ca03b01b174a2b375807b32e8b4e`;
-- `src/quota-telemetry.js` `53aeb46a5c111e3d5e164f6afb83e5582a4bac96`.
+После предыдущего Integration Helper checkpoint Notion PR #8 ушёл вперёд на 32 коммита и добавил новый `payload/subagent_tombstone_store.py`. Именно свежая дельта теперь обеспечивает durable `begin_call -> local mutating tool -> resolve/uncertain` защиту через process restart.
 
-Стык Core ↔ Reliability сейчас несогласован:
-1. `preparePublicPayloadGoverned()` делает `requestGovernor.before(A, ...)` только для исходного preferred account A.
-2. `qwenClient.sendChatRequest()` внутри того же request-wide failover может после CAPTCHA/rate-limit/auth/transport перейти A → B (и далее), причём B перед своим `/chats/new`/completion не получает `requestGovernor.before(B, ...)`.
-3. После успеха B сервер перепривязывает `quotaTelemetry` к B.
-4. `quotaTelemetry.finish()` отправляет единственный `requestGovernor.success(B, usage)`.
+Fresh exact blobs:
+- `payload/subagent_tombstone_store.py` `6185f502fcdd7ead72237c1a0f3790b114e8a844`;
+- `payload/server_subagent_lifecycle.py` `5c9017350100a10e83072cb93f1b7aaced2c9ad7`;
+- `payload/server_subagent_runtime.py` `206d8cdfc0897979c981659e9edc378da08f2a78`.
 
-Следствие на простом A→B success:
-- provider attempts: `[A, B]`;
-- governor admissions: `[A]`;
-- final governor outcome: `success(B)`;
-- reservation A остаётся pending до TTL;
-- B реально получил provider I/O без своей account-local admission/pressure wait/token reservation;
-- pressure/error, который выбил A и вызвал failover, не попадает в governor как terminal outcome A.
+Новый store безопасно делает fsync + atomic `os.replace`, но каждая инстанция держит `_uncertain`/`_inflight` в памяти и при `begin_call/resolve_call/mark_uncertain` строит новый snapshot именно из этой локальной копии. Общей межпроцессной read-modify-write сериализации нет.
 
-Offline probe PASS:
-`QWEN_FAILOVER_GOVERNOR_ACCOUNTING_GAP_REPRODUCED_AND_CONTRACT_PASS`.
+Детерминированное offline воспроизведение:
+1. store A и store B загружают один durable empty generation;
+2. A делает `begin_call(child-A, call-A)` — canonical файл содержит A;
+3. B всё ещё имеет старый пустой memory snapshot;
+4. B делает `begin_call(child-B, call-B)` — atomic replace успешен, но canonical файл теперь содержит только B;
+5. marker A исчезает, хотя mutating child A уже мог перейти side-effect boundary.
 
-Current semantic reproduction:
-- `pendingA=1` после завершения;
-- `pendingB=0`;
-- `ungovernedProviderAttemptB=true`.
+Verdict:
+`NOTION_TOMBSTONE_MULTIWRITER_RACE_REPRODUCED_AND_LOCK_CONTRACT_PASS`.
 
-Candidate contract:
-- каждый аккаунт, который реально может дойти до provider I/O в request-wide failover, получает собственный governor admission до первого provider call;
-- каждый неуспешный account attempt закрывает именно свою admission до перехода к sibling;
-- admission финального успешного аккаунта остаётся открытой до появления usage и затем закрывается `success(finalAccount, usage)`;
-- outcome одного аккаунта никогда не освобождает reservation другого;
-- bounded failover budget, account/thread affinity и существующая provider classification не меняются.
+Current result:
+- после A: `[(child-A, call-A)]`;
+- после stale writer B: `[(child-B, call-B)]`;
+- marker `child-A/call-A` потерян.
+
+Безопасный контракт проверен на Linux-модели: весь `read current -> validate -> mutate -> fsync/replace -> publish memory` выполняется под одним общим межпроцессным lock; второй writer перечитывает canonical bytes уже внутри lock. Тогда оба marker сохраняются. `fcntl` использован только как proof-of-contract; в продукт его напрямую переносить нельзя, потому что Windows-семантика должна быть доказана нативно.
+
+Почему это стыковой дефект: одна `ServerSubagentLifecycle` действительно владеет store внутри обычного процесса, но durable store специально введён ради restart/relaunch. При кратком перекрытии старого и нового bridge-процесса или при двух владельцах одного tombstone path atomic replace сам по себе не предотвращает stale lost-update. Это может снять no-replay защиту ровно после уже начатого локального `write_file/edit_file/run_shell`.
 
 Artifacts:
-- `autonomy/v3/tools/integration_qwen_failover_governor_accounting_probe.js`;
-- `autonomy/evidence/integration/20260822T0235Z_qwen_failover_governor_account_mismatch.json`;
-- `autonomy/v3/candidates/QWEN_FAILOVER_GOVERNOR_ACCOUNTING_20260822.patch`.
+- `autonomy/v3/tools/integration_notion_tombstone_store_concurrent_writer_probe.py`;
+- `autonomy/evidence/integration/20260822T0033Z_notion_subagent_tombstone_multiwriter_lost_update.json`;
+- `autonomy/v3/candidates/NOTION_TOMBSTONE_MULTIWRITER_GUARD_20260822.patch`.
 
-Минимальный regression владельцу Qwen:
-`A admitted -> A CAPTCHA -> B admitted -> B success -> response finish`.
-Обязательные assertions: admissions `[A,B]`; terminal outcomes `failure(A,captcha)` и `success(B,usage)`; pending A/B = 0; ни одного B provider call до `before(B)`; failover budget и account affinity без изменений.
+Минимальный regression владельцу Notion Agent:
+- создать две независимые store instances на одном path до первой записи;
+- A `begin_call(A,a)`;
+- B `begin_call(B,b)`;
+- fresh third instance обязан видеть ОБА markers;
+- аналогично `mark_uncertain(A)` не должен быть стёрт stale `resolve/begin` другого writer;
+- финальная реализация должна иметь одну cross-process mutation transaction; in-process `asyncio.Lock` недостаточен;
+- Windows locking/replace behavior не заявлять до native gate.
 
-## Предыдущий helper-блок — не повторять
+Основные product-файлы PR #8 не менялись, чтобы не конфликтовать с активным Notion Agent worker.
 
-Неполный governor-size accounting для поздно добавляемых exact owner prompt + selected skills уже отдельно найден и сохранён ранее. Его не смешивать с текущим account-failover accounting: первый дефект про размер одной admission, этот — про принадлежность admission/outcome при смене аккаунта.
+## Предыдущие helper-блоки — не повторять без изменения продукта
 
-Также уже зафиксированы и повторно не исследуются без изменения продукта: final-turn orphan tool side effect в Notion; truncated partial tool result; failover full-history rebase; durable pending obligation bypass; duplicate unresolved tool ids; stale/total session recovery; cross-process session/store races; command/reset races; historical command replay; prompt-policy vs upstream thread affinity; subagent claim/store races; uncertain side effects; partial-batch retry; rebind overlap/global parallelism; delegated prompt/tool policy; 24-vs-12 turn budget; empty successful Qwen result.
+Уже отдельно зафиксированы: Qwen failover account-local governor accounting; governor-size accounting для поздно добавляемых owner prompt + skills; final-turn orphan tool side effect в Notion; truncated partial tool result; failover full-history rebase; durable pending obligation bypass; duplicate unresolved tool ids; stale/total session recovery; Qwen cross-process session/store races; command/reset races; historical command replay; prompt-policy vs upstream thread affinity; subagent claim/store races; uncertain side effects; partial-batch retry; rebind overlap/global parallelism; delegated prompt/tool policy; 24-vs-12 turn budget; empty successful Qwen result.
 
 ## Постоянная память
 
@@ -80,12 +78,15 @@ Artifacts:
 - manifest `a1a12555b44c20e82554cf551db0c0d12a5cb948`;
 - 3 parts `8192/8192/2980` chars.
 
-Manifest и три immutable part blobs прочитаны из GitHub. Connector отдаёт exact blob content, но этот запуск пока не объявляет новый v4 checkpoint опубликованным до полного локального `restore -> pack -> immutable upload/readback -> CAS`. Если цепочка не будет завершена, `LATEST` оставлять нетронутым; новые probe/evidence/candidate уже долговечно сохранены отдельно.
+Manifest и part metadata перечитаны. В этой среде connector возвращает exact blob content, но не монтирует его как локальный файл; поэтому нормативный `capsule_runtime_v4.py restore` старой капсулы в файловой системе не был объявлен выполненным. По протоколу рабочей нижней точкой стали exact свежие GitHub source blobs. Новый `LATEST` не переключать без полного `restore -> checkpoint -> pack -> immutable upload/readback -> CAS`.
+
+Новые probe/evidence/candidate уже долговечно сохранены отдельными immutable путями, поэтому finding не зависит от локального `/mnt/data`.
 
 ## Следующее
 
-1. Qwen owner интегрирует account-attempt governor lifecycle, не смешивая это с V9 monotonic quarantine или owner-authority rewrite.
-2. Targeted regression обязательно должен включать A→B и A→B→C, а также final all-failed path, чтобы не осталось двойных settlement или leaked reservations.
-3. После этого Integration Helper ищет следующий новый стык; данный finding повторно не исследовать без изменения продукта.
+1. Notion Agent owner должен закрыть multiwriter lost-update до включения реального child-launch/restart path: общий cross-process transaction или эквивалентный доказанный CAS/lock.
+2. Сначала Linux regression на две независимые store instances/processes, затем один native Windows locking gate вместе с уже планируемым Windows Core проходом; не строить отдельный CI fanout.
+3. После product fix проверить `begin A + begin B`, `uncertain A + stale begin B`, `resolve A + concurrent begin B`, crash while lock held/recovery semantics.
+4. Integration Helper после этого ищет следующий новый стык; этот finding повторно не исследовать без изменения продукта.
 
 ZERO-MINUTE соблюдён: hosted CI/Cloudflare/live provider/Notion/Codex/production/реальные аккаунты/секреты не использовались.

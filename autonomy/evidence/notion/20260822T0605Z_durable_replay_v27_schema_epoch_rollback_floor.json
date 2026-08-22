@@ -1,0 +1,28 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "id": "DURABLE_REPLAY_V27_SCHEMA_EPOCH_ROLLBACK_FLOOR",
+  "created_at_utc": "2026-08-22T06:05:00Z",
+  "source": {
+    "core_pr7_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_integration_head": "f58f0123b370ad786d337337eb03a6a4ce9963b3",
+    "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d"
+  },
+  "finding": "Keeping the new replay/intent metadata under outer conversation-state version=2 is not rollback-safe. The exact current v2 loader reconstructs only the known ConversationSegment fields and ignores unknown top-level/per-record metadata; any later save serializes only those reconstructed fields. Therefore an older binary can silently erase replay_response/inflight/provider-intent safety evidence. Merely bumping the file to version=3 is also insufficient by itself: the exact current store marks an unsupported version persistence_blocked, but the exact current server does not gate provider entry on that blocked state and can continue to Notion with empty in-memory segment state.",
+  "local_results": [
+    "V27_VERSION2_DOWNGRADE_METADATA_STRIP_REPRODUCED",
+    "V27_VERSION3_OLD_SERVER_ROLLBACK_PROVIDER_REENTRY_REPRODUCED",
+    "V27_SCHEMA_EPOCH_ROLLBACK_FLOOR_MODEL_PASS"
+  ],
+  "required_invariant": [
+    "Before any durable replay/provider-intent schema epoch is published, deploy a compatibility-floor server that checks persistence readiness after loading/get cleanup and fails before every provider-entering operation, including normal Responses and compaction, when the durable state schema is unsupported or blocked.",
+    "After that floor is established, the replay/intent schema may advance to a new outer state version (recommended version=3). New code may read legacy v2 conservatively and write v3 atomically; v2 records do not acquire replay safety retroactively and legacy exact retries remain fail-closed where evidence is missing.",
+    "Rollback must be bounded by an explicit minimum_safe_rollback_commit. Never roll back below the compatibility floor after a v3 state has been published. A floor-aware v2 binary encountering v3 must fail closed before provider access rather than treating state as an optimization.",
+    "Do not rely on unknown-field preservation while keeping version=2: the exact current loader/save pair does not preserve unknown replay/intent fields."
+  ],
+  "interaction_with_v12_v26": "V12 originally kept STATE_VERSION=2 to avoid breaking the current loader. V22-V26 require durable pre-provider intents and exact replay metadata. V27 supersedes the compatibility assumption: safety metadata needs an explicit schema epoch plus a rollback floor; otherwise downgrade can erase the very evidence used to prevent duplicate provider planning/side effects.",
+  "product_change": false,
+  "hosted_ci_started": false,
+  "provider_traffic_started": false,
+  "native_windows_claimed": false
+}

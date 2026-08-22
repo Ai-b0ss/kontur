@@ -6,7 +6,7 @@ jobs:
       - image: cimg/node:22.18-browsers
     resource_class: medium
     environment:
-      KONTUR_EXPECTED_SHA: b32589f597605311f7a0c2cd48008c5ad1866c4a
+      KONTUR_EXPECTED_SHA: c67425b97ae8f7ce0ffdf7fe21e5c1201d6d1cf7
       KONTUR_BROWSER_EVIDENCE_DIR: /tmp/kontur-visual-evidence/browser
     steps:
       - checkout
@@ -108,8 +108,8 @@ jobs:
           when: always
           command: |
             set -euo pipefail
-            evidence_branch="evidence/kontur-emergency-b32589f5-20260822"
-            target="docs/product/evidence/runtime/b32589f5-emergency-visual"
+            evidence_branch="evidence/kontur-emergency-c67425b9-20260822"
+            target="docs/product/evidence/runtime/c67425b9-emergency-visual"
             git switch --create "$evidence_branch" "$KONTUR_EXPECTED_SHA"
             mkdir -p "$target/browser" "$target/logs"
             cp "$KONTUR_BROWSER_EVIDENCE_DIR"/*.png "$target/browser/" 2>/dev/null || true
@@ -121,7 +121,7 @@ jobs:
             git config user.name "Kontur Acceptance Bot"
             git config user.email "kontur-acceptance@users.noreply.github.com"
             git add "$target"
-            git commit -m "evidence: preserve b32589f5 emergency visual fix"
+            git commit -m "evidence: preserve c67425b9 emergency visual fix"
             git push origin "HEAD:refs/heads/$evidence_branch"
             echo "KONTUR_VISUAL_EVIDENCE_BRANCH_PASS branch=$evidence_branch"
 

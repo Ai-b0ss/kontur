@@ -1,0 +1,46 @@
+{
+  "archive": {
+    "parts": 2,
+    "sha256": "4f6cccb457d264e413f6999040bf5ebcca694eddfd5a44f9771361147c7b556e",
+    "size": 2035
+  },
+  "capsule_id": "20260822T013838Z-8ad919ee3f",
+  "created_at_utc": "2026-08-22T01:38:38Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "ea297c697f1d6776394d0756d99aa1b2ccedb1cbf6f98b5e3c1aa0159891d8b8"
+    },
+    {
+      "chars": 668,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "c636cf0997cff91d08db7145bd88ede29ed75f40b0b6cee5ffdb9f6fd215cbee"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/qwen-free-api@f0b889804fbdd86c4ea1bf0cee5cc85d680194a2",
+  "worker": "INTEGRATION_HELPER",
+  "workspace": {
+    "CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "132087f066ba24b3c264c3d0bbf495792d1c428cf3ce6907946d082231de5081",
+      "size": 1425,
+      "type": "file"
+    },
+    "STATE.json": {
+      "mode": "0o644",
+      "sha256": "b11fea6e31509c1bcdd64f4e9c4822108f4f39a35384c29e04746c4d5ad29382",
+      "size": 201,
+      "type": "file"
+    },
+    "integration_qwen_implicit_session_identity_collision_probe.py": {
+      "mode": "0o644",
+      "sha256": "e5ffba4b9501b87c339e1d133b1f8d015841c03a9c060bc59bc9a08304f65eeb",
+      "size": 2178,
+      "type": "file"
+    }
+  }
+}

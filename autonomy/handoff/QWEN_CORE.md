@@ -6,7 +6,7 @@
 Repo: `Ai-b0ss/qwen-free-api`
 Branch: `autopilot/qwen-runtime-preflight-20260818`
 PR: #6
-Fresh product head при последней сверке этого прохода: `d962843e2007a0dabc24a86a3e6d69c2737b32ea`.
+Fresh product head при последней сверке этого прохода: `0c80630989bc78050d948c99273e952704d532aa`.
 Перед новой записью снова перечитать fresh PR head и `autonomy/handoff/QWEN_RELIABILITY.md`: reliability-worker работает параллельно.
 
 ## Уже закрыто — не открывать заново без нового воспроизведения
@@ -37,7 +37,7 @@ RED-regression уже в product-ветке, но намеренно не вкл
 - `611216da95e28d3aa23fd60fb91a309cb8792701` — добавлены три mutating cases;
 - current test blob `a49d1c9829a1e9ac3444dccf7c3aad6f176ae9d8`.
 
-После этих Core-коммитов QWEN_RELIABILITY продвинул общий PR ещё на два коммита; между `611216...` и `d962843...` изменены только `src/qwen-client.js` и `package.json`. Core-test не затёрт; reliability-логику не перехватывать.
+После Core-коммитов QWEN_RELIABILITY продолжил общий PR. Между `611216...` и последней сверкой `0c806309...` менялись только reliability-файлы (`src/qwen-client.js`, `package.json` и новый `scripts/chat-create-pre-dispatch-account-availability-test.js`); Core-test не затёрт. Узкую account/cooldown/failover логику не перехватывать.
 
 Byte-safe кандидат сохранён в control repo:
 `autonomy/v3/candidates/QWEN_CORE_REQUIRED_TOOL_ARGUMENTS_20260822.patch`.
@@ -71,11 +71,21 @@ Hosted targeted model без provider/CI:
 5. Затем продолжить exact owner/session/subagent/restart cluster и брать следующий воспроизводимый Core-дефект.
 6. Уже доказанные live/provider прогоны не повторять без новой причины.
 
-## Постоянная память — вход текущего прохода
+## Постоянная память — этот проход
+Вход:
 - LATEST blob `47d8598da7366334f2466ac95edb39215939b8f0`;
 - capsule `20260822T080159Z-5665c2fea3`;
 - archive SHA-256 `ed660e6e6270ff2f5b74574909a9538a90f35685b5b0ec2a19faff9f03ffa931`;
 - exact runtime blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`;
-- manifest + обе части materialized, нормативный v4 verify + restore: PASS.
+- нормативный v4 verify + restore: PASS.
+
+Финиш:
+- новая v4 capsule `20260822T085753Z-94034ff6fa`;
+- archive SHA-256 `4b783dfab48b676caa7713aedc3731a71fd432e52bcdbc64ef71f3b76cc78314`;
+- local pack + verify + restore: PASS;
+- immutable upload/readback Git blobs совпали с локальными: part0 `7c46d77ddd7efb881269ff7cd4cce65bd1723c7c`, part1 `68f560bd817eedfb01175ce76a8189b23fc684c5`, manifest `2742f94c7c4b89c8e60038b59f408109d7245578`;
+- перед CAS LATEST всё ещё имел исходный blob `47d8598da7366334f2466ac95edb39215939b8f0`;
+- прежний LATEST сохранён как PREVIOUS;
+- новый LATEST опубликован без force-write, blob `d8088569437a936345f394f4a7bbca9b6787a075`.
 
 GitHub Actions, новый CircleCI, live/provider traffic, аккаунты, секреты, Cloudflare и production в этом проходе не использовались.

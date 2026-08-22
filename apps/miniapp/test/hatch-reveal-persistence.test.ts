@@ -86,8 +86,8 @@ test('the intact egg stays singular until the shell actually begins opening', as
   );
   assert.match(
     css,
-    /@keyframes lk-hatch-bird-rise[\s\S]*?0%,\s*68%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*hidden;[\s\S]*?clip-path:\s*inset\(0 0 45% 0\);[\s\S]*?69%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*visible;[\s\S]*?77%\s*\{[\s\S]*?opacity:\s*\.24;[\s\S]*?clip-path:\s*inset\(0 0 22% 0\);/,
-    'the bird must stay hidden until the shell has started to open',
+    /@keyframes lk-hatch-bird-rise[\s\S]*?0%,\s*68%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*hidden;[\s\S]*?clip-path:\s*inset\(0 0 45% 0\);[\s\S]*?transform:\s*translate\(18%,\s*-4%\) scale\(\.66\);[\s\S]*?69%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*visible;[\s\S]*?77%\s*\{[\s\S]*?opacity:\s*\.32;[\s\S]*?clip-path:\s*inset\(0 0 45% 0\);[\s\S]*?transform:\s*translate\(12%,\s*-3%\) scale\(\.76\);[\s\S]*?86%\s*\{[\s\S]*?opacity:\s*\.62;[\s\S]*?clip-path:\s*inset\(0 0 20% 0\);/,
+    'the bird must stay hidden until the shell opens, then reveal its body before the lower tail',
   );
   assert.match(
     css,

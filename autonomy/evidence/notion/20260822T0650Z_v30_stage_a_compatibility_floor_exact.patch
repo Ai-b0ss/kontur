@@ -1,0 +1,62 @@
+diff --git a/payload/conversation_segments.py b/payload/conversation_segments.py
+--- a/payload/conversation_segments.py
++++ b/payload/conversation_segments.py
+@@
+ class ConversationSegmentStore:
+@@
+     async def get(self, key: str | None) -> ConversationSegment | None:
+         if key is None:
+             return None
+         async with self._guard:
+             self._load_locked()
+             changed = self._cleanup_locked()
+             if changed:
+                 self._save_locked()
+             return self._items.get(conversation_storage_key(key))
++
++    async def require_persistence_ready(self) -> None:
++        """Fail closed when configured durable state cannot be trusted/written.
++
++        This is the v2 compatibility floor for the later durable-replay schema
++        epoch.  It intentionally treats an in-memory-only store (path=None) as
++        ready so existing unit fakes and explicitly ephemeral uses keep their
++        current behavior.  Product Core uses a configured stable path.
++        """
++        async with self._guard:
++            self._load_locked()
++            if self.path is not None and self._persistence_blocked:
++                raise RuntimeError("durable conversation state is unavailable")
+@@
+     async def status(self) -> dict[str, Any]:
+         async with self._guard:
+             self._load_locked()
+             changed = self._cleanup_locked()
+             if changed:
+                 self._save_locked()
+             return {
+@@
+ diff --git a/payload/server.py b/payload/server.py
+--- a/payload/server.py
++++ b/payload/server.py
+@@
+     affinity = await turn_affinities.get(turn_key)
+     segment = await conversation_segments.get(conversation_key)
++    # Stage-A durable-state compatibility floor.  get() is deliberately first:
++    # loading, recovery or cleanup inside get() can discover an unsupported,
++    # corrupt or no-longer-writable state.  Re-check immediately afterwards and
++    # before any account lease / provider entry.  handle_openai_responses() is
++    # also the request_kind=compaction path, so the same gate protects both.
++    if isinstance(conversation_segments, ConversationSegmentStore):
++        try:
++            await conversation_segments.require_persistence_ready()
++        except RuntimeError:
++            return JSONResponse(
++                {
++                    "error": {
++                        "message": "Durable conversation state is unavailable",
++                        "type": "durable_state_unavailable",
++                    }
++                },
++                status_code=503,
++            )
+     affinity_matches_model = affinity is not None and affinity.model == model

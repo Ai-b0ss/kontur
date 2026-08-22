@@ -276,10 +276,25 @@ async function revealLayout(page, label) {
 async function answer(page) {
   await page.locator('.lk-options button').first().click();
   await page.waitForTimeout(330);
+  await waitForQuestionPaint(page);
+}
+
+async function waitForQuestionPaint(page) {
+  await page.waitForFunction(() => {
+    const question = document.querySelector('main.lk-first-time--questions .lk-question--egg');
+    if (!question) return false;
+    const style = getComputedStyle(question);
+    return Number(style.opacity) > .99 && style.visibility !== 'hidden';
+  });
+  return page.locator('main.lk-first-time--questions .lk-question--egg').evaluate((question) => ({
+    opacity: Number(getComputedStyle(question).opacity),
+    visibility: getComputedStyle(question).visibility,
+    number: question.querySelector('.lk-question-number')?.textContent?.trim() ?? null,
+  }));
 }
 
 async function toQuestion(page, target) {
-  await page.getByRole('button', { name: 'начать' }).click(); await page.waitForTimeout(330);
+  await page.getByRole('button', { name: 'начать' }).click(); await page.waitForTimeout(330); await waitForQuestionPaint(page);
   for (let index = 1; index < target; index += 1) await answer(page);
   await page.locator('.lk-question-number').filter({ hasText: String(target).padStart(2, '0') }).waitFor();
 }
@@ -300,20 +315,20 @@ try {
   const small = await phone(browser, origin, { width: 320, height: 568, slot: 1 });
   const page = small.page;
   viewports.smallHook = await layout(page, '320 hook', 320, 568); await screenshot(page, '01-hook.png');
-  await page.getByRole('button', { name: 'начать' }).click(); await page.waitForTimeout(35); await screenshot(page, '02-hook-start-before.png'); await page.waitForTimeout(300);
+  await page.getByRole('button', { name: 'начать' }).click(); await page.waitForTimeout(35); await screenshot(page, '02-hook-start-before.png'); await page.waitForTimeout(295); visual.q1Question = await waitForQuestionPaint(page);
   ok(await page.locator('.lk-quiz-egg').getAttribute('data-stage') === '1', 'q1 is not egg stage 1'); await screenshot(page, '03-quiz-q1.png');
   for (let q = 1; q < 4; q += 1) await answer(page);
-  ok(await page.locator('.lk-quiz-egg').getAttribute('data-stage') === '4', 'q4 is not egg stage 4'); await screenshot(page, '04-quiz-q4.png');
+  visual.q4Question = await waitForQuestionPaint(page); ok(await page.locator('.lk-quiz-egg').getAttribute('data-stage') === '4', 'q4 is not egg stage 4'); await screenshot(page, '04-quiz-q4.png');
   const back = page.getByRole('button', { name: '← назад' }); ok(await back.isVisible(), 'back absent before q4 answer'); await page.locator('.lk-options button').first().click(); ok(await back.count() === 0, 'back active during locked answer transition'); await page.waitForTimeout(330);
   for (let q = 5; q < 8; q += 1) await answer(page);
-  ok(await page.locator('.lk-quiz-egg').getAttribute('data-stage') === '8', 'q8 is not egg stage 8'); await screenshot(page, '05-quiz-q8.png');
+  visual.q8Question = await waitForQuestionPaint(page); ok(await page.locator('.lk-quiz-egg').getAttribute('data-stage') === '8', 'q8 is not egg stage 8'); await screenshot(page, '05-quiz-q8.png');
   await page.locator('.lk-options button').first().click(); ok(await page.locator('main.is-egg-responding').count() === 1, 'q8 response gesture absent'); ok(await page.locator('main.lk-first-time--hatching').count() === 0, 'hatching started before gesture end'); ok(await page.getByRole('button', { name: '← назад' }).count() === 0, 'back active during q8 transition');
   await page.waitForTimeout(170); ok(await page.locator('main.lk-first-time--hatching').count() === 0, 'hatching started inside response gesture'); await page.waitForTimeout(180); ok(await page.locator('main.lk-first-time--hatching').count() === 1, 'hatching did not begin after response');
   visual.hatch = await canonicalBird(page, '.lk-quiz-hatch', '320 hatch'); continuity.hatchBird = visual.hatch.resultId; continuity.hatchTint = visual.hatch.tintInlineStyle; ok(continuity.hatchBird === 'magpie', 'unexpected hatch identity');
   await page.getByRole('button', { name: 'что дальше' }).waitFor({ timeout: 4000 }); visual.reveal = await canonicalBird(page, '.lk-quiz-hatch', '320 reveal', true, true); continuity.revealBird = visual.reveal.resultId; continuity.revealTint = visual.reveal.tintInlineStyle; ok(continuity.revealBird === continuity.hatchBird && continuity.revealTint === continuity.hatchTint, 'hatch/reveal continuity failed'); visual.smallRevealLayout = await revealLayout(page, '320 reveal'); await screenshot(page, '06-bird-reveal.png');
   await page.getByRole('button', { name: 'что дальше' }).click(); await screenshot(page, '07-worm-loop.png'); await page.getByRole('button', { name: 'к моей птице' }).click();
   visual.home = await canonicalBird(page, '.lk-bird-stage--home', '320 Home', true, true); continuity.homeBird = visual.home.resultId; continuity.homeTint = visual.home.tintInlineStyle; ok(continuity.homeBird === continuity.revealBird && continuity.homeTint === continuity.revealTint, 'reveal/Home continuity failed'); viewports.smallHome = await layout(page, '320 home', 320, 568); await screenshot(page, '08-home.png');
-  await page.getByRole('button', { name: 'открыть яйцо' }).click(); await page.getByRole('button', { name: 'надеть окрас' }).waitFor({ timeout: 2000 }); continuity.dropBird = await page.locator('.lk-drop [data-bird-result]').getAttribute('data-bird-result'); ok(continuity.dropBird === continuity.homeBird, 'drop changed identity'); await screenshot(page, '09-new-coloring-drop.png'); await page.getByRole('button', { name: 'надеть окрас' }).click(); await page.waitForTimeout(100);
+  await page.getByRole('button', { name: 'открыть яйцо' }).click(); await page.getByRole('button', { name: 'надеть окрас' }).waitFor({ timeout: 2000 }); visual.drop = await canonicalBird(page, '.lk-drop', '320 coloring drop', true, true); continuity.dropBird = visual.drop.resultId; ok(continuity.dropBird === continuity.homeBird, 'drop changed identity'); await page.locator('.lk-drop').screenshot({ path: join(evidence, '09-new-coloring-drop.png') }); artifacts.push({ name: '09-new-coloring-drop.png', sha256: await hash(join(evidence, '09-new-coloring-drop.png')) }); await page.getByRole('button', { name: 'надеть окрас' }).click(); await page.waitForTimeout(100);
   visual.equipped = await canonicalBird(page, '.lk-bird-stage--home', '320 equipped Home', true, true); continuity.equippedBird = visual.equipped.resultId; continuity.equippedTint = visual.equipped.tintInlineStyle; ok(continuity.equippedBird === continuity.homeBird && continuity.equippedTint !== continuity.homeTint, 'equip identity/cosmetic contract failed'); await page.reload({ waitUntil: 'networkidle' }); await page.getByRole('button', { name: 'посмотреть тест заново' }).waitFor(); await page.evaluate(() => window.scrollTo(0, 0)); visual.reload = await canonicalBird(page, '.lk-bird-stage--home', '320 reload Home', true, true); continuity.reloadBird = visual.reload.resultId; continuity.reloadTint = visual.reload.tintInlineStyle; ok(continuity.reloadBird === continuity.equippedBird && continuity.reloadTint === continuity.equippedTint, 'reload persistence failed'); await screenshot(page, '10-reload-persistence.png');
   await page.getByRole('button', { name: 'посмотреть тест заново' }).click(); await toQuestion(page, 8); await page.locator('.lk-options button').first().click(); await page.waitForTimeout(350); visual.replayHatch = await canonicalBird(page, '.lk-quiz-hatch', '320 replay hatch'); continuity.replayBird = visual.replayHatch.resultId; continuity.replayTint = visual.replayHatch.tintInlineStyle; ok(continuity.replayBird === continuity.reloadBird && continuity.replayTint === continuity.reloadTint, 'replay changed identity/palette'); await page.getByRole('button', { name: 'что дальше' }).waitFor({ timeout: 4000 }); visual.replayReveal = await canonicalBird(page, '.lk-quiz-hatch', '320 replay reveal', true, true); ok(visual.replayReveal.resultId === continuity.reloadBird && visual.replayReveal.tintInlineStyle === continuity.reloadTint, 'replay reveal changed identity/palette'); visual.replayRevealLayout = await revealLayout(page, '320 replay reveal'); await screenshot(page, '11-replay-same-bird.png'); await small.context.close();
 

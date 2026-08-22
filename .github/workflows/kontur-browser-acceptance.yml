@@ -46,7 +46,12 @@ jobs:
           for file in \
             01-hook.png 02-hook-start-before.png 03-quiz-q1.png 04-quiz-q4.png \
             05-quiz-q8.png 06-bird-reveal.png 07-worm-loop.png 08-home.png \
+            15-hatch-intact.png 16-hatch-opening.png 17-hook-390x844.png \
+            gallery-magpie-10-colorings.png gallery-woodpecker-10-colorings.png \
+            gallery-jay-10-colorings.png gallery-crane-10-colorings.png \
+            gallery-owl-10-colorings.png gallery-kotosov-10-colorings.png \
             motion-1-hook-to-q1.webm motion-2-q1-q4-q8-cracks.webm motion-3-q8-to-reveal.webm \
+            KONTUR_VISUAL_FIX_WALKTHROUGH.webm \
             browser-acceptance.json; do
             test -s "$evidence/$file"
           done

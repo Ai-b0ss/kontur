@@ -1,0 +1,40 @@
+{
+  "archive": {
+    "parts": 2,
+    "sha256": "03f3fbabb457dfe6cb75446bf3ca5e10d03bbb03dddba2ecdb7adeede469d1e0",
+    "size": 2303
+  },
+  "capsule_id": "20260822T154334Z-2606ae1840",
+  "created_at_utc": "2026-08-22T15:43:34Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "84d0d1c2207e2a9f93cc713a999dfd057f060fe736d52991ce2335dcc933a3e0"
+    },
+    {
+      "chars": 1024,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "dd1494f7a769bf00af3c864fd2df135f13b978c416c68b244e8d5253d167cc93"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@eaa7e812cb502649fb5291143070b33bfc94380e + Ai-b0ss/kontur:autopilot/control-v2-20260819",
+  "worker": "INTEGRATION_HELPER",
+  "workspace": {
+    "CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "69e6be404e45e3f05e20f5a3b9f90586721a60d6df23aac229bcab42849acdc9",
+      "size": 1604,
+      "type": "file"
+    },
+    "integration_notion_postfirst_provider_reservation_reselect_probe.py": {
+      "mode": "0o644",
+      "sha256": "ebc30c1e97c65d66958c178812703d53fa221b023de8d4ad08b00a5629c72878",
+      "size": 3903,
+      "type": "file"
+    }
+  }
+}

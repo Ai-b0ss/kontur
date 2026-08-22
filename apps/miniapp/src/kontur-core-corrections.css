@@ -129,12 +129,25 @@
 .lk-first-time--reveal .lk-quiz-egg__shell--left { transform: translate(-18%, -12%) rotate(-7deg); opacity: 0; }
 .lk-first-time--reveal .lk-quiz-egg__shell--right { transform: translate(18%, -12%) rotate(7deg); opacity: 0; }
 .lk-first-time--reveal .lk-quiz-egg__hatch-light { opacity: 0; }
-.lk-reveal--inline {
+/* Reveal keeps the persistent hatch art, but all earlier quiz/hook surfaces
+   must leave both the paint and hit-test trees. Repeat the state class so
+   local-kontur.css cannot reintroduce them when its CSS is emitted later. */
+.lk-first-time.lk-first-time--reveal .lk-hook-copy,
+.lk-first-time.lk-first-time--reveal .lk-hook-action,
+.lk-first-time.lk-first-time--reveal .lk-question--egg {
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-18px);
+  pointer-events: none;
+}
+.lk-first-time.lk-first-time--reveal .lk-reveal.lk-reveal--inline {
   position: absolute;
   z-index: 55;
+  top: auto;
   right: max(18px, env(safe-area-inset-right));
   bottom: max(18px, env(safe-area-inset-bottom));
   left: max(18px, env(safe-area-inset-left));
+  padding-top: 0;
   text-align: center;
 }
 @keyframes lk-hatch-inline-stage {
@@ -188,7 +201,11 @@
 @media (max-width: 360px), (max-height: 650px) {
   .lk-first-time.lk-first-time--hatching .lk-quiz-egg-stage,
   .lk-first-time.lk-first-time--reveal .lk-quiz-egg-stage { width: 172px; }
-  .lk-reveal--inline { bottom: max(8px, env(safe-area-inset-bottom)); }
+  .lk-first-time.lk-first-time--reveal .lk-reveal.lk-reveal--inline {
+    right: max(16px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: max(16px, env(safe-area-inset-left));
+  }
 }
 
 @media (min-width: 361px) and (min-height: 651px) {

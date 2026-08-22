@@ -2,6 +2,8 @@ import { createHmac } from 'node:crypto';
 
 const origin = String(process.env.STAGING_ORIGIN || '').replace(/\/$/, '');
 const botToken = 'staging-disabled-not-a-telegram-token';
+const webhookSecret = 'staging-disabled-webhook-secret';
+const mainChatId = -1000000000000;
 const tgId = Number(process.env.STAGING_TG_ID || 987654321);
 
 function fail(message, extra) {
@@ -31,6 +33,44 @@ async function jsonFetch(path, init = {}) {
   if (!response.ok) fail(`${path} returned HTTP ${response.status}`, body);
   return body;
 }
+
+// Exercise the production-style Telegram boundary without contacting Telegram:
+// the isolated staging Worker deliberately has an inert bot identity, while its
+// fixed staging-only webhook secret can deliver synthetic /start + membership
+// updates. This creates only a fresh synthetic staging profile and leaves the
+// production Worker and production D1 unreachable from this script.
+const webhookHeaders = {
+  'content-type': 'application/json',
+  'X-Telegram-Bot-Api-Secret-Token': webhookSecret,
+};
+await jsonFetch('/telegram/webhook', {
+  method: 'POST',
+  headers: webhookHeaders,
+  body: JSON.stringify({
+    update_id: tgId,
+    message: {
+      message_id: tgId,
+      from: { id: tgId, username: `release_staging_${tgId}` },
+      chat: { id: tgId, type: 'private' },
+      text: '/start',
+    },
+  }),
+});
+await jsonFetch('/telegram/webhook', {
+  method: 'POST',
+  headers: webhookHeaders,
+  body: JSON.stringify({
+    update_id: tgId + 1,
+    chat_member: {
+      chat: { id: mainChatId, type: 'supergroup' },
+      from: { id: tgId, username: `release_staging_${tgId}` },
+      new_chat_member: {
+        user: { id: tgId, username: `release_staging_${tgId}` },
+        status: 'member',
+      },
+    },
+  }),
+});
 
 const auth = await jsonFetch('/api/v1/auth/telegram', {
   method: 'POST',
@@ -78,6 +118,7 @@ if (persisted?.state?.egg?.cost !== 5) fail('persisted current MVP egg cost chan
 
 console.log(JSON.stringify({
   ok: true,
+  webhookBootstrap: true,
   questions: questions.questions.length,
   role: hatch.role,
   eggCost: persisted.state.egg.cost,

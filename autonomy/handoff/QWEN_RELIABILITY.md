@@ -6,95 +6,74 @@
 Repo: `Ai-b0ss/qwen-free-api`
 Branch: `autopilot/qwen-runtime-preflight-20260818`
 PR: #6
-Fresh product head после этого прохода: `e21baa6c29edfc2b592db01106fcd9c32f752a21`.
-Перед любой новой записью снова fresh-read PR #6 и `autonomy/handoff/QWEN_CORE.md`: QWEN_CORE работает параллельно.
+Fresh PR head при последней сверке: `aab492abc9ce0dd71bdd58392ed2d653c3d0e490`.
 
-## Свежий обязательный контрпример — noncanonical durable filename
-Helper commit: `8d7a54dd0a5f4eb95e178d91101ac347c9acea80`.
-Regression: `scripts/account-store-noncanonical-filename-test.js`.
+Reliability product/test commits этого прохода:
+- `af1bc26a9169be7f8a1e7529950e1d283edd9626` — исправлен устаревший `account-store-mutation-atomicity-test.js`;
+- `5e5cdf4a9253a087bfaad6d19edd0e71448070e9` — `account-store-noncanonical-filename-test.js` подключён в обычный `npm test` только после исполняемого green.
 
-До исправления `load()` делал `safeId(path.basename(file, '.json'))`, поэтому `alpha.beta.json` становился логическим id `alpha-beta`. Если внутри такого файла лежал `id: alpha-beta`, прежняя проверка filename-vs-embedded-id проходила. Это создавало второй durable pathname для одной identity и оставляло путь для stale/rogue alias/resurrection после restart/remove.
+После `5e5cdf4a...` QWEN_CORE добавил только `scripts/tool-required-terminal-frame-test.js`, получив `aab492ab...`; Reliability-файлы этим коммитом не менялись. Core handoff содержит отдельный RED по `requireToolCall + data:true`; Reliability не трогает `chat-adapter/session/subagent/system-prompt`.
 
-Минимальный обязательный инвариант теперь такой: каждый принимаемый managed account file уже обязан называться ровно `${safeId(stem)}.json`; имя файла нельзя нормализовать в другую identity.
+## Главный boundary — noncanonical durable account filename: ДОКАЗАН
+Product fix остаётся `e21baa6c29edfc2b592db01106fcd9c32f752a21`: `load()` принимает managed account file только если имя уже равно `${safeId(stem)}.json`. `alpha.beta.json` больше не может нормализоваться в `alpha-beta`.
 
-### Исправление
-Product commit: `e21baa6c29edfc2b592db01106fcd9c32f752a21` (`fix(account): reject noncanonical durable filenames`).
-Compare с непосредственным родителем `ee1c596534dc926edcdef97886801bfd36fe4ae3` подтвердил только `src/account-store.js`, `+5/-1`.
+В этом проходе удалось обойти прежнее ограничение hosted checkout без semantic-модели: нужные product/test файлы были материализованы по exact GitHub blob bytes, а локальные Git blob SHA сверены с GitHub перед исполнением.
 
-Новый порядок в `load()`:
-1. `stem = path.basename(file, '.json')`;
-2. `fileId = safeId(stem)`;
-3. если `${fileId}.json !== file` — файл reject/fail-closed;
-4. только затем JSON parse и существующая проверка embedded id.
+Exact account/cooldown cluster сначала дал один FAIL:
+- `account-store-mutation-atomicity-test.js` ожидал, что `markSuccess()` очистит `failures` при уже активном cooldown.
+- Это противоречило более свежему и отдельному `account-success-cooldown-race-test.js`: поздний успех старого in-flight запроса обязан сохранять более свежую CAPTCHA/rate-limit паузу и error state.
+- Product был правильным; устарел тест.
 
-Таким образом `alpha.beta.json` не может стать `alpha-beta`, а канонический `alpha-beta.json` остаётся допустимым.
+Минимальный root fix `af1bc26a...`: положительный post-rollback путь в mutation-atomicity теперь проверяется через `reset('alpha')`, который по контракту действительно очищает cooldown. После fresh-read blob `e07b15b26eed623f81759b7ca5d417e39b6cbc70` совпал с исполняемыми байтами.
 
-### Проверка и честная граница доказательства
-Старое/новое поведение воспроизведено на hosted Node моделью того же filename-инварианта:
-- old: `ACCOUNT_STORE_NONCANONICAL_FILENAME_OLD_FAIL reproduced_alias=1`;
-- fixed: `ACCOUNT_STORE_NONCANONICAL_FILENAME_PASS rogue_rejected=1 canonical_loaded=1`.
+После этого exact executable account/cooldown cluster PASS:
+1. `account-store-noncanonical-filename-test.js` — PASS;
+2. `account-store-filename-identity-test.js` — PASS;
+3. `account-store-persistence-test.js` — PASS;
+4. `account-store-interrupted-replacement-recovery-test.js` — PASS;
+5. `account-store-mutation-atomicity-test.js` — PASS;
+6. `account-store-cooldown-test.js` — PASS;
+7. `account-cooldown-wall-clock-jump-test.js` — PASS;
+8. `account-success-cooldown-race-test.js` — PASS.
 
-Но exact закрытый repo по-прежнему нельзя клонировать в hosted container из-за DNS, поэтому полный требуемый cluster на exact-tree в этой смене НЕ объявляется зелёным. Не считать semantic model заменой exact test execution.
+После этого, и только после green, regression подключён к штатному `npm test` коммитом `5e5cdf4a...`; package blob после записи fresh-read = `42cb82971b86032ddc3bc0361e01fc8840ba7d04`.
 
-Поэтому новый regression пока намеренно НЕ подключён к обычному `npm test`: владелец потребовал сначала получить green для:
-- `account-store-noncanonical-filename-test.js`;
-- `account-store-filename-identity-test.js`;
-- `account-store-persistence-test.js`;
-- `account-store-interrupted-replacement-recovery-test.js`;
-- `account-store-mutation-atomicity-test.js`;
-- `account-store-cooldown-test.js`;
-и ближайших account-store/cooldown проверок.
+## Provider cluster — 7/8 exact source tests green
+На тех же неизменённых `src/provider-circuit.js` bytes (Git blob `014b681c8032c86401801c6f0a6405f0b2149192`) byte-exact materialization + execution дали PASS:
+- `provider-circuit-monotonic-test.js`;
+- `provider-circuit-wall-clock-jump-test.js`;
+- `provider-circuit-trip-wall-clock-jump-test.js`;
+- `provider-circuit-missing-state-fail-closed-test.js`;
+- `provider-circuit-missing-state-retrip-restart-test.js`;
+- `provider-circuit-persistence-test.js`;
+- `provider-circuit-clear-durability-test.js`.
 
-После exact/исполняемого green подключить regression к обычному `npm test`, не ослабляя его.
+Остался `provider-safety-test.js`. Его exact test bytes прочитаны (blob `b593a77fe73b9041081c2cc6de90195ffe074952`), но он загружает `src/qwen-client.js`, который в свою очередь требует npm `axios`. Hosted filesystem не имеет axios и не имеет DNS к npm/GitHub. Семантической заглушкой это не объявлять exact dependency-tree PASS. Внешний CI ради одного targeted теста не запускать; сначала искать уже доступный exact dependency materialization path.
 
 ## Координация с QWEN_CORE
-На входе fresh QWEN_CORE handoff указывал head `0c8b0c8c1557449b7b3ead5526368f88bb3687a5`; к моменту product write PR уже дошёл до `ee1c5965...` изменением только subagent regression. Перед записью `src/account-store.js` его свежий blob был перечитан. Compare после записи подтвердил отсутствие посторонних изменений.
+Fresh Core handoff на `aab492ab...` содержит отдельный намеренно RED regression `tool-required-terminal-frame-test.js`; product Core fix ещё pending. Reliability не менял его файлы.
 
-Reliability не заходил в Core-зону session/subagent/system prompt.
+Следовательно full `npm test` и final Circle gate пока преждевременны независимо от Reliability: на общем свежем SHA есть осознанный Core RED.
 
-## Уже закрытые дефекты — без нового контрпримера не открывать заново
-- account-local/provider-wide separation;
-- stale preferred / removed-account resurrection через caller-owned object;
-- account/thread affinity;
-- request-wide distinct-account budget и preferred-reuse edge;
-- completion/chat-create pre-dispatch cooldown races;
-- wall-clock jump для account cooldown и provider-wide circuit;
-- late success не стирает более свежий cooldown и не возвращает active pointer на охлаждённый аккаунт;
-- durable account/session/provider cleanup-after-commit;
-- interrupted replacement recovery и legacy migration rollback;
-- embedded-id filename alias (`alpha.json{id=beta}`);
-- stream checkpoint-before-release / late stream errors;
-- pending mutating tool replay guard;
-- stale session/subagent backup fail-closed;
-- durable request governor V4–V10;
-- restart/failover replay-safety для completed и unresolved mutating calls.
+## Следующий обязательный порядок Reliability
+1. Fresh-read PR #6 и QWEN_CORE перед любой записью.
+2. Закрыть точное исполнение `provider-safety-test.js` без подмены exact PASS семантической моделью; не использовать live provider.
+3. Затем на одном свежем SHA выполнить актуальный account/failover/replay cluster.
+4. Один ограниченный red-team по Windows/path/rename/file-lock/process/env; новый код только при серьёзном воспроизводимом контрпримере.
+5. Когда Core RED закрыт и Core+Reliability targeted green на одном стабильном SHA — full exact-tree Linux `npm test`.
+6. Только после Linux PASS — один disposable `ci/qwen-final-gate`: locked Linux full suite -> настоящий Windows Server 2022 full locked suite на тех же product bytes. Недоступный результат != PASS; старый gate `246dcfc...`/`ee1c596...` не финальный.
 
-Свежий noncanonical-pathname дефект (`alpha.beta.json -> alpha-beta`) закрыт кодом на `e21baa6c...`, но его exact cluster proof ещё pending как описано выше.
-
-## Следующий обязательный порядок
-1. Fresh-read PR #6 + QWEN_CORE; убедиться, что `src/account-store.js` после `e21baa6c...` не затёрт.
-2. Получить исполняемый exact-tree/эквивалентный byte-exact запуск свежего filename cluster: новый noncanonical regression + filename identity + persistence + interrupted replacement + mutation atomicity + cooldown.
-3. Только после green добавить `account-store-noncanonical-filename-test.js` в обычный `npm test`.
-4. На том же свежем product SHA прогнать targeted provider cluster: monotonic, wall-clock jump, trip wall-clock jump, missing-state fail-closed, missing-state retrip/restart, persistence, clear-durability, provider-safety.
-5. Затем актуальный account-store/failover/replay cluster и разумный red-team по незакрытым серьёзным границам, особенно Windows/path/rename/file-locking/process/env.
-6. Когда Core + Reliability targeted clusters зелёные на одном стабильном SHA — полный exact-tree Linux `npm test`.
-7. После Linux PASS — один native Windows Server CircleCI final gate на том же exact product SHA по `autonomy/ci/CIRCLECI_GATE_POLICY.md`. Windows FAIL = blocker; недоступный результат != PASS.
-8. Live provider без новой причины не повторять.
-
-## CircleCI final gate
-Новый gate в этом проходе НЕ запускался. До него ещё не выполнен exact targeted cluster, поэтому тратить редкий final gate преждевременно.
-
-Gate разрешён только через disposable `ci/qwen-final-gate`, одним владельцем exact SHA, с locked install, полным offline Linux suite и native Windows suite, без provider/secrets/production.
+## CircleCI
+В этом проходе CircleCI/GitHub Actions не запускались. Это соответствует `autonomy/ci/CIRCLECI_GATE_POLICY.md`: Circle не development loop и final gate сейчас блокируется Core RED + незавершённым `provider-safety` exact proof/full Linux.
 
 ## Постоянная память / v4 CAS
 Worker: `QWEN_RELIABILITY`.
-На старте перечитаны `CAPSULE_RUNTIME_PROTOCOL_V2.json`, exact `capsule_runtime_v4.py`, `LATEST.json`, manifest и обе части текущей capsule. Проверенный pointer остаётся:
-- LATEST capsule `20260822T115554Z-8763a42805`;
-- LATEST blob `659fa97eca2345c6ca401b4788ec1d5f6e43f650`;
+Fresh-read проверенного указателя:
+- `LATEST.json` blob `659fa97eca2345c6ca401b4788ec1d5f6e43f650`;
+- capsule `20260822T115554Z-8763a42805`;
 - archive SHA-256 `3ebdba2e34121ab6a368bbde3f3d928c9fcdbfa88fad7fdda74834d13063467d`.
 
-Локально был создан и `verify + restore` прошёл новый кандидат `20260822T195626Z-f82f5a9bf8` для source ref `e21baa6c...`. Однако обязательный read-back после загрузки поймал несовпадение part-0000 с SHA, записанным в manifest. По протоколу такой кандидат НЕ публикуется и НЕ может стать LATEST. Он оставлен только как непроверенный orphan; `LATEST/PREVIOUS` не менялись, force-write не использовался.
+Предыдущий orphan-кандидат с несовпавшим read-back не чинить и не публиковать. В этом проходе новый `LATEST/PREVIOUS` намеренно не форсировался: обязательный полный `restore -> pack v4 -> upload -> readback byte verify -> CAS` цикл не был завершён через безопасный byte transport. Force-write не использовался. Точные новые product commits и handoff являются источником восстановления поверх прежнего проверенного LATEST.
 
-Это намеренный fail-closed результат CAS-протокола: следующий запуск должен восстановиться из прежнего проверенного LATEST/точного GitHub source и заново сделать `pack -> upload -> readback byte verify -> CAS`, а не пытаться чинить байты orphan по памяти.
-
-Live Qwen/provider traffic, реальные аккаунты, секреты, Cloudflare, production, GitHub Actions и CircleCI в этом проходе не использовались.
+## Запреты/границы
+Live Qwen/provider traffic, реальные аккаунты, секреты, Cloudflare и production не трогались. AI Mirrors и Kontur product code не трогались.

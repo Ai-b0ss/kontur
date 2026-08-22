@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Read-only proof that the production participant reset reached the core state.
+# Read-only proof that every table targeted by the one-time production reset is empty.
 export CLOUDFLARE_STAGING_D1_DATABASE_ID='22786b4b-99cc-4ca5-a18b-932e8781021b'
 export CLOUDFLARE_PROD_D1_DATABASE_NAME='kontur'
 export CLOUDFLARE_PROD_D1_DATABASE_ID='91e39e7e-70fc-4551-8d3e-48235e70f985'
@@ -24,33 +24,67 @@ NODE
 
 pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_PROD_D1_DATABASE_NAME" \
   --remote --config wrangler.jsonc --json \
-  --command "SELECT (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM profiles) AS profiles, (SELECT COUNT(*) FROM profiles WHERE hatched_at IS NOT NULL) AS hatched, (SELECT COUNT(*) FROM onboarding_answers) AS onboarding, (SELECT COUNT(*) FROM wallets) AS wallets, (SELECT COUNT(*) FROM colorings) AS colorings" \
-  > /tmp/kontur-reset-core-counts.json
+  --command "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name" \
+  > /tmp/kontur-reset-schema.json
+
+node --input-type=module <<'NODE'
+import fs from 'node:fs';
+const raw = JSON.parse(fs.readFileSync('/tmp/kontur-reset-schema.json', 'utf8'));
+const names = [];
+const visit = (value) => {
+  if (Array.isArray(value)) return value.forEach(visit);
+  if (!value || typeof value !== 'object') return;
+  if (typeof value.name === 'string') names.push(value.name);
+  Object.values(value).forEach(visit);
+};
+visit(raw);
+const preserve = new Set(['d1_migrations','colorings','pilot_chats','restored_opportunities','v5_campaign_chats']);
+const targets = [...new Set(names)]
+  .filter((name) => !preserve.has(name))
+  .filter((name) => !name.startsWith('_cf_'))
+  .filter((name) => !/migration/i.test(name))
+  .sort();
+if (!targets.includes('users')) throw new Error('users table missing from reset target set');
+const terms = targets.map((name) => `(SELECT COUNT(*) FROM "${name.replaceAll('"','""')}")`);
+fs.writeFileSync('/tmp/kontur-reset-total.sql', `SELECT ${terms.join(' + ')} AS remaining_rows, ${targets.length} AS tables_checked;\n`);
+NODE
+
+RESET_TOTAL_SQL="$(cat /tmp/kontur-reset-total.sql)"
+pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_PROD_D1_DATABASE_NAME" \
+  --remote --config wrangler.jsonc --json --command "$RESET_TOTAL_SQL" \
+  > /tmp/kontur-reset-total.json
+
+pnpm -F @kontur/worker exec wrangler d1 execute "$CLOUDFLARE_PROD_D1_DATABASE_NAME" \
+  --remote --config wrangler.jsonc --json \
+  --command "SELECT (SELECT COUNT(*) FROM colorings) AS colorings, (SELECT COUNT(*) FROM restored_opportunities) AS opportunities" \
+  > /tmp/kontur-reset-static.json
 
 curl -fsS -H 'Cache-Control: no-cache, no-store, max-age=0' \
-  "$CLOUDFLARE_PROD_ORIGIN/api/v1/health?kontur_reset_proof=core" \
+  "$CLOUDFLARE_PROD_ORIGIN/api/v1/health?kontur_reset_proof=all-runtime" \
   > /tmp/kontur-reset-health.json
 
 node --input-type=module <<'NODE'
 import fs from 'node:fs';
-const raw = JSON.parse(fs.readFileSync('/tmp/kontur-reset-core-counts.json', 'utf8'));
-let counts = null;
-const visit = (value) => {
-  if (counts) return;
-  if (Array.isArray(value)) return value.forEach(visit);
-  if (!value || typeof value !== 'object') return;
-  if (['users','profiles','hatched','onboarding','wallets','colorings'].every((k) => Number.isInteger(value[k]))) counts = value;
-  Object.values(value).forEach(visit);
+const findRecord = (raw, keys) => {
+  let found = null;
+  const visit = (value) => {
+    if (found) return;
+    if (Array.isArray(value)) return value.forEach(visit);
+    if (!value || typeof value !== 'object') return;
+    if (keys.every((k) => Number.isInteger(value[k]))) found = value;
+    Object.values(value).forEach(visit);
+  };
+  visit(raw);
+  return found;
 };
-visit(raw);
-if (!counts) throw new Error('core counts missing');
-if (counts.users !== 0 || counts.profiles !== 0 || counts.hatched !== 0 || counts.onboarding !== 0 || counts.wallets !== 0) {
-  throw new Error(`participant reset incomplete users=${counts.users} profiles=${counts.profiles} hatched=${counts.hatched} onboarding=${counts.onboarding} wallets=${counts.wallets}`);
-}
-if (counts.colorings <= 0) throw new Error('coloring catalog was erased');
-const health = JSON.parse(fs.readFileSync('/tmp/kontur-reset-health.json', 'utf8'));
+const total = findRecord(JSON.parse(fs.readFileSync('/tmp/kontur-reset-total.json','utf8')), ['remaining_rows','tables_checked']);
+if (!total) throw new Error('runtime total missing');
+if (total.remaining_rows !== 0) throw new Error(`runtime reset incomplete remaining_rows=${total.remaining_rows} tables=${total.tables_checked}`);
+const statics = findRecord(JSON.parse(fs.readFileSync('/tmp/kontur-reset-static.json','utf8')), ['colorings','opportunities']);
+if (!statics || statics.colorings <= 0 || statics.opportunities <= 0) throw new Error('required static catalog missing after reset');
+const health = JSON.parse(fs.readFileSync('/tmp/kontur-reset-health.json','utf8'));
 if (health.ok !== true || health.devMode !== false || health.driver !== 'd1') throw new Error('production health mismatch');
-console.log(`PRODUCTION_RESET_CORE_PASS users=${counts.users} onboarding=${counts.onboarding} colorings=${counts.colorings}`);
+console.log(`PRODUCTION_RESET_ALL_RUNTIME_PASS tables=${total.tables_checked} remaining_rows=0 colorings=${statics.colorings} opportunities=${statics.opportunities}`);
 NODE
 
 node tools/cloudflare/make-staging-config.mjs

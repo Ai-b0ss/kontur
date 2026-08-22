@@ -1,0 +1,41 @@
+*** Begin Patch
+*** Update File: src/tool-executor.js
+@@
+ const TOOL_DEFS = [
+@@
+ ];
++
++function validateRequiredToolArguments(name, args) {
++  const def = TOOL_DEFS.find((tool) => tool?.function?.name === name);
++  if (!def) return null;
++
++  const source = args && typeof args === 'object' && !Array.isArray(args) ? args : {};
++  const parameters = def.function?.parameters || {};
++  const required = Array.isArray(parameters.required) ? parameters.required : [];
++  const properties = parameters.properties || {};
++
++  for (const key of required) {
++    if (!Object.prototype.hasOwnProperty.call(source, key) || source[key] == null) {
++      return `Error: missing required argument: ${key}`;
++    }
++    const expectedType = properties[key]?.type;
++    if (expectedType === 'string' && typeof source[key] !== 'string') {
++      return `Error: invalid required argument type: ${key} must be a string`;
++    }
++    if (key === 'path' && typeof source[key] === 'string' && !source[key].trim()) {
++      return 'Error: required path must not be empty';
++    }
++  }
++
++  return null;
++}
+ 
+ async function executeTool(name, args) {
+   const handler = HANDLERS[name];
+   if (!handler) return `Error: unknown tool: ${name}`;
++  const validationError = validateRequiredToolArguments(name, args);
++  if (validationError) return validationError;
+   try {
+-    const result = await handler(args);
++    const result = await handler(args);
+*** End Patch

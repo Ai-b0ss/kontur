@@ -1,0 +1,33 @@
+{
+  "schema": "notion_core_durable_replay_v24_transport_retry_proof_boundary_v1",
+  "created_at_utc": "2026-08-22T04:12:00Z",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_integration_head": "590ae476b7dee4a9a07916cb3504c70568c12552",
+  "status": "V24_TRANSPORT_RETRY_PROOF_BOUNDARY_PASS",
+  "finding": "Current transport evidence cannot safely prove that a failed request did not make remote progress in Notion. payload/account_pool.py records provider_call_entered=true and response_progress_observation_complete=false for current transport failures. payload/transport_evidence.py produces diagnostic hypotheses from curl code/timing/progress, not a typed proof of remote non-entry. Therefore V23 must remain fail-closed for current Notion TRANSPORT/httpx failures in durable Core mode; curl code or timing alone must not re-enable sibling retry.",
+  "safe_retry_rule": {
+    "allowed_only_when": "a lower layer emits an explicit typed proof that provider call was not entered / remote progress is impossible",
+    "current_producers": "none",
+    "current_ambiguous_transport": "PROVIDER_OUTCOME_UNKNOWN => no sibling retry",
+    "rate_limit_and_non_transport_failover": "unchanged by this Core rule"
+  },
+  "exact_source_observations": [
+    "AccountLease.run currently switches accounts for failover-class transport errors.",
+    "_record_transport_failure constructs TransportContext(provider_call_entered=true, response_progress_observation_complete=false).",
+    "classify_transport returns hypotheses such as INDETERMINATE, SUPPORTED_BUT_NOT_PROVEN, REFUTED_FOR_SIMPLE_PRE_RESPONSE_CONNECT_TIMEOUT; none means remote request definitely did not progress.",
+    "V23 candidate v2 already provides a Core-only fail_closed_on_ambiguous_transport flag while preserving default NOTION_AGENT routing behavior."
+  ],
+  "local_harness": {
+    "file": "autonomy/evidence/notion/20260822T0412Z_durable_replay_v24_transport_retry_proof_boundary.py",
+    "results": [
+      "V24_CURRENT_TRANSPORT_EVIDENCE_NEVER_PROVES_SAFE_RETRY_PASS",
+      "V24_CURL_TIMING_NOT_PROMOTED_TO_REMOTE_ABSENCE_PASS",
+      "V24_EXPLICIT_PRE_PROVIDER_PROOF_CAN_ENABLE_RETRY_PASS",
+      "V24_RESPONSE_PROGRESS_REMAINS_FAIL_CLOSED_PASS"
+    ]
+  },
+  "product_decision": "Do not add a heuristic availability exception to V23. If lower-level transport later exposes a typed pre-provider failure, add that type as the only safe exception and prove it separately before enabling sibling retry.",
+  "hosted_ci": "not_run",
+  "live_provider_traffic": "not_run",
+  "windows_native_claim": "none"
+}

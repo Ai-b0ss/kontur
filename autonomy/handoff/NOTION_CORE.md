@@ -2,7 +2,7 @@
 
 Core: `Ai-b0ss/notion-agent-bridge:candidate/ncm28-windows-fixed-v1`, PR #7, exact head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
-Agent integration boundary: draft PR #8 `autonomy/notion-prompt-modes-20260819`, fresh read-only head `fd0d9107daabb2153803206a3ac66dd5ab95c3d7`. Не дублировать rotation, prompt modes, delegation или account/thread affinity. Core-boundary blobs на этом head по-прежнему:
+Agent integration boundary: draft PR #8 `autonomy/notion-prompt-modes-20260819`, fresh read-only head `71749c86125fcc60b67fc477245150c7f5587813`. Не дублировать rotation, prompt modes, delegation или account/thread affinity. Core-boundary blobs на этом head по-прежнему:
 - `payload/server.py` — `f02cef6a0ffc202c75fbe71c520c72ac19ff876d`;
 - `payload/conversation_segments.py` — `553bd3496c21a7949c3a5dfa03f33b9e09293213`;
 - `payload/account_pool.py` — `11cea792a2f5aaa40ee1515faddfd44e76cbb23f`.
@@ -19,11 +19,11 @@ Agent integration boundary: draft PR #8 `autonomy/notion-prompt-modes-20260819`,
 - parts: 1;
 - `LATEST.json` Git blob `18ce26b25c5b8f00c1e8eca449a593531d2fd331`.
 
-В этом проходе предыдущая capsule `20260822T105649Z-f43025f69b` была восстановлена точным `capsule_runtime_v4.py`. Сам runtime-tool материализован с Git blob SHA `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`, совпавшим с каноническим файлом. Новая capsule упакована этим exact tool, immutable part и manifest перечитаны после загрузки и их Git blob SHA совпали с локально рассчитанными; старый `LATEST` сохранён как `PREVIOUS`, затем указатель переключён через CAS после повторного чтения родительского blob. Неизвестные bytes не реконструировались.
+В предыдущем проходе capsule была восстановлена точным `capsule_runtime_v4.py`, затем новая capsule опубликована через verified immutable part + manifest + CAS. В текущем проходе `LATEST`, manifest и immutable part перечитаны. Новую capsule не публиковать, если exact runtime-tool не материализован с каноническим Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`; неизвестные/несовпадающие bytes не реконструировать и `LATEST` не переключать.
 
 ## NCM28 / Windows
 
-Исторический digest workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3` не перезапускать. Read-only status в текущем проходе: все пять старых задач всё ещё `pending`. Финальный native-Windows gate пока не запускать: Stage A закрыт, но Stage B server orchestration ещё не exact-local green. Когда Stage B станет зелёным, один disposable gate должен совместить остаточный auth-rollback/NCM28 proof, PowerShell runtime-restore atomic replace semantics и полный Core candidate gate на exact SHA. Linux/Wine не считать доказательством Windows.
+Исторический digest workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3` не перезапускать. Финальный native-Windows gate пока не запускать: Stage A закрыт, но Stage B server orchestration ещё не exact-local green. Когда Stage B станет зелёным, один disposable gate должен совместить остаточный auth-rollback/NCM28 proof, PowerShell runtime-restore atomic replace semantics и полный Core candidate gate на exact SHA. Linux/Wine не считать доказательством Windows.
 
 ## Stage A — compatibility floor
 
@@ -44,29 +44,35 @@ Stage A закрыт локально на точных Core-boundary исход
 
 ### V41 — exact AccountLease failover opt-out candidate
 
-Свежий exact `AccountLease.run()` подтверждён на blob `11cea792...`: любой failover-eligible exception сейчас безусловно доходит до `_switch_account()`. То есть V36/V40 невозможно честно реализовать только сервером — нужен caller-controlled opt-out в `account_pool.py`.
+Exact `AccountLease.run()` подтверждён на blob `11cea792...`: любой failover-eligible exception сейчас безусловно доходит до `_switch_account()`. V36/V40 невозможно честно реализовать только сервером — нужен caller-controlled opt-out в `account_pool.py`.
 
 Подготовлен exact candidate:
 `autonomy/evidence/notion/20260822T1155Z_v41_accountlease_failover_optout_exact_candidate.patch`.
 
 API: `AccountLease.run(..., allow_failover: bool = True)`. Значение по умолчанию сохраняет нынешнюю Agent-ротацию. Core после успешной strict provider-intent publication вызывает каждый deliberate planner-step с `allow_failover=false`. В этом режиме failover-eligible ошибка учитывается на текущем выбранном аккаунте ровно один раз, transport outcome получает `retry_scheduled=false`, `_switch_account()` не вызывается, исходная ошибка поднимается наверх. Trust-rule denial и timeout остаются на существующих более ранних fail-closed ветках.
 
-Локальная V41-модель повторно прошла ordinary success, local validation error, trust denial, Notion TRANSPORT opt-out и default failover compatibility. Дополнительно зафиксирован узкий observability-gap: raw `httpx.HTTPError` при opt-out безопасно не переключает аккаунт, но нынешний transport-evidence builder специализируется на `NotionAgentError(ErrorCode.TRANSPORT)`. Это не duplicate-provider safety gap и сейчас не повод расширять Agent-поведение.
-
 ### V42 — protected server retry boundary PASS
 
 Exact `server.py=f02cef6a...` проверен вместе с V41 control-flow. Текущий foreground transport recursion входит только через `except AccountPoolExhausted`. При `allow_failover=false` ambiguous transport поднимается прямо из `AccountLease.run()` и не превращается в `AccountPoolExhausted`, поэтому для защищённого post-intent пути этот внешний recursive retry становится недостижимым без отдельного server-флага.
 
-Локальная модель прошла как `V42_PROTECTED_SERVER_RETRY_BOUNDARY_MODEL_PASS`:
-- initial protected transport failure: provider calls `1`, switch `0`, outer recursive retry `0`, final commit `0`;
-- healthy protected step: provider calls `1`, final commit `1`;
-- deliberate planner correction: ровно два осознанных provider-step на том же lease, switch `0`, outer retry `0`;
-- transport failure на correction-step: второй deliberate call происходит один раз, затем fail-closed, final commit `0`;
-- default `allow_failover=true` сохраняет существующий Agent failover/retry path.
+Локальная модель прошла как `V42_PROTECTED_SERVER_RETRY_BOUNDARY_MODEL_PASS`: initial protected transport failure — один provider call, zero switch, zero outer recursion; deliberate planner correction остаётся отдельным осознанным шагом на том же lease; transport failure на correction-step выполняется один раз и закрывается без final commit; default `allow_failover=true` сохраняет существующий Agent failover/retry path.
 
 Evidence: `autonomy/evidence/notion/20260822T1255Z_v42_protected_server_retry_boundary.json`.
 
-Вывод: не добавлять второй лишний «disable outer retry» переключатель, пока exact combined candidate подтверждает этот контроль потока. Обязательная регрессия Stage B должна доказать, что **каждый** deliberate provider-step после intent действительно вызывает `lease.run(..., allow_failover=false)`, включая planner correction.
+### V43 — V41 exact-method targeted PASS + callsite map
+
+В текущем проходе V41 прогнан на локально извлечённой точной логике `AccountLease.run()` из blob `11cea792...` с самим кандидатом `allow_failover`. Вердикт: `V41_EXACT_METHOD_TARGETED_PASS`.
+
+Проверены: ordinary success; local validation error; `TRUST_RULE_DENIED`; Notion `TRANSPORT` с одним вызовом/нулём switch/`retry_scheduled=false`; raw HTTP transport с нулём switch; default failover compatibility; два deliberate planner-step на одном lease/account.
+
+Exact server-callsite audit на `server.py=f02cef6a...` подтвердил три обязательных места защищённого Stage-B вызова:
+1. Responses initial/continuation `lease.run(..., retry_operation=initial_completion)`;
+2. planner correction `lease.run(correction, retry_operation=initial_completion)`;
+3. compaction initial/continuation `lease.run(..., retry_operation=initial_completion)`.
+
+После strict intent **все три** должны вызывать `lease.run(..., allow_failover=false)`. Compaction нельзя оставить на старом default failover, иначе обычные Responses будут защищены от ambiguous duplicate-provider, а `/v1/responses/compact` — нет.
+
+Evidence: `autonomy/evidence/notion/20260822T1345Z_v43_v41_exact_method_and_server_callsites.json`.
 
 ## Обязательные durable-replay инварианты V12–V29
 
@@ -78,12 +84,11 @@ Evidence: `autonomy/evidence/notion/20260822T1255Z_v42_protected_server_retry_bo
 
 ## Следующий порядок
 
-1. Не исследовать Stage A и V34/V35 заново.
-2. Наложить V41 на изолированную exact-копию `account_pool.py`, проверить compile и exact-class targeted cases; отдельно не раздувать raw-httpx observability gap до архитектурной переделки.
-3. Собрать exact-local server orchestration на `server.py=f02cef6a...`: route/account acquisition -> strict intent -> **все** deliberate steps с `allow_failover=false` -> canonical Responses/compaction -> strict finalize -> cache/reservation/client. Не добавлять отдельный outer-retry flag без новой воспроизводимой причины; V42 показывает, что existing `AccountPoolExhausted` recursion недостижим на защищённом пути, если V41 применён везде правильно.
-4. Прогнать локальную матрицу: pool unavailable; intent write failure; ambiguous transport; final write failure; retry/restart exact IDs; planner bad-tool correction same account; correction transport failure; compaction exact/restart/legacy; stream/non-stream; disconnect/hard crash; removed account; TTL/size/oversize/stale retry.
-5. Совместить Codex shell-env patch локально.
-6. Только после зелёного exact-local Stage B запустить один disposable `ci/notion-core-windows-final-gate`; сохранить exact SHA/cases/logs/artifacts. Недоступный результат не считать PASS.
-7. После Windows PASS — один bounded authorized `codex exec -> bridge -> Notion -> local tool -> verifier FAIL -> correction -> VERIFY_OK`, с обезличенным доказательством стабильного conversation id на initial/tool-result/retry/restart.
+1. Не исследовать Stage A, V34/V35 и V41 callsites заново.
+2. Собрать exact-local server orchestration на `server.py=f02cef6a...`: route/account acquisition -> strict intent -> **все три защищённых lease.run callsite** с `allow_failover=false` -> canonical Responses/compaction -> strict finalize -> cache/reservation/client. Не добавлять отдельный outer-retry flag без новой воспроизводимой причины; V42 показывает, что existing `AccountPoolExhausted` recursion недостижим на защищённом пути, если V41 применён везде правильно.
+3. Прогнать локальную матрицу: pool unavailable; intent write failure; ambiguous transport; final write failure; retry/restart exact IDs; planner bad-tool correction same account; correction transport failure; compaction exact/restart/legacy; stream/non-stream; disconnect/hard crash; removed account; TTL/size/oversize/stale retry.
+4. Совместить Codex shell-env patch локально.
+5. Только после зелёного exact-local Stage B запустить один disposable `ci/notion-core-windows-final-gate`; сохранить exact SHA/cases/logs/artifacts. Недоступный результат не считать PASS.
+6. После Windows PASS — один bounded authorized `codex exec -> bridge -> Notion -> local tool -> verifier FAIL -> correction -> VERIFY_OK`, с обезличенным доказательством стабильного conversation id на initial/tool-result/retry/restart.
 
 Product PR #7/#8 не менялись. Hosted CI, live Notion/Codex, секреты и пользовательские данные не трогались.

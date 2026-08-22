@@ -1,0 +1,40 @@
+{
+  "archive": {
+    "parts": 2,
+    "sha256": "c5b8ecd8a42a879bb71a067e40d86a124eb9dc6727c8d8693b5141b364902601",
+    "size": 2239
+  },
+  "capsule_id": "20260822T155830Z-1fb01dded5",
+  "created_at_utc": "2026-08-22T15:58:30Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "5d31426542e03bbef06aff9d444737d23834d57a1da659d93f428b11b1a9c03a"
+    },
+    {
+      "chars": 940,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "b13a118748a634acf195831e34224dc71db16846eb6da4bb6d77eeea30ce9f60"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@eaa7e812cb502649fb5291143070b33bfc94380e",
+  "worker": "NOTION_AGENT",
+  "workspace": {
+    "CHECKPOINT.json": {
+      "mode": "0o644",
+      "sha256": "fce07766f20dea19ce32d8fe2ad8bcab5d21b55c4acfb4ff10d0b813d24182f9",
+      "size": 3944,
+      "type": "file"
+    },
+    "README.md": {
+      "mode": "0o644",
+      "sha256": "7fdaeb2fec2a8b9dca980b617959ffdd7aa3372192a43a88a5a2bc6100f8047a",
+      "size": 236,
+      "type": "file"
+    }
+  }
+}

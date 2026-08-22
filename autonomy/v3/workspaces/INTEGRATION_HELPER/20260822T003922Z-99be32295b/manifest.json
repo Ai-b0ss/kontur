@@ -1,0 +1,58 @@
+{
+  "archive": {
+    "parts": 3,
+    "sha256": "f6aef8b34bdba7addf2adf66c9f1c6f28e975be0e1d5e3bda79e5717a6ea649d",
+    "size": 3719
+  },
+  "capsule_id": "20260822T003922Z-99be32295b",
+  "created_at_utc": "2026-08-22T00:39:22Z",
+  "parts": [
+    {
+      "chars": 2048,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "5d3c08bc826c2a54ecce1e6c9bb6a550039f7cc04f7900966e91fb1198ac899b"
+    },
+    {
+      "chars": 2048,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "30e8d84a60822c3ed07a008073b753b950ce4aa8278af82552eafd534e786888"
+    },
+    {
+      "chars": 864,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "967355571a1629f6da8bac3b7449ecf5b5ca42a556c4bc7cd929f66ef1ad4b04"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@0ca44dd6df901fa848cede6be32e61235a75dcfb + Ai-b0ss/qwen-free-api@3bc544c08d6846f9d4d5db1da3076cd81504a6e1",
+  "worker": "INTEGRATION_HELPER",
+  "workspace": {
+    "CHECKPOINT.md": {
+      "mode": "0o644",
+      "sha256": "15639dd7c2835708d77f1cdd73423e4487b5a1eaafaeb6ad297e9fc778e030ce",
+      "size": 1440,
+      "type": "file"
+    },
+    "EVIDENCE.json": {
+      "mode": "0o644",
+      "sha256": "765a344f9f549d9b06c00633559b775a355f74775bd5f0190fc50c99fd76417d",
+      "size": 1935,
+      "type": "file"
+    },
+    "NOTION_TOMBSTONE_MULTIWRITER_GUARD_20260822.patch": {
+      "mode": "0o644",
+      "sha256": "7797f6593e467d18924b9ef9dd267b1281559a5141468c71170e0888bedd125f",
+      "size": 1390,
+      "type": "file"
+    },
+    "integration_notion_tombstone_store_concurrent_writer_probe.py": {
+      "mode": "0o644",
+      "sha256": "2d2a31aae7fa7d40534139f8c8f218a75b1f234adc60dcda9253354b6ce29abd",
+      "size": 3743,
+      "type": "file"
+    }
+  }
+}

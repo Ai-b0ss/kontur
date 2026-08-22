@@ -46,6 +46,10 @@ function startServer() {
   const server = createServer(async (request, response) => {
     try {
       const url = new URL(request.url || '/', 'http://127.0.0.1');
+      if (url.pathname === '/favicon.ico') {
+        response.writeHead(204, { 'cache-control': 'no-store' }).end();
+        return;
+      }
       const relative = url.pathname === '/' ? 'index.html' : normalize(decodeURIComponent(url.pathname)).replace(/^\/+/, '');
       if (relative.includes('..')) throw new Error('bad path');
       const path = join(dist, relative);

@@ -287,7 +287,8 @@ async function dropLayout(page, label) {
       viewport: { width: innerWidth, height: innerHeight },
     };
   });
-  console.log(`KONTUR_DROP_LAYOUT ${label} ${JSON.stringify(actual)}`);\n  for (const [surface, value] of Object.entries({ image: actual.image, heading: actual.heading, copy: actual.copy, button: actual.button })) {
+  console.log(`KONTUR_DROP_LAYOUT ${label} ${JSON.stringify(actual)}`);
+  for (const [surface, value] of Object.entries({ image: actual.image, heading: actual.heading, copy: actual.copy, button: actual.button })) {
     ok(value && value.left >= -1 && value.right <= actual.viewport.width + 1, `${label}: ${surface} overflows horizontally`);
   }
   ok(actual.image && actual.heading && actual.image.bottom <= actual.heading.top + 1, `${label}: canonical bird overlaps the coloring title`);

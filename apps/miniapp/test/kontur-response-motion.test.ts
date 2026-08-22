@@ -38,6 +38,6 @@ test('reduced motion keeps the same non-zero state ordering with gentler transfo
   assert.match(screen, /reducedMotion \? 0 : 260/);
   assert.match(screen, /new Promise\(\(resolve\) => window\.setTimeout\(resolve, reducedMotion \? 20 : 920\)\)/);
   assert.match(css, /lk-hatch-pulse-reduced/);
-  assert.match(css, /data-hatch-phase="flash"[\s\S]*?animation-duration:\s*120ms !important;/);
-  assert.match(css, /data-hatch-phase="reveal"[\s\S]*?animation-duration:\s*180ms !important;/);
+  assert.match(css, /data-hatch-phase="flash"[\s\S]*?animation-duration:\s*var\(--lk-hatch-flash/);
+  assert.match(css, /data-hatch-phase="reveal"[\s\S]*?animation-duration:\s*var\(--lk-hatch-reveal/);
 });

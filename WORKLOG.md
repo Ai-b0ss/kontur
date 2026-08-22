@@ -1,5 +1,16 @@
 # Worklog
 
+## 2026-08-22 — hatch flash continuity and result-ring artifact
+
+- Mini App only. No bot, D1, worker, deploy, scoring, or asset replacement.
+- Hard cut cause: at the `flash`→`reveal` animation-name swap the overlay fell back to base `opacity: 0` while the egg was already hidden and the bird/frame became visible. The overlay was also a soft radial blob (peak `.82`, transparent at 78%), so it never fully covered the swap.
+- Fix: covering white flash; resting `opacity: 1` across flash and reveal; egg stays until cover completes; `animationend` of `lk-hatch-flash-in` advances the state machine; bird eases `scale(.88)` / opacity over the existing reveal phase.
+- Artifact cause: the q8 block (`08` plus option letters) stayed mounted under the result, and `.lk-reveal-signal` was leftover overlay from the old bird-inside-reveal layout. Both could paint through the transparent lower oval of `.lk-quiz-egg__ring`.
+- Question copy now mounts only on `questions`. The inline reveal no longer renders `.lk-reveal-signal`.
+- Chromium/production-build proof follows this entry after the isolated acceptance run.
+
+## 2026-08-22 — owner-authorized non-destructive production release
+
 ## 2026-08-22 — owner-authorized non-destructive production release
 
 - Deployed exact runtime `b153d4c96a775484c0cfc3b454029f9e4dadaf75` to Worker `kontur-igor` through the credentialed `kontur-igor-staging` Workers Builds executor.

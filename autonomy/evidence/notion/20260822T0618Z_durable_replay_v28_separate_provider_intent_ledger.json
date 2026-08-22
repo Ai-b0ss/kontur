@@ -1,0 +1,39 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "id": "DURABLE_REPLAY_V28_SEPARATE_PROVIDER_INTENT_LEDGER",
+  "created_at_utc": "2026-08-22T06:18:00Z",
+  "source": {
+    "core_pr7_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_integration_head": "f58f0123b370ad786d337337eb03a6a4ce9963b3",
+    "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d"
+  },
+  "finding": "V22/V25 require a durable provider-intent record before the first remote operation, including the first request in a conversation and compaction (V26). The exact current ConversationSegment shape cannot represent a brand-new pre-provider operation without inventing account_id/notion_thread_id/turn-progress fields that do not exist yet. Overloading ConversationSegment with fake provider identity creates an avoidable risk that rollover/anchor/diagnostic code interprets a tombstone as a real remote segment. A dedicated content-free provider_intents ledger in the same atomic state document removes that ambiguity and naturally separates V25 retention/capacity from ordinary conversation TTL/LRU.",
+  "preferred_shape": {
+    "outer_schema": "v3 durable-state epoch from V27",
+    "provider_intents": "mapping conversation_storage_key -> {request_fingerprint, request_kind, created_at}",
+    "conversations": "real provider segment + exact replay only after provider result is known",
+    "atomic_finalize": "one strict state write creates/updates real conversation+replay and removes the matching provider_intent"
+  },
+  "local_results": [
+    "V28_FIRST_REQUEST_INTENT_WITHOUT_FAKE_SEGMENT_PASS",
+    "V28_FINALIZE_ATOMIC_SEGMENT_PLUS_REPLAY_PASS",
+    "V28_FINAL_WRITE_FAILURE_PRESERVES_INTENT_PASS",
+    "V28_INTENT_LEDGER_SURVIVES_CONVERSATION_CLEANUP_PASS",
+    "V28_SEPARATE_INTENT_CAPACITY_PASS",
+    "DURABLE_REPLAY_V28_SEPARATE_INTENT_LEDGER_MODEL_PASS"
+  ],
+  "required_invariant": [
+    "A new conversation can publish a provider intent before account lease/provider entry without fabricating account_id or notion_thread_id.",
+    "Any unresolved intent for a conversation blocks every provider-entering request on that conversation until explicitly reconciled or atomically finalized.",
+    "General conversation TTL/LRU never deletes provider_intents; V25's independent unresolved-intent bound applies to this ledger.",
+    "Successful final publication atomically writes the real segment/progress/exact replay and clears the matching intent in the same NCM28 state write.",
+    "If final publication fails, the prior durable intent remains and no partial/fake conversation segment is committed.",
+    "Compaction uses the same ledger and rules as ordinary Responses (V26)."
+  ],
+  "interaction_with_v27": "The dedicated provider_intents top-level field must be introduced only in the new durable-state schema epoch after the V27 compatibility floor. Keeping it under outer version=2 is downgrade-unsafe because the exact current v2 loader/save pair drops unknown top-level fields.",
+  "product_change": false,
+  "hosted_ci_started": false,
+  "provider_traffic_started": false,
+  "native_windows_claimed": false
+}

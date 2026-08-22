@@ -6,7 +6,7 @@ jobs:
       - image: cimg/node:22.18-browsers
     resource_class: medium
     environment:
-      KONTUR_EXPECTED_SHA: 60c5644d71ed55d6faf13f82162084730c569c48
+      KONTUR_EXPECTED_SHA: 0f88a357f14f37e2f189601817941d2c43e53d32
       KONTUR_BROWSER_EVIDENCE_DIR: /tmp/kontur-visual-evidence/browser
     steps:
       - checkout
@@ -71,7 +71,7 @@ jobs:
             for f in \
               01-hook.png 12-large-hook.png 17-hook-390x844.png \
               15-hatch-intact.png 16-hatch-opening.png 06-bird-reveal.png 08-home.png \
-              gallery-magpie-10-colorings.png gallery-woodpecker-10-colorings.png \
+              gallery-magpie-10-colorings.png gallery-magpie-real-plumage.png gallery-woodpecker-10-colorings.png \
               gallery-jay-10-colorings.png gallery-crane-10-colorings.png \
               gallery-owl-10-colorings.png gallery-kotosov-10-colorings.png \
               KONTUR_VISUAL_FIX_WALKTHROUGH.webm; do
@@ -108,8 +108,8 @@ jobs:
           when: always
           command: |
             set -euo pipefail
-            evidence_branch="evidence/kontur-visual-60c5644d-final5-20260822"
-            target="docs/product/evidence/runtime/60c5644d-visual-fix-final5"
+            evidence_branch="evidence/kontur-emergency-0f88a357-20260822"
+            target="docs/product/evidence/runtime/0f88a357-emergency-visual"
             git switch --create "$evidence_branch" "$KONTUR_EXPECTED_SHA"
             mkdir -p "$target/browser" "$target/logs"
             cp "$KONTUR_BROWSER_EVIDENCE_DIR"/*.png "$target/browser/" 2>/dev/null || true
@@ -121,7 +121,7 @@ jobs:
             git config user.name "Kontur Acceptance Bot"
             git config user.email "kontur-acceptance@users.noreply.github.com"
             git add "$target"
-            git commit -m "evidence: preserve 60c5644d final5 visual fix"
+            git commit -m "evidence: preserve 0f88a357 emergency visual fix"
             git push origin "HEAD:refs/heads/$evidence_branch"
             echo "KONTUR_VISUAL_EVIDENCE_BRANCH_PASS branch=$evidence_branch"
 

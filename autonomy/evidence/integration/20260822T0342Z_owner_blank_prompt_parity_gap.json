@@ -1,0 +1,46 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "NOTION_QWEN_OWNER_WHITESPACE_PROMPT_PARITY_GAP",
+  "verdict": "REPRODUCED_AND_PARITY_CONTRACT_PASS",
+  "fresh_heads": {
+    "qwen_pr6": "6eab3a8232bc40b631e5804fe7fbb33e57754e1a",
+    "notion_agent_pr8": "d2ada47dd096e1273a8bfb1977240a6034e8e622"
+  },
+  "exact_notions_blobs": {
+    "payload/prompt_modes.py": "5dd1ff18840e6a78d1fa5612192c96891e4b1d69",
+    "tests/test_prompt_modes.py": "dca0e394f4c3d6d7944ea48c3c5bd3137eeaad0b"
+  },
+  "qwen_contract_from_fresh_handoff": {
+    "owner_prompt_validation": "explicit owner prompt must be a non-empty string after trim check, but valid prompt bytes are returned unchanged",
+    "commit": "e1206891ad8782229463ac375eadc51c3b608091"
+  },
+  "observed_gap": "Notion resolve_prompt_policy rejects non-string or exactly empty owner_system_prompt, but accepts whitespace-only strings because it tests `not owner_prompt` rather than `not owner_prompt.strip()`.",
+  "risk": "The same owner-mode request can be rejected by Qwen but accepted by Notion with effectively no application authority. This violates the shared two-mode owner contract and can create inconsistent delegation/failover semantics between providers.",
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_owner_blank_prompt_parity_probe.py",
+    "result": {
+      "current_notion": {
+        "empty": "REJECT",
+        "spaces_only": "ACCEPT",
+        "newline_tab_only": "ACCEPT",
+        "valid_with_outer_whitespace": "ACCEPT_EXACT"
+      },
+      "candidate": {
+        "empty": "REJECT",
+        "spaces_only": "REJECT",
+        "newline_tab_only": "REJECT",
+        "valid_with_outer_whitespace": "ACCEPT_EXACT"
+      }
+    }
+  },
+  "minimal_fix": [
+    "In Notion resolve_prompt_policy validate `not isinstance(owner_prompt, str) or not owner_prompt.strip()`.",
+    "After validation return the original owner_prompt unchanged; do not strip or normalize valid owner text.",
+    "Add tests for spaces-only and newline/tab-only rejection plus exact preservation of valid surrounding whitespace."
+  ],
+  "limits": [
+    "No product file changed.",
+    "No hosted CI, provider traffic, Windows, production, real user data or secrets used."
+  ]
+}

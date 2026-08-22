@@ -1,22 +1,41 @@
 version: 2.1
 
 jobs:
-  circle-env-smoke:
+  kontur-source-proof:
     docker:
       - image: cimg/node:22.18-browsers
     resource_class: medium
+    environment:
+      KONTUR_EXPECTED_SHA: b00a2d3262f80e3a44fa2798e25b750d6fa7c737
     steps:
+      - checkout
       - run:
-          name: Minimal executor smoke
+          name: Exact candidate
           command: |
             set -euo pipefail
-            node --version
-            echo CIRCLE_EXECUTOR_SMOKE_PASS
+            git fetch origin fix/kontur-hatch-shells-telegram-viewport-20260822
+            git checkout --detach "$KONTUR_EXPECTED_SHA"
+            test "$(git rev-parse HEAD)" = "$KONTUR_EXPECTED_SHA"
+            test -z "$(git status --porcelain)"
+            echo KONTUR_CIRCLE_EXACT_HEAD_PASS
+      - run:
+          name: Install tests typecheck build
+          no_output_timeout: 25m
+          command: |
+            set -euo pipefail
+            corepack enable
+            corepack prepare pnpm@11.22.0 --activate
+            pnpm install --frozen-lockfile
+            pnpm -F @kontur/miniapp test
+            pnpm -F @kontur/miniapp typecheck
+            pnpm -F @kontur/miniapp build
+            test -s apps/miniapp/dist/index.html
+            echo KONTUR_CIRCLE_SOURCE_BUILD_PASS
 
 workflows:
-  circle-env-smoke:
+  kontur-source-proof:
     jobs:
-      - circle-env-smoke:
+      - kontur-source-proof:
           filters:
             branches:
               only: ci/kontur-circle-vite-20260821

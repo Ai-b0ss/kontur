@@ -14,7 +14,7 @@ This revalidation applies to draft PR #12, branch `fix/kontur-core-visual-contin
 | 14.08 | Accepted preview and result-taxonomy evidence | A–E accepted; five backend roles/six visual results; Kotosov stays client-local presentation subtype |
 | 17.08 | Owner live-review delta | Fix hook copy, integrated egg/progress, q8 same-scene hatch/reveal, canonical cross-surface art and responsive behavior |
 | 18.08 | Owner corrections/audits | Exhaustive matrix required; human visual gate delegated; §16 files remain required; production/main remain forbidden |
-| 18–22.08 | PR repairs and independent browser red-team | Explicit response visual index, q8 dual gate, persistent hatch scene, canonical Home/drop family, reveal/layout fixes, exact staging economy and painted-master-art gates through `729a868c…` |
+| 18–22.08 | PR repairs and independent browser red-team | Explicit response visual index, q8 dual gate, persistent hatch scene, canonical Home/drop family, reveal/layout fixes, exact staging economy and painted-master-art gates through `287b9aa2…`, then evidence-tool hardening through `8487df3b…` |
 | 22.08 | Current owner directive / issue contract `5376688685` | Revalidate the entire universe, use real browser and fresh staging, build secret-safe package, red-team the DONE claim |
 
 Conflicts are resolved in that order. In particular:
@@ -65,7 +65,7 @@ Exactly three product files changed:
 
 ### `5ec223a…` → `287b9aa2…`
 
-Nine bounded commits changed ten paths. The initial `aafa42b…` harness made the real UI inspectable but its successful automation was provisional: manual PNG review found stale reveal surfaces and a tint-only first Home paint. The later commits closed those defects, corrected staging authentication/economy assumptions, and strengthened the acceptance gates:
+Thirteen bounded commits changed eleven paths. The initial `aafa42b…` harness made the real UI inspectable but its successful automation was provisional: manual PNG review found stale reveal surfaces and a tint-only first Home paint. The later commits closed those defects, corrected staging authentication/economy assumptions, and strengthened the acceptance gates:
 
 - `8c48ccf…`: hide stale hook/question surfaces, bind the reveal panel, and bootstrap staging auth safely;
 - `85e6355…`: use a fade-only reveal entrance that never leaves the safe viewport;
@@ -78,7 +78,15 @@ Nine bounded commits changed ten paths. The initial `aafa42b…` harness made th
 - `3dbd1647…`: remove the CSS Grid automatic minimum on canonical images (`min-width/min-height: 0`), so every master aspect ratio is contained by `object-fit`; fresh Chromium measured `252×252` with 35 px before the title.
 - `287b9aa2…`: stabilize mandatory q4/q8 evidence until all four staggered options are fully opaque/enabled and re-anchor the reload capture after the pixel-detail locator check.
 
-The final handoff commit changes documentation/evidence only; the exact path list is recorded in the package manifest.
+### `287b9aa2…` → `8487df3b…`: evidence-chain hardening
+
+The product runtime bytes remain unchanged, but release-record and staging-proof tooling received two mandatory corrections after red-team falsification:
+
+- `cb54f253…` added the exhaustive 105-row matrix and release records. Its exact-head Circle run (trigger `3fadfdac9d3ceeee148cea2f554dedd4b01d27d3`, workflow `0cc64970-adf3-463d-93ac-4c90bab451ac`, job `4fcb03a4-2448-49a0-b13f-fdc57e9419db`) executed successfully, but its evidence publisher placed `SHA256SUMS.txt` into the list while the manifest file was still empty. Independent `sha256sum -c` therefore failed. That evidence branch is rejected as a binding package proof.
+- The publisher was corrected to exclude `SHA256SUMS.txt` from its own contents. The next run (trigger `6ab6f4d74de1befaaf5fa8e29396f125abc8a828`, workflow `41332b2f-0f4c-4508-b492-bbaba8dd3560`, job `73703c38-76e5-48c6-bdee-78390a336b6a`) passed browser/build gates but correctly failed live staging: only three of five synthetic `/worm` grants were accepted because build-number-based Telegram/update IDs overlapped earlier same-day runs. That run is also rejected as a closing PASS.
+- `8487df3b067bde800dd607e65bc4ad80ea89d10c` gives every staging run disjoint safe-integer namespaces (`updateBase = tgId * 100`, `giverBase = tgId * 10`) and adds a regression contract. Exact-head trigger `9b8e86af688d7c69f710f694396f5a3ad65a9e44`, workflow `cdfda3af-92cd-4025-83ae-327a0545ae80`, job `7ba2fe6f-6e87-4885-8e8c-f7b1ecf05324` is SUCCESS; isolated Cloudflare build `e7b4df49-df7a-4056-a571-e21bfdad95a3` and the live smoke prove five distinct grants, self/pair rejection, egg/equip/reload persistence. Immutable evidence is `evidence/kontur-core-8487df3b-tooling1-20260822`.
+
+The final handoff commit changes documentation/evidence only relative to `8487df3b…`; the exact path list is recorded in the package manifest.
 
 ## 4. Fresh exact-head verification
 
@@ -101,7 +109,7 @@ Fresh acceptance then checked the product baseline without a patch overlay:
 - decoded canonical master art with a rendered-pixel detail gate on reveal, Home, reload and replay;
 - eight required PNG, three required WebM and supplemental continuity captures.
 
-The documentation-only final head is rerun through the same exact-head job. Its binding trigger/workflow/job, head and artifact hashes are in `KONTUR_EVIDENCE_INDEX_2026-08-22.md`, the external package manifest and the final issue #9 record. This avoids an impossible self-referential Git commit hash inside the commit itself.
+The hardened acceptance tooling at exact `8487df3b…` was rerun through the same clean job and produced a structurally non-self-referential evidence manifest. The documentation-only final head is then rerun once more. Its binding trigger/workflow/job, head and artifact hashes are in `KONTUR_EVIDENCE_INDEX_2026-08-22.md`, the external package manifest and the final issue #9 record. This avoids an impossible self-referential Git commit hash inside the commit itself.
 
 ## 5. Browser proof classification
 
@@ -123,13 +131,13 @@ The staging verifier checks:
 - `/api/v4/local/state` rejects an unsigned request with 401;
 - signed synthetic Telegram auth creates a fresh staging-only player;
 - the live endpoint returns exactly 8 questions with four options each;
-- hatch persists one canonical role and preserves the fresh zero-worm wallet;
-- five distinct synthetic givers grant five worms through the real `/worm` operation; self-giving grants zero and a repeated giver/receiver pair does not grant twice;
+- five disjoint synthetic givers fund the fresh wallet from zero to five; self-giving grants zero and a repeated giver/receiver pair does not grant twice;
+- hatch persists one canonical role and preserves the five earned worms;
 - the five-worm egg spends exactly five and returns a guaranteed-new non-plain coloration;
 - equip persists through a later state fetch;
 - production Worker, production D1, routes, crons, secrets and Telegram identity are untouched.
 
-The generated staging config fails closed unless Worker name, D1 name/UUID and origin are the isolated staging identities and differ from production.
+The generated staging config fails closed unless Worker name, D1 name/UUID and origin are the isolated staging identities and differ from production. Synthetic Telegram, giver, message and update identities are derived from disjoint per-run safe-integer namespaces, so rerunning the proof cannot silently collide with earlier D1 idempotency/daily-budget rows.
 
 ## 7. Handoff and package
 
@@ -161,6 +169,8 @@ The closing review deliberately tested the common false-DONE paths:
 | Reduced motion omitted | Separate reduced-motion context completes q8/reveal |
 | Old backend proof dragged through changed code | Git compare proves protected backend paths unchanged; final suites rerun anyway |
 | Stale staging | Cloudflare build head and exact asset convergence bind the current candidate |
+| Repeated staging run reuses D1 idempotency identities | Red-team reproduced a 3/5 grant failure; disjoint per-run update/giver namespaces now pass the same live journey |
+| Hash manifest proves itself | The invalid self-hash branch was rejected; the publisher excludes only `SHA256SUMS.txt`, and the downloaded evidence is checked against every listed hash |
 | Production used as test stand | Only isolated staging synthetic data; production writes are zero |
 | Package contains local junk/secrets | Listing, exclusions, safety gate and independent secret scan pass |
 | PR accidentally released | PR remains draft/open/unmerged; no `main` or production promotion |

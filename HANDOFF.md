@@ -59,11 +59,13 @@ Git-коммит не может содержать собственный SHA. 
 - canonical master art is decoded and independently checked for rendered pixel detail, so a tint-only silhouette cannot pass;
 - восемь обязательных PNG + три обязательных WebM + дополнительные captures;
 - exact isolated Cloudflare staging generation;
-- live synthetic staging auth/questions/hatch/egg/equip/reload на реальном Worker/D1;
+- live synthetic staging auth/questions/hatch/egg/equip/reload на реальном Worker/D1, включая self/pair rejection и collision-safe повторные прогоны;
 - строгая provenance граница от старого DONE `50b4426…`;
 - воспроизводимый secret-safe owner package.
 
 Binding IDs находятся в package `MANIFEST.json` и канонических GitHub comments. Product-baseline acceptance run: exact head `287b9aa294dbec0af077cdcf96e8e5b864f32c03`, Circle trigger `0b12fc5838b673962422ea015eafed1b3564bef8`, workflow `1cb18623-ee52-42a5-8a0f-ca53a994a1a8`, job `cb3ed7e5-ebc5-456d-ad0b-e68212d06860`, SUCCESS. Exact isolated staging build: `9ec8e6a5-38a6-485f-9e1f-cafa066b93cb`; immutable evidence branch: `evidence/kontur-core-287b9aa2-runtime2-20260822`.
+
+Repeated-run evidence hardening: exact `8487df3b067bde800dd607e65bc4ad80ea89d10c`, Circle trigger `9b8e86af688d7c69f710f694396f5a3ad65a9e44`, workflow `cdfda3af-92cd-4025-83ae-327a0545ae80`, job `7ba2fe6f-6e87-4885-8e8c-f7b1ecf05324`, SUCCESS; Cloudflare staging build `e7b4df49-df7a-4056-a571-e21bfdad95a3`; evidence `evidence/kontur-core-8487df3b-tooling1-20260822`. This run supersedes both the rejected self-hashing manifest and the later 3/5 synthetic-ID collision run.
 
 ## Как воспроизвести локальные gates
 

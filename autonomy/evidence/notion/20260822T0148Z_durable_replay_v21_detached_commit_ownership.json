@@ -1,0 +1,27 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "created_at_utc": "2026-08-22T01:48:00Z",
+  "scope": "NOTION_CORE",
+  "source": {
+    "repo": "Ai-b0ss/notion-agent-bridge",
+    "pr8_head": "be44d01b710d7e9dd8ef646b26d52abfb274e496",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d"
+  },
+  "finding": "V20 cannot safely be implemented by merely removing task.cancel() or shielding one await. Once provider-side work has begun, the provider->canonical-response->strict-durable-publication transaction must have an owner independent of the SSE generator/client connection. The current stream_openai_responses creates run_request as a local task and unconditionally cancels it in generator finally when unfinished. There is no server-level registry/lifecycle owner for such commit-critical tasks.",
+  "risk": "If the client disconnects after the provider has advanced but before durable publication, cancelling or losing ownership of the local task leaves no durable replay record. A retry can then call the provider again. Conversely, simply leaving an unowned task running makes exception observation and application shutdown semantics undefined.",
+  "required_invariant": [
+    "Before provider start, client cancellation may cancel the request.",
+    "After provider start, client/SSE lifetime must not cancel the commit-critical transaction.",
+    "A server-level strong-reference registry must own commit-critical tasks until completion and consume/log exceptions.",
+    "Application shutdown must explicitly drain commit-critical tasks for a bounded interval; if safe durable publication cannot finish, shutdown/recovery must fail closed rather than report the request as safely replayable.",
+    "No response/call/reasoning IDs or provider-derived content may be emitted before strict durable publication under the combined V12+ stream rules."
+  ],
+  "local_model": {
+    "old_disconnect_cancel": {"durable_commit": false},
+    "detached_strong_owner": {"durable_commit": true, "registry_after_completion": 0},
+    "verdict": "DURABLE_REPLAY_V21_DETACHED_COMMIT_OWNERSHIP_MODEL_PASS"
+  },
+  "product_change": false,
+  "hosted_ci": false,
+  "provider_traffic": false
+}

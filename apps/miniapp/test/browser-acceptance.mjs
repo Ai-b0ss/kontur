@@ -233,6 +233,7 @@ async function hatchPaint(page, label) {
       base: paint('.lk-quiz-egg__base'),
       cracks: paint('.lk-quiz-egg__cracks'),
       flash: paint('.lk-quiz-hatch__flash'),
+      frame: paint('.lk-quiz-hatch__frame'),
       bird: paint('.lk-quiz-hatch__bird'),
     };
   });
@@ -265,6 +266,7 @@ async function startHatchTrace(page) {
         header: document.querySelector('.lk-top > span:last-child')?.textContent?.trim() ?? null,
         base: read('.lk-quiz-egg__base'),
         flash: read('.lk-quiz-hatch__flash'),
+        frame: read('.lk-quiz-hatch__frame'),
         bird: read('.lk-quiz-hatch__bird'),
         question: read('.lk-question--egg'),
       });
@@ -285,6 +287,7 @@ async function validateHatchTrace(page, label) {
   for (const sample of active) {
     const beforeReveal = ['pulse', 'cracks', 'flash'].includes(sample.phase);
     if (beforeReveal && sample.bird.present) ok(sample.bird.opacity < .02 || sample.bird.visibility === 'hidden', `${label}: premature bird ${JSON.stringify(sample)}`);
+    if (beforeReveal && sample.frame.present) ok(sample.frame.opacity < .02 || sample.frame.visibility === 'hidden', `${label}: empty result frame before handoff ${JSON.stringify(sample)}`);
     ok(sample.question.visibility === 'hidden' || sample.question.opacity < .02, `${label}: stale q8 copy paints ${JSON.stringify(sample)}`);
     ok(sample.header === '08 / 08' || sample.header === 'ГОТОВО', `${label}: unstable header ${sample.header}`);
     if (sample.phase === 'reveal') {
@@ -572,6 +575,7 @@ try {
   ok(visual.hatchIntact.phase === 'pulse', `unexpected initial hatch phase ${visual.hatchIntact.phase}`);
   ok(visual.hatchIntact.base.opacity > .98, 'intact hatch lost the whole egg');
   ok(visual.hatchIntact.cracks.opacity < .02, 'cracks appear during intact pulse');
+  ok(visual.hatchIntact.frame.opacity < .02, 'empty result circle appears during intact pulse');
   ok(visual.hatchIntact.bird.opacity < .02, 'bird appears before the shell opens');
   await screenshot(page, '15-hatch-intact.png');
   await page.waitForFunction(() => {

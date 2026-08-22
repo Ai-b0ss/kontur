@@ -93,7 +93,12 @@ test('result bird clips inside a stable circle while glow remains outside', asyn
   );
   assert.match(
     css,
-    /\.lk-quiz-hatch__frame\s*\{[\s\S]*?overflow:\s*hidden;[\s\S]*?border-radius:\s*50%;/,
+    /\.lk-quiz-hatch__frame\s*\{[\s\S]*?overflow:\s*hidden;[\s\S]*?border-radius:\s*50%;[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*hidden;/,
+    'the empty result circle must not paint before flash handoff',
+  );
+  assert.match(
+    css,
+    /data-hatch-phase="reveal"[^\{]*\.lk-quiz-hatch__frame,[\s\S]*?data-hatch-phase="settled"[^\{]*\.lk-quiz-hatch__frame\s*\{[\s\S]*?opacity:\s*1;[\s\S]*?visibility:\s*visible;/,
   );
   assert.match(
     css,

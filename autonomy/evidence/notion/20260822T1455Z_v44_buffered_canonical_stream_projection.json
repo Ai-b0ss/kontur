@@ -1,0 +1,48 @@
+{
+  "schema": "notion_core_v44_buffered_canonical_stream_projection_v1",
+  "created_at_utc": "2026-08-22T14:55:00Z",
+  "worker": "NOTION_CORE",
+  "source": {
+    "core_pr": 7,
+    "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_integration_pr": 8,
+    "fresh_agent_head": "093e4865b1db8519b3537471b57a5379477e78dc",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "account_pool_blob": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f"
+  },
+  "exact_source_observations": {
+    "current_stream_generates_response_id_before_durable_state": true,
+    "current_stream_generates_reasoning_id_per_stream_attempt": true,
+    "current_stream_emits_response_created_and_reasoning_before_handle_completion": true,
+    "current_stream_cancels_request_task_when_client_generator_closes": true,
+    "current_nonstream_response_payload_is_constructed_after reservation_affinity_and_conversation_state_writes": true,
+    "current_same_process_affinity_cache_reconstructs_responses_ids_instead_of_replaying_exact_payload": true,
+    "current_responses_initial_and_correction_and_compaction_callsites_use_lease_run_with_implicit_failover_enabled": true
+  },
+  "candidate_invariant": "After local route acquisition and strict provider-intent publication, provider work is commit-critical. Each deliberate planner step uses allow_failover=false. The server constructs one canonical Responses or compaction payload once, strictly finalizes progress+exact payload, then updates ephemeral cache/reservation, and only then exposes response identifiers. Streaming is a projection of that already-durable canonical payload rather than a separate provider-facing execution mode.",
+  "local_model": {
+    "harness_sha256": "ccbeb71a383d008a4344bb5bf9af746dfdd3f9039da23169c340bd1de97aefd5",
+    "verdict": "V44_STAGE_B_BUFFERED_CANONICAL_PROJECTION_MODEL_PASS",
+    "cases": {
+      "success_then_exact_retry_provider_call_count_one": "PASS",
+      "same_response_and_call_ids_on_retry": "PASS",
+      "stream_projection_uses_exact_durable_response": "PASS",
+      "pool_unavailable_before_intent_provider_zero": "PASS",
+      "intent_write_failure_provider_zero": "PASS",
+      "ambiguous_transport_one_provider_attempt_unresolved_intent_no_client_state": "PASS",
+      "deliberate_correction_two_steps_same_account": "PASS",
+      "correction_transport_failure_no_finalize": "PASS",
+      "final_write_failure_no_cache_no_reservation_no_client_state": "PASS",
+      "client_waiter_cancellation_does_not_cancel_commit_critical_task": "PASS"
+    }
+  },
+  "integration_consequence": {
+    "replace_transient_affinity_cache_as_authoritative_replay": true,
+    "buffer_provider_thinking_until_after_durable_finalize": true,
+    "prefer_existing_responses_sse_projection_over_current_provider_coupled_stream_for_stage_b": true,
+    "commit_task_registry_or_equivalent_strong_server_ownership_still_required_after_provider_entry": true,
+    "windows_final_gate_ready": false
+  },
+  "next": "Build an exact preimage-checked server materializer over server.py=f02cef6a... that wires V34/V35 store + V41 lease opt-out and converts Responses streaming into post-finalize projection of the canonical durable result. Then run the full local crash/restart/compaction/removed-account matrix before any native-Windows gate."
+}

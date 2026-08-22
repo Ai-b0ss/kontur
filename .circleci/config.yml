@@ -81,8 +81,10 @@ jobs:
             test -x "$ffmpeg_bin"
             "$ffmpeg_bin" -y \
               -i "$KONTUR_BROWSER_EVIDENCE_DIR/KONTUR_VISUAL_FIX_WALKTHROUGH.webm" \
-              -vf 'scale=240:-2,fps=12' -an -c:v libvpx -b:v 180k -deadline realtime -cpu-used 8 \
-              "$KONTUR_BROWSER_EVIDENCE_DIR/KONTUR_VISUAL_FIX_WALKTHROUGH_COMPRESSED.webm"
+              -vf 'scale=240:-2,fps=12' -an -c:v vp8 -crf 40 -b:v 180k \
+              "$KONTUR_BROWSER_EVIDENCE_DIR/KONTUR_VISUAL_FIX_WALKTHROUGH_COMPRESSED.webm" \
+              2>&1 | tee /tmp/ffmpeg.log
+            test "${PIPESTATUS[0]}" = 0
             test -s "$KONTUR_BROWSER_EVIDENCE_DIR/KONTUR_VISUAL_FIX_WALKTHROUGH_COMPRESSED.webm"
             test "$(stat -c %s "$KONTUR_BROWSER_EVIDENCE_DIR/KONTUR_VISUAL_FIX_WALKTHROUGH_COMPRESSED.webm")" -lt 950000
             echo KONTUR_REAL_CHROMIUM_VISUAL_FIX_PASS
@@ -98,6 +100,7 @@ jobs:
             cp /tmp/typecheck.log /tmp/kontur-visual-evidence/logs/ 2>/dev/null || true
             cp /tmp/vite-build.log /tmp/kontur-visual-evidence/logs/ 2>/dev/null || true
             cp /tmp/browser-acceptance.log /tmp/kontur-visual-evidence/logs/ 2>/dev/null || true
+            cp /tmp/ffmpeg.log /tmp/kontur-visual-evidence/logs/ 2>/dev/null || true
             printf 'head=%s\ncircle_trigger=%s\nclean=true\npatch_overlay=false\nproduction_touched=false\nstaging_touched=false\n' "$KONTUR_EXPECTED_SHA" "$CIRCLE_SHA1" > /tmp/kontur-visual-evidence/CIRCLE_EVIDENCE.txt
 
       - run:
@@ -105,8 +108,8 @@ jobs:
           when: always
           command: |
             set -euo pipefail
-            evidence_branch="evidence/kontur-visual-c2efea85-final-20260822"
-            target="docs/product/evidence/runtime/c2efea85-visual-fix-final"
+            evidence_branch="evidence/kontur-visual-c2efea85-final2-20260822"
+            target="docs/product/evidence/runtime/c2efea85-visual-fix-final2"
             git switch --create "$evidence_branch" "$KONTUR_EXPECTED_SHA"
             mkdir -p "$target/browser" "$target/logs"
             cp "$KONTUR_BROWSER_EVIDENCE_DIR"/*.png "$target/browser/" 2>/dev/null || true
@@ -118,7 +121,7 @@ jobs:
             git config user.name "Kontur Acceptance Bot"
             git config user.email "kontur-acceptance@users.noreply.github.com"
             git add "$target"
-            git commit -m "evidence: preserve c2efea85 final visual fix"
+            git commit -m "evidence: preserve c2efea85 final2 visual fix"
             git push origin "HEAD:refs/heads/$evidence_branch"
             echo "KONTUR_VISUAL_EVIDENCE_BRANCH_PASS branch=$evidence_branch"
 

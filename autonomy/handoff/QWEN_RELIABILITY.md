@@ -6,7 +6,7 @@
 Repo: `Ai-b0ss/qwen-free-api`
 Branch: `autopilot/qwen-runtime-preflight-20260818`
 PR: #6
-Fresh product head после этого прохода: `763ac0b53a7ea94bc8241e3e539b2356b08c9984`.
+Fresh product head на EXIT GATE: `92277b8beb7a8a3f698571678bada7451baa9f81`.
 Перед новой записью обязательно fresh-read PR head, потому что параллельно работает QWEN_CORE.
 
 ## Закрыто в этом проходе — forward wall-clock jump больше не снимает provider-wide circuit раньше времени
@@ -37,10 +37,10 @@ Hosted/local модель нового инварианта прошла:
 ## Fresh-source / параллельная работа
 Стартовый PR head был `cd4696f5730d928892d1080e6c7bf12a175819f1`.
 Перед product write PR сдвинулся до `090ced48c44480fbd72583e4dfac8640ceecec12`; compare показал единственное параллельное изменение в `src/qwen-v3-mode.js`, `provider-circuit.js` и `package.json` не менялись.
-После reliability commits QWEN_CORE добавил ещё один отдельный тест `scripts/server-qwen-mode-preflight-test.js`; свежий head `763ac0b53a7ea94bc8241e3e539b2356b08c9984`. Reliability-изменения не затёрты.
+После reliability commits QWEN_CORE добавил/исправил qwen-mode preflight. EXIT compare `763ac0b... -> 92277b8...` показывает только `package.json` и `scripts/server-qwen-mode-preflight-test.js`; текущий `package.json` по-прежнему содержит `provider-circuit-wall-clock-jump-test.js`. Reliability-изменения не затёрты.
 
 ## QWEN_CORE coordination
-Core продолжает tool/system-prompt/mode линию. Reliability не трогал её файлы и не запускал final CircleCI gate. Один exact gate SHA должен запускать только один владелец после fresh coordination.
+Core продолжает tool/system-prompt/mode линию. Reliability не трогал её продуктовые файлы и не запускал final CircleCI gate. Один exact gate SHA должен запускать только один владелец после fresh coordination.
 
 ## CircleCI final gate
 Политика `autonomy/ci/CIRCLECI_GATE_POLICY.md` перечитана.
@@ -90,7 +90,7 @@ Worker: `QWEN_RELIABILITY`.
 
 Финиш этого прохода:
 - новая capsule `20260822T115554Z-8763a42805`;
-- source ref `Ai-b0ss/qwen-free-api@763ac0b53a7ea94bc8241e3e539b2356b08c9984`;
+- source ref `Ai-b0ss/qwen-free-api@763ac0b53a7ea94bc8241e3e539b2356b08c9984` — exact head в момент `pack`; более поздние Core-only изменения перечислены выше;
 - archive SHA-256 `3ebdba2e34121ab6a368bbde3f3d928c9fcdbfa88fad7fdda74834d13063467d`;
 - local `pack + verify + restore`: PASS;
 - uploaded manifest Git blob `6e59a2fb74c3a3f54f1b5db1e55bdaddf7159bd9` совпал с локальным Git blob;

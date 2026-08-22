@@ -1,0 +1,49 @@
+{
+  "schema": "notion_core_v35_replay_retention_cleanup_evidence_v1",
+  "created_at_utc": "2026-08-22T08:45:00Z",
+  "worker": "NOTION_CORE",
+  "source": {
+    "core_pr": 7,
+    "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_integration_pr": 8,
+    "fresh_agent_head": "60ea23501cda46a6244311174b1db4e27f596c2c",
+    "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "basis": "V34_STAGE_B_STORE_EXACT_CANDIDATE_LOCAL_PASS"
+  },
+  "defect": {
+    "name": "V34 replay TTL is not enforced while the state is idle",
+    "severity": "blocking_security_retention_gap",
+    "reproduced": true,
+    "reason": "V34 _enforce_replay_budget_locked() contains the intended 6-hour replay expiry, but V34 calls it only from finalize_provider_result(). ConversationSegmentStore.get()/status() call _cleanup_locked(), and V34 _cleanup_locked() performs only 30-day conversation TTL/LRU cleanup. Therefore an exact replay payload containing response text/tool arguments can remain on disk well beyond REPLAY_TTL when no later provider result is finalized.",
+    "worst_case": "With no later finalize, replay payload lifetime follows ordinary conversation persistence rather than the declared six-hour replay retention boundary."
+  },
+  "local_model": {
+    "script": "/mnt/data/v35_replay_retention_model.py",
+    "results": [
+      "V34_REPLAY_TTL_NOT_ENFORCED_ON_IDLE_REPRODUCED",
+      "V35_REPLAY_TTL_CLEANUP_MODEL_PASS"
+    ],
+    "cases": {
+      "stale_replay_after_6h_plus_1s_survives_v34_cleanup": "PASS_REPRODUCED",
+      "same_replay_is_removed_by_v35_cleanup": "PASS",
+      "replay_unavailable_tombstone_preserved_after_cleanup": "PASS"
+    }
+  },
+  "candidate": {
+    "patch": "autonomy/evidence/notion/20260822T0845Z_v35_replay_retention_cleanup.patch",
+    "behavior": "Make replay budget/TTL enforcement part of every store cleanup path, return whether replay state changed, and make get()/status() persist that cleanup through their existing changed->save path.",
+    "provider_intents_affected": false,
+    "conversation_ttl_changed": false,
+    "state_version_changed": false
+  },
+  "safety_boundary": {
+    "stage_b_store_v34_without_v35_ready_for_product": false,
+    "stage_b_server_integration_started": false,
+    "native_windows_gate_ready": false,
+    "hosted_ci_started": false,
+    "live_notion_or_codex": false,
+    "product_branch_mutated": false
+  },
+  "next": "Apply V34 then V35 to the exact conversation_segments.py candidate before server integration. Re-run exact store regressions including an idle >6h replay-expiry case and a forced cleanup-write failure. Only then integrate provider intent/replay ordering into exact server.py."
+}

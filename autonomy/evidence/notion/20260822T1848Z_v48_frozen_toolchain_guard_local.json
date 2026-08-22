@@ -1,0 +1,12 @@
+{
+  "schema": "notion_core_v48_frozen_toolchain_guard_local_v1",
+  "candidate": "autonomy/evidence/notion/20260822T1840Z_v48_frozen_agent_toolchain_composition_materializer.py",
+  "candidate_git_blob": "dab975abd730481d0986b38cb2b2fb2d816e4244",
+  "checks": {
+    "python_compile": "PASS",
+    "matching_five_file_fixture": "PASS",
+    "single_helper_byte_mutation_rejected": "PASS"
+  },
+  "verdict": "V48_FROZEN_TOOLCHAIN_GUARD_LOCAL_PASS",
+  "scope": "Guard behavior only; full exact PR8 composition and regression cluster are still required before Stage-B composed PASS or native Windows gate."
+}

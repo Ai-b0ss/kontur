@@ -81,17 +81,17 @@ test('the intact egg stays singular until the shell actually begins opening', as
   );
   assert.match(
     css,
-    /@keyframes lk-hatch-bird-rise[\s\S]*?0%,\s*58%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?68%\s*\{[\s\S]*?opacity:\s*\.34;/,
+    /@keyframes lk-hatch-bird-rise[\s\S]*?0%,\s*68%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*hidden;[\s\S]*?69%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*visible;[\s\S]*?77%\s*\{[\s\S]*?opacity:\s*\.28;/,
     'the bird must stay hidden until the shell has started to open',
   );
   assert.match(
     css,
-    /@keyframes lk-shell-left-open[\s\S]*?0%,\s*52%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?53%,\s*58%\s*\{[\s\S]*?opacity:\s*1;/,
+    /@keyframes lk-shell-left-open[\s\S]*?0%,\s*56%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?62%\s*\{[\s\S]*?opacity:\s*\.58;[\s\S]*?66%\s*\{[\s\S]*?opacity:\s*1;/,
     'the duplicate shell layer must stay invisible while the base egg is still intact',
   );
   assert.match(
     css,
-    /@keyframes lk-hatch-base-fade[\s\S]*?0%,\s*56%\s*\{\s*opacity:\s*1;\s*\}/,
+    /@keyframes lk-hatch-base-fade[\s\S]*?0%,\s*58%\s*\{\s*opacity:\s*1;\s*\}[\s\S]*?66%,\s*100%\s*\{\s*opacity:\s*0;\s*\}/,
     'the single base egg must remain fully visible up to the opening hand-off',
   );
   assert.match(css, /animation:\s*lk-shell-left-open/);
@@ -159,3 +159,4 @@ test('skip and reduced-motion finish through the same hatch finalizer and cancel
     'reduced motion must collapse time but still reach reveal through the same finalizer',
   );
 });
+

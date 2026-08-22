@@ -7,10 +7,11 @@
 - Repo: `Ai-b0ss/qwen-free-api`
 - Branch: `autopilot/qwen-runtime-preflight-20260818`
 - PR: #6
-- Fresh PR head при этой сверке: `6bdc4b315bf83ffe9a8c2a87c03f909a2c156fbc`.
+- Fresh PR head при этой сверке: `2611b67fa01a0d939dc05821c21e163b36dc8ed1`.
 - Combined statuses на этом exact SHA: `[]` — это НЕ PASS.
+- Compare `6bdc4b315... -> 2611b67fa...`: ровно один новый commit, добавлен только `scripts/tool-required-reasoning-leak-test.js`; Reliability product/source bytes не изменились.
 
-QWEN_CORE на этом же head уже закрыл прежний RED `requireToolCall + data:true`; regression подключён в обычный `npm test`. Старую запись Reliability про незакрытый Core RED не использовать.
+QWEN_CORE fresh handoff теперь имеет отдельный намеренно RED regression на reasoning/thinking leak при `requireToolCall=true`. Reliability не трогает `chat-adapter/session/subagent/system-prompt`; этот Core RED должен быть закрыт Core-владельцем до общего full-suite/final gate.
 
 ## Уже доказано Reliability
 
@@ -45,25 +46,25 @@ Noncanonical filename defect закрыт product commit `e21baa6c29edfc2b592db0
 
 Остаётся exact execution `scripts/provider-safety-test.js` на locked dependency tree.
 
-Fresh exact facts на `6bdc4b315...`:
+Поскольку compare до fresh head меняет только Core regression, следующие exact факты Reliability остаются применимы и к `2611b67fa...`:
 - test blob: `b593a77fe73b9041081c2cc6de90195ffe074952`;
 - `src/qwen-client.js` blob: `04ed2eb19dde860331d2722be9fe91c804d919b4`, size 24707;
 - `src/account-store.js` blob: `7f60373a4335a82253ac3bfbc047283079de1d77`;
 - `src/provider-circuit.js` blob: `014b681c8032c86401801c6f0a6405f0b2149192`;
-- package-lock resolves `axios` exactly to `1.19.0` from `https://registry.npmjs.org/axios/-/axios-1.19.0.tgz` with integrity `sha512-ht/iuYZXEjFxLH/Hkezgd7m6JKlHHXEUSneaDz8uZe1Gj5QZtCnpyDsckvAiEnT89OEbCLmnte4R4sn7P0EKFw==`.
+- package-lock resolves `axios` exactly to `1.19.0`, integrity `sha512-ht/iuYZXEjFxLH/Hkezgd7m6JKlHHXEUSneaDz8uZe1Gj5QZtCnpyDsckvAiEnT89OEbCLmnte4R4sn7P0EKFw==`.
 
-Current hosted filesystem still cannot resolve npm/GitHub DNS (`EAI_AGAIN`) and has no installed axios. Do NOT count an axios stub, reconstructed dependency, or semantic model as exact PASS.
+Current hosted filesystem still has no installed axios/npm cache and cannot use npm/GitHub DNS for exact install. Exact private product source is readable through GitHub, but that does not substitute the locked dependency tree. Axios stub, reconstructed dependency or semantic model must NOT be counted as exact PASS.
 
-New useful discovery: GitHub Contents API for the private repo exposes exact current blob metadata and authenticated raw URLs, and `fetch_blob` returns the full exact qwen-client bytes. This narrows the remaining environment problem to acquiring the locked npm dependency tree in an executable filesystem; product source itself is available exactly. Attempts to move the authenticated raw URL into the hosted filesystem were blocked by the downloader/cache boundary, not by missing GitHub authorization.
+Новая попытка найти уже разрешённую среду исполнения через подключённый Replit не дала доказательства: доступен один существующий Replit App, но read-only запрос к его Agent завершился timeout. App не менять и не считать executor, пока доступ к exact repo/deps не подтверждён.
 
 ## Fresh controller / issue #9 state
 
-Latest controller correction says:
-- PR #6 = `6bdc4b315...`;
-- Core terminal RED is closed;
-- both `tool-required-terminal-frame-test.js` and `account-store-noncanonical-filename-test.js` are already in current `npm test`;
-- current exact SHA has no readable external status result;
-- final Circle gate must NOT be triggered yet.
+- Older controller notes about `e21baa6...` / `6bdc4b...` are historical; fresh PR head is `2611b67fa...`.
+- Reliability account/cooldown = 8/8 exact PASS; provider-circuit = 7/8 exact PASS.
+- Reliability blocker = exact `provider-safety-test.js` with locked npm tree.
+- Independent Core blocker = fresh RED `tool-required-reasoning-leak-test.js` on `2611b67fa...`.
+- Current exact SHA has `statuses=[]`; this is not PASS.
+- Final Circle gate must NOT be triggered yet.
 
 ## Circle policy
 
@@ -79,15 +80,16 @@ No live Qwen/provider traffic, no secrets, no production/deploy inside the gate.
 
 ## Координация с QWEN_CORE
 
-Не трогать без прямого пересечения его `session/subagent/system-prompt/chat-adapter` участок. На текущем head Core root fix уже landed. Перед любой product mutation fresh-read PR head и compare с этим handoff.
+Не трогать без прямого пересечения его `session/subagent/system-prompt/chat-adapter` участок. Current Core owns reasoning-leak RED. Reliability product bytes remained unchanged across `6bdc4b315... -> 2611b67fa...`.
 
 ## Следующий порядок
 
-1. First priority: find/use an already-authorized exact execution surface that can materialize the locked npm dependency tree and run exact `provider-safety-test.js`; no stub substitution.
+1. First priority: use the first already-authorized exact execution surface that can materialize the locked npm dependency tree and run exact `provider-safety-test.js`; no stub substitution.
 2. If exact provider-safety PASS — run fresh targeted account/failover/replay cluster on one fresh stable SHA plus one bounded Windows/path/rename/file-lock/process/env red-team.
-3. Coordinate with QWEN_CORE; when both targeted sets are green on the same SHA, run full exact-tree Linux `npm test`.
-4. Only after Linux full green and stable SHA, consume one final Circle Linux -> native Windows gate.
-5. On any FAIL: first reproduced root cause -> minimal fix -> targeted repeat -> full repeat. Do not expand audit endlessly without a serious reproducible counterexample.
+3. In parallel, wait only for QWEN_CORE to close its owned reasoning-leak RED; do not duplicate its patch.
+4. When Core + Reliability targeted sets are green on the same SHA, run full exact-tree Linux `npm test`.
+5. Only after Linux full green and stable SHA, consume one final Circle Linux -> native Windows gate.
+6. On any FAIL: first reproduced root cause -> minimal fix -> targeted repeat -> full repeat. Do not expand audit endlessly without a serious reproducible counterexample.
 
 ## Запреты
 

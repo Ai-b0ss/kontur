@@ -205,7 +205,10 @@
 
 @media (max-width: 360px), (max-height: 650px) {
   .lk-first-time.lk-first-time--hatching .lk-quiz-egg-stage,
-  .lk-first-time.lk-first-time--reveal .lk-quiz-egg-stage { width: 172px; }
+  .lk-first-time.lk-first-time--reveal .lk-quiz-egg-stage {
+    top: calc(50% - 24px);
+    width: 172px;
+  }
   .lk-first-time.lk-first-time--reveal .lk-reveal.lk-reveal--inline {
     right: max(16px, env(safe-area-inset-right));
     bottom: max(8px, env(safe-area-inset-bottom));

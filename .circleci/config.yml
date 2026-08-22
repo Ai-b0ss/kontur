@@ -100,7 +100,7 @@ jobs:
             RELEASE_ORIGIN="$KONTUR_STAGING_ORIGIN" RELEASE_PROPAGATION_TIMEOUT_MS=180000 node tools/cloudflare/wait-for-deployed-assets.mjs | tee /tmp/staging-assets.log
             code="$(curl -sS -o /tmp/staging-unauth.json -w '%{http_code}' "$KONTUR_STAGING_ORIGIN/api/v4/local/state")"
             test "$code" = 401
-            STAGING_ORIGIN="$KONTUR_STAGING_ORIGIN" STAGING_TG_ID="$((820000000 + CIRCLE_BUILD_NUM))" node tools/cloudflare/live-release-staging-smoke.mjs | tee /tmp/staging-live-smoke.log
+            STAGING_ORIGIN="$KONTUR_STAGING_ORIGIN" STAGING_TG_ID="$((820000000 + CIRCLE_BUILD_NUM))" node tools/cloudflare/live-release-staging-smoke.mjs 2>&1 | tee /tmp/staging-live-smoke.log
             echo STAGING_EXACT_GENERATION_AND_LIVE_SYNTHETIC_PASS
 
       - run:
@@ -141,8 +141,8 @@ jobs:
           when: always
           command: |
             set -euo pipefail
-            evidence_branch="evidence/kontur-core-aafa42b9-diag-20260822"
-            target="docs/product/evidence/runtime/aafa42b9-diag"
+            evidence_branch="evidence/kontur-core-aafa42b9-diag22-20260822"
+            target="docs/product/evidence/runtime/aafa42b9-diag2"
             git switch --create "$evidence_branch" "$KONTUR_EXPECTED_SHA"
             mkdir -p "$target/browser" "$target/logs"
             cp "$KONTUR_BROWSER_EVIDENCE_DIR"/*.png "$target/browser/"
@@ -154,7 +154,7 @@ jobs:
             git config user.name "Kontur Acceptance Bot"
             git config user.email "kontur-acceptance@users.noreply.github.com"
             git add "$target"
-            git commit -m "evidence: preserve aafa42b9 diagnostic browser and staging evidence"
+            git commit -m "evidence: preserve aafa42b9 diagnostic-2 browser and staging evidence"
             git push origin "HEAD:refs/heads/$evidence_branch"
             echo "EVIDENCE_BRANCH_PASS branch=$evidence_branch"
 

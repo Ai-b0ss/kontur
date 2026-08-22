@@ -70,16 +70,20 @@ Frozen product preimages всё ещё НЕ заменены:
 
 Большие product файлы вручную не переписывать. Следующий проход должен уже материализовать exact-пару, а не продолжать боковой аудит при отсутствии нового воспроизводимого дефекта.
 
-## Постоянная память
-Текущий проверенный v4 `LATEST`:
-- capsule `20260822T054449Z-620952bc2f`;
-- archive SHA-256 `67f0ea8a9761fdc88cb105dbca8a7d12238deaf3910fb738dce40d7ce5c386bd`;
-- локальные `pack → verify → restore` = PASS;
-- все 5 immutable parts и manifest после загрузки перечитаны; их Git blob SHA совпали с локально рассчитанными;
-- публикация `LATEST` прошла CAS с исходного blob `aa8a3537bee846da7e40fc89da30379e795cdd0f`;
-- прежний LATEST `20260822T040635Z-e00776b282` сохранён в `PREVIOUS`.
+## Постоянная память — исправлено 2026-08-22
+На старте этого прохода нормативная v4-проверка выявила, что оба указателя были непригодны для восстановления:
+- старый `LATEST` → capsule `20260822T054449Z-620952bc2f`: manifest ожидал `part-0004.b64` длиной 836 и SHA-256 `a78aa0b3...`, а фактический GitHub blob имел 832 символа и SHA-256 `dc592a2e...`;
+- старый `PREVIOUS` → capsule `20260822T040635Z-e00776b282`: `part-0001.b64` имел правильную длину 2048, но фактический SHA-256 `65696205...` не совпал с manifest `2cc75607...`.
 
-Важно: первая попытка capsule `20260822T054240Z-19a641cb04` была оставлена immutable и НЕ опубликована, потому что readback `part-0002.b64` не совпал с локальным Git blob. Не использовать её как pointer target.
+Неизвестные bytes не восстанавливались из истории разговора. По failure policy протокола v2 использован exact GitHub source floor: PR #8 head `f58f0123...`, `server.py` blob `f02cef6a...`, `account_pool.py` blob `11cea792...`.
+
+Постоянная память восстановлена двумя подряд проверенными capsule, чтобы вернуть и рабочий rollback:
+- `PREVIOUS` → capsule `20260822T072942Z-e9ae17922a`, archive SHA-256 `220712c2a820c242fb2d9441bb683a289fc36132cabab723f002f67ebebdcb7a`;
+- `LATEST` → capsule `20260822T073131Z-f03f8ff412`, archive SHA-256 `a098e467a44c6f1357d0ae45b67606a890986d6b2e9fe1e13f2567b9935abe34`.
+
+Обе новые capsule локально прошли штатные `pack → verify → restore`; после immutable upload part и manifest перечитаны обратно, их Git blob SHA совпали с локальными байтами. Первый LATEST опубликован CAS со старого blob `76255999...`, второй — CAS с первого валидного LATEST blob `5d0f7885...`; force-write не использовался.
+
+Важно: старые повреждённые capsule остаются immutable историческими объектами, но больше не являются pointer targets.
 
 ## Что НЕ заявлено
 - Полный exact-tree Agent cluster на текущем head ещё не прогнан.

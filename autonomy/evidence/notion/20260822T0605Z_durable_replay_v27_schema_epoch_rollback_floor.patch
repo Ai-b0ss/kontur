@@ -1,0 +1,70 @@
+# V27 is a staged rollout requirement, not a one-shot schema migration.
+# Stage A must land and be proven before any v3 durable state is published.
+# Exact source anchors: conversation_segments.py 553bd349..., server.py f02cef6a...
+#
+# STAGE A — compatibility floor while STATE_VERSION is still 2.
+# This makes an unsupported/corrupt durable state a provider-entry blocker instead
+# of a cache miss. It must cover normal Responses and request_kind=compaction.
+
+diff --git a/payload/conversation_segments.py b/payload/conversation_segments.py
+--- a/payload/conversation_segments.py
++++ b/payload/conversation_segments.py
+@@
+ class ConversationSegmentStore:
+@@
++    async def require_persistence_ready(self) -> None:
++        async with self._guard:
++            self._load_locked()
++            if self.path is not None and self._persistence_blocked:
++                raise RuntimeError("durable conversation state is unavailable")
++
++    async def persistence_blocked(self) -> bool:
++        async with self._guard:
++            self._load_locked()
++            return bool(self.path is not None and self._persistence_blocked)
++
+ diff --git a/payload/server.py b/payload/server.py
+--- a/payload/server.py
++++ b/payload/server.py
+@@
+     affinity = await turn_affinities.get(turn_key)
+     segment = await conversation_segments.get(conversation_key)
++    # Compatibility floor: get() may itself discover an unsupported/corrupt
++    # durable state or fail while persisting cleanup. Re-check after get() and
++    # before account lease/provider entry. This gate applies to compaction too,
++    # because both paths use handle_openai_responses().
++    if isinstance(conversation_segments, ConversationSegmentStore):
++        try:
++            await conversation_segments.require_persistence_ready()
++        except RuntimeError as exc:
++            return JSONResponse(
++                {"error": {"message": str(exc), "type": "durable_state_unavailable"}},
++                status_code=503,
++            )
+@@
+     try:
+         async with account_pool.lease(
+
+# STAGE B — only after Stage A is deployed/proven and declared as the rollback floor.
+# Do NOT keep V22-V26 safety metadata under outer version=2.
+# Recommended shape:
+#
+#   LEGACY_STATE_VERSION = 2
+#   STATE_VERSION = 3
+#
+# New loader:
+#   - accepts version 2 as legacy input, with replay/provider-intent evidence
+#     treated as unavailable (exact legacy retry remains fail-closed where needed);
+#   - accepts version 3 with the full V12..V26 replay/intent schema;
+#   - writes version 3 only.
+#
+# Stage-A binaries accept only v2. Once a v3 file exists they set
+# persistence_blocked and, because Stage A gates provider entry, return 503 before
+# any Notion call. This is the intended safe rollback behavior.
+#
+# Release metadata must record:
+#   minimum_safe_rollback_commit = <exact Stage-A commit>
+# and deployment/rollback tooling must refuse rollback below it after the first
+# successful v3 publication. Older pre-floor binaries are NOT safe rollback
+# targets because the exact current server treats persistence failure as an
+# optimization miss and can re-enter the provider.

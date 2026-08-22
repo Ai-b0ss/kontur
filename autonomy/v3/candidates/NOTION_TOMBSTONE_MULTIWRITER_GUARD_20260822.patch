@@ -1,0 +1,24 @@
+--- a/payload/subagent_tombstone_store.py
++++ b/payload/subagent_tombstone_store.py
+@@
+ class SubagentTombstoneStore:
+@@
+-    def begin_call(self, task_id: str, call_id: str) -> None:
++    def begin_call(self, task_id: str, call_id: str) -> None:
++        # REQUIRED CONTRACT (candidate, not yet product-ready):
++        # Every begin/resolve/mark_uncertain mutation must execute inside ONE
++        # cross-process critical section shared by every store instance for the
++        # same canonical path. While holding that lock, re-read and validate the
++        # canonical file, apply the mutation to the freshly read state, fsync the
++        # replacement, replace atomically, and only then publish in-memory state.
++        #
++        # A plain in-process asyncio/thread lock is insufficient: process overlap
++        # during restart can otherwise let a stale writer replace a newer inflight
++        # marker and make a mutating delegated call replayable.
++        #
++        # Do NOT ship an fcntl-only solution: the bridge has a native Windows gate.
++        # The final implementation needs one proven cross-platform lock primitive
++        # (or an equivalent generation/CAS transaction whose compare+write itself
++        # is atomic across processes). Linux proof is in the integration helper
++        # regression; Windows lock semantics must be tested natively.
+         ...

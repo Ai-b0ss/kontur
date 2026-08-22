@@ -76,11 +76,17 @@ Core не трогает `account-store` / cooldown / provider-circuit. Фина
 ## Постоянная память / v4 CAS
 Нормативный runtime: `autonomy/v3/tools/capsule_runtime_v4.py`, Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`.
 
-Текущий проверенный LATEST на момент начала прохода:
-- capsule `20260822T220756Z-eacfe56704`;
-- archive SHA-256 `dc302ee8dcfb43c6f3ceb15a05315779ccd1e866c6393a7f3971504bfbb6be85`;
-- LATEST blob `25d5d1660d1cd9b8425b2e35d3d9fc8fb91ea9d8`.
+Входной LATEST этого прохода был `20260822T220756Z-eacfe56704`, archive SHA-256 `dc302ee8dcfb43c6f3ceb15a05315779ccd1e866c6393a7f3971504bfbb6be85`, blob указателя `25d5d1660d1cd9b8425b2e35d3d9fc8fb91ea9d8`; exact v4 `verify + restore` прошли.
 
-Новая капсула после RED-test пока не опубликована: сначала завершить handoff/issue evidence и затем выполнять v4 pack/verify/restore + upload + CAS только от fresh LATEST blob. Force-write запрещён.
+Новый опубликованный checkpoint:
+- capsule `20260822T230801Z-b2fff032a7`;
+- archive SHA-256 `72602c3feae0ad139e4b17bc4e8b004ecf26e6796d704b45af9145803aa595fb`;
+- source_ref `2611b67fa01a0d939dc05821c21e163b36dc8ed1`;
+- part blobs после reread: `fe8a7cd9732a8f8165359106ab17575050e8a234`, `43eaa36f84258a24bc3be09fe0be5b202a4ad155`;
+- manifest blob `fb700dfc9a22dc513c8448857325213db8e58417`;
+- local exact v4 `pack -> verify -> restore`: PASS;
+- старый LATEST сохранён в `PREVIOUS`;
+- новый LATEST опубликован через CAS от exact стартового blob, force-write не использовался;
+- новый LATEST blob `0fb9c8b2deb1d947c64a40db7e88b5905eb4edde`.
 
 В этом проходе live/provider traffic, реальные аккаунты, секреты, Cloudflare, production, GitHub Actions и CircleCI не использовались.

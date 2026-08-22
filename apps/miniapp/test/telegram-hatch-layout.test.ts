@@ -27,13 +27,8 @@ test('stale onboarding copy is cancelled synchronously during hatch and reveal',
 test('short Telegram viewport reserves room between result ring and reveal copy', () => {
   assert.match(hotfix, /@media \(max-height:\s*820px\)/);
   assert.match(hotfix, /lk-first-time--reveal \.lk-quiz-egg-stage\s*\{[\s\S]*top:\s*45%;[\s\S]*width:\s*min\(56vw,\s*230px\)/);
-
-  const viewportWidth = 390;
-  const viewportHeight = 760;
-  const stageWidth = Math.min(viewportWidth * 0.56, 230);
-  const stageHeight = stageWidth * (1429 / 1101);
-  const ringBottom = viewportHeight * 0.45 + stageHeight / 2 + 10;
-  assert.ok(ringBottom < 510, `short viewport ring bottom is too low: ${ringBottom}`);
+  assert.match(hotfix, /lk-quiz-egg\.is-hatching > \.lk-quiz-hatch\s*\{[\s\S]*z-index:\s*16/);
+  assert.match(hotfix, /\.lk-quiz-egg \.lk-hatch-half\s*\{[\s\S]*filter:\s*none/);
 });
 
 test('Telegram hotfix is loaded after the other top-level product styles', () => {

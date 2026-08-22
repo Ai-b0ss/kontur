@@ -393,10 +393,12 @@ async function revealLayout(page, label) {
     const panel = document.querySelector('.lk-reveal--inline');
     const bird = document.querySelector('.lk-quiz-hatch [data-bird-result]');
     const ring = document.querySelector('.lk-quiz-egg__ring');
+    const kicker = document.querySelector('.lk-reveal--inline > .lk-kicker');
     const name = document.querySelector('.lk-reveal--inline h1');
     const panelRect = rect(panel);
     const birdRect = rect(bird);
     const ringRect = rect(ring);
+    const kickerRect = rect(kicker);
     const nameRect = rect(name);
     const band = birdRect && ringRect ? {
       top: birdRect.bottom - 2,
@@ -426,17 +428,19 @@ async function revealLayout(page, label) {
       panel: panelRect,
       bird: birdRect,
       ring: ringRect,
+      kicker: kickerRect,
       name: nameRect,
       signalPresent: Boolean(document.querySelector('.lk-reveal-signal')),
       questionNumberPresent: Boolean(document.querySelector('.lk-question-number')),
       stray,
+      gapToKicker: kickerRect && ringRect ? kickerRect.top - ringRect.bottom : null,
       gapToName: nameRect && ringRect ? nameRect.top - ringRect.bottom : null,
       hookCopy: paintState('.lk-hook-copy'),
       hookAction: paintState('.lk-hook-action'),
       question: paintState('.lk-question--egg'),
       viewport: { width: innerWidth, height: innerHeight },
       separated: Boolean(panelRect && birdRect && panelRect.top >= birdRect.bottom - 1),
-      frameSeparated: Boolean(panelRect && ringRect && panelRect.top >= ringRect.bottom + 6),
+      frameSeparated: Boolean(panelRect && ringRect && panelRect.top >= ringRect.bottom + 12),
     };
   });
   for (const [surface, state] of Object.entries({ hookCopy: actual.hookCopy, hookAction: actual.hookAction, question: actual.question })) {
@@ -451,7 +455,9 @@ async function revealLayout(page, label) {
   ok(!actual.signalPresent, `${label}: leftover reveal-signal still mounted`);
   ok(!actual.questionNumberPresent, `${label}: q8 number still mounted under the result`);
   ok(actual.stray.length === 0, `${label}: stray text under the bird ring ${JSON.stringify(actual.stray)}`);
-  ok(actual.gapToName == null || actual.gapToName >= 6, `${label}: bird name sits too close to the ring ${actual.gapToName}`);
+  ok(actual.kicker, `${label}: missing ЭТО ТВОЯ ПТИЦА kicker`);
+  ok(actual.gapToKicker != null && actual.gapToKicker >= 12, `${label}: first reveal line sits under the ring ${actual.gapToKicker}`);
+  ok(actual.gapToName == null || actual.gapToName >= 12, `${label}: bird name sits too close to the ring ${actual.gapToName}`);
   return actual;
 }
 

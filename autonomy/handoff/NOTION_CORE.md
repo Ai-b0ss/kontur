@@ -13,13 +13,13 @@ Agent integration boundary: draft PR #8 `autonomy/notion-prompt-modes-20260819`,
 
 ## Постоянная память v4
 
-Последний полностью проверенный канонический `LATEST` на старте текущего прохода:
-- capsule `20260822T105649Z-f43025f69b`;
-- archive SHA-256 `bcb82a131b9276c7d6cf8acbe34f7c7f8b0ef9963220d791a7fd5cf811b421d5`;
+Текущий полностью проверенный канонический `LATEST`:
+- capsule `20260822T124805Z-7a66179727`;
+- archive SHA-256 `6f87c85b580999d6e03bde8eb0701b7dbede291d0155edb8a2e13fd4555287f6`;
 - parts: 1;
-- `LATEST.json` Git blob `e092670cc44cd569eee8d810e45e52fe908b986a`.
+- `LATEST.json` Git blob `18ce26b25c5b8f00c1e8eca449a593531d2fd331`.
 
-Эта capsule в текущем проходе восстановлена точным `capsule_runtime_v4.py`; manifest, part и archive SHA прошли проверку. Новый `LATEST` публиковать только после полного exact v4 pack/readback/CAS цикла; неизвестные bytes не реконструировать.
+В этом проходе предыдущая capsule `20260822T105649Z-f43025f69b` была восстановлена точным `capsule_runtime_v4.py`. Сам runtime-tool материализован с Git blob SHA `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`, совпавшим с каноническим файлом. Новая capsule упакована этим exact tool, immutable part и manifest перечитаны после загрузки и их Git blob SHA совпали с локально рассчитанными; старый `LATEST` сохранён как `PREVIOUS`, затем указатель переключён через CAS после повторного чтения родительского blob. Неизвестные bytes не реконструировались.
 
 ## NCM28 / Windows
 

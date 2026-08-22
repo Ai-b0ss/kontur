@@ -1,0 +1,10 @@
+file:///home/circleci/project/apps/miniapp/test/telegram-hatch-browser.mjs:70
+function ok(value, message) { if (!value) throw new Error(message); }
+                                                ^
+
+Error: browser errors: ["Failed to load resource: the server responded with a status of 404 (Not Found)"]
+    at ok (file:///home/circleci/project/apps/miniapp/test/telegram-hatch-browser.mjs:70:49)
+    at prove (file:///home/circleci/project/apps/miniapp/test/telegram-hatch-browser.mjs:191:3)
+    at async file:///home/circleci/project/apps/miniapp/test/telegram-hatch-browser.mjs:201:18
+
+Node.js v22.18.0

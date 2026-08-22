@@ -1,0 +1,50 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "NOTION_CORE_AGENT_EXACT_MATERIALIZER_ORDER_CONFLICT",
+  "verdict": "REPRODUCED_CONTRACT_CONFLICT_AND_CANDIDATE_ORDER_PASS",
+  "fresh_heads": {
+    "qwen_pr6": "6d5105925db5d08ba179570d63aad27be17efa56",
+    "notion_agent_pr8": "f58f0123b370ad786d337337eb03a6a4ce9963b3",
+    "notion_core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144"
+  },
+  "exact_sources": {
+    "agent_apply_startup_status_cleanup_blob": "2ed85ece7d3323b1619ec0963d3021c1623d0e0a",
+    "core_v31_materializer_blob": "da898f3488ce3247c4462ff08e12a3c5babdfa79"
+  },
+  "shared_exact_server_preimage": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+  "observed_contract": [
+    "Agent apply_startup_status_cleanup.py refuses any payload/server.py whose Git blob is not the shared exact preimage.",
+    "Core V31 materializer independently refuses any payload/server.py whose Git blob is not the same shared exact preimage.",
+    "Core V31 is a non-identity server transform: it inserts persistence-ready gates into ordinary Responses and compaction.",
+    "Agent is a non-identity server transform: it inserts dynamic reservation/prompt/startup wiring.",
+    "Therefore after either transform succeeds, the other current materializer must reject the changed server preimage. Current tools cannot be applied sequentially in either order."
+  ],
+  "integration_risk": "The documented next steps say to establish Core Stage-A and later synchronize/materialize Agent wiring, but the current exact materializers are mutually exclusive on server.py. Weakening the preimage checks would hide drift; running old Agent materialization before Core would likewise make V31 reject. Without an explicit composition/rebase step, the synchronization plan is not executable by the current tools.",
+  "candidate_contract": {
+    "canonical_order": "CORE_STAGE_A_THEN_AGENT",
+    "requirements": [
+      "Run and prove Core V31/Stage-A first on the exact current Core/Agent preimage.",
+      "Freeze the exact Stage-A output blob of payload/server.py.",
+      "Rebase the Agent server transform onto that exact Stage-A output rather than accepting arbitrary source.",
+      "Keep exact-preimage fail-closed behavior; do not generalize to fuzzy patching.",
+      "Final server regression must prove both Stage-A require_persistence_ready gates and Agent DynamicReservationLeaseSession/prompt/reservation invariants are present together.",
+      "Agent pair materialization must use the rebased final server bytes; old materializer must continue to reject wrong-order or stale inputs."
+    ]
+  },
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_notion_core_agent_materializer_order_probe.py",
+    "result": "NOTION_CORE_AGENT_MATERIALIZER_ORDER_CONFLICT_REPRODUCED_CANDIDATE_CONTRACT_PASS"
+  },
+  "ci_review": {
+    "qwen_gate_commit": "94f8ba55d75f076c58673bff3aabce7b8a756c54",
+    "github_combined_statuses": [],
+    "conclusion": "RESULT_ACCESS_PENDING_OR_UNAVAILABLE; no PASS claimed; helper did not trigger a gate"
+  },
+  "limits": [
+    "No product branch was modified.",
+    "No CircleCI/GitHub Actions trigger.",
+    "No live Qwen/Notion/Codex/provider traffic.",
+    "No Windows, Cloudflare, production, real accounts or secrets."
+  ]
+}

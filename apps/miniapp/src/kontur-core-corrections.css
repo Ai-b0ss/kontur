@@ -223,8 +223,8 @@
 
 @media (max-width: 360px), (max-height: 650px) {
   .lk-first-time.lk-first-time--hook .lk-quiz-egg-stage {
-    top: 190px;
-    width: 168px;
+    top: 252px;
+    width: 156px;
   }
   .lk-first-time.lk-first-time--hatching .lk-quiz-egg-stage,
   .lk-first-time.lk-first-time--reveal .lk-quiz-egg-stage {

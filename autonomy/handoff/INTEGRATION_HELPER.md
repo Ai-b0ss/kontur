@@ -1,54 +1,59 @@
 # Qwen + Notion — интеграционный помощник
 
-Обновлено: 2026-08-22 16:39 UTC.
+Обновлено: 2026-08-22 17:43 UTC.
 
 Worker id: `INTEGRATION_HELPER`.
 
 ## Свежая координация
 
 Fresh heads, прочитанные в этом проходе:
-- Qwen PR #6: `3f5729180f6669551d8a48a1c5e9be2e756445b3`;
-- Notion Agent PR #8: `eaa7e812cb502649fb5291143070b33bfc94380e`;
+- Qwen PR #6: `b4541d111c0e57d1352cbbbe80e72eff292dd7ef`;
+- Notion Agent PR #8: `57bafc097d610e8055ab28f2fadc36a85af8200a`;
 - Notion Core PR #7: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
-Не перехватывать узкую работу владельцев:
-- Qwen Core — bounded internal prompt-mode error / owner-session exact cluster;
-- Qwen Reliability — account-store/cooldown/failover targeted cluster;
-- Notion Agent — exact pair materialization + tombstone/recovery;
-- Notion Core — composed Stage-B durable Responses + V41–V46 + native Windows gate.
+Текущую узкую работу владельцев не перехватывать:
+- Qwen Core — exact owner/session/subagent/restart cluster и bounded prompt-mode regressions;
+- Qwen Reliability — provider-circuit/account-store/cooldown final targeted cluster;
+- Notion Agent — exact pair materialization + tombstone/recovery hardening;
+- Notion Core — V47 composed Stage-B durable Responses + native Windows gate.
 
-## Finding O — V46 composed server пропускает каноническую tombstone-проводку Agent
+## Finding P — composed публикация всё ещё не имеет безопасного трёхфайлового протокола
 
-Exact-source разрыв:
-- Core V46 composition materializer `autonomy/evidence/notion/20260822T1605Z_v46_agent_core_composition_materializer.py`, blob `76fc60af515cc6a9a0212ff6bcf1de957f6631c3`, для `server.py` вызывает только `apply_startup_status_cleanup.apply` (`agent_server_apply`).
-- Он не импортирует и не вызывает текущий `apply_subagent_tombstone_wiring`.
-- Канонический Agent wrapper `tools/materialize_agent_wiring_with_tombstones.py`, blob `859039a5e408bc84e7046372cdb509131eb37a97`, после base materialization явно делает `server_updated = apply_tombstone_wiring(server_updated)` и требует ровно один `"subagent-uncertain-tasks.json"` marker.
-- `tools/apply_startup_status_cleanup.py`, blob `2ed85ece7d3323b1619ec0963d3021c1623d0e0a`, marker не добавляет; `tools/apply_subagent_tombstone_wiring.py`, blob `40ab3a448e33fb8a8c3ce045ef31a815d0554823`, добавляет.
+Новый exact-materialization стык:
+- Agent crash-safe materializer транзакционно владеет только `payload/account_pool.py` + `payload/server.py`.
+- Core V45 дополнительно меняет `payload/reservation_aware_lease.py`, чтобы `DynamicReservationLeaseSession` мог передать `allow_failover=False` в V41 `AccountLease.run`.
+- V47 уже композирует все три файла, но его `--apply` явно предназначен только для disposable checkout и записывает три файла напрямую. Это не product transaction/recovery protocol.
 
-Следствие: нынешние V46 isolated composed bytes не представляют текущую каноническую Agent no-replay/tombstone конфигурацию. Зеленый Stage-B/Agent cluster на таком output может проверять другой продукт.
+Воспроизведён опасный промежуточный вариант:
+`account_pool=new`, `server=new`, `reservation_aware_lease=old`.
 
-Просто запустить канонический Agent wrapper после V46 тоже нельзя: wrapper снова входит в exact-source base transform, а V46 уже изменил frozen `server.py`, поэтому source blob guard должен закрыться.
+В таком состоянии защищённый Stage-B вызов с `allow_failover=False` несовместим со старым wrapper-контрактом, а существующий двухфайловый journal уже способен считать `account_pool+server` полностью resolved/new и ничего не знать о третьем файле.
+
+Безопасный вариант публикации, подтверждённый офлайн-моделью:
+1. Сначала установить/read-back/compile V45 `reservation_aware_lease.py` как backward-compatible shim. При `allow_failover=True` он сохраняет старое Agent-поведение и не требует новой сигнатуры V41.
+2. Только затем атомарно публиковать composed `account_pool.py + server.py` существующим Agent pair journal/recovery.
+3. Финальный evidence обязан различать `wrapper-prepared` и `pair-committed`; только двухфайлового journal недостаточно для объявления composed PASS.
+4. Обязательные crash regressions: wrapper-old+pair-new запрещён; wrapper-new+pair-old совместим; wrapper-new+pair-new даёт protected no-failover.
 
 Artifacts:
-- probe: `autonomy/v3/tools/integration_notion_v46_tombstone_composition_probe.py`;
-- evidence: `autonomy/evidence/integration/20260822T1632Z_notion_v46_tombstone_composition_gap.json`;
-- минимальный кандидат для isolated V46 bytes: `autonomy/v3/candidates/NOTION_V46_TOMBSTONE_COMPOSITION_20260822.patch`.
+- `autonomy/v3/tools/integration_notion_v47_three_file_publish_probe.py`;
+- `autonomy/evidence/integration/20260822T1736Z_notion_v47_three_file_publication_gap.json`.
 
-Важно: этот patch только добавляет текущий tombstone transform в V46 test-composition. Он НЕ заменяет crash-safe Agent transaction/recovery materializer. Финальный product installer должен сохранить/адаптировать Agent journal/backups/recovery уже для composed Core+Agent bytes.
+## Finding O — V46 composed server пропускал каноническую tombstone-проводку Agent
 
-Обязательная composed regression:
-1. composed server содержит ровно один `subagent-uncertain-tasks.json` marker;
-2. Agent tombstone restart/no-replay tests идут на тех же composed bytes;
-3. Core protected no-failover/strict-intent tests идут на тех же bytes;
-4. production materialization не использует простой V46 `--apply` вместо транзакционного Agent installer.
+V46 считается устаревшим основанием composed PASS. Current Core V47 уже перешёл на `tools/materialize_agent_wiring_with_tombstones.materialize(...)` и требует ровно один `subagent-uncertain-tasks.json` marker. Старый evidence остаётся полезным как регрессия против отката на V46:
+- `autonomy/v3/tools/integration_notion_v46_tombstone_composition_probe.py`;
+- `autonomy/evidence/integration/20260822T1632Z_notion_v46_tombstone_composition_gap.json`.
 
-## Findings L + M + N — остаются обязательными вместе с O
+## Findings L + M + N — остаются обязательными вместе с O/P
 
-- **L:** Core `allow_failover=False` теряется через Agent `DynamicReservationLeaseSession` без явного forwarding. Evidence: `autonomy/evidence/integration/20260822T1337Z_notion_v41_agent_dynamic_session_failover_optout_gap.json`.
-- **M:** Core V41 и Agent `account_pool.py` exact transform меняют один preimage; нужен явный rebase, guards ослаблять нельзя. Evidence: `autonomy/evidence/integration/20260822T1436Z_notion_v41_agent_account_pool_materializer_order_conflict.json`.
-- **N:** даже с `allow_failover=False` Agent может сделать reservation reselection A→B между первым provider step и planner correction. После первого provider entry protected durable sequence должен держать тот же account или fail closed до нового provider I/O. Evidence: `autonomy/evidence/integration/20260822T1535Z_notion_postfirst_provider_reservation_reselect_gap.json`.
+- **L:** `allow_failover=False` обязан пройти через Agent `DynamicReservationLeaseSession`, иначе wrapper вернёт скрытый failover. Evidence: `20260822T1337Z_notion_v41_agent_dynamic_session_failover_optout_gap.json`.
+- **M:** V41 и Agent меняют один `account_pool.py` preimage; нужен exact rebase, guards ослаблять нельзя. Evidence: `20260822T1436Z_notion_v41_agent_account_pool_materializer_order_conflict.json`.
+- **N:** после первого provider entry reservation reselection не должен переносить correction A→B внутри той же durable sequence. Evidence: `20260822T1535Z_notion_postfirst_provider_reservation_reselect_gap.json`.
+- **O:** final composed server обязан включать current tombstone wiring.
+- **P:** final product publication обязан безопасно включать третий V45 wrapper-файл, а не только pair journal.
 
-При combined Stage-B materialization владельцы Core+Agent должны закрыть L/M/N/O одним набором exact regressions, а не по отдельности на разных postimage.
+L/M/N/O/P нужно проверять на одном exact composed tree и на одном crash/restart publication contract.
 
 ## Ранее зафиксированные стыки — не повторять без изменения соответствующих bytes
 
@@ -71,37 +76,37 @@ Artifacts:
 
 `autonomy/ci/CIRCLECI_GATE_POLICY.md` перечитан. Helper ничего не триггерил.
 
-Сейчас gate запускать рано:
-- Qwen Core на свежем handoff имеет незакрытый bounded-error targeted RED;
-- Notion Agent не прошёл текущий exact combined materialization;
-- Notion Core V46 ещё не представляет полную текущую Agent tombstone composition и Stage-B не exact-local green.
+Gate сейчас запускать рано:
+- Qwen exact product SHA ещё не прошёл полный local `npm test` и владельцы ещё координируют один final SHA;
+- Notion Agent не прошёл current exact combined materialization;
+- Notion Core V47 composed Stage-B ещё не exact-local green и Finding P требует определить product publication contract до native-Windows gate.
 
-Helper после локального composed green только сверяет exact SHA, gate branch/status/log/artifact evidence. Недоступный результат не считать PASS.
+Helper после local composed green только сверяет exact SHA, gate ref, status/log/artifact evidence. Недоступный результат не считать PASS.
 
 ## Постоянная память v4
 
 Старт этого прохода:
-- `LATEST` blob `dbd5db0bbe413f5c706bbd10a56412a9ce0d020d`;
-- capsule `20260822T144315Z-b8fc379354`;
-- archive SHA-256 `3fa04ffc818a6f09b2efad22c33491d944635c8472e8bd0d9eeed00f9bb57a77`;
-- manifest + 2 parts восстановлены, archive/workspace hashes совпали.
-
-Новый checkpoint:
+- `LATEST` blob `6dac38dd988eca511b946a336c603db4488f6746`;
 - capsule `20260822T163733Z-02917f5ea5`;
 - archive SHA-256 `f68adffb75f29f8a238575b41124331ace4a8f6c5b69919056cc185928c76d4d`;
-- local pack/verify/restore PASS;
-- readback Git blobs: part0 `050e43ec2a3a463918026b40feb872c73eb782a9`, part1 `fa3fd41cde75491c2f9f8c0cf01d37690df20ad3`, manifest `8229bd8c1d31bd955f84be2232112ce7339224fa` — совпали с локальными exact Git blob SHA;
-- перед публикацией `LATEST` повторно был тем же blob `dbd5db0...`, CAS conflict не было;
-- старый `LATEST` сохранён в `PREVIOUS`, новый `LATEST` опубликован через exact parent SHA;
-- текущий `LATEST` blob `6dac38dd988eca511b946a336c603db4488f6746`.
+- manifest + 2 parts восстановлены локально, hashes/workspace совпали.
+
+Новый checkpoint:
+- capsule `20260822T174149Z-78f1ad5ff4`;
+- archive SHA-256 `efe218b9b940db625a30d22948c0ee680529fd8f41eaef7a007a1369b68c6486`;
+- protocol-compatible local pack/verify/restore PASS;
+- readback Git blobs: part0 `f13ba531d578f703bd6db9095350c46790a995f8`, part1 `a5273a208758f19fc62d707934da82a8e8104115`, manifest `01e637be50fa43cc288c57829cce7d0580e0129f` — совпали с локальными exact Git blob SHA;
+- перед публикацией `LATEST` повторно имел исходный blob `6dac38dd...`, CAS conflict не было;
+- старый `LATEST` сохранён в `PREVIOUS`;
+- новый `LATEST` опубликован через exact parent SHA, текущий blob `d67a320fa63ebb92c8ab32b0a906448e392e2220`.
 
 Force-write не использовался.
 
 ## Следующее
 
-1. Core+Agent при следующей composed работе должны добавить current tombstone transform в V46-equivalent composition до запуска Agent no-replay tests.
-2. L/M/N/O проверять на одном exact composed tree.
-3. Затем red-team'нуть composed Stage-B negative paths: intent/finalize failure, ambiguous transport, post-first reservation, restart/tombstone replay, compaction, stream/non-stream.
+1. Core+Agent добавить безопасную wrapper-first → pair-transaction публикацию или эквивалентную настоящую трёхфайловую транзакцию; не использовать V47 direct `--apply` как installer.
+2. На одном exact composed tree прогнать L/M/N/O/P: default Agent failover, protected no-failover, post-first reservation, tombstone restart/no-replay и crash на каждой границе публикации.
+3. Затем red-team Stage-B negative paths: intent/finalize failure, ambiguous transport, compaction, stream/non-stream, removed account, restart/replay.
 4. Только после локального exact green читать owning Circle evidence; helper gate первым не запускает.
 
 Ни hosted CI, ни live Qwen/Notion/Codex, ни Windows, production, реальные аккаунты или секреты в этом проходе не использовались.

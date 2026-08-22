@@ -1,0 +1,97 @@
+# Preferred V25 overlay. Apply after the combined V12..V24 candidate has
+# materialized V22 ConversationSegment.inflight_fp / inflight_started_at and its
+# strict mark-provider-intent method.
+#
+# Safety rule: unresolved provider outcome evidence is not ordinary cache/state.
+# It must not disappear through the 30-day conversation TTL or
+# MAX_CONVERSATIONS eviction. Capacity exhaustion is fail-closed only when a
+# genuinely NEW intent would be created; exact replay and an already-existing
+# ambiguous intent remain readable at the capacity limit.
+
+diff --git a/payload/conversation_segments.py b/payload/conversation_segments.py
+--- a/payload/conversation_segments.py
++++ b/payload/conversation_segments.py
+@@
+ MAX_CONVERSATIONS = 500
++MAX_UNRESOLVED_PROVIDER_INTENTS = 128
+@@
+ class ConversationReplayTooLarge(ConversationPersistenceError):
+     pass
++
++
++class ConversationIntentCapacityExceeded(ConversationPersistenceError):
++    pass
+@@
+ class ConversationSegmentStore:
++
++    def _unresolved_intent_count_locked(
++        self, items: dict[str, ConversationSegment] | None = None
++    ) -> int:
++        source = self._items if items is None else items
++        return sum(
++            1
++            for item in source.values()
++            if getattr(item, "inflight_fp", None) is not None
++        )
+@@
+     def _cleanup_items_locked(self, items: dict[str, ConversationSegment]) -> bool:
+@@
+-        cutoff = time.time() - self.ttl
+-        before = len(items)
+-        kept = {
+-            key: item for key, item in items.items() if item.updated_at >= cutoff
+-        }
+-        if len(kept) > self.maximum:
+-            newest = sorted(
+-                kept.items(), key=lambda pair: pair[1].updated_at, reverse=True
+-            )[:self.maximum]
+-            kept = dict(newest)
++        cutoff = time.time() - self.ttl
++        before = len(items)
++        unresolved = {
++            key: item
++            for key, item in items.items()
++            if getattr(item, "inflight_fp", None) is not None
++        }
++        ordinary = {
++            key: item
++            for key, item in items.items()
++            if getattr(item, "inflight_fp", None) is None
++            and item.updated_at >= cutoff
++        }
++
++        # Never resolve an ambiguous remote outcome by forgetting it. General
++        # TTL/LRU may evict only ordinary/finalized conversations. If a loaded
++        # state already contains too many unresolved intents, preserve those
++        # bytes; the strict new-intent path below blocks further provider work
++        # rather than "repairing" ambiguity by deletion.
++        ordinary_budget = max(0, self.maximum - len(unresolved))
++        if len(ordinary) > ordinary_budget:
++            ordinary = dict(
++                sorted(
++                    ordinary.items(),
++                    key=lambda pair: pair[1].updated_at,
++                    reverse=True,
++                )[:ordinary_budget]
++            )
++        kept = {**ordinary, **unresolved}
+@@
+         return changed or len(items) != before
++
++# In the V22 strict mark-provider-intent method use this exact ordering while
++# holding the store guard and before any provider call:
++#
++#   1. if exact durable replay exists -> return replay
++#   2. if any unresolved inflight_fp already exists for the segment -> fail closed
++#      (including the exact same fp; do not create another record)
++#   3. only now, before staging a NEW inflight_fp:
++#          if self._unresolved_intent_count_locked(staged) >= \
++#                  MAX_UNRESOLVED_PROVIDER_INTENTS:
++#              raise ConversationIntentCapacityExceeded(
++#                  "unresolved provider-intent capacity exhausted"
++#              )
++#   4. stage inflight_fp and strictly publish it
++#
++# Deliberately do NOT add a generic server-side capacity precheck: at the bound,
++# safe exact replay and inspection of an existing ambiguous intent must remain
++# possible without creating a 129th tombstone.

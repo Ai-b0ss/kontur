@@ -1,0 +1,61 @@
+{
+  "schema": "notion_core_v32_stage_a_cache_floor_evidence_v1",
+  "created_at_utc": "2026-08-22T08:15:00Z",
+  "worker": "NOTION_CORE",
+  "source": {
+    "core_pr": 7,
+    "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_integration_pr": 8,
+    "agent_head": "f58f0123b370ad786d337337eb03a6a4ce9963b3",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "server_size": 112748,
+    "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213"
+  },
+  "exact_materialization": {
+    "server": "PASS",
+    "conversation_segments": "PASS",
+    "method": "Known exact GitHub ranges restored omitted comments in an existing byte-complete code surrogate; the only remaining one-byte gap was located by exhaustive single-LF insertion and accepted only when the Git blob became exactly f02cef6a0ffc202c75fbe71c520c72ac19ff876d. No candidate bytes were accepted without exact blob equality.",
+    "unknown_bytes_reconstructed": false
+  },
+  "v31_self_review": {
+    "defect": "handle_openai_compaction had an in-memory TurnAffinity cache-hit return before conversation_segments.get() and the V31 post-get readiness gate",
+    "dynamic_exact_function_reproduction": "V31_COMPACTION_CACHE_BYPASSES_DURABLE_FLOOR_REPRODUCED",
+    "effect": "unsupported/corrupt/blocked durable state could return cached compaction without consulting the durable-state floor",
+    "v31_stage_a_verdict": "REJECTED_AS_INCOMPLETE"
+  },
+  "v32": {
+    "change": "Keep the post-get gate and add a pre-cache require_persistence_ready() gate in exact handle_openai_compaction after account-pool availability and before input fingerprint / affinity cache lookup.",
+    "exact_full_file_check": "V32_STAGE_A_EXACT_PREIMAGE_CHECK_PASS",
+    "isolated_apply": "V32_STAGE_A_EXACT_PREIMAGE_APPLY_PASS",
+    "python_compile": "PASS",
+    "exact_handler_branches": {
+      "compaction_blocked_pre_cache": "PASS_503_BEFORE_AFFINITY",
+      "compaction_healthy_cache": "PASS",
+      "compaction_get_discovers_write_failure": "PASS_503_POST_GET",
+      "ordinary_get_discovers_write_failure": "PASS_503_POST_GET",
+      "ordinary_healthy_cache": "PASS"
+    },
+    "real_transformed_store_plus_exact_compaction": {
+      "unsupported_v3_beats_cache": "PASS",
+      "corrupt_json_beats_cache": "PASS",
+      "healthy_missing_state_cache": "PASS",
+      "cleanup_triggered_ncm28_write_failure": "PASS_503_POST_GET"
+    },
+    "verdict": "V32_STAGE_A_EXACT_LOCAL_FLOOR_PASS"
+  },
+  "scope_of_pass": "Compatibility/fail-closed Stage-A floor only. This is not Stage-B durable replay, not native Windows proof, and not live Codex/Notion acceptance.",
+  "windows": {
+    "historical_digest_workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "status": "all-five-pending",
+    "rerun": false,
+    "final_gate_started": false,
+    "reason": "Stage B v3 durable-state candidate is not locally green yet."
+  },
+  "safety": {
+    "product_branch_mutated": false,
+    "hosted_ci_started": false,
+    "live_notion_or_codex": false,
+    "secrets_touched": false
+  },
+  "next": "Build Stage-B state version=3 on top of the V32 floor: legacy-v2 read compatibility, separate provider_intents ledger, canonical durable Responses/compaction replay, stable conversation identity and all V12-V29 crash/retry invariants. Do not trigger native Windows until that candidate is locally green."
+}

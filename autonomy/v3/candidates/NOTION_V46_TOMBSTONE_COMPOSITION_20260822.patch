@@ -1,0 +1,22 @@
+--- a/autonomy/evidence/notion/20260822T1605Z_v46_agent_core_composition_materializer.py
++++ b/autonomy/evidence/notion/20260822T1605Z_v46_agent_core_composition_materializer.py
+@@
+     from tools.apply_account_pool_dynamic_reservation import apply as agent_account_apply
+     from tools.apply_startup_status_cleanup import apply as agent_server_apply
++    from tools.apply_subagent_tombstone_wiring import apply as agent_tombstone_apply
+ 
+     account_after_agent = agent_account_apply(base_account)
+-    server_after_agent = agent_server_apply(base_server)
++    server_after_agent = agent_tombstone_apply(agent_server_apply(base_server))
++    if server_after_agent.count('"subagent-uncertain-tasks.json"') != 1:
++        raise RuntimeError("V46_SUBAGENT_TOMBSTONE_WIRING_MISSING")
+     account_composed = apply_v41_after_agent(account_after_agent)
+     wrapper_composed = apply_v45_wrapper(base_wrapper)
+*** End Patch
+
+# Integration note
+# This patch only makes V46's isolated composed server bytes include the current
+# Agent tombstone-path transform. It does NOT replace the canonical Agent
+# transaction/recovery materializer. Final product materialization still needs a
+# composed crash-safe transaction that preserves the Agent journal/backups and
+# Core Stage-B changes together.

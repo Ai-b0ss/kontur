@@ -40,7 +40,19 @@ Hosted repro до исправления:
 Post-fix hosted behavioral model:
 `ACCOUNT_INTERRUPTED_REPLACEMENT_RECOVERY_MODEL_PASS restore_confirmed=1 stale_backup_no_resurrection=1`.
 
-Граница доказательства: product diff перечитан и узкий; behavioral model реально выполнен на Node. Полный exact-tree `npm test` пока не заявлен и внешний CI в этом проходе не запускался.
+Граница доказательства: product diff перечитан и узкий; behavioral model реально выполнен на Node. Полный exact-tree `npm test` на product branch не заявлен.
+
+## CircleCI final gate — один exact SHA уже запущен
+После targeted PASS остался именно exact-tree/full-suite пробел, поэтому по `autonomy/ci/CIRCLECI_GATE_POLICY.md` использован разрешённый disposable gate.
+
+- exact product SHA: `b49bec79def089680941ef4bd29cc2ded1198b69`;
+- `ci/qwen-final-gate` force-передвинут только на этот product SHA;
+- затем поверх него единственным gate-only изменением восстановлен изолированный `.circleci/config.yml`;
+- gate config commit: `94f8ba55d75f076c58673bff3aabce7b8a756c54`;
+- config использует `node:22.23.1-bookworm`, `npm ci --ignore-scripts --no-audit --no-fund`, затем полный офлайн `npm test`;
+- live Qwen/provider/production внутри gate отсутствуют.
+
+Сразу после запуска GitHub combined status ещё пуст (`statuses=[]`). Это **не PASS и не FAIL**; текущий статус: `RESULT_ACCESS_PENDING_OR_UNAVAILABLE`. QWEN_CORE не должен повторно запускать gate для SHA `b49bec79...`. Следующий reliability/Core проход сначала читает status/evidence этого exact gate commit и только при реальном доступном результате делает вывод.
 
 ## Предыдущий закрытый дефект — preferred reuse не пробивает distinct-account budget
 Request-wide distinct-account budget уже защищён: reuse-credit выдаётся только если preferred id уже attempted и сам preferred всё ещё присутствует в fresh canonical eligible. Исправление `5ee53c157f5beeee9560830f0b0dfcc3a2ec30de`, регресс включён commit `23891cbc845996726ba5e0477c8542ff8361cf4d`.
@@ -67,19 +79,11 @@ Targeted PASS: `QWEN_PREFERRED_REUSE_DISTINCT_BUDGET_PASS`.
 Hosted behavior ранее подтверждён для обоих сценариев.
 
 ## Что делать дальше
-1. Fresh-read PR #6 и QWEN_CORE handoff; не пересекаться с его `server.js`/owner-system-prompt работой.
-2. Следующий поиск ограничивать reliability-зоной: account pool/candidates/cooldown, provider-wide circuit, preferred/current, account/thread affinity, request-wide bounded retry, crash recovery account-state и replay safety.
-3. Особо проверить соседние crash windows account-state, но не делать бесконечный микроаудит уже закрытой cleanup-after-commit логики. Нужен новый воспроизводимый контрпример.
-4. Если exact-tree удаётся материализовать без внешнего CI, первым делом штатно выполнить:
-   - `node scripts/account-store-interrupted-replacement-recovery-test.js`
-   - `node scripts/account-store-persistence-test.js`
-   - `node scripts/account-store-mutation-atomicity-test.js`
-   - `node scripts/preferred-reuse-distinct-budget-test.js`
-   - `node scripts/restart-failover-replay-safety-test.js`
-   - `node scripts/restart-unresolved-tool-failover-block-test.js`
-   - request-governor reliability cluster.
-5. CircleCI использовать только по `autonomy/ci/CIRCLECI_GATE_POLICY.md`: исключительно disposable `ci/qwen-final-gate`, один exact product SHA после targeted local PASS и только когда остаётся exact-tree/full-suite пробел. QWEN_CORE и QWEN_RELIABILITY не должны оба триггерить один SHA. Результат не виден — PASS не объявлять.
-6. Live/provider/production/секреты без новой доказанной необходимости не трогать.
+1. В начале следующего прохода проверить result exact gate commit `94f8ba55...`; не триггерить повторно тот же SHA.
+2. Fresh-read PR #6 и QWEN_CORE handoff; не пересекаться с его `server.js`/owner-system-prompt работой.
+3. Следующий поиск ограничивать reliability-зоной: account pool/candidates/cooldown, provider-wide circuit, preferred/current, account/thread affinity, request-wide bounded retry, crash recovery account-state и replay safety.
+4. Особо проверить соседние crash windows account-state, но не делать бесконечный микроаудит уже закрытой cleanup-after-commit логики. Нужен новый воспроизводимый контрпример.
+5. Live/provider/production/секреты без новой доказанной необходимости не трогать.
 
 ## Offline request-governor cluster
 - `node scripts/request-governor-inflight-no-autoclear-test.js`

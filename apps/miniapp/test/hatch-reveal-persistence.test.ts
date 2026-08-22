@@ -97,6 +97,16 @@ test('phase CSS never reveals bird before handoff, keeps shell continuity, and n
   );
   assert.match(
     hotfix,
+    /\.lk-quiz-egg\.is-hatching > \.lk-quiz-hatch\s*\{[\s\S]*?z-index:\s*16;/,
+    'the opaque flash stacking context must sit above the opened halves',
+  );
+  assert.match(
+    hotfix,
+    /\.lk-quiz-egg \.lk-hatch-half\s*\{[\s\S]*?filter:\s*none;/,
+    'clipped halves must not keep the egg drop-shadow, which reads as a falling shard',
+  );
+  assert.match(
+    hotfix,
     /data-hatch-phase="reveal"[^\{]*\.lk-hatch-halves,[\s\S]*?data-hatch-phase="settled"[^\{]*\.lk-hatch-halves\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*hidden;/,
     'halves must leave before the settled bird result is exposed',
   );

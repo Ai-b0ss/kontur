@@ -6,75 +6,70 @@
 Repo: `Ai-b0ss/qwen-free-api`
 Branch: `autopilot/qwen-runtime-preflight-20260818`
 PR: #6
-Последний проверенный общий PR head: `a008858b0a1777fca3d6a40d9464411b460eace8`.
-Перед следующей записью снова перечитать fresh PR head и exact blobs.
+Последний проверенный общий PR head после Core-работы: `6d5105925db5d08ba179570d63aad27be17efa56`.
+Перед новой записью снова перечитать fresh PR head и `autonomy/handoff/QWEN_RELIABILITY.md`: параллельно работает reliability-worker.
 
 ## Уже закрыто — не исследовать заново без нового воспроизведения
 - tool-result continuation/restart + pending-tool replay guard;
 - streaming tool checkpoint до выпуска клиенту;
 - assistant/system/project persistence;
-- duplicate tool_call.id semantics;
+- duplicate `tool_call.id` semantics;
 - per-session serialization;
 - stale-backup recovery fail-closed;
 - message-based system prompt exact checkpoint + `QWEN_SYSTEM_CHECKPOINT_REJECTED`;
 - local checkpoint failure не штрафует provider account;
 - explicit owner V2→V6: durable detached owner authority, sticky restart, stale-backup authority block, invalid mode HTTP 400, project-only recovery block, exact owner checkpoint, malformed/conflicting detached owner aliases rejected before session/provider I/O;
-- direct agent и coding-subagents принимают owner prompt только как непустую строку и не преобразуют объект/массив/число в текст;
-- общий detached-owner helper отклоняет пустой/пробельный приватный prompt с `QWEN_OWNER_SYSTEM_PROMPT_INVALID`;
-- канонический `qwen-v3-capabilities.resolveSystemPromptMode()` строго проверяет body/header aliases, конфликт, пустые/нестроковые значения и bounded error.
+- direct agent и coding-subagents принимают owner prompt только как непустую строку без преобразования объекта/массива/числа;
+- общий detached-owner helper отклоняет пустой/пробельный private prompt;
+- канонический `qwen-v3-capabilities.resolveSystemPromptMode()` строго проверяет body/header aliases, конфликт, пустые/нестроковые значения и bounded error;
+- server preflight теперь использует тот же strict resolver **до** любой session/memo mutation и provider work.
 
-## Новый Core-факт этого запуска — server preflight всё ещё был мягче канонического resolver
-На exact PR #6 head `a008858b0a1777fca3d6a40d9464411b460eace8` проверены:
-- `server.js` blob `12369bc5aca9206ba7daabd8521e7cf642b03c88`;
-- `src/qwen-v3-capabilities.js` blob `75bcc50f85a3056ddc7dafc55cb98f5995a5eac7`;
-- `scripts/system-prompt-mode-alias-validation-test.js` blob `381abf2d0d262f4cce1eaa40869d30eab7b708cd`.
+## Новый закрытый дефект — prompt-mode validation больше не происходит после mutation
+На старом exact `server.js` blob `12369bc5aca9206ba7daabd8521e7cf642b03c88` локальный `explicitPromptMode()` был мягче канонического resolver: пустой explicit mode мог считаться отсутствующим, а конфликт body aliases разрешался молча. При этом этот preflight стоял перед `sessionStore.clear()` / `toolMemo.clear()`, поэтому malformed request мог успеть изменить локальное состояние и лишь позже быть отвергнут strict resolver.
 
-В `qwen-v3-capabilities.js` strict mode уже закрыт, но `server.js` до очистки сессии вызывает отдельный старый `explicitPromptMode()`. Он молча выбирал один body alias, а пустое явное значение мог считать отсутствующим. Поэтому malformed/conflicting mode мог пройти раннюю проверку, вызвать `sessionStore.clear()` / `toolMemo.clear()`, а затем быть отвергнут уже поздним strict resolver. Это нарушает собственный комментарий сервера «validate before any session mutation».
+Исправление:
+- `feeff6cf61ff577b8808f88668536dcb0aff8fa6` — `server.js` делегирует явный mode каноническому `qwenV3Capabilities.resolveSystemPromptMode()`. Если mode не задан вообще, остаётся `null`, чтобы не ломать наследование durable owner/engineer authority. Diff проверен: изменён только `explicitPromptMode()`.
+- Перед fast-forward PR уже был продвинут QWEN_RELIABILITY до `b49bec79def089680941ef4bd29cc2ded1198b69`; его account-store изменения сохранены, Core commit перебазирован на exact fresh tree и записан non-force.
 
-Подготовлен ограниченный кандидат:
-- `autonomy/v3/candidates/QWEN_CORE_SYSTEM_MODE_PREFLIGHT_GUARD_20260822.patch`;
-- evidence: `autonomy/v3/evidence/QWEN_CORE_SYSTEM_MODE_PREFLIGHT_GUARD_20260822.json`.
+Постоянная серверная регрессия:
+- `333019e5fea6c6c2d5a03402af4443f345a5f567` — `scripts/server-system-prompt-preflight-test.js`;
+- она проверяет blank/malformed/conflicting body/header mode, отсутствие mode, body precedence и порядок preflight перед `sessionStore.clear`, `toolMemo.clear` и первым provider call;
+- `6d5105925db5d08ba179570d63aad27be17efa56` — тест включён в обычный `npm test`.
 
-Семантика кандидата: ранний server preflight сначала различает «режим вообще не задан» и «режим задан явно». Если режим задан, он немедленно делегирует каноническому strict `qwenV3Capabilities.resolveSystemPromptMode()`; если не задан — возвращает `null`, чтобы не ломать наследование durable owner/engineer authority.
+Targeted hosted evidence без provider/внешнего CI:
+- предыдущий exact candidate: `QWEN_SYSTEM_PROMPT_MODE_ALIAS_VALIDATION_PASS ... server_preflight_no_mutation=4`;
+- этот проход: `QWEN_SYSTEM_PROMPT_MODE_ALIAS_TARGET_PASS empty_fail_closed=2 conflict_fail_closed=2 malformed_fail_closed=1 body_precedence=1 equivalent_aliases=1 bounded_error=1`.
 
-Exact `server.js` удалось материализовать на hosted машине побайтно: после удаления лишнего локального завершающего newline `git hash-object` совпал с GitHub blob `12369bc5...`. Кандидат наложен только на этот exact source, `node --check`: PASS.
-
-Targeted server regression на hosted машине без provider/внешнего CI:
-`QWEN_SYSTEM_PROMPT_MODE_ALIAS_VALIDATION_PASS empty_fail_closed=2 conflict_fail_closed=2 malformed_fail_closed=1 body_precedence=1 equivalent_aliases=1 bounded_error=1 server_preflight_no_mutation=4`
-
-Проверено: четыре malformed/conflicting варианта дают HTTP 400 `QWEN_SYSTEM_PROMPT_MODE_INVALID`, при этом `sessionStore.clear=0`, `toolMemo.clear=0`, provider calls=0.
-
-Продуктовый PR этим запуском намеренно не переписан: доступная write-поверхность для большого `server.js` требует полной замены файла; безопасный byte-preserving product commit через Git objects не был завершён. Не отправлять реконструированные байты. Следующий запуск может интегрировать именно готовый patch, если свежие head/blob SHA не изменились, либо перебазировать его на fresh exact source.
-
-Полный exact-tree `npm test` не выполнялся; весь PR зелёным по targeted PASS не объявлять. GitHub Actions/CircleCI/provider traffic не использовались.
+Полный exact-tree `npm test` **не выполнялся**; весь PR зелёным по targeted PASS не объявлять. CircleCI/GitHub Actions/provider traffic не использовались.
 
 ## Следующий точный шаг
-1. Перечитать fresh PR #6 head и exact `server.js` blob.
-2. Если участок `explicitPromptMode()` всё ещё старый — применить `QWEN_CORE_SYSTEM_MODE_PREFLIGHT_GUARD_20260822.patch` к fresh exact source и добавить постоянный server-level regression, который проверяет отказ **до** `sessionStore.clear`, `toolMemo.clear` и provider call.
-3. На hosted машине материализовать максимально полный exact owner/session/subagent cluster и выполнить минимум:
+1. Fresh-read PR #6 head и reliability handoff.
+2. На ChatGPT hosted машине материализовать максимально полный exact owner/session/subagent cluster и выполнить минимум:
    - `node scripts/owner-system-prompt-test.js`
    - `node scripts/system-prompt-mode-alias-validation-test.js`
+   - `node scripts/server-system-prompt-preflight-test.js`
    - `node scripts/server-explicit-owner-rehydrate-test.js`
    - `node scripts/agent-system-prompt-mode-test.js`
    - `node scripts/subagent-owner-prompt-validation-test.js`
-   - ближайшие restart/session tests, которые удаётся материализовать exact-byte.
-4. Если кластер зелёный — искать следующий воспроизводимый Core-дефект в restart/tool-result/OpenCode/subagents/skills/errors; узкую механику cooldown/account selection не забирать у QWEN_RELIABILITY.
-5. Финальный большой рубеж после офлайн exact-tree проверки: один доказанный live многошаговый `read_file → tool result → следующий Qwen turn → bash → tool result → final`, затем restart/failover; уже доказанные provider-прогоны не повторять.
+   - ближайшие restart/session tests.
+3. Если кластер зелёный — искать следующий воспроизводимый Core-дефект в restart/tool-result/OpenCode/subagents/skills/errors. Узкую механику account/cooldown/failover не забирать у QWEN_RELIABILITY.
+4. CircleCI final gate — только по `autonomy/ci/CIRCLECI_GATE_POLICY.md`, на disposable `ci/qwen-final-gate`, только для exact выбранного product SHA после targeted local PASS и после проверки, что QWEN_RELIABILITY не триггерит тот же SHA.
+5. Уже доказанные live/provider прогоны не повторять без новой причины.
 
 ## Постоянная память
-Вход этого запуска:
-- LATEST blob `dc12d4cb68e1c9f8522025783b8135e83939cfda`;
-- capsule `20260822T035212Z-e334419500`;
-- archive SHA-256 `8756ecb3a92dd097385927a512bf5e45009d96c56ad0a35b60556681e8ac3065`;
-- exact `capsule_runtime_v4.py` blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`;
-- normative v4 verify+restore: PASS.
-
-Финиш этого запуска:
-- новая v4 capsule `20260822T045700Z-997fae7907`;
+Вход этого прохода:
+- LATEST blob `b14aa05cc5cf51c6f0d19ed1a7e4fd1288014415`;
+- capsule `20260822T045700Z-997fae7907`;
 - archive SHA-256 `e3ecfa89d47ff888fd13a3fb2ec116391598f2cfaff507aebde89826fd644231`;
-- локальный v4 verify после pack: PASS;
-- uploaded part blobs после reread: `52faca6606f85bb4186439244526476356a57369` и `a3c55b1dba56dd914d332252923182d5af3e334c`, совпадают с локальными `git hash-object`;
-- uploaded manifest blob после reread: `9e9e255d123465e1aebb891515e61c049cfda703`, совпадает с локальным;
-- перед публикацией LATEST всё ещё имел исходный blob `dc12d4cb...`, поэтому CAS разрешён;
-- старый LATEST сохранён в PREVIOUS;
-- новый LATEST опубликован через `update_file` с exact parent SHA, без force-write; новый LATEST blob `b14aa05cc5cf51c6f0d19ed1a7e4fd1288014415`.
+- exact `capsule_runtime_v4.py` blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`;
+- uploaded start manifest/parts reread; local Git blob совпал: manifest `9e9e255d...`, parts `52faca66...` / `a3c55b1d...`;
+- normative v4 verify + restore: PASS.
+
+Финиш:
+- новая v4 capsule `20260822T070200Z-97f3d23c68`;
+- archive SHA-256 `ea0527b883bef9155002a3a36d83861f34cf36e6c5ea8e0738876af4a2a2d177`;
+- local pack + v4 verify: PASS;
+- immutable upload/readback blobs совпали с локальными: part0 `8d74e8b9a33ab0739ffd58c8e8482afc156c418e`, part1 `834cd5209096b2fba214ddecfa3bcfc692c1fca6`, manifest `a4f5d5999991df6d77a5cc8454033ed9004281b8`;
+- перед публикацией LATEST всё ещё имел исходный blob `b14aa05c...`, поэтому CAS разрешён;
+- прежний LATEST сохранён как PREVIOUS;
+- новый LATEST опубликован без force-write, blob `d92728084ff6591f5c273930819bcf68c6a8a18b`.

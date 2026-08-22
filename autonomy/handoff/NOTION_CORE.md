@@ -47,9 +47,11 @@ Stage A закрыт локально на точных Core-boundary исход
 Текущий product-server всё ещё небезопасен по порядку аварийных действий: внешний Notion call, memory-only affinity/reservation, exact response IDs, streaming и durable publication пока не образуют одну доказанную транзакционную границу.
 
 Целевой порядок:
-`local route/account acquisition -> strict provider-intent publication -> exactly one provider entry -> one canonical Responses/compaction payload -> strict atomic durable finalize(progress + exact payload + clear intent) -> memory cache/affinity -> validated reservation rehydrate/clear -> JSON/SSE projection`.
+`local route/account acquisition -> strict provider-intent publication -> deliberate planner steps on the already-selected lease, each attempted at most once with implicit retry/failover disabled -> one canonical Responses/compaction payload -> strict atomic durable finalize(progress + exact payload + clear intent) -> memory cache/affinity -> validated reservation rehydrate/clear -> JSON/SSE projection`.
 
-После успешной durable publication retry/restart должен вернуть тот же exact payload с теми же `response_id/item_id/call_id`, а provider call count оставаться 1. До successful intent publication provider count должен быть 0. При final write failure unresolved intent остаётся, а client result, memory cache и reservation не публикуются.
+Ключевой инвариант после intent — **не буквально один provider call**, а отсутствие неявного повтора provider-операции. Текущий сервер законно умеет делать ограниченный planner-correction после невалидной рекомендации модели; такой deliberate correction остаётся частью одной durable transaction и выполняется на том же выбранном lease/account. Каждый deliberate planner step допускается максимум один раз. AccountLease failover и отдельный foreground transport retry/recursion после intent запрещены. Transport failure на любом таком шаге оставляет intent unresolved и не публикует client result.
+
+После успешной durable publication retry/restart должен вернуть тот же exact payload с теми же `response_id/item_id/call_id`, а **новых** provider calls при exact retry быть не должно. До successful intent publication provider count должен быть 0. При final write failure unresolved intent остаётся, а client result, memory cache и reservation не публикуются.
 
 ### Store: V34 + V35 — exact-class PASS
 
@@ -71,19 +73,21 @@ Stage A закрыт локально на точных Core-boundary исход
 
 Доказательство: `autonomy/evidence/notion/20260822T1240Z_v34_v35_exact_store_integration.json`.
 
-### V36 — ambiguous transport не может породить второй provider entry
+### V36 — ambiguous transport не может породить неявный второй provider attempt
 
 Exact current `AccountLease.run()` после failover-eligible transport error умеет переключить аккаунт и продолжить `retry_operation`. После durable provider-intent это небезопасно: transport evidence фиксирует `provider_call_entered=true`, но не доказывает отсутствие удалённого прогресса.
 
-V36 оставляет Agent-ротацию по умолчанию неизменной, но Core protected transaction должна вызывать lease с failover disabled после intent.
+V36 оставляет Agent-ротацию по умолчанию неизменной, но Core protected transaction должна вызывать lease с failover disabled после intent — и для initial/continuation step, и для каждого deliberate planner-correction step.
 
-Важно: одного AccountLease-флага недостаточно. В `handle_openai_responses()` существует ещё отдельный foreground transport retry/recursion. Уже сохранённый V36 evidence прямо требует подавить и этот второй слой после durable intent. Локальная повторная модель текущего запуска подтверждает: AccountLease-only suppression + outer retry => provider calls 2; полное suppression обоих уровней => provider calls 1.
+Важно: одного AccountLease-флага недостаточно. В `handle_openai_responses()` существует ещё отдельный foreground transport retry/recursion. Уже сохранённый V36/V39 evidence требует подавить и этот второй слой после durable intent. Локальная повторная модель подтверждает: AccountLease-only suppression + outer retry создаёт лишний provider attempt; полное suppression обоих неявных уровней сохраняет границу «каждый deliberate planner step максимум один раз».
 
-### V37 — route before intent
+### V37/V39 — route before intent и deliberate planner steps
 
 Provider-intent нельзя писать до локального выбора маршрута/аккаунта: `cooldown/exhausted` до любого provider call иначе оставит ложный unresolved marker.
 
-Порядок Stage B: сначала local lease/account acquisition без provider traffic, затем strict intent, затем ровно один provider entry без account failover и без outer transport recursion.
+Правильный порядок Stage B: сначала local lease/account acquisition без provider traffic, затем strict intent, затем bounded deliberate planner steps на том же lease/account. Для каждого такого шага `allow_failover=false`; outer transport recursion после intent выключен. Коррекция planner-ответа не считается transport retry и не должна быть удалена из продукта ради ошибочного правила «ровно один provider call».
+
+Актуальная коррекция канона сохранена в `autonomy/evidence/notion/20260822T1049Z_v40_canonical_provider_step_invariant_correction.json`.
 
 ## Обязательные durable-replay инварианты из V12–V29
 
@@ -119,12 +123,12 @@ Bridge key остаётся доступен самому Codex через `env_
 2. Собрать exact-local Stage-B server orchestration на текущих `server.py/account_pool.py` boundaries:
    - local route/account acquisition;
    - strict intent write;
-   - exactly one provider entry с V36 failover disabled;
+   - initial/continuation и каждый deliberate planner-correction step — максимум одна попытка на выбранном lease/account, с V36 failover disabled;
    - suppress existing outer foreground transport retry после intent;
    - canonical Responses/compaction payload;
    - strict finalize;
    - только потом memory cache/affinity/reservation/client.
-3. Локальная матрица до Windows: pool unavailable -> no intent/provider; intent write failure -> provider=0; ambiguous transport -> provider=1 + unresolved intent; final write failure -> no client/cache/reservation + intent preserved; retry/restart exact IDs; compaction exact/restart/legacy; stream/non-stream; disconnect/hard crash; removed account; TTL/size/oversize/stale retry.
+3. Локальная матрица до Windows: pool unavailable -> no intent/provider; intent write failure -> provider=0; ambiguous transport на deliberate step -> никакого sibling/outer retry + unresolved intent; final write failure -> no client/cache/reservation + intent preserved; retry/restart exact IDs без новых provider calls; planner bad-tool -> bounded correction on same account -> final durable replay; transport failure during correction -> unresolved intent/no client; compaction exact/restart/legacy; stream/non-stream; disconnect/hard crash; removed account; TTL/size/oversize/stale retry.
 4. Совместить Codex shell-env patch локально.
 5. Только после зелёного exact-local Stage B запустить один disposable `ci/notion-core-windows-final-gate`; сохранить exact SHA/cases/logs/artifacts. Недоступный результат не считать PASS.
 6. После Windows PASS — один bounded authorized `codex exec -> bridge -> Notion -> local tool -> verifier FAIL -> correction -> VERIFY_OK`, с обезличенным доказательством стабильного conversation id на initial/tool-result/retry/restart.

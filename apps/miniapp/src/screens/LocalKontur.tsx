@@ -462,7 +462,7 @@ export function LocalKontur() {
     );
   }
 
-  if (((!state.hatched || replayMode) && (stage === 'hook' || stage === 'questions')) || stage === 'hatching' || stage === 'reveal') {
+  if (stage === 'hook' || stage === 'questions' || stage === 'hatching' || stage === 'reveal') {
     const question = questions[index];
     const eggStage = stage === 'hook' ? 1 : Math.min(8, visualQuestionIndex + 1);
     const bird = BIRD_PRESENTATION[revealResultId];

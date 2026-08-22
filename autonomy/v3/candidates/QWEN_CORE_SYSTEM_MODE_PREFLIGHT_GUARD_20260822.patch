@@ -1,0 +1,32 @@
+--- a/server.js
++++ b/server.js
+@@ -119,21 +119,14 @@
+ });
+ 
+ function explicitPromptMode(body = {}, headers = {}) {
+-  const raw = body.system_prompt_mode !== undefined
+-    ? body.system_prompt_mode
+-    : (body.systemPromptMode !== undefined
+-      ? body.systemPromptMode
+-      : (headers['x-qwen-system-prompt-mode'] !== undefined
+-        ? headers['x-qwen-system-prompt-mode']
+-        : headers['X-Qwen-System-Prompt-Mode']));
+-  if (raw === undefined || raw === null || String(raw).trim() === '') return null;
+-  const normalized = String(raw).trim().toLowerCase();
+-  if (normalized !== 'engineer' && normalized !== 'owner') {
+-    const error = new Error('Unsupported Qwen system prompt mode');
+-    error.code = 'QWEN_SYSTEM_PROMPT_MODE_INVALID';
+-    throw error;
+-  }
+-  return normalized;
++  const source = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
++  const hasBodyMode = Object.prototype.hasOwnProperty.call(source, 'system_prompt_mode') ||
++    Object.prototype.hasOwnProperty.call(source, 'systemPromptMode');
++  const headerSource = headers && typeof headers === 'object' ? headers : {};
++  const hasHeaderMode = Object.prototype.hasOwnProperty.call(headerSource, 'x-qwen-system-prompt-mode') ||
++    Object.prototype.hasOwnProperty.call(headerSource, 'X-Qwen-System-Prompt-Mode');
++  if (!hasBodyMode && !hasHeaderMode) return null;
++  return qwenV3Capabilities.resolveSystemPromptMode(source, { headers: headerSource });
+ }
+ 
+ function hasIncomingSystemAuthority(body = {}) {

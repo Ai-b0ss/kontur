@@ -94,17 +94,14 @@ jobs:
             echo REAL_CHROMIUM_ARTIFACT_GATE_PASS
 
       - run:
-          name: Read-only staging assets and unauthorized API boundary
+          name: Exact-generation staging and synthetic economy persistence
           command: |
             set -euo pipefail
-            curl -fsS "$KONTUR_STAGING_ORIGIN/" -o /tmp/staging-index.html
-            curl -fsS "$KONTUR_STAGING_ORIGIN/results/kotosov.webp" -o /tmp/staging-kotosov.webp
-            curl -fsS "$KONTUR_STAGING_ORIGIN/results/crane-collectible.svg" -o /tmp/staging-crane.svg
-            test "$(sha256sum apps/miniapp/public/results/kotosov.webp | awk '{print $1}')" = "$(sha256sum /tmp/staging-kotosov.webp | awk '{print $1}')"
-            test "$(sha256sum apps/miniapp/public/results/crane-collectible.svg | awk '{print $1}')" = "$(sha256sum /tmp/staging-crane.svg | awk '{print $1}')"
+            RELEASE_ORIGIN="$KONTUR_STAGING_ORIGIN" RELEASE_PROPAGATION_TIMEOUT_MS=180000 node tools/cloudflare/wait-for-deployed-assets.mjs | tee /tmp/staging-assets.log
             code="$(curl -sS -o /tmp/staging-unauth.json -w '%{http_code}' "$KONTUR_STAGING_ORIGIN/api/v4/local/state")"
             test "$code" = 401
-            echo STAGING_READONLY_BOUNDARY_PASS
+            STAGING_ORIGIN="$KONTUR_STAGING_ORIGIN" STAGING_TG_ID="$((820000000 + CIRCLE_BUILD_NUM))" node tools/cloudflare/live-release-staging-smoke.mjs | tee /tmp/staging-live-smoke.log
+            echo STAGING_EXACT_GENERATION_AND_LIVE_SYNTHETIC_PASS
 
       - run:
           name: Collect evidence
@@ -125,6 +122,8 @@ jobs:
             cp /tmp/vite-build.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
             cp /tmp/dist.sha256 /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
             cp /tmp/browser-acceptance.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
+            cp /tmp/staging-assets.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
+            cp /tmp/staging-live-smoke.log /tmp/kontur-core-evidence/logs/ 2>/dev/null || true
             {
               echo "kontur_head=$KONTUR_EXPECTED_SHA"
               echo "circle_trigger=$CIRCLE_SHA1"
@@ -133,8 +132,30 @@ jobs:
               echo "clean=true"
               echo "patch_overlay=false"
               echo "production_touched=false"
-              echo "staging_mutation=false"
+              echo "staging_synthetic_test_data=true"
+              echo "production_touched=false"
             } > /tmp/kontur-core-evidence/CIRCLE_EVIDENCE.txt
+
+      - run:
+          name: Publish sanitized immutable evidence branch
+          command: |
+            set -euo pipefail
+            evidence_branch="evidence/kontur-core-aafa42b9-20260822"
+            target="docs/product/evidence/runtime/aafa42b9"
+            git switch --create "$evidence_branch" "$KONTUR_EXPECTED_SHA"
+            mkdir -p "$target/browser" "$target/logs"
+            cp "$KONTUR_BROWSER_EVIDENCE_DIR"/*.png "$target/browser/"
+            cp "$KONTUR_BROWSER_EVIDENCE_DIR"/*.webm "$target/browser/"
+            cp "$KONTUR_BROWSER_EVIDENCE_DIR"/browser-acceptance.json "$target/browser/"
+            cp /tmp/kontur-core-evidence/logs/* "$target/logs/"
+            cp /tmp/kontur-core-evidence/CIRCLE_EVIDENCE.txt "$target/"
+            find "$target" -type f -print0 | sort -z | xargs -0 sha256sum > "$target/SHA256SUMS.txt"
+            git config user.name "Kontur Acceptance Bot"
+            git config user.email "kontur-acceptance@users.noreply.github.com"
+            git add "$target"
+            git commit -m "evidence: preserve aafa42b9 browser and staging proof"
+            git push origin "HEAD:refs/heads/$evidence_branch"
+            echo "EVIDENCE_BRANCH_PASS branch=$evidence_branch"
 
       - store_artifacts:
           path: /tmp/kontur-core-evidence

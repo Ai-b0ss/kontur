@@ -6,7 +6,9 @@ Agent integration boundary: draft PR #8 `autonomy/notion-prompt-modes-20260819`,
 
 ## Режим
 
-ZERO-MINUTE: CircleCI/GitHub Actions/Cloudflare/другой hosted CI не запускать, trigger-push не делать. Бесплатные локальные Linux/Python/Node проверки разрешены. Native Windows не имитировать. Production, реальные Notion данные/traffic и секреты не трогать.
+Сначала бесплатные exact-source Linux/Python/Node проверки. Production, реальные Notion данные/traffic и секреты не трогать до локальных safety gates. GitHub Actions не использовать как бесплатный исполнитель.
+
+CircleCI теперь разрешён только как редкий доказательный ресурс по `autonomy/ci/CIRCLECI_GATE_POLICY.md`. Для native Windows Core использовать только disposable ref `ci/notion-core-windows-final-gate`, и только когда Stage-A compatibility floor и актуальный Stage-B durable-state кандидат локально зелёные настолько, что Windows semantics остаются реальным недоказанным рубежом. Старый digest workflow не перезапускать как замену финальному gate. Product/control refs force-write запрещён; force-move допустим только для разрешённого disposable gate ref.
 
 ## Постоянная память
 
@@ -18,19 +20,19 @@ ZERO-MINUTE: CircleCI/GitHub Actions/Cloudflare/другой hosted CI не за
 - manifest blob `078d7537e3b49bf467080ea4c7ac15641b1807b7`;
 - `LATEST.json` blob после CAS: `72443419f2fafd3c5249a3e3d701150e9d030a6e`.
 
-Все immutable parts и manifest перечитаны после публикации. Readback поймал ошибочно загруженный `part-0001`; `LATEST` не переключался, пока part не был заменён точными локальными байтами и повторно проверен (`c9fdd0...`). Предыдущий проверенный `LATEST` `20260822T060303Z-5ee7edb294` сохранён как `PREVIOUS`. На старте запуска прежняя capsule была восстановлена exact `capsule_runtime_v4.py`; неизвестные bytes не реконструировались.
+В этом запуске capsule `20260822T060802Z-2f8776e109` восстановлена локально точным `capsule_runtime_v4.py`; Git blob самого runtime повторно совпал с каноническим `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`. Все три части прошли v4 verify, archive SHA совпал, workspace/checkpoint восстановлен без реконструкции неизвестных bytes.
 
 ## NCM28 / Windows
 
 Существующий digest workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3` НЕ перезапускать. Fresh read-only status: все пять задач (`auth`, `codex`, `migration`, `runtime`, `outside-digest`) всё ещё `pending`.
 
-При одном будущем разрешённом native-Windows Core gate совместить точный `auth-rollback` callsite, PowerShell runtime-restore replace proof и полный NCM28 gate. Runtime restore v3 остаётся Linux-PASS; нативная PowerShell replace-семантика не доказана.
+Новый final Windows gate пока **не запускать**: Stage A после свежего self-review ещё не закрыт, Stage B v3 candidate ещё не собран. Когда оба локально зелёные, один bounded Windows gate должен совместить точный `auth-rollback` callsite, PowerShell runtime-restore replace proof и полный NCM28/Core gate на exact candidate SHA. Runtime restore v3 остаётся Linux-PASS; нативная PowerShell replace-семантика не доказана.
 
 ## Durable Responses / Codex replay — текущая граница
 
 Текущий product-сервер всё ещё аварийно небезопасен: remote Notion call идёт до durable exact replay publication; reservation и memory-only `TurnAffinityStore` меняются до durable publication; `ConversationSegmentStore` глотает NCM28/OSError в `persistence_blocked`; окончательные `response_id/item_id/call_id` создаются позже; text-cache регенерирует ID; streaming заранее выдаёт идентификаторы/provider-derived thinking и отменяет незавершённый `run_request()` при закрытии клиента.
 
-Уже доказанные локальные слои V12–V26 сохраняются как требования, но **старые patch-файлы нельзя механически складывать**: V27/V28 меняют schema rollout и форму provider-intent.
+Уже доказанные локальные слои V12–V29 сохраняются как требования, но старые patch-файлы нельзя механически складывать: V27/V28 меняют schema rollout и форму provider-intent.
 
 Целевой порядок:
 `strict provider-intent publication -> provider -> один canonical Responses/compaction payload -> strict atomic durable publication(progress + exact payload, clear intent) -> memory TurnAffinity -> validate/re-hydrate reservation -> JSON/SSE projection`.
@@ -54,8 +56,6 @@ Exact durable compaction replay без V22 intent имеет crash-window: Notio
 2. Только после доказанного Stage A — **Stage B state version=3** с durable replay/intents.
 3. Зафиксировать `minimum_safe_rollback_commit=<exact Stage-A commit>`; после первого v3 state rollback ниже floor запрещён.
 
-Локальные результаты: `V27_VERSION2_DOWNGRADE_METADATA_STRIP_REPRODUCED`, `V27_VERSION3_OLD_SERVER_ROLLBACK_PROVIDER_REENTRY_REPRODUCED`, `V27_SCHEMA_EPOCH_ROLLBACK_FLOOR_MODEL_PASS`.
-
 Материалы: `autonomy/evidence/notion/20260822T0605Z_durable_replay_v27_schema_epoch_rollback_floor.*`.
 
 ### V28 — отдельный `provider_intents` ledger
@@ -67,9 +67,7 @@ Provider intent нельзя представлять fake `ConversationSegment`
 - `conversations` содержит только реальный provider segment/progress/exact replay после результата;
 - finalize одной NCM28 atomic write одновременно создаёт/обновляет real segment + exact replay и удаляет matching intent;
 - final write failure сохраняет intent и не публикует fake/partial segment;
-- general conversation TTL/LRU не удаляет provider-intents; отдельный V25 bound `MAX_UNRESOLVED_PROVIDER_INTENTS=128`.
-
-Локальный итог: `DURABLE_REPLAY_V28_SEPARATE_INTENT_LEDGER_MODEL_PASS` плюс отдельные PASS для first request, atomic finalize, failed finalize, cleanup survival и capacity.
+- general conversation TTL/LRU не удаляет provider-intents; отдельный bounded capacity `MAX_UNRESOLVED_PROVIDER_INTENTS=128`.
 
 Материалы: `autonomy/evidence/notion/20260822T0618Z_durable_replay_v28_separate_provider_intent_ledger.{json,py}`.
 
@@ -77,30 +75,40 @@ Provider intent нельзя представлять fake `ConversationSegment`
 
 `codex_conversation_key(body)` = `client_metadata.thread_id` или fallback `session_id`. Store при `key=None` не имеет durable namespace. Поэтому перед новой provider-entering ordinary Responses или compaction операцией durable Core mode требует non-empty stable conversation key; иначе fail closed до provider. Не синтезировать ключ из request hash, `turn_id`, random UUID, HTTP connection или memory cache.
 
-Synthetic/live bridge probe явно передаёт `thread_id`. Настоящий `codex exec` probe пока проверяет итоговый JSONL/files, но **не доказывает**, что фактический Codex build отправляет стабильный `thread_id/session_id` на wire. Live acceptance должна добавить обезличенный capture и доказать один и тот же conversation id на initial turn, tool-result continuation, retry и restart.
-
-Локальный итог: `DURABLE_REPLAY_V29_STABLE_IDENTITY_FAILCLOSED_MODEL_PASS` + подтверждён metadata evidence gap настоящего CLI probe.
+Synthetic/live bridge probe явно передаёт `thread_id`. Настоящий `codex exec` probe пока не доказывает, что фактический Codex build отправляет стабильный `thread_id/session_id` на wire. Live acceptance должна добавить обезличенный capture и доказать один и тот же conversation id на initial turn, tool-result continuation, retry и restart.
 
 Материалы: `autonomy/evidence/notion/20260822T0635Z_durable_replay_v29_stable_conversation_identity.{json,py}`.
 
-### V30 — Stage-A floor уже материализован как exact-preimage candidate
+### V30 — исходный Stage-A materializer оказался неполным
 
-Подготовлен отдельный кандидат Stage A, не меняющий product branch:
-- `ConversationSegmentStore.require_persistence_ready()`;
-- server вызывает его **после** `conversation_segments.get()` (потому что load/cleanup внутри get может впервые заблокировать persistence) и **до** account lease/provider entry;
-- тот же `handle_openai_responses()` защищает ordinary Responses и compaction;
-- in-memory `path=None` остаётся совместимым с unit fakes/явно ephemeral uses.
+V30 правильно добавлял `ConversationSegmentStore.require_persistence_ready()` и вставлял post-`get()` gate в обычный `handle_openai_responses()`. Но self-review exact product source выявил ошибку в собственном доказательстве V30: `/v1/responses/compact` вызывает отдельный `handle_openai_compaction()`, а не `handle_openai_responses()`. V30 materializer вообще не менял этот путь.
 
-Локальная модель прошла: unsupported/corrupt load => provider 0; cleanup write failure during get => provider 0; compaction => тот же floor; healthy durable store => provider 1; ephemeral store compatibility => PASS.
+Следовательно прежний пункт `V30_COMPACTION_SHARES_PROVIDER_FLOOR_PASS` относился только к модели, а не к точному product path; считать Stage A закрытым по V30 нельзя.
 
-Exact-preimage materializer проверяет Git blobs `conversation_segments=553bd349...`, `server=f02cef6a...`, требует ровно один anchor, компилирует оба rendered Python-файла до mutation, по умолчанию работает read-only, `--apply` пишет через sibling temp + `os.replace`.
+### V31 — исправленный Stage-A floor для ordinary + compaction
+
+Подготовлен новый exact-preimage materializer на тех же проверенных blobs:
+- `conversation_segments=553bd3496c21a7949c3a5dfa03f33b9e09293213`;
+- `server=f02cef6a0ffc202c75fbe71c520c72ac19ff876d`.
+
+V31 вставляет один и тот же post-`get()` `require_persistence_ready()` gate в два независимых provider-entering пути:
+1. ordinary Responses — после `affinity/get(segment)` и до account lease/provider;
+2. compaction — после `conversation_segments.get()` и до fingerprint/lease/provider.
+
+Локально доказано:
+- V30 ordinary blocked-after-get => provider count 0;
+- реальная V30 compaction-форма при blocked-after-get => provider count 1 (дефект воспроизведён);
+- V31 compaction blocked-after-get => provider count 0;
+- healthy compaction => provider count 1;
+- materializer Python compile PASS;
+- оба exact textual anchors трансформируются отдельно и fail-closed по count.
 
 Материалы:
-- `autonomy/evidence/notion/20260822T0650Z_v30_stage_a_compatibility_floor_evidence.json`;
-- `..._exact.patch` (integration sketch);
-- `..._materializer.py` (предпочтительный apply/check механизм).
+- `autonomy/evidence/notion/20260822T0705Z_v31_stage_a_compaction_floor_evidence.json`;
+- `..._harness.py`;
+- `..._materializer.py`.
 
-**Product branch не изменён.** Следующий шаг — materialize exact checkout локально, сначала `materializer --check`, затем apply только на изолированной копии и прогнать настоящие current tests + targeted provider-count regressions. Только после локального Stage-A PASS можно строить v3 Stage B.
+**Product branch не изменён. Stage A пока не объявлять PASS**, пока V31 не выполнит exact full-file `--check`, isolated apply и реальные current regressions.
 
 ## Остальные обязательные V12–V25 инварианты
 
@@ -124,12 +132,13 @@ Exact-preimage materializer проверяет Git blobs `conversation_segments=
 
 ## Следующий порядок
 
-1. Read-only проверить Windows digest; не перезапускать.
-2. Восстановить fresh v4 `LATEST` через exact runtime.
-3. Материализовать exact PR8 checkout локально и прогнать V30 exact-preimage materializer в `--check`; затем apply на isolated copy и настоящие local regressions. Assertions Stage A: unsupported v3/corrupt state/get-cleanup write failure => provider count 0 для ordinary + compaction; healthy v2 => прежнее поведение.
-4. Только после Stage-A local PASS собрать Stage-B v3 store: legacy v2 read path + separate `provider_intents` ledger + exact replay/conversation state, сохраняя V12–V29. Зафиксировать `minimum_safe_rollback_commit` как Stage-A commit-кандидат до любой v3 publication.
+1. Read-only проверить исторический Windows digest; не перезапускать.
+2. Восстановить fresh v4 `LATEST` exact runtime — выполнено в этом запуске.
+3. Материализовать полный exact PR8 checkout локально и прогнать **V31** materializer в read-only режиме; затем isolated apply и реальные current tests. Assertions Stage A: unsupported v3/corrupt state/get-cleanup write failure => provider count 0 для ordinary и compaction; healthy v2 => прежнее поведение.
+4. Только после Stage-A exact local PASS собрать Stage-B v3 store: legacy v2 read path + separate `provider_intents` ledger + exact replay/conversation state, сохраняя V12–V29. Зафиксировать `minimum_safe_rollback_commit` как Stage-A commit-кандидат до любой v3 publication.
 5. Real-class offline matrix: retry/restart/distinct turn/stale retry >32/tool/final/forced NCM28 write/cleanup-write failure/blocked retry/stream↔non-stream/client disconnect/hard-crash intent/ambiguous transport/account removed/TTL+size/oversize/compaction exact+restart+legacy/unresolved intent >30d + >500 pressure + capacity/missing conversation identity/v3->Stage-A rollback failclosed.
-6. Совместить shell-env patch локально. Product push не делать при ZERO-MINUTE.
-7. После Core safety gates — один bounded authorized `codex exec -> bridge -> Notion -> local tool -> verifier FAIL -> correction -> VERIFY_OK`; capture должен доказать стабильный conversation id. Затем restart/recovery proof.
+6. Совместить shell-env patch локально.
+7. Только когда Stage A + Stage B локально зелёные и Windows semantics остаются последним реальным рубежом, использовать один disposable `ci/notion-core-windows-final-gate` по policy; сохранить exact gate SHA/logs/results. Недоступный результат не считать PASS.
+8. После Windows PASS — один bounded authorized `codex exec -> bridge -> Notion -> local tool -> verifier FAIL -> correction -> VERIFY_OK`; capture должен доказать stable conversation id. Затем restart/recovery proof.
 
 PR #7/#8 в этом проходе не менялись, hosted CI и provider traffic не запускались.

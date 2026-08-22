@@ -1,0 +1,34 @@
+{
+  "schema": "notion_core_v48_frozen_inputs_fresh_revalidation_v1",
+  "worker": "NOTION_CORE",
+  "checked_at_utc": "2026-08-22T18:46:48Z",
+  "core_pr7_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_pr8_head": "57bafc097d610e8055ab28f2fadc36a85af8200a",
+  "v48_materializer_blob": "dab975abd730481d0986b38cb2b2fb2d816e4244",
+  "product_preimages": {
+    "payload/account_pool.py": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f",
+    "payload/server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "payload/reservation_aware_lease.py": "c77b4d5214911def1729243516aec73e43f8d425"
+  },
+  "agent_toolchain": {
+    "tools/materialize_agent_wiring_with_tombstones.py": "859039a5e408bc84e7046372cdb509131eb37a97",
+    "tools/materialize_agent_wiring.py": "30fb89286eb4457b25b2145918279fec2d735042",
+    "tools/apply_account_pool_dynamic_reservation.py": "80aeb1872c1cab7f51c33039584b5786e441f9f0",
+    "tools/apply_startup_status_cleanup.py": "2ed85ece7d3323b1619ec0963d3021c1623d0e0a",
+    "tools/apply_subagent_tombstone_wiring.py": "40ab3a448e33fb8a8c3ce045ef31a815d0554823"
+  },
+  "historical_windows_digest": {
+    "workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "states": {
+      "outside-digest": "pending",
+      "migration": "pending",
+      "auth": "pending",
+      "codex": "pending",
+      "runtime": "pending"
+    },
+    "rerun": false
+  },
+  "verdict": "V48_FROZEN_INPUT_SET_FRESH_PASS",
+  "scope_note": "This proves only that the exact current PR #8 product preimages and all five transformation helpers still match the hashes frozen by V48. It is not a composed/apply PASS and does not justify the native-Windows gate yet.",
+  "next": "Materialize an exact disposable PR #8 checkout, run V48 check/apply, then execute the current Agent materializer/tombstone/dynamic-reservation cluster plus V41/V45 protected-mode regressions on the composed bytes."
+}

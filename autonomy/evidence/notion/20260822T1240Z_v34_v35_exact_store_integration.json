@@ -1,0 +1,54 @@
+{
+  "schema": "notion_core_v34_v35_exact_store_integration_v1",
+  "created_at_utc": "2026-08-22T09:40:00Z",
+  "worker": "NOTION_CORE",
+  "source": {
+    "core_pr": 7,
+    "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_integration_pr": 8,
+    "fresh_agent_head": "8c46616f6c4d038fc3b578a0e516aa7fb832a0a1",
+    "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "account_pool_blob": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f"
+  },
+  "exact_source_materialization": {
+    "conversation_segments_preimage_git_blob_verified": true,
+    "v34_exact_preimage_check": "PASS",
+    "v34_exact_preimage_apply": "PASS",
+    "v34_plus_v35_python_compile": "PASS",
+    "local_v34_materializer_sha256": "d5706216506841d4b0dac140ab1ccad9a07a207ef190de1d7bbcea4b0741b8ff",
+    "local_transformed_store_sha256": "985a8d91951d90fee9b09e0d490fa4aeff0eebd119754ef19871f66169b37b76",
+    "local_real_class_harness_sha256": "b47ebca196a3a6d56010c00e415d2a115d996d0595f4c0a60f1bf387594df989"
+  },
+  "verdict": "V34_V35_EXACT_CLASS_INTEGRATED_PASS",
+  "cases": {
+    "strict_begin_provider_intent": "PASS",
+    "strict_finalize_exact_replay_with_preserved_ids": "PASS",
+    "restart_loads_same_exact_replay": "PASS",
+    "detached_get_copy": "PASS",
+    "duplicate_unresolved_intent_fails_closed": "PASS",
+    "forced_final_ncm28_write_failure_propagates": "PASS",
+    "forced_final_write_failure_preserves_unresolved_intent": "PASS",
+    "persistence_blocked_after_write_failure": "PASS",
+    "v35_replay_ttl_enforced_by_normal_cleanup_without_provider_traffic": "PASS",
+    "replay_unavailable_tombstone_survives_restart": "PASS"
+  },
+  "account_failover_boundary": {
+    "exact_current_accountlease_run_confirmed_failover_eligible_on_ambiguous_transport": true,
+    "v36_default_compatibility_required": "Agent behavior remains unchanged unless Core explicitly opts out after durable provider-intent publication.",
+    "outer_server_retry_note": "The existing one-account foreground transport recursion is a second retry layer. V36 evidence already requires suppressing it once a durable provider intent exists; AccountLease-only suppression is insufficient.",
+    "local_model_recheck": {
+      "v36_only_with_outer_retry_provider_calls": 2,
+      "v38_full_retry_suppression_provider_calls": 1,
+      "verdict": "V38_OUTER_RETRY_SUPPRESSION_MODEL_PASS"
+    }
+  },
+  "windows": {
+    "historical_digest_workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "fresh_status": "all-five-pending",
+    "rerun": false,
+    "final_gate_started": false,
+    "reason": "Stage-B server orchestration is not yet exact-local green; Windows is not yet the last real uncertainty."
+  },
+  "next": "Build one exact-local Stage-B orchestration candidate around current server/account_pool boundaries: acquire route locally before intent; strict begin_provider_intent; exactly one provider entry with AccountLease failover disabled and outer foreground retry disabled; one canonical Responses/compaction payload; strict finalize; only then memory cache/reservation/client projection. Run pool-unavailable, intent-write-failure, ambiguous-transport, final-write-failure, retry/restart, compaction and stream cases before native Windows gate."
+}

@@ -15,22 +15,6 @@
   height: 100%;
   object-fit: contain;
 }
-.lk-canonical-bird__tint {
-  grid-area: 1 / 1;
-  width: 100%;
-  height: 100%;
-  opacity: .68;
-  mix-blend-mode: color;
-  filter: saturate(1.16);
-  pointer-events: none;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-  mask-position: center;
-  -webkit-mask-size: contain;
-  mask-size: contain;
-}
-
 .lk-color-visual > .lk-canonical-bird,
 .lk-bird-stage--drop > .lk-canonical-bird { display: inline-grid; }
 
@@ -165,67 +149,88 @@
   to { opacity: 1; }
 }
 @keyframes lk-hatch-inline-stage {
-  0% { opacity: 0; transform: scale(.96); }
-  17%, 100% { opacity: 1; transform: scale(1); }
+  0% { opacity: 1; transform: scale(.98); }
+  18%, 100% { opacity: 1; transform: scale(1); }
 }
 @keyframes lk-hatch-base-fade {
-  0%, 56% { opacity: 1; }
-  68%, 100% { opacity: 0; }
+  0%, 58% { opacity: 1; }
+  66%, 100% { opacity: 0; }
 }
 @keyframes lk-hatch-bird-rise {
-  0%, 58% {
+  0%, 68% {
     opacity: 0;
+    visibility: hidden;
     transform: translateY(24%) scale(.62);
   }
-  68% {
-    opacity: .34;
-    transform: translateY(19%) scale(.68);
+  69% {
+    opacity: 0;
+    visibility: visible;
+    transform: translateY(24%) scale(.62);
   }
-  79% {
-    opacity: .72;
-    transform: translateY(11%) scale(.78);
+  77% {
+    opacity: .28;
+    visibility: visible;
+    transform: translateY(18%) scale(.7);
   }
-  90% {
-    opacity: 1;
-    transform: translateY(1%) scale(.93);
+  89% {
+    opacity: .82;
+    visibility: visible;
+    transform: translateY(7%) scale(.86);
   }
   100% {
     opacity: 1;
+    visibility: visible;
     transform: translateY(-9%) scale(1.03);
   }
 }
 @keyframes lk-shell-left-open {
-  0%, 52% { transform: none; opacity: 0; }
-  53%, 58% { transform: none; opacity: 1; }
-  78% { transform: translate(-9%, -6%) rotate(-4deg); opacity: .96; }
+  0%, 56% { transform: none; opacity: 0; }
+  62% { transform: none; opacity: .58; }
+  66% { transform: none; opacity: 1; }
+  82% { transform: translate(-9%, -6%) rotate(-4deg); opacity: .96; }
   100% { transform: translate(-18%, -12%) rotate(-7deg); opacity: 0; }
 }
 @keyframes lk-shell-right-open {
-  0%, 52% { transform: none; opacity: 0; }
-  53%, 58% { transform: none; opacity: 1; }
-  78% { transform: translate(9%, -6%) rotate(4deg); opacity: .96; }
+  0%, 56% { transform: none; opacity: 0; }
+  62% { transform: none; opacity: .58; }
+  66% { transform: none; opacity: 1; }
+  82% { transform: translate(9%, -6%) rotate(4deg); opacity: .96; }
   100% { transform: translate(18%, -12%) rotate(7deg); opacity: 0; }
 }
 @keyframes lk-hatch-light-window {
-  0%, 29% { opacity: 0; }
-  41% { opacity: .35; }
-  56% { opacity: .88; }
-  68% { opacity: 1; }
-  82%, 100% { opacity: 0; }
+  0%, 30% { opacity: 0; }
+  46% { opacity: .28; }
+  58% { opacity: .72; }
+  68% { opacity: .92; }
+  84%, 100% { opacity: 0; }
 }
 
 /* The hook reserves real breathing room above and below the egg.  The old
    short-screen override put the image box directly under the headline and
    let its shadow read as an overlap. */
 .lk-first-time.lk-first-time--hook .lk-quiz-egg-stage {
-  top: clamp(364px, 42dvh, 386px);
-  width: min(66vw, 284px);
+  top: clamp(330px, 42dvh, 386px);
+  width: min(62vw, 268px);
+}
+.lk-first-time.lk-first-time--questions .lk-quiz-egg-stage {
+  top: 72px;
+  width: 108px;
+}
+.lk-first-time.lk-first-time--questions .lk-question--egg {
+  top: 252px;
 }
 
 @media (max-width: 360px), (max-height: 650px) {
   .lk-first-time.lk-first-time--hook .lk-quiz-egg-stage {
-    top: 252px;
-    width: 156px;
+    top: clamp(210px, 43dvh, 252px);
+    width: clamp(142px, 27dvh, 158px);
+  }
+  .lk-first-time.lk-first-time--questions .lk-quiz-egg-stage {
+    top: 54px;
+    width: 70px;
+  }
+  .lk-first-time.lk-first-time--questions .lk-question--egg {
+    top: 178px;
   }
   .lk-first-time.lk-first-time--hatching .lk-quiz-egg-stage,
   .lk-first-time.lk-first-time--reveal .lk-quiz-egg-stage {

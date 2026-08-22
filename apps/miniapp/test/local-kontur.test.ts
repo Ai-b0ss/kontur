@@ -6,7 +6,7 @@ import { fitBirdAsset, LOCAL_BIRD_ASSETS, resolveBirdRole } from '../src/compone
 import { quizEggStageModel } from '../src/quiz-egg-model.ts';
 import { initialLocalStage, needsLocalQuestions, reconcileColoring, shouldReduceMotion, wormWord } from '../src/local-kontur-model.ts';
 import { QUESTIONS, resolveRole } from '../../../packages/core/src/roles.ts';
-import { RESULT_ASSETS } from '../src/components/result-bird-assets.ts';
+import { RESULT_ASSETS, resolveResultAsset } from '../src/components/result-bird-assets.ts';
 import {
   parseStoredVibeVariant,
   personalizedBirdNote,
@@ -182,19 +182,22 @@ test('equipped palette stays on the same canonical bird from hatch through Home'
   assert.match(renderer, /image\.decode\(\)\.then\(afterPaint, afterPaint\)/);
   assert.match(renderer, /requestAnimationFrame\(\(\) => window\.requestAnimationFrame/);
   assert.match(renderer, /onLoad=\{\(event\) => markImageReady\(event\.currentTarget\)\}/);
-  assert.match(renderer, /palette && imageReady &&/);
+  assert.match(renderer, /resolveResultAsset\(resultId, palette\)/);
+  assert.match(renderer, /data-plumage-asset=\{asset\.src\}/);
 });
 
-test('all six palette channels visibly recolor the canonical bird', async () => {
+test('magpie uses real alternate plumage assets instead of a CSS color film', async () => {
   const renderer = await readFile(new URL('../src/components/CanonicalBirdVisual.tsx', import.meta.url), 'utf8');
   const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
-  for (const channel of ['body', 'belly', 'wing', 'tail', 'crest', 'beak']) {
-    assert.match(renderer, new RegExp(`palette\\.${channel}`), channel);
-  }
-  assert.match(renderer, /radial-gradient/);
-  assert.match(renderer, /linear-gradient/);
-  assert.match(css, /\.lk-canonical-bird__tint\s*\{[\s\S]*?opacity:\s*\.68;/);
-  assert.match(css, /mix-blend-mode:\s*color;/);
+  const base = { body: '#1', belly: '#2', wing: '#3', tail: '#4', crest: '#5', beak: '#6' };
+  const amber = resolveResultAsset('magpie', { ...base, wing: '#bd5a35' });
+  const northern = resolveResultAsset('magpie', { ...base, wing: '#8fb8d0' });
+  assert.equal(amber.src, '/results/magpie-amber.webp');
+  assert.equal(northern.src, '/results/magpie-northern.webp');
+  assert.notEqual(amber.src, northern.src);
+  assert.equal(resolveResultAsset('woodpecker', { ...base, wing: '#bd5a35' }).src, RESULT_ASSETS.woodpecker.src);
+  assert.doesNotMatch(renderer, /canonical-bird__tint|maskImage|mixBlendMode|radial-gradient|linear-gradient/);
+  assert.doesNotMatch(css, /\.lk-canonical-bird__tint|mix-blend-mode:\s*color/);
 });
 
 test('reveal state removes stale hook and question surfaces and wins the final CSS order', async () => {
@@ -238,6 +241,8 @@ test('approved quiz and six-result assets are decodable production assets', asyn
     ...Array.from({ length: 8 }, (_, index) => `/quiz/egg-stage-${String(index + 1).padStart(2, '0')}.webp`),
     '/quiz/egg-crack-light.webp',
     ...Object.values(RESULT_ASSETS).map((asset) => asset.src),
+    '/results/magpie-amber.webp',
+    '/results/magpie-northern.webp',
   ];
   for (const relativePath of paths) {
     const file = new URL(`../public${relativePath}`, import.meta.url);

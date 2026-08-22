@@ -1,0 +1,45 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "timestamp_utc": "2026-08-22T00:33:00Z",
+  "finding": "NOTION_SUBAGENT_TOMBSTONE_MULTIWRITER_LOST_UPDATE",
+  "severity": "high",
+  "fresh_product": {
+    "repo": "Ai-b0ss/notion-agent-bridge",
+    "pr": 8,
+    "head": "0ca44dd6df901fa848cede6be32e61235a75dcfb",
+    "subagent_tombstone_store_blob": "6185f502fcdd7ead72237c1a0f3790b114e8a844",
+    "server_subagent_lifecycle_blob": "5c9017350100a10e83072cb93f1b7aaced2c9ad7",
+    "server_subagent_runtime_blob": "206d8cdfc0897979c981659e9edc378da08f2a78"
+  },
+  "reproduction": {
+    "verdict": "NOTION_TOMBSTONE_MULTIWRITER_RACE_REPRODUCED_AND_LOCK_CONTRACT_PASS",
+    "sequence": [
+      "store A and store B load the same durable empty generation",
+      "A begin_call(child-A, call-A) durably publishes inflight A",
+      "B, still holding its stale empty in-memory snapshot, begin_call(child-B, call-B)",
+      "B atomically replaces the canonical file with a snapshot containing only B"
+    ],
+    "current_final_inflight": [["child-B", "call-B"]],
+    "lost_marker": ["child-A", "call-A"],
+    "impact": "a restart/overlap can forget a pre-side-effect inflight marker; the same logical mutating delegated task can later look replayable"
+  },
+  "candidate_contract": {
+    "linux_offline_model": "PASS",
+    "required": "serialize the whole read-modify-write transaction across processes and refresh canonical state while holding the lock",
+    "not_sufficient": [
+      "atomic os.replace alone",
+      "per-instance memory state",
+      "asyncio/thread lock confined to one process",
+      "read-before-lock then write-under-lock"
+    ],
+    "windows": "UNPROVEN: final lock primitive must pass native Windows before integration"
+  },
+  "scope": {
+    "no_product_files_modified": true,
+    "hosted_ci": false,
+    "provider_traffic": false,
+    "production": false,
+    "secrets": false
+  }
+}

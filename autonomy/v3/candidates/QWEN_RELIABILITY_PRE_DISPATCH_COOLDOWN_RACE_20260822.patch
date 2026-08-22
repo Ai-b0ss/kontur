@@ -1,0 +1,69 @@
+diff --git a/src/qwen-client.js b/src/qwen-client.js
+--- a/src/qwen-client.js
++++ b/src/qwen-client.js
+@@
+       const accountPayload = { ...payload, chat_id: accountChatId, chatId: accountChatId };
+       const url = `${config.BASE_URL}/api/v2/chat/completions?chat_id=${accountChatId}`;
+       const requestHeaders = buildHeadersForProvider(`/c/${accountChatId}`, account);
+-      if (canReuseOriginalChatId(account, originalChatId, preferredAccount)) {
+-        markProviderAttempt(attemptContext, account);
++      // Re-check the canonical account immediately before provider dispatch.
++      // Another in-flight request may have put this account on CAPTCHA/rate-limit
++      // cooldown after the earlier affinity/chat-creation decision. Because this
++      // check, request-budget accounting and axios.post() are synchronous until
++      // the provider call is initiated, a newly cooled account cannot slip through
++      // the old affinity snapshot without also bypassing request-wide accounting.
++      if (!accountStore.isAvailable(account)) {
++        logger.warn(`Qwen account ${account.id} became unavailable before chat completion dispatch; bounded sibling failover`, 'QWEN');
++        continue;
+       }
++      markProviderAttempt(attemptContext, account);
+       const response = await axios.post(url, accountPayload, {
+         headers: requestHeaders,
+         responseType: 'stream',
+         timeout: 10 * 60 * 1000,
+       });
+
+diff --git a/scripts/pre-dispatch-account-availability-test.js b/scripts/pre-dispatch-account-availability-test.js
+new file mode 100644
+--- /dev/null
++++ b/scripts/pre-dispatch-account-availability-test.js
+@@
++'use strict';
++
++const assert = require('assert');
++const fs = require('fs');
++const path = require('path');
++
++const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'qwen-client.js'), 'utf8');
++const start = source.indexOf('async function sendChatRequest(');
++const end = source.indexOf('\nfunction readStream(', start);
++assert(start >= 0 && end > start, 'sendChatRequest source not found');
++const body = source.slice(start, end);
++
++const headers = body.indexOf("const requestHeaders = buildHeadersForProvider(`/c/${accountChatId}`, account);");
++const freshAvailability = body.indexOf('if (!accountStore.isAvailable(account))', headers);
++const budgetMark = body.indexOf('markProviderAttempt(attemptContext, account);', headers);
++const providerPost = body.indexOf('const response = await axios.post(url, accountPayload', headers);
++
++assert(headers >= 0, 'completion headers boundary missing');
++assert(freshAvailability > headers, 'fresh canonical availability must be checked after local preparation');
++assert(budgetMark > freshAvailability, 'provider attempt must be counted only after fresh availability succeeds');
++assert(providerPost > budgetMark, 'provider attempt must be counted before chat completion dispatch');
++
++const between = body.slice(headers, providerPost);
++assert(!between.includes('if (canReuseOriginalChatId(account, originalChatId, preferredAccount)) {\n        markProviderAttempt'),
++  'attempt accounting must not depend on a stale affinity re-check');
++
++console.log('PRE_DISPATCH_ACCOUNT_AVAILABILITY_BOUNDARY_PASS');
++
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@
+-    "test": "
++    "test": "
++
++# Integrate scripts/pre-dispatch-account-availability-test.js into the existing npm test chain
++# by appending: && node scripts/pre-dispatch-account-availability-test.js
++# The exact package.json line must be fresh-read before application because QWEN_CORE also edits the test chain.

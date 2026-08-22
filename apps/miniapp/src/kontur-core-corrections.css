@@ -143,6 +143,7 @@
 .lk-first-time.lk-first-time--reveal .lk-question--egg {
   visibility: hidden;
   opacity: 0;
+  animation: none;
   transform: translateY(-18px);
   pointer-events: none;
 }

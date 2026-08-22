@@ -4,17 +4,18 @@ status: "production_deployed_telegram_owner_smoke_pending"
 
 repository:
   full_name: "Ai-b0ss/kontur"
-  branch: "cursor/kontur-visual-alt-b153d4c9"
-  pull_request: 20
+  branch: "cursor/kontur-hatch-state-machine-f7b4"
+  pull_request: 21
   pull_request_state: "draft_open_unmerged"
   product_baseline: "b153d4c96a775484c0cfc3b454029f9e4dadaf75"
+  verified_hatch_candidate: "1d6b0e72d364a6c4f2089181afea01b0da3e216f"
   exact_release_record:
     binding: "owner package MANIFEST.json + issue #9 canonical closing comment + PR #12 evidence comment"
     reason: "a Git commit cannot contain its own SHA"
 
 product:
   invariant: "8Q once -> bird -> reply /worm -> +1 worm -> 5 worms = egg -> guaranteed-new cosmetic coloration -> equip -> reload persists"
-  first_time_funnel: "hook -> q1..q8 -> response-gated hatch -> reveal -> worm -> home"
+  first_time_funnel: "hook -> q1..q8 -> gesture-gated pulse/cracks -> result-and-decode-gated flash -> reveal -> worm -> home"
   backend_roles: 5
   visual_results: 6
   kotosov: "client-local presentation-only vibe subtype; backend/API/D1/scoring unchanged"

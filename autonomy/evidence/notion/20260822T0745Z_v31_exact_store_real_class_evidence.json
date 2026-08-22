@@ -1,0 +1,54 @@
+{
+  "schema": "notion_core_v31_exact_store_real_class_evidence_v1",
+  "created_at_utc": "2026-08-22T07:45:00Z",
+  "worker": "NOTION_CORE",
+  "product": {
+    "repo": "Ai-b0ss/notion-agent-bridge",
+    "core_pr": 7,
+    "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_integration_pr": 8,
+    "agent_head": "f58f0123b370ad786d337337eb03a6a4ce9963b3",
+    "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d"
+  },
+  "runtime_restore": {
+    "capsule": "20260822T064521Z-22a279609f",
+    "archive_sha256": "1f693c04ca4529d3a5bb0b521b446f308f1956d53c12a9c78fdb6bc5727ef19c",
+    "result": "V4_LATEST_EXACT_RESTORE_PASS"
+  },
+  "v31": {
+    "materializer": "autonomy/evidence/notion/20260822T0705Z_v31_stage_a_compaction_floor_materializer.py",
+    "exact_conversation_segments_preimage_git_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "exact_preimage_verified_locally": true,
+    "transformed_python_compile": "PASS",
+    "real_class_harness": "PASS",
+    "real_class_cases": {
+      "healthy_persistent_v2": "PASS",
+      "unsupported_v3_after_get": "FAIL_CLOSED",
+      "corrupt_json_after_get": "FAIL_CLOSED",
+      "cleanup_write_failure_inside_get": "FAIL_CLOSED",
+      "memory_only_path_none": "PASS"
+    },
+    "verdict": "V31_EXACT_CONVERSATION_STORE_REAL_CLASS_PASS"
+  },
+  "server_boundary": {
+    "ordinary_anchor_confirmed_on_exact_blob": true,
+    "compaction_anchor_confirmed_on_exact_blob": true,
+    "full_exact_server_materialization_local": false,
+    "reason": "GitHub connector exposes exact server bytes, but the current container has no GitHub DNS and the already assembled local server surrogate does not match the exact git blob. It was rejected and was not used as exact evidence.",
+    "stage_a_full_verdict": "NOT_YET_EXACT_LOCAL_PASS"
+  },
+  "windows": {
+    "historical_digest_workflow": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "status": "all-five-pending",
+    "rerun": false,
+    "final_windows_gate_ready": false
+  },
+  "safety": {
+    "hosted_ci_started": false,
+    "live_notion_or_codex": false,
+    "product_branch_mutated": false,
+    "unknown_bytes_reconstructed": false
+  },
+  "next": "Materialize the exact f02cef6a server bytes without approximation, run V31 full-file --check and isolated apply, then execute ordinary+compaction real current regressions. Do not trigger native Windows until Stage A and Stage B are locally green."
+}

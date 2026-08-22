@@ -6,7 +6,7 @@
 Repo: `Ai-b0ss/qwen-free-api`
 Branch: `autopilot/qwen-runtime-preflight-20260818`
 PR: #6
-Fresh product head на EXIT GATE: `c889995806c58be64779392fb4fb6edddb8a0bfc`.
+Fresh product head на EXIT GATE: `b4541d111c0e57d1352cbbbe80e72eff292dd7ef`.
 Перед любой новой записью снова fresh-read PR head: параллельно работает QWEN_CORE.
 
 ## Закрытый дефект — weaker provider trip больше не снижает сильный circuit после скачка wall clock
@@ -15,7 +15,7 @@ Fresh product head на EXIT GATE: `c889995806c58be64779392fb4fb6edddb8a0bfc`.
 2. системные часы VM/NTP прыгают вперёд;
 3. обычный `current()` правильно остаётся закрытым благодаря monotonic guard;
 4. затем приходит более слабый `provider_pressure`;
-5. старый `trip()` вызывал `current(now)` с явным wall-clock временем, тем самым обходил monotonic guard, удалял старое durable состояние и записывал более слабый circuit.
+5. старый `trip()` вызывал `current(now)` с явным wall-clock временем, обходил monotonic guard, удалял старое durable состояние и записывал более слабый circuit.
 
 Hosted model reproduction:
 `PROVIDER_CIRCUIT_TRIP_WALL_CLOCK_DOWNGRADE_REPRO_PASS`.
@@ -24,7 +24,7 @@ Hosted model reproduction:
 - `0df8da414b9d45186fdba4f01780a5af44361a07` — `scripts/provider-circuit-trip-wall-clock-jump-test.js`.
 
 Продуктовый фикс:
-- `7e3b275b7ac5722f000bcf46ef970583a2802e36` — `trip()` в обычном runtime использует process-monotonic состояние, сравнивает оставшуюся реальную паузу, а при wall-clock jump обновляет durable expiry сильного circuit так, чтобы restart не потерял остаток защиты.
+- `7e3b275b7ac5722f000bcf46ef970583a2802e36` — runtime `trip()` учитывает process-monotonic остаток и при wall-clock jump обновляет durable expiry сильного circuit, чтобы restart не потерял остаток защиты.
 
 Проверка кандидата:
 `PROVIDER_CIRCUIT_TRIP_WALL_CLOCK_JUMP_CANDIDATE_PASS`.
@@ -33,7 +33,7 @@ Hosted model reproduction:
 - `0410f9812862df6e8b8d0d6ff7f99e3f0950b567`.
 
 ## Закрытый дефект — исчезновение durable provider-circuit файла больше не открывает пул внутри живого процесса
-Старый `current()` при отсутствии `provider-circuit.json` сразу очищал `monotonicCircuitUntil` и возвращал `null`. Поэтому после уже установленного WAF/trust circuit случайное/внешнее исчезновение файла могло мгновенно открыть sibling probing, хотя процесс всё ещё помнил живую монотонную паузу.
+Старый `current()` при отсутствии `provider-circuit.json` сразу очищал `monotonicCircuitUntil` и возвращал `null`. Поэтому случайное исчезновение файла могло мгновенно открыть sibling probing, хотя процесс всё ещё помнил живую монотонную паузу.
 
 Hosted model reproduction:
 `PROVIDER_CIRCUIT_MISSING_STATE_FAIL_OPEN_REPRO_PASS`.
@@ -50,20 +50,28 @@ Hosted model reproduction:
 Штатный `npm test` wiring:
 - `c889995806c58be64779392fb4fb6edddb8a0bfc`.
 
+## Fresh параллельный фикс QWEN_CORE — state_missing теперь переживает retrip + restart
+После нашего `state_missing` QWEN_CORE сразу добавил следующий правильный контрпример:
+- `8c0fea2f96450283971f08de33db700b0dbe8a08` — regression `provider-circuit-missing-state-retrip-restart-test.js`;
+- `b4541d111c0e57d1352cbbbe80e72eff292dd7ef` — `trip()` при более слабом новом сигнале durably republish-ит оставшийся fail-closed state перед возвратом, чтобы следующий процесс не забыл блокировку.
+
+Я попытался внести эквивалентный фикс параллельно, но GitHub правильно дал CAS/sha conflict 409 после изменения того же файла QWEN_CORE. После fresh compare подтверждено, что их commit закрывает именно этот gap; свой конфликтующий write не форсировал и чужой код не затирал.
+
 ## Предыдущие late-success race остаются закрыты
 - `markSuccess()` не стирает более свежий CAPTCHA/rate-limit cooldown;
 - поздний успех охлаждённого A не возвращает `activeId` с доступного sibling B обратно на A;
 - продуктовый фикс active pointer: `182d09c1f66782bf32cdeb1daba25a6c183dfb79`.
 
 ## Проверки / граница доказательства
-- Новые два дефекта сначала воспроизведены локально/hosted моделью, затем исправлены и закреплены постоянными регрессиями.
-- Оба новых теста уже входят в обычный `npm test`.
-- Exact-tree full `npm test` на `c8899958...` в этом проходе НЕ запускался и PASS не приписывается.
-- CircleCI не запускался: политика требует стабильного exact product SHA и одного владельца gate; QWEN_CORE только недавно сдвинул общий head и полного exact-tree local gate всё ещё нет.
+- Новые два reliability-дефекта сначала воспроизведены локально/hosted моделью, затем исправлены и закреплены постоянными регрессиями.
+- Оба наших новых теста уже входят в обычный `npm test`.
+- Fresh QWEN_CORE retrip/restart test существует на head, но перед следующим gate проверить, включён ли он в `npm test`.
+- Exact-tree full `npm test` на `b4541d11...` в этом проходе НЕ запускался и PASS не приписывается.
+- CircleCI не запускался: политика требует стабильного exact product SHA и одного владельца gate; общий head снова содержательно сдвинулся QWEN_CORE.
 - Live Qwen/provider traffic, реальные аккаунты, секреты, Cloudflare и production не трогались.
 
 ## QWEN_CORE coordination
-На входе fresh `autonomy/handoff/QWEN_CORE.md` указывал head `accc8e48...`; его открытая зона — agent/subagent prompt-mode cluster и exact-tree проверка. Reliability изменения ограничены provider-circuit + его регрессиями + `package.json` wiring и с Core-зоной не пересекаются.
+На входе fresh `autonomy/handoff/QWEN_CORE.md` указывал head `accc8e48...`; затем QWEN_CORE самостоятельно продолжил ровно свежую provider-circuit цепочку. Reliability и Core CAS-конфликт обработан безопасно: force-write не было, fresh compare сделан, winner commit `b4541d11...` принят.
 Перед следующим product write снова прочитать QWEN_CORE + fresh PR compare.
 
 ## CircleCI final gate
@@ -97,23 +105,26 @@ Hosted model reproduction:
 - forward wall-clock jump внутри живого процесса не сокращает provider-wide circuit;
 - weaker provider trip после wall-clock jump не снижает более сильный активный circuit и realign-ит durable expiry;
 - исчезновение durable provider-circuit файла при живом monotonic guard остаётся fail-closed;
+- state_missing + weaker retrip durably republish-ится для restart safety;
 - late success не стирает более новый account cooldown/error state;
 - late success охлаждённого аккаунта не возвращает active pointer с доступного sibling обратно на него.
 
 ## Что делать дальше
 1. Fresh-read PR #6 + QWEN_CORE.
-2. Не переоткрывать два новых provider-circuit дефекта без нового контрпримера.
-3. При возможности exact checkout прогнать targeted provider cluster:
+2. Не переоткрывать три новых provider-circuit дефекта без нового контрпримера.
+3. Проверить wiring `provider-circuit-missing-state-retrip-restart-test.js` в обычный `npm test`; если не включён — только подключить его, без изменения runtime.
+4. При возможности exact checkout прогнать targeted provider cluster:
    - `provider-circuit-monotonic-test.js`;
    - `provider-circuit-wall-clock-jump-test.js`;
    - `provider-circuit-trip-wall-clock-jump-test.js`;
    - `provider-circuit-missing-state-fail-closed-test.js`;
+   - `provider-circuit-missing-state-retrip-restart-test.js`;
    - `provider-circuit-persistence-test.js`;
    - `provider-circuit-clear-durability-test.js`;
    - `provider-safety-test.js`.
-4. Затем account-store cluster из предыдущего handoff.
-5. CircleCI final gate — только после стабилизации exact product SHA и координации одного владельца SHA.
-6. После этого искать следующий новый воспроизводимый дефект только в pool/candidates/cooldown/provider-circuit/affinity/bounded-retry/replay safety.
+5. Затем account-store cluster из предыдущего handoff.
+6. CircleCI final gate — только после стабилизации exact product SHA и координации одного владельца SHA.
+7. После этого искать следующий новый воспроизводимый дефект только в pool/candidates/cooldown/provider-circuit/affinity/bounded-retry/replay safety.
 
 ## Постоянная память
 Worker: `QWEN_RELIABILITY`.
@@ -124,4 +135,4 @@ Current `LATEST` на входе:
 - archive SHA-256 `3ebdba2e34121ab6a368bbde3f3d928c9fcdbfa88fad7fdda74834d13063467d`;
 - manifest schema v4, 2 parts; `PREVIOUS` также перечитан.
 
-Попытка локально материализовать fetched parts для нормативного `verify -> restore` была остановлена на `part length mismatch part-0000.b64`: байты, перенесённые из connector response в локальную FS, не совпали с manifest. По протоколу никакой ручной «починки» capsule не делалось. Новый `LATEST` не публиковался, старые `LATEST/PREVIOUS` не менялись, force-write не использовался. Exact product state закреплён Git commits и этим handoff.
+Попытка локально материализовать fetched parts для нормативного `verify -> restore` остановилась на `part length mismatch part-0000.b64`: байты, перенесённые из connector response в локальную FS, не совпали с manifest. По протоколу никакой ручной «починки» capsule не делалось. Новый `LATEST` не публиковался, старые `LATEST/PREVIOUS` не менялись, force-write не использовался. Exact product state закреплён Git commits и этим handoff.

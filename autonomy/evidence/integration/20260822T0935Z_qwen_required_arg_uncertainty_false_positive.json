@@ -1,0 +1,39 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "QWEN_REQUIRED_ARG_VALIDATION_FALSE_UNCERTAINTY",
+  "verdict": "REPRODUCED_CURRENT_FALSE_UNCERTAINTY_AND_CANDIDATE_PASS",
+  "fresh_product_head": "a8144c851603e2a17397dac21f6fb316e7b07e0a",
+  "source_blobs": {
+    "src/tool-executor.js": "see fresh GitHub read at product head; contains validateRequiredToolArguments before handler",
+    "src/agent.js": "14c635588d5e3aa6e67e0c16c26a1829380db222",
+    "src/subagent-side-effect-state.js": "2239f471ee8a26b40bd20bdfb6e710b99aeaaa07",
+    "src/subagent-agent-runner.js": "d5cc8c5cc45a783384e1a4c259ac0f80d2814fd7"
+  },
+  "reproduction": {
+    "tool": "write_file",
+    "arguments": {"path": "demo.txt"},
+    "missing_required": "content",
+    "executor_preflight_result": "Error before fs.writeFileSync handler side effect",
+    "agent_event_order": "agent emits enabled mutating tool event before executeTool()",
+    "current_execution_state": "mayHaveSideEffects=true",
+    "actual_side_effect": false,
+    "downstream_risk": "a later model-round/provider failure can be persisted as uncertain and block an otherwise safe retry"
+  },
+  "candidate_contract": [
+    "Required-argument validation must happen before the side-effect boundary event is observed, or the event must carry an explicit preflightRejected/invalidArguments marker from executor validation.",
+    "A mutating tool becomes mayHaveSideEffects only after local preflight has admitted the handler to start.",
+    "Do not weaken uncertainty once a mutating handler has actually started; post-start errors remain conservative/uncertain."
+  ],
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_qwen_required_arg_uncertainty_probe.js",
+    "result": "QWEN_REQUIRED_ARG_FALSE_UNCERTAINTY_REPRODUCED_CANDIDATE_PASS"
+  },
+  "scope": "Cross-boundary red-team of the fresh QWEN_CORE required-argument fix against coding-subagent replay safety. No account/cooldown/failover product rewrite.",
+  "limits": [
+    "No product file changed.",
+    "No hosted CI or CircleCI triggered.",
+    "No provider/Qwen/Notion/Codex traffic.",
+    "No production, accounts or secrets used."
+  ]
+}

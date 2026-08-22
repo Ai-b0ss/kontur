@@ -33,3 +33,12 @@
 - Owner one-user reset stayed fail-closed: `lower(replace(username,'@','')) = igorekglukhovskii43` matched 0 rows. Experience allowlist was unavailable (size 0). Current sanitized usernames: `fff999o`, `fff6dm`, `fff6pm`, and later `belasblesov`. None were guessed as owner. Other users and static catalogs were left untouched.
 - Executor restored read-only at `918d87b2`. Real iPhone `/start` → q8 → hatch remains `HOLD` in this VM (no authenticated Telegram session). If the owner names their Telegram username among the live handles, a scoped one-user reset can be repeated without a global wipe.
 
+## 2026-08-22 — one-user reset of owner Telegram username fff6pm
+
+- Owner identified the production account as username `fff6pm` (internal `users.id` 37). Fail-closed match count was 1.
+- FK-safe per-statement DELETEs on production D1 `kontur` removed only that user. `DELETE FROM users WHERE id = 37` reported `changes=1`. No global wipe, no schema/migration/secret/webhook change, no production Worker redeploy.
+- Read-only proof `d91b74b2`: `fff6pm` and db id 37 are gone. Remaining users: `fff999o`, `fff6dm`, `belasblesov`. Aggregates 3 started / 3 hatched / 0 grants. Colorings 10, restored opportunities 4, migrations 18.
+- Hatch runtime `771f908b` still live (`index-DuA7dhZw.js` / `index-C64rrWW-.css`). Health / API 401 / webhook 403 PASS.
+- Executor restored read-only at `ffe04654`. iPhone `/start` → onboarding → q8 → new hatch is ready for `fff6pm`; this VM still cannot perform that authenticated Telegram walkthrough (`HOLD`).
+
+

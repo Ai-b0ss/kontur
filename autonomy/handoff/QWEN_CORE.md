@@ -1,33 +1,39 @@
 # Qwen — агентное ядро / финишный handoff
 
-Обновлено QWEN_CORE 2026-08-22.
+Обновлено QWEN_CORE 2026-08-23.
 
 ## Текущая линия
 Repo: `Ai-b0ss/qwen-free-api`
 Branch: `autopilot/qwen-runtime-preflight-20260818`
 PR: #6
-Текущий проверенный product head после Core-работы: `6bdc4b315bf83ffe9a8c2a87c03f909a2c156fbc`.
+Последний fresh product head: `2611b67fa01a0d939dc05821c21e163b36dc8ed1`.
 
-Перед любой новой записью снова перечитать PR #6, `autonomy/handoff/QWEN_RELIABILITY.md`, issue #9 и QWEN_CORE `LATEST.json`.
+Перед любой новой записью снова перечитать PR #6, `autonomy/OWNER_INTENT_RU.md`, `autonomy/CURRENT_RU.md`, `autonomy/handoff/QWEN_RELIABILITY.md`, issue #9 и QWEN_CORE `LATEST.json`.
 
-## Закрытый Core-дефект — required-tool terminal frames
-Был воспроизводимый разрыв в `parseQwenSSE()`: при `requireToolCall=true` явный terminal frame мог завершить ответ успехом до проверки, что полный tool-call реально принят. Plain preamble или незавершённый `<tool_call>` могли дать пустой успешный completion вместо bounded retry/fail-closed.
+## Новый открытый Core RED — reasoning leak до обязательного tool-call
+На предыдущем product head `6bdc4b315bf83ffe9a8c2a87c03f909a2c156fbc` `parseQwenSSE()` уже fail-closed для terminal frames при `requireToolCall=true`, но буферизует только обычный `content`. `reasoning_content` и текст из `<think>...</think>` всё ещё идут напрямую в `onData()` до принятия полного tool-call.
 
-Исправлено на продуктовой ветке:
-- `319f22674612916c572c94b36802cb0a4dcb7f0a` — расширен regression на explicit terminal frames;
-- `6b203f3f060acc536d04a84b34e749257c28d948` — минимальный root fix в `src/chat-adapter.js`;
-- `3e3ade7ddec82cb47ac01cc36ffdd867b314b0a0` — уточнён regression verdict;
-- `6bdc4b315bf83ffe9a8c2a87c03f909a2c156fbc` — regression подключён в штатный `npm test`.
+Следствие: required-tool turn может затем правильно завершиться `closed without a usable response`, но клиент уже успел получить reasoning/thinking. Это нарушает тот же invariant, который держит `tool-required-terminal-frame-test.js`: отвергнутый required-tool ответ не должен выдавать клиенту никаких частей результата до принятия инструмента.
 
-Новый контракт:
-- plain text + `data:true` / `[DONE]` / `finish_reason` / `status:finished` при required-tool без принятого tool-call -> `closed without a usable response`, без утечки buffered output;
-- незавершённый mutating tool-call -> тот же fail-closed;
-- полный принятый tool-call может завершиться штатно;
-- parser state очищается перед replacement/retry, поэтому rejected partial XML не загрязняет следующий поток.
+Зафиксирован отдельный намеренно RED regression:
+- commit `2611b67fa01a0d939dc05821c21e163b36dc8ed1`;
+- файл `scripts/tool-required-reasoning-leak-test.js`;
+- проверяет `reasoning_content + terminal`, `<think> + terminal` и положительный случай `reasoning -> complete read_file tool_call`.
 
-Diff root fix был проверен через GitHub compare: только `src/chat-adapter.js`, +21/-10; account/cooldown/provider-circuit не затронуты.
+Regression пока намеренно НЕ подключён к `npm test`: root fix ещё не внесён. Это не «забытый standalone» — следующий Core-проход обязан сначала закрыть root cause, получить targeted green и сразу после этого включить regression в штатный `npm test`.
 
-Targeted hosted behavioral check на этой семантике: PASS. Полный exact-tree `npm test` пока НЕ объявлять пройденным.
+Минимальный root fix локализован в `src/chat-adapter.js`: все reasoning/thinking SSE-дельты внутри `parseQwenSSE()` должны проходить через тот же `emitData()`-gate, что и обычный content. Тогда при `requireToolCall=true` reasoning хранится до принятия tool-call, выпускается вместе с принятым tool-call, а при terminal rejection полностью отбрасывается. Не менять tool parser, account/cooldown/provider-circuit.
+
+В этом проходе большой `chat-adapter.js` не переписывался через Contents API: доступный интерфейс требует полную замену файла, а безопасного line-patch primitive нет. Реконструировать 39 КБ активно меняющегося файла вручную запрещено. Следующий проход должен fresh-read exact blob и применить изменение только побайтно безопасным способом; если такого способа нет, не делать approximate replacement.
+
+## Targeted Core proof на fresh tree
+На product head `6bdc4b315...` локально на машине ChatGPT материализованы exact Git blobs и реально выполнен `scripts/subagent-dispatcher-test.js`:
+- `src/config.js` blob `e6bfdf206c0ee60bb7faecf398add28500f3993d`;
+- `src/subagent-dispatcher.js` blob `ad3cc72c7a317c5d2ed8aed2ea13f9f2d4f6d721`;
+- `scripts/subagent-dispatcher-test.js` blob `fa146bc9bb6fa61dbba89f4f88684388e45e43a0`;
+- verdict: `subagent dispatcher: PASS`.
+
+Это подтверждает plain-subagent fail-closed validation для prompt/id/mode/owner prompt/sessionPrefix и отсутствие provider calls в негативных сценариях. После добавления RED-test продуктовый код Core не менялся, поэтому этот targeted PASS сохраняет силу для соответствующих файлов.
 
 ## Уже закрыто — без нового контрпримера не открывать заново
 - tool-result continuation/restart + pending-tool replay guard;
@@ -45,40 +51,36 @@ Targeted hosted behavioral check на этой семантике: PASS. Пол�
 - required tool arguments валидируются до handler;
 - ordinary Qwen capability mode валидируется строго до мутаций сессии;
 - durable owner authority не приводит object/number/array через `String(...)`;
-- plain subagent dispatcher строго валидирует mode, owner prompt, task prompt/id и explicit sessionPrefix.
+- plain subagent dispatcher строго валидирует mode, owner prompt, task prompt/id и explicit sessionPrefix;
+- required-tool terminal frames для plain content/partial tool уже fail-closed и regression подключён в `npm test`.
 
 ## Координация с QWEN_RELIABILITY
-Fresh Reliability handoff после Core-fix:
+Fresh Reliability handoff до нынешнего Core RED:
 - account/cooldown/index/filename targeted cluster: 8/8 exact PASS;
 - provider cluster: 7/8 exact PASS;
-- остаётся exact proof `provider-safety-test.js` на hosted dependency tree (`axios` сейчас не материализован локально).
+- остаётся exact proof `provider-safety-test.js` на hosted dependency tree.
 
 Core не трогает `account-store` / cooldown / provider-circuit. Финальный общий SHA выбирать только после fresh Reliability-read.
 
 ## Финальный порядок до Windows-ready
 1. Fresh-read PR #6 + QWEN_RELIABILITY.
-2. На exact current tree выполнить ближайший Core stream/session/restart cluster, включая новый `tool-required-terminal-frame-test.js` и существующий truncation/lifecycle/restart набор.
-3. Закрыть оставшийся Reliability exact `provider-safety-test.js` proof.
-4. Когда Core + Reliability targeted green на одном стабильном SHA — полный exact-tree Linux `npm test`.
-5. Только после Linux PASS — один native Windows Server 2022 CircleCI gate на тех же product bytes, locked install + полный offline suite, без provider/live/secrets/production.
-6. Только после Linux+Windows green готовить owner Windows doctor/acceptance harness; раньше не создавать.
+2. Закрыть `tool-required-reasoning-leak-test.js`: минимальный root fix -> targeted green -> сразу подключить regression в `npm test`.
+3. На одном stable exact head выполнить Core stream/session/restart cluster, включая terminal-frame + reasoning-leak + truncation/lifecycle/restart.
+4. Закрыть оставшийся Reliability exact provider proof.
+5. Когда Core + Reliability targeted green на одном стабильном SHA — полный exact-tree Linux `npm test`.
+6. Только после Linux PASS — один native Windows Server 2022 CircleCI gate на тех же product bytes, locked install + полный offline suite, без provider/live/secrets/production.
+7. Только после Linux+Windows green готовить owner Windows doctor/acceptance harness; раньше не создавать.
 
-`QWEN_CORE_DONE` пока нет: отсутствуют full exact-tree Linux PASS, native Windows PASS и проверенный owner-doctor.
+`QWEN_CORE_DONE` пока нет: открыт новый воспроизводимый Core RED и отсутствуют full exact-tree Linux PASS, native Windows PASS и проверенный owner-doctor.
 
 ## Постоянная память / v4 CAS
 Нормативный runtime: `autonomy/v3/tools/capsule_runtime_v4.py`, Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`.
 
-Новый проверенный LATEST после этого прохода:
+Текущий проверенный LATEST на момент начала прохода:
 - capsule `20260822T220756Z-eacfe56704`;
 - archive SHA-256 `dc302ee8dcfb43c6f3ceb15a05315779ccd1e866c6393a7f3971504bfbb6be85`;
-- source_ref `6bdc4b315bf83ffe9a8c2a87c03f909a2c156fbc`;
-- part blob SHA: `008b0b55c5e64c9307799153ed6acaf816a8557a`, `b92f1dd3c90c3775d58c82a1ce1d2be6ff73a819`;
-- manifest blob `d2b7e62a9f35fe9313f27fa3041f36676756e504`;
-- local exact v4 `pack -> verify -> restore`: PASS;
-- uploaded parts/manifest перечитаны и совпали с локальными Git blob SHA;
-- `PREVIOUS` сохранён на прежний LATEST `20260822T195727Z-4e872f4673`;
-- `LATEST` опубликован через update с exact стартовым blob SHA, force-write не использовался.
+- LATEST blob `25d5d1660d1cd9b8425b2e35d3d9fc8fb91ea9d8`.
 
-Важно: каталог `20260822T220453Z-4b7e5ef4ee` — INVALID ORPHAN. При первой ручной передаче второй part был ошибочно взят из старой capsule. Несовпадение поймано до публикации `LATEST`; immutable-файлы не исправлялись поверх, указатель на этот каталог никогда не публиковался. Использовать только `20260822T220756Z-eacfe56704`.
+Новая капсула после RED-test пока не опубликована: сначала завершить handoff/issue evidence и затем выполнять v4 pack/verify/restore + upload + CAS только от fresh LATEST blob. Force-write запрещён.
 
 В этом проходе live/provider traffic, реальные аккаунты, секреты, Cloudflare, production, GitHub Actions и CircleCI не использовались.

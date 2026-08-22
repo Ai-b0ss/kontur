@@ -16,8 +16,20 @@ const evidence = process.env.KONTUR_BROWSER_EVIDENCE_DIR || join(repo, '.evidenc
 const videos = join(evidence, '.video-tmp');
 await mkdir(videos, { recursive: true });
 
-const plain = { body: '#edd9b6', belly: '#faeed6', wing: '#d3ae74', tail: '#c09a68', crest: '#c8a26c', beak: '#ef8a52' };
-const mint = { body: '#b8ead7', belly: '#effbf5', wing: '#5ec4ae', tail: '#3a9f91', crest: '#8be0ca', beak: '#f19163' };
+const coloringCatalog = [
+  ['plain', 'Обычный', 'common', { body: '#edd9b6', belly: '#faeed6', wing: '#d3ae74', tail: '#c09a68', crest: '#c8a26c', beak: '#ef8a52' }],
+  ['soot', 'Копчёный', 'common', { body: '#8d8794', belly: '#c4bfc9', wing: '#6f6a77', tail: '#5d5865', crest: '#6f6a77', beak: '#e0a05a' }],
+  ['clay', 'Глиняный', 'common', { body: '#c98f6a', belly: '#e8c3a4', wing: '#a9704f', tail: '#95613f', crest: '#a9704f', beak: '#e8b04a' }],
+  ['moss', 'Мшистый', 'common', { body: '#9aae86', belly: '#cfdcbd', wing: '#778a63', tail: '#657653', crest: '#778a63', beak: '#e6a24f' }],
+  ['ember', 'Уголёк', 'rare', { body: '#e07a4f', belly: '#ffc79a', wing: '#bd5a35', tail: '#9d4526', crest: '#ff9d5c', beak: '#ffd07a' }],
+  ['frost', 'Иней', 'rare', { body: '#b9d7e8', belly: '#eaf6ff', wing: '#8fb8d0', tail: '#7aa3bd', crest: '#d6ecfa', beak: '#f0a05a' }],
+  ['plum', 'Сливовый', 'rare', { body: '#9a7bb8', belly: '#d9c6ea', wing: '#7c5d9b', tail: '#654a80', crest: '#b193cd', beak: '#f0a05a' }],
+  ['aurora', 'Полярный', 'legendary', { body: '#7fe3c0', belly: '#d6fff2', wing: '#4fb8f5', tail: '#7a6bf0', crest: '#a8f0d8', beak: '#ffd07a' }],
+  ['gilded', 'Золочёный', 'legendary', { body: '#e8c65a', belly: '#fff2c0', wing: '#c99f2e', tail: '#a8811d', crest: '#ffe08a', beak: '#fff0b0' }],
+  ['void', 'Беззвёздный', 'legendary', { body: '#2b2740', belly: '#453f63', wing: '#1d1a2e', tail: '#15121f', crest: '#6a5fa0', beak: '#c5b8ff' }],
+].map(([code, title, rarity, palette]) => ({ code, title, rarity, palette }));
+const plain = coloringCatalog[0].palette;
+const rewardColoring = coloringCatalog[7];
 const questions = [
   ['тебе кинули идею. что первым делом?', ['пойму, в чем вообще суть', 'попробую сразу собрать', 'накидаю еще вариантов', 'позову кого-нибудь обсудить']],
   ['что бесит сильнее?', ['когда ничего не понятно', 'когда что-то не работает', 'когда всё скучно', 'когда все тупят на месте']],
@@ -33,25 +45,34 @@ function ok(value, message) {
   if (!value) throw new Error(message);
 }
 
-function fresh(slot) {
+function fresh(slot, options = {}) {
+  const allOwned = options.allOwned === true;
+  const selected = options.coloring || 'plain';
+  const available = allOwned ? coloringCatalog : [coloringCatalog[0], rewardColoring];
   return {
-    slot, hatched: false, role: null, coloring: 'plain', wallet: 5,
-    colorings: [
-      { code: 'plain', title: 'Обычный', rarity: 'common', palette: plain, owned: true, equipped: true },
-      { code: 'mint', title: 'Мятный сигнал', rarity: 'rare', palette: mint, owned: false, equipped: false },
-    ],
+    slot,
+    hatched: options.hatched === true,
+    role: options.role ?? null,
+    coloring: selected,
+    wallet: options.wallet ?? 5,
+    colorings: available.map((item, index) => ({
+      ...item,
+      owned: allOwned || index === 0,
+      equipped: item.code === selected,
+    })),
   };
 }
 
 function state(session) {
-  const palette = session.coloring === 'mint' ? mint : plain;
+  const current = session.colorings.find((item) => item.code === session.coloring) ?? session.colorings[0];
+  const palette = current.palette;
   return {
     serverTime: new Date().toISOString(), gameDay: 21, isDoubleDay: false, hatched: session.hatched,
     features: { eggs: true, community: false, passive: false },
     player: {
       userId: 980000 + session.slot, username: `qa_${session.slot}`, role: session.role,
       roleTitle: session.role ? 'Дизайнер' : null, roleTagline: session.role ? 'Делает сложное понятным' : null,
-      birdName: null, coloring: session.coloring, coloringTitle: session.coloring === 'mint' ? 'Мятный сигнал' : 'Обычный',
+      birdName: null, coloring: session.coloring, coloringTitle: current.title,
       palette, hatchedAt: session.hatched ? '2026-08-22T00:00:00.000Z' : null,
       wallet: session.wallet, reputation: 0, signalCount: 0,
     },
@@ -104,10 +125,10 @@ function mockApi(page, session) {
       value = { role: 'designer', roleTitle: 'Дизайнер', roleTagline: 'Делает сложное понятным', coloring: 'plain', coloringTitle: 'Обычный', palette: plain, shareText: 'Я в «Контуре»: Дизайнер.', state: state(session) };
     } else if (path === '/api/v4/local/egg/open') {
       session.wallet = 0; session.colorings[1] = { ...session.colorings[1], owned: true };
-      value = { coloring: 'mint', coloringTitle: 'Мятный сигнал', rarity: 'rare', palette: mint, duplicate: false, refund: 0, shareText: null, state: state(session) };
+      value = { coloring: session.colorings[1].code, coloringTitle: session.colorings[1].title, rarity: session.colorings[1].rarity, palette: session.colorings[1].palette, duplicate: false, refund: 0, shareText: null, state: state(session) };
     } else if (path === '/api/v4/local/coloring/equip') {
       const body = request.postDataJSON();
-      if (body.code === 'mint' && session.colorings[1].owned) session.coloring = 'mint';
+      if (session.colorings.some((item) => item.code === body.code && item.owned)) session.coloring = body.code;
       value = { state: state(session) };
     } else { status = 404; value = { error: { code: 'NOT_FOUND', message: 'QA route missing' } }; }
     await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) });
@@ -121,7 +142,7 @@ function watch(page, profile) {
   page.on('requestfailed', (request) => errors.push(`${profile} requestfailed: ${request.url()} ${request.failure()?.errorText || ''}`));
 }
 
-async function phone(browser, origin, { width, height, slot, reduced = false, record = false }) {
+async function phone(browser, origin, { width, height, slot, reduced = false, record = false, sessionOptions = {}, vibeVariant = null }) {
   const context = await browser.newContext({
     viewport: { width, height }, screen: { width, height }, hasTouch: true, isMobile: true,
     deviceScaleFactor: 1, locale: 'ru-RU', reducedMotion: reduced ? 'reduce' : 'no-preference',
@@ -129,13 +150,15 @@ async function phone(browser, origin, { width, height, slot, reduced = false, re
   });
   const page = await context.newPage();
   watch(page, `${width}x${height}${reduced ? '-reduced' : ''}-slot${slot}`);
-  await page.addInitScript((id) => {
+  await page.addInitScript(({ id, vibeVariant }) => {
     window.Telegram = { WebApp: { initData: `dev:${id}`, ready() {}, expand() {}, close() {}, setHeaderColor() {}, setBackgroundColor() {}, HapticFeedback: { impactOccurred() {}, notificationOccurred() {} } } };
-  }, 980000 + slot);
-  const session = fresh(slot);
+    if (vibeVariant) window.localStorage.setItem(`kontur:bird-result:${id}`, vibeVariant);
+  }, { id: 980000 + slot, vibeVariant });
+  const session = fresh(slot, sessionOptions);
   await mockApi(page, session);
   await page.goto(`${origin}/?qa=${slot}${reduced ? '&motion=reduced' : ''}`, { waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: 'начать' }).waitFor();
+  if (session.hatched) await page.getByRole('button', { name: 'посмотреть тест заново' }).waitFor();
+  else await page.getByRole('button', { name: 'начать' }).waitFor();
   return { context, page, session };
 }
 
@@ -152,6 +175,46 @@ async function layout(page, label, width, height) {
   ok(actual.overflow.length === 0, `${label}: interactive overflow ${JSON.stringify(actual.overflow)}`);
   ok(actual.unnamedButtons === 0, `${label}: unnamed buttons`);
   ok(actual.safeTop && actual.safeBottom, `${label}: safe-area CSS missing`);
+  return actual;
+}
+
+async function hookSeparation(page, label) {
+  const actual = await page.evaluate(() => {
+    const rect = (selector) => {
+      const value = document.querySelector(selector)?.getBoundingClientRect();
+      return value ? { top: value.top, bottom: value.bottom, height: value.height } : null;
+    };
+    return {
+      copy: rect('.lk-hook-copy'),
+      egg: rect('.lk-quiz-egg-stage'),
+      action: rect('.lk-hook-action'),
+    };
+  });
+  ok(actual.copy && actual.egg && actual.action, `${label}: hook surfaces are missing`);
+  ok(actual.copy.bottom + 16 <= actual.egg.top, `${label}: copy touches egg ${JSON.stringify(actual)}`);
+  ok(actual.egg.bottom + 16 <= actual.action.top, `${label}: egg touches action ${JSON.stringify(actual)}`);
+  return actual;
+}
+
+async function hatchPaint(page, label) {
+  const actual = await page.evaluate(() => {
+    const paint = (selector) => {
+      const element = document.querySelector(selector);
+      const style = element ? getComputedStyle(element) : null;
+      return {
+        present: Boolean(element),
+        opacity: Number(style?.opacity ?? 0),
+        transform: style?.transform ?? null,
+      };
+    };
+    return {
+      base: paint('.lk-quiz-egg__base'),
+      shellLeft: paint('.lk-quiz-egg__shell--left'),
+      shellRight: paint('.lk-quiz-egg__shell--right'),
+      bird: paint('.lk-quiz-hatch__bird'),
+    };
+  });
+  for (const [surface, state] of Object.entries(actual)) ok(state.present, `${label}: ${surface} is missing`);
   return actual;
 }
 
@@ -221,7 +284,7 @@ async function canonicalBird(page, root, label, expectTint = true, requireRender
   ok(actual.naturalWidth > 0 && actual.naturalHeight > 0, `${label}: canonical image did not decode`);
   ok(actual.imageWidth > 0 && actual.imageHeight > 0, `${label}: canonical image has no painted box`);
   ok(actual.imageDisplay !== 'none' && actual.imageVisibility !== 'hidden' && actual.imageOpacity > .99, `${label}: master art is hidden`);
-  ok(!expectTint || (actual.tintPresent && actual.tintOpacity > 0 && actual.tintOpacity <= .25), `${label}: palette tint is missing or opaque`);
+  ok(!expectTint || (actual.tintPresent && actual.tintOpacity >= .6 && actual.tintOpacity <= .8), `${label}: palette tint is not visibly applied`);
   if (requireRenderedDetail) actual.renderedDetail = await renderedBirdDetail(page, bird, label);
   return actual;
 }
@@ -336,13 +399,57 @@ async function saveVideo(context, page, name) {
   const video = page.video(); await context.close(); const path = join(evidence, name); await video.saveAs(path); artifacts.push({ name, sha256: await hash(path) });
 }
 
+async function coloringGallery(browser, origin, { slot, role, resultId, vibeVariant = null }) {
+  const capture = await phone(browser, origin, {
+    width: 430,
+    height: 1000,
+    slot,
+    sessionOptions: { allOwned: true, hatched: true, role, coloring: 'plain', wallet: 0 },
+    vibeVariant,
+  });
+  const { page } = capture;
+  const birds = page.locator('.lk-color [data-bird-result]');
+  ok(await birds.count() === coloringCatalog.length, `${resultId}: expected ten visible colorings`);
+  await page.waitForFunction((expected) => {
+    const values = [...document.querySelectorAll('.lk-color [data-bird-result]')];
+    return values.length === expected && values.every((item) => item.getAttribute('data-image-ready') === 'true');
+  }, coloringCatalog.length);
+  const paint = await birds.evaluateAll((items) => items.map((item) => {
+    const tint = item.querySelector('.lk-canonical-bird__tint');
+    return {
+      resultId: item.getAttribute('data-bird-result'),
+      opacity: Number(tint ? getComputedStyle(tint).opacity : 0),
+      style: tint?.getAttribute('style') ?? '',
+    };
+  }));
+  ok(paint.every((item) => item.resultId === resultId), `${resultId}: gallery changed bird identity`);
+  ok(paint.every((item) => item.opacity >= .6), `${resultId}: one or more colorings are visually too weak`);
+  ok(new Set(paint.map((item) => item.style)).size === coloringCatalog.length, `${resultId}: palettes collapse to duplicate CSS`);
+  const renderedHashes = [];
+  for (let index = 0; index < coloringCatalog.length; index += 1) {
+    renderedHashes.push(createHash('sha256').update(await birds.nth(index).screenshot({ animations: 'disabled' })).digest('hex'));
+  }
+  ok(new Set(renderedHashes).size === coloringCatalog.length, `${resultId}: rendered colorings are not ten distinct images`);
+  const name = `gallery-${resultId}-10-colorings.png`;
+  const path = join(evidence, name);
+  await page.locator('.lk-collection-section').screenshot({ path, animations: 'disabled' });
+  artifacts.push({ name, sha256: await hash(path) });
+  await capture.context.close();
+  return {
+    resultId,
+    count: paint.length,
+    uniqueCss: new Set(paint.map((item) => item.style)).size,
+    uniqueRendered: new Set(renderedHashes).size,
+  };
+}
+
 const { server, origin } = await startServer();
 const browser = await chromium.launch({ headless: true });
 const viewports = {}; const continuity = {}; const visual = {};
 try {
   const small = await phone(browser, origin, { width: 320, height: 568, slot: 1 });
   const page = small.page;
-  viewports.smallHook = await layout(page, '320 hook', 320, 568); await screenshot(page, '01-hook.png');
+  viewports.smallHook = await layout(page, '320 hook', 320, 568); visual.smallHookSeparation = await hookSeparation(page, '320 hook'); await screenshot(page, '01-hook.png');
   await page.getByRole('button', { name: 'начать' }).click(); await page.waitForTimeout(35); await screenshot(page, '02-hook-start-before.png'); await page.waitForTimeout(295); visual.q1Question = await waitForQuestionPaint(page);
   ok(await page.locator('.lk-quiz-egg').getAttribute('data-stage') === '1', 'q1 is not egg stage 1'); await screenshot(page, '03-quiz-q1.png');
   for (let q = 1; q < 4; q += 1) await answer(page);
@@ -353,6 +460,20 @@ try {
   await page.locator('.lk-options button').first().click(); ok(await page.locator('main.is-egg-responding').count() === 1, 'q8 response gesture absent'); ok(await page.locator('main.lk-first-time--hatching').count() === 0, 'hatching started before gesture end'); ok(await page.getByRole('button', { name: '← назад' }).count() === 0, 'back active during q8 transition');
   await page.waitForTimeout(170); ok(await page.locator('main.lk-first-time--hatching').count() === 0, 'hatching started inside response gesture'); await page.waitForTimeout(180); ok(await page.locator('main.lk-first-time--hatching').count() === 1, 'hatching did not begin after response');
   visual.hatch = await canonicalBird(page, '.lk-quiz-hatch', '320 hatch'); continuity.hatchBird = visual.hatch.resultId; continuity.hatchTint = visual.hatch.tintInlineStyle; ok(continuity.hatchBird === 'magpie', 'unexpected hatch identity');
+  visual.hatchIntact = await hatchPaint(page, '320 intact hatch');
+  ok(visual.hatchIntact.base.opacity > .98, 'intact hatch lost the whole egg');
+  ok(visual.hatchIntact.shellLeft.opacity < .02 && visual.hatchIntact.shellRight.opacity < .02, 'shell fragments appear before the crack opens');
+  ok(visual.hatchIntact.bird.opacity < .02, 'bird appears before the shell opens');
+  await screenshot(page, '15-hatch-intact.png');
+  await page.waitForFunction(() => {
+    const shell = document.querySelector('.lk-quiz-egg__shell--left');
+    const style = shell ? getComputedStyle(shell) : null;
+    return Number(style?.opacity ?? 0) > .35 && style?.transform !== 'none';
+  }, null, { timeout: 2500 });
+  visual.hatchOpening = await hatchPaint(page, '320 opening hatch');
+  ok(visual.hatchOpening.shellLeft.opacity > .35 && visual.hatchOpening.shellRight.opacity > .35, 'opened shell fragments are missing');
+  ok(visual.hatchOpening.base.opacity < .98, 'whole egg did not yield to the opening shell');
+  await screenshot(page, '16-hatch-opening.png');
   await page.getByRole('button', { name: 'что дальше' }).waitFor({ timeout: 4000 }); visual.reveal = await canonicalBird(page, '.lk-quiz-hatch', '320 reveal', true, true); continuity.revealBird = visual.reveal.resultId; continuity.revealTint = visual.reveal.tintInlineStyle; ok(continuity.revealBird === continuity.hatchBird && continuity.revealTint === continuity.hatchTint, 'hatch/reveal continuity failed'); visual.smallRevealLayout = await revealLayout(page, '320 reveal'); await screenshot(page, '06-bird-reveal.png');
   await page.getByRole('button', { name: 'что дальше' }).click(); await screenshot(page, '07-worm-loop.png'); await page.getByRole('button', { name: 'к моей птице' }).click();
   visual.home = await canonicalBird(page, '.lk-bird-stage--home', '320 Home', true, true); continuity.homeBird = visual.home.resultId; continuity.homeTint = visual.home.tintInlineStyle; ok(continuity.homeBird === continuity.revealBird && continuity.homeTint === continuity.revealTint, 'reveal/Home continuity failed'); viewports.smallHome = await layout(page, '320 home', 320, 568); await screenshot(page, '08-home.png');
@@ -360,12 +481,39 @@ try {
   visual.equipped = await canonicalBird(page, '.lk-bird-stage--home', '320 equipped Home', true, true); continuity.equippedBird = visual.equipped.resultId; continuity.equippedTint = visual.equipped.tintInlineStyle; ok(continuity.equippedBird === continuity.homeBird && continuity.equippedTint !== continuity.homeTint, 'equip identity/cosmetic contract failed'); await page.reload({ waitUntil: 'networkidle' }); await page.getByRole('button', { name: 'посмотреть тест заново' }).waitFor(); await page.evaluate(() => window.scrollTo(0, 0)); visual.reload = await canonicalBird(page, '.lk-bird-stage--home', '320 reload Home', true, true); continuity.reloadBird = visual.reload.resultId; continuity.reloadTint = visual.reload.tintInlineStyle; ok(continuity.reloadBird === continuity.equippedBird && continuity.reloadTint === continuity.equippedTint, 'reload persistence failed'); await page.evaluate(() => window.scrollTo(0, 0)); ok(await page.evaluate(() => window.scrollY === 0), 'reload evidence is not anchored at the top of Home'); await screenshot(page, '10-reload-persistence.png');
   await page.getByRole('button', { name: 'посмотреть тест заново' }).click(); await toQuestion(page, 8); await page.locator('.lk-options button').first().click(); await page.waitForTimeout(350); visual.replayHatch = await canonicalBird(page, '.lk-quiz-hatch', '320 replay hatch'); continuity.replayBird = visual.replayHatch.resultId; continuity.replayTint = visual.replayHatch.tintInlineStyle; ok(continuity.replayBird === continuity.reloadBird && continuity.replayTint === continuity.reloadTint, 'replay changed identity/palette'); await page.getByRole('button', { name: 'что дальше' }).waitFor({ timeout: 4000 }); visual.replayReveal = await canonicalBird(page, '.lk-quiz-hatch', '320 replay reveal', true, true); ok(visual.replayReveal.resultId === continuity.reloadBird && visual.replayReveal.tintInlineStyle === continuity.reloadTint, 'replay reveal changed identity/palette'); visual.replayRevealLayout = await revealLayout(page, '320 replay reveal'); await screenshot(page, '11-replay-same-bird.png'); await small.context.close();
 
-  const large = await phone(browser, origin, { width: 430, height: 1000, slot: 2 }); viewports.largeHook = await layout(large.page, '430 hook', 430, 1000); await screenshot(large.page, '12-large-hook.png'); await toQuestion(large.page, 8); await large.page.locator('.lk-options button').first().click(); await large.page.getByRole('button', { name: 'что дальше' }).waitFor({ timeout: 4000 }); visual.largeReveal = await canonicalBird(large.page, '.lk-quiz-hatch', '430 reveal', true, true); visual.largeRevealLayout = await revealLayout(large.page, '430 reveal'); await large.page.getByRole('button', { name: 'что дальше' }).click(); await large.page.getByRole('button', { name: 'к моей птице' }).click(); visual.largeHome = await canonicalBird(large.page, '.lk-bird-stage--home', '430 Home', true, true); viewports.largeHome = await layout(large.page, '430 home', 430, 1000); await screenshot(large.page, '13-large-home.png'); await large.context.close();
+  const large = await phone(browser, origin, { width: 430, height: 1000, slot: 2 }); viewports.largeHook = await layout(large.page, '430 hook', 430, 1000); visual.largeHookSeparation = await hookSeparation(large.page, '430 hook'); await screenshot(large.page, '12-large-hook.png'); await toQuestion(large.page, 8); await large.page.locator('.lk-options button').first().click(); await large.page.getByRole('button', { name: 'что дальше' }).waitFor({ timeout: 4000 }); visual.largeReveal = await canonicalBird(large.page, '.lk-quiz-hatch', '430 reveal', true, true); visual.largeRevealLayout = await revealLayout(large.page, '430 reveal'); await large.page.getByRole('button', { name: 'что дальше' }).click(); await large.page.getByRole('button', { name: 'к моей птице' }).click(); visual.largeHome = await canonicalBird(large.page, '.lk-bird-stage--home', '430 Home', true, true); viewports.largeHome = await layout(large.page, '430 home', 430, 1000); await screenshot(large.page, '13-large-home.png'); await large.context.close();
+  const medium = await phone(browser, origin, { width: 390, height: 844, slot: 7 }); viewports.mediumHook = await layout(medium.page, '390 hook', 390, 844); visual.mediumHookSeparation = await hookSeparation(medium.page, '390 hook'); await screenshot(medium.page, '17-hook-390x844.png'); await medium.context.close();
   const reduced = await phone(browser, origin, { width: 320, height: 568, slot: 3, reduced: true }); viewports.reducedHook = await layout(reduced.page, '320 reduced hook', 320, 568); ok(viewports.reducedHook.reducedClass, 'reduced-motion class absent'); await toQuestion(reduced.page, 8); await reduced.page.locator('.lk-options button').first().click(); await reduced.page.getByRole('button', { name: 'что дальше' }).waitFor({ timeout: 1000 }); visual.reducedReveal = await canonicalBird(reduced.page, '.lk-quiz-hatch', '320 reduced reveal', true, true); ok(visual.reducedReveal.resultId === 'magpie', 'reduced-motion identity changed'); visual.reducedRevealLayout = await revealLayout(reduced.page, '320 reduced reveal'); await screenshot(reduced.page, '14-reduced-motion-reveal.png'); await reduced.context.close();
 
   const video1 = await phone(browser, origin, { width: 320, height: 568, slot: 4, record: true }); await video1.page.waitForTimeout(250); await video1.page.getByRole('button', { name: 'начать' }).click(); await video1.page.waitForTimeout(700); await saveVideo(video1.context, video1.page, 'motion-1-hook-to-q1.webm');
   const video2 = await phone(browser, origin, { width: 320, height: 568, slot: 5, record: true }); await toQuestion(video2.page, 8); await video2.page.waitForTimeout(400); await saveVideo(video2.context, video2.page, 'motion-2-q1-q4-q8-cracks.webm');
   const video3 = await phone(browser, origin, { width: 320, height: 568, slot: 6, record: true }); await toQuestion(video3.page, 8); await video3.page.locator('.lk-options button').first().click(); await video3.page.getByRole('button', { name: 'что дальше' }).waitFor({ timeout: 4000 }); await video3.page.waitForTimeout(300); await saveVideo(video3.context, video3.page, 'motion-3-q8-to-reveal.webm');
+
+  visual.coloringGalleries = [];
+  visual.coloringGalleries.push(await coloringGallery(browser, origin, { slot: 8, role: 'designer', resultId: 'magpie' }));
+  visual.coloringGalleries.push(await coloringGallery(browser, origin, { slot: 9, role: 'coder', resultId: 'woodpecker' }));
+  visual.coloringGalleries.push(await coloringGallery(browser, origin, { slot: 10, role: 'creative', resultId: 'jay' }));
+  visual.coloringGalleries.push(await coloringGallery(browser, origin, { slot: 11, role: 'manager', resultId: 'crane' }));
+  visual.coloringGalleries.push(await coloringGallery(browser, origin, { slot: 12, role: 'vibe', resultId: 'owl', vibeVariant: 'owl' }));
+  visual.coloringGalleries.push(await coloringGallery(browser, origin, { slot: 13, role: 'vibe', resultId: 'kotosov', vibeVariant: 'kotosov' }));
+
+  const walkthrough = await phone(browser, origin, { width: 320, height: 568, slot: 14, record: true });
+  await walkthrough.page.waitForTimeout(650);
+  await walkthrough.page.getByRole('button', { name: 'начать' }).click();
+  await walkthrough.page.waitForTimeout(650);
+  for (let index = 0; index < questions.length; index += 1) {
+    await walkthrough.page.locator('.lk-options button').first().click();
+    await walkthrough.page.waitForTimeout(index === questions.length - 1 ? 2800 : 650);
+  }
+  await walkthrough.page.getByRole('button', { name: 'что дальше' }).waitFor({ timeout: 4000 });
+  await walkthrough.page.waitForTimeout(700);
+  await walkthrough.page.getByRole('button', { name: 'что дальше' }).click();
+  await walkthrough.page.waitForTimeout(900);
+  await walkthrough.page.getByRole('button', { name: 'к моей птице' }).click();
+  await walkthrough.page.waitForTimeout(900);
+  await walkthrough.page.locator('.lk-collection-section').scrollIntoViewIfNeeded();
+  await walkthrough.page.waitForTimeout(900);
+  await saveVideo(walkthrough.context, walkthrough.page, 'KONTUR_VISUAL_FIX_WALKTHROUGH.webm');
 
   ok(errors.length === 0, `browser console/runtime errors: ${errors.join(' | ')}`);
   const head = (await exec('git', ['rev-parse', 'HEAD'], { cwd: repo })).stdout.trim();

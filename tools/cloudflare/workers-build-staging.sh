@@ -1,75 +1,46 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-EXPECTED_HEAD='32034e8af92923a2abe09ad00e3220f6da1ed21c'
-PATCH='autonomy/patches/KONTUR_PR12_BOUNDED_FIX_20260820.patch'
+# Owner-authorized one-shot 2026-08-22.
+# Reuse the previously proven production deploy + FK-safe one-user reset harness
+# from commit 67ce5981, changing ONLY the exact release SHA and owner username.
+# No global D1 wipe, no schema/migration/static seed/secret/webhook/main mutation.
 
-export CLOUDFLARE_STAGING_WORKER_NAME='kontur-igor-staging'
-export CLOUDFLARE_STAGING_D1_DATABASE_NAME='kontur-staging'
-export CLOUDFLARE_STAGING_D1_DATABASE_ID='22786b4b-99cc-4ca5-a18b-932e8781021b'
-export CLOUDFLARE_STAGING_ORIGIN='https://kontur-igor-staging.igorekglukhovskii43.workers.dev'
+TEMPLATE_COMMIT='67ce59815d2377ae4a4acea6bd3836ae8ec4b777'
+RELEASE_SHA='6fefe26ba4a145e0b5e559005f8e7faf851e2737'
+OWNER_USERNAME_NORM='fff6pm'
+TEMPLATE_PATH='tools/cloudflare/workers-build-staging.sh'
+TMP='/tmp/kontur-owner-release-pr22.sh'
 
-actual_head="$(git rev-parse HEAD)"
-if [[ "$actual_head" != "$EXPECTED_HEAD" ]]; then
-  echo "SAFE_STOP unexpected checkout: $actual_head" >&2
-  exit 20
-fi
+# Fetch the exact previously successful one-shot harness even if this checkout is shallow.
+git fetch --no-tags --depth=1 origin "$TEMPLATE_COMMIT"
+test "$(git rev-parse --verify 'FETCH_HEAD^{commit}')" = "$TEMPLATE_COMMIT"
+git show "FETCH_HEAD:$TEMPLATE_PATH" > "$TMP.template"
 
-test -s "$PATCH"
-git apply --check "$PATCH"
-git apply "$PATCH"
-
-mapfile -t changed < <(git diff --name-only | sort)
-expected=(
-  'apps/miniapp/src/screens/LocalKontur.tsx'
-  'apps/miniapp/test/local-kontur.test.ts'
-)
-if [[ "${changed[*]}" != "${expected[*]}" ]]; then
-  printf 'SAFE_STOP unexpected patch scope: %s\n' "${changed[*]}" >&2
-  exit 21
-fi
-
-corepack enable
-corepack prepare pnpm@11 --activate
-pnpm install --frozen-lockfile
-
-# All source gates run before any Cloudflare write.
-node tools/handoff-safety-check.mjs
-pnpm -F @kontur/miniapp test
-pnpm -F @kontur/miniapp typecheck
-pnpm -F @kontur/miniapp build
-
-# Generate isolated staging configuration and fail closed on production leakage.
-node tools/cloudflare/make-staging-config.mjs
-test -s apps/worker/wrangler.staging.generated.jsonc
-node --input-type=module <<'NODE'
+TEMPLATE="$TMP.template" OUTPUT="$TMP" RELEASE_SHA="$RELEASE_SHA" OWNER_USERNAME_NORM="$OWNER_USERNAME_NORM" node --input-type=module <<'NODE'
 import fs from 'node:fs';
-const c = JSON.parse(fs.readFileSync('apps/worker/wrangler.staging.generated.jsonc', 'utf8'));
-if (c.name !== 'kontur-igor-staging') throw new Error(`unexpected staging Worker ${c.name}`);
-const db = c.d1_databases?.find((x) => x?.binding === 'DB');
-if (!db || db.database_id !== '22786b4b-99cc-4ca5-a18b-932e8781021b' || db.database_name !== 'kontur-staging') {
-  throw new Error('staging D1 mismatch');
+const input = fs.readFileSync(process.env.TEMPLATE, 'utf8');
+const oldRelease = "export RELEASE_SHA='771f908b6f2407102a04e2c1773ff97f1150a400'";
+const newRelease = `export RELEASE_SHA='${process.env.RELEASE_SHA}'`;
+const oldOwner = "export OWNER_USERNAME_NORM='igorekglukhovskii43'";
+const newOwner = `export OWNER_USERNAME_NORM='${process.env.OWNER_USERNAME_NORM}'`;
+if ((input.match(new RegExp(oldRelease.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length !== 1) {
+  throw new Error('template release constant mismatch');
 }
-if ('route' in c || 'routes' in c || 'triggers' in c) throw new Error('production routing/cron leaked into staging config');
-console.log('CLOUDFLARE_STAGING_ISOLATION_PASS');
+if ((input.match(new RegExp(oldOwner.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length !== 1) {
+  throw new Error('template owner constant mismatch');
+}
+let output = input.replace(oldRelease, newRelease).replace(oldOwner, newOwner);
+// The proven harness has a few temp paths/diagnostic names containing the old short SHA.
+output = output.replaceAll('771f908b', process.env.RELEASE_SHA.slice(0, 8));
+if (output.includes(oldRelease) || output.includes(oldOwner)) throw new Error('template patch incomplete');
+// Guard against accidentally changing the Cloudflare account subdomain when changing owner username.
+if (!output.includes('igorekglukhovskii43.workers.dev')) throw new Error('production/staging origin account changed unexpectedly');
+if (!output.includes(`export OWNER_USERNAME_NORM='${process.env.OWNER_USERNAME_NORM}'`)) throw new Error('new owner missing');
+if (!output.includes(`export RELEASE_SHA='${process.env.RELEASE_SHA}'`)) throw new Error('new release missing');
+fs.writeFileSync(process.env.OUTPUT, output);
 NODE
 
-# Only now may the dedicated staging Worker be updated.
-pnpm -F @kontur/worker exec wrangler deploy --keep-vars --config wrangler.staging.generated.jsonc
-
-# Read-only public smoke from the same networked build runner.
-node --input-type=module <<'NODE'
-const origin = process.env.CLOUDFLARE_STAGING_ORIGIN;
-const targets = ['/', '/quiz/egg-stage-01.webp', '/quiz/egg-stage-08.webp', '/results/woodpecker.webp'];
-for (const path of targets) {
-  const res = await fetch(origin + path, { redirect: 'follow' });
-  if (!res.ok) throw new Error(`${path} -> HTTP ${res.status}`);
-  const type = res.headers.get('content-type') || '';
-  if (path.endsWith('.webp') && !type.includes('image/webp')) throw new Error(`${path} wrong content-type ${type}`);
-  const bytes = new Uint8Array(await res.arrayBuffer());
-  if (bytes.byteLength < (path === '/' ? 100 : 1000)) throw new Error(`${path} suspiciously small ${bytes.byteLength}`);
-  console.log(`STAGING_SMOKE_PASS ${path} ${type} ${bytes.byteLength}`);
-}
-NODE
-
-echo 'KONTUR_PR12_STAGING_DONE'
+chmod 700 "$TMP"
+echo "KONTUR_OWNER_RELEASE_BOOTSTRAP_PASS release=$RELEASE_SHA owner=$OWNER_USERNAME_NORM template=$TEMPLATE_COMMIT"
+exec bash "$TMP"

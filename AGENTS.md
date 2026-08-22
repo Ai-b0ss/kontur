@@ -2,32 +2,139 @@
 
 Эти правила действуют для всего репозитория.
 
-1. До анализа или изменения проекта полностью прочитайте
-   `AI_PROJECT_NAVIGATOR.md`, затем `PROJECT_STATE.yaml`.
-   Для продуктовой пересборки дополнительно обязательны
-   `PRODUCT_REDESIGN_BRIEF.md` и `CHAT_RESEARCH_PROTOCOL.md`.
-2. В первом рабочем сообщении назовите прочитанную версию навигатора и текущий
-   production code checkpoint. Если файлы расходятся с кодом, остановитесь и
-   зафиксируйте расхождение как `UNKNOWN`, а не додумывайте состояние.
-3. Источник истины по убыванию приоритета: текущий код и тесты,
-   `PROJECT_STATE.yaml`, `AI_PROJECT_NAVIGATOR.md`, `README.md`/`HANDOVER.md`,
-   исторический `WORKLOG.md`, затем концептуальные `DESIGN.md` и
-   `kontur-brief.html`.
-4. `.superseded/` и старые архивы — только исторические свидетельства. Не
-   копируйте из них runtime-код без найденной и описанной причины.
-5. Перед правкой проверьте `git status`, назовите границу задачи и не трогайте
-   несвязанные пользовательские изменения.
-6. Не читайте вслух, не коммитьте и не упаковывайте `.env`, `*.local`,
-   `backups/`, `data/`, `research-private/`, Telegram ID и другие персональные
-   данные.
-7. Диагностика не разрешает production-запись. Перед изменением production-кода
-   или схемы нужен Git-чекпоинт; перед изменением D1 — полный backup. Уже
-   применённые миграции не редактируются: добавляется следующая номерная.
-8. Восстановление D1 сначала выполняется только как Dry Run. `-Apply` требует
-   отдельного явного решения и автоматического pre-restore backup.
-9. Не возвращайте широкую концепцию из `DESIGN.md` в MVP автоматически.
-   Изменение ядра, смысла, функций, дизайна или текстов — отдельный продуктовый
-   этап из `BACKLOG.md`.
-10. После значимой правки выполните соразмерную проверку, обновите затронутые
-    документы состояния и запишите решение в `WORKLOG.md`. Не называйте
-    `UNKNOWN` или `HOLD` ошибкой и не выдавайте непроверенное за завершённое.
+## 1. Обязательный порядок чтения
+
+Перед любым продуктовым выводом или изменением читать:
+
+1. `CURRENT_PRODUCT.md`;
+2. `docs/product/source/PRIMARY_SOURCE_IGOR_ZEZOKUK_2026-08-13.md`;
+3. `docs/product/source/FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md`;
+4. `docs/product/evidence/PREVIEW_INTEGRATION_GATE_2026-08-14.md`;
+5. `docs/product/evidence/RESULT_TAXONOMY_ALIGNMENT_2026-08-14.md`;
+6. `docs/product/DECISION_LOG_2026-08-14.md`;
+7. `IMPLEMENTATION_PRIORITY.md`;
+8. `ARCHITECTURE.md`;
+9. `PROJECT_STATE.yaml`;
+10. `CODEBASE_MAP.md`;
+11. `Ai-b0ss/kontur#9` — текущий CONTROL/owner override/CLAIM;
+12. затем код/тесты конкретной задачи;
+13. `docs/archive/` — только исторические доказательства.
+
+**Никогда не выводить продуктовую механику из номера V1–V5, имени feature flag или просто из факта существования/import/reachability/bundle кода. `IMPLEMENTED != PRODUCT APPROVED`.**
+
+## 2. Замороженный current invariant
+
+`8Q once -> bird -> reply /worm -> +1 worm -> 5 worms = egg -> guaranteed new cosmetic coloration -> equip -> reload persists`
+
+Current first-time funnel:
+
+`Какая ты птица в IT? -> hero egg -> 8Q -> 8 physical crack states -> hatching -> bird reveal -> /worm -> Home`
+
+Без нового явного решения владельца не возвращать daily move/tree/forecasts/raid/Form II/inventory/storm/leaderboard/streak/AI character/passive faucet/duplicate-refund economy и перегруженные старые surfaces.
+
+## 3. Не откатывать visual/product history
+
+Доказанный статус после 14.08:
+- STEP A Hook Hybrid H3 — принят;
+- STEP B one-egg continuity — принят;
+- STEP C 8 deterministic crack states — принят;
+- STEP D first-time flow — интегрирован в current runtime source;
+- STEP E — принят owner и интегрирован;
+- backend roles = 5;
+- visual results = 6: magpie, woodpecker, jay, crane, owl, Kotosov;
+- Kotosov — presentation-only `vibe` subtype, когда coder строго единственный сильнейший secondary score; tie/incomplete -> owl;
+- backend scoring/weights/role taxonomy из-за Kotosov не расширять.
+
+Не возвращать проект к «сделать новый STEP A» или «теперь нужно придумать STEP E» без нового owner decision.
+
+## 4. Exact preview provenance gate
+
+Historical owner preview:
+
+`https://5dabce57-kontur-igor.igorekglukhovskii43.workers.dev`
+
+Пока не доказано `preview -> immutable Worker version -> exact bundle/assets -> source`:
+- не утверждать, что `main`, v84, v86 или current HEAD byte-for-byte равны preview;
+- не удалять runtime/design code по названию;
+- сначала классифицировать reachability/build/provenance;
+- UX preview можно использовать как historical visual reference, но не как Git provenance proof.
+
+Отдельно уже доказаны v84 immutable Version ID и exact Worker-module SHA; не смешивать v84 с `5dabce57`.
+
+## 5. Runtime/source reachability rule
+
+`tools/runtime-reachability.mjs` v2 различает:
+- **runtime-import graph** — runtime imports/exports, type-only imports исключены;
+- **source-dependency graph** — включает type-only зависимости.
+
+`App.tsx` имеет runtime-imports старых frontend surfaces, а Worker `api.ts` runtime-монтирует старые routers. Это доказывает **static runtime reachability** из production entrypoints.
+
+Но:
+- static runtime reachable != current feature;
+- static runtime reachable != доказанные emitted bytes после tree-shaking;
+- emitted bytes != product approval;
+- static source-unreachable != автоматически dead/safe-to-delete.
+
+До exact-head artifact не заявлять per-file counts/вердикты. Перед removal/refactor разбирать reachability + semantic/build/provenance evidence.
+
+`UNKNOWN` — допустимый статус. Догадки запрещены.
+
+### ZERO_SEASON naming debt
+
+`ZERO_SEASON_ENABLED` сейчас используется как backend gate current `/api/v4/local/*` через `zeroSeasonAllowed()`. Это историческое имя и **не означает**, что старый `ZeroSeason.tsx` UI снова current.
+
+Guarded release configs обязаны держать current LocalKontur API включённым и старые experiment flags выключенными.
+
+## 6. Текущий приоритет KONTUR
+
+P0:
+1. clean/reproducible handoff exact current head;
+2. runtime/source reachability evidence + per-file classification;
+3. exact historical preview provenance `5dabce57` насколько доказуемо;
+4. Codex lineage 14.08/evidence retention;
+5. улучшение PR #11, а не новая параллельная cleanup-ветка.
+
+Не генерировать новые A–E concepts без нового owner decision.
+
+## 7. Автономная координация
+
+Перед любой GitHub write по KONTUR проверить issue #9.
+
+Owner override имеет приоритет над P1–P5 scheduling. Если KONTUR помечен `MANUAL_LOCKED`, фоновые P1–P5 не имеют права CLAIM/write/dispatch KONTUR до точного `OWNER OVERRIDE — RELEASE KONTUR`.
+
+Один lane — один writer. Перед каждым mutable-пакетом повторно проверить CONTROL и отсутствие нового owner override/freeze.
+
+## 8. Deployment safety
+
+- no direct main push;
+- no merge без нового явного разрешения owner;
+- no production deploy/write во время обычного cleanup;
+- не использовать `pnpm cf:deploy` / worker `pnpm deploy`: они намеренно fail-closed;
+- production release — только reviewed `.github/workflows/release-production.yml` после owner authorization;
+- staging — только isolated `.github/workflows/release-staging.yml` в разрешённом staging scope;
+- production destructive reset не повторять ради retry/read-only verification;
+- post-deploy proof обязан дождаться exact fresh `dist/index.html` generation и проверить assets по MIME+SHA.
+
+## 9. Secrets/private state
+
+Не публиковать plaintext `.env`/`*.local`, credentials, sessions/cookies/browser profiles, D1 dumps/backups, private research/chat exports и encryption keys.
+
+`.runtime-state/` в Git — только encrypted `.gpg`. Applied migrations не редактировать задним числом.
+
+## 10. Cleanup policy
+
+Historical docs — в `docs/archive/`, не удалять без необходимости.
+
+Runtime-файлу назначать одну из категорий:
+
+`CURRENT | CURRENT_CANDIDATE | COMPATIBILITY | TEST_INFRA | ARCHIVE | PRIVATE_EXCLUDED | UNKNOWN`
+
+Физическое удаление runtime допустимо только отдельным controlled diff после reachability + build/provenance evidence и тестов.
+
+## 11. Проверки
+
+Документальные изменения не требуют live deployment.
+
+Изменения scripts/CI/runtime требуют targeted check + полный clean-checkout gate. Не ослаблять тесты ради green и не переносить green со старого commit на новый head.
+
+После существенной работы обновлять issue #9 точными commit/PR/tests/remaining risk; не заявлять CI PASS, пока exact head действительно не проверен.

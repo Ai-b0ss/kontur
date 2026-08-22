@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node ../../tools/run-vite.mjs",
     "test": "node --experimental-strip-types --test \"test/*.test.ts\"",
+    "test:browser:kontur": "node test/browser-acceptance.mjs",
     "build": "node ../../tools/run-vite.mjs build",
     "preview": "node ../../tools/run-vite.mjs preview",
     "typecheck": "tsc --noEmit"
@@ -17,10 +18,11 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "esbuild-win32-v025": "npm:@esbuild/win32-x64@0.25.12",
+    "@playwright/test": "1.55.0",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
+    "esbuild-win32-v025": "npm:@esbuild/win32-x64@0.25.12",
     "typescript": "^5.7.3",
     "vite": "^6.0.11"
   }

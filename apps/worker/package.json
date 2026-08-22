@@ -11,7 +11,7 @@
     "test:v5-api": "node ../../tools/sim/src/v5-api-check.mjs",
     "test:v5-telegram": "node ../../tools/sim/src/v5-telegram-check.mjs",
     "typecheck": "tsc --noEmit",
-    "deploy": "pnpm build:assets && wrangler deploy"
+    "deploy": "node ../../tools/cloudflare/refuse-direct-production-deploy.mjs"
   },
   "dependencies": {
     "@kontur/contracts": "workspace:*",

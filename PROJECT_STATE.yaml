@@ -1,259 +1,118 @@
-﻿schema_version: 1
-updated_at: "2026-08-08"
-status: production_mvp_core_on_v4_zero_season_v5_shelf_publications_disabled
+schema_version: 7
+updated_at: "2026-08-22"
+status: "production_deployed_telegram_owner_smoke_pending"
+
+repository:
+  full_name: "Ai-b0ss/kontur"
+  branch: "cursor/kontur-visual-alt-b153d4c9"
+  pull_request: 20
+  pull_request_state: "draft_open_unmerged"
+  product_baseline: "b153d4c96a775484c0cfc3b454029f9e4dadaf75"
+  exact_release_record:
+    binding: "owner package MANIFEST.json + issue #9 canonical closing comment + PR #12 evidence comment"
+    reason: "a Git commit cannot contain its own SHA"
 
 product:
-  name: "Контур"
-  current_scope: "restored_v1_v2_v3_plus_open_v4_zero_season_mvp_core_plus_live_campaign_v5_shelf"
-  implemented_cycle:
-    - "warm eight-question onboarding and one of five respectful bird roles"
-    - "five Mini App sections: bird, flock, actions, nest and collection"
-    - "eight equal entry paths: ask, help, connect, orient, opportunity, contribution, save and progress"
-    - "reply-only /worm, separate reputation and spendable wallet"
-    - "passive reward, eggs, colorings and collection retained as the foundation"
-    - "opt-in flock requests, opportunity routes and a personal nest"
-    - "operator-confirmed signal cards and golden feathers"
-    - "V4 zero season MVP core surface: pretest to bird, /worm teaching, classic wallet/reputation when hatched, season eggs, one daily series CTA, branch, forecasts and optional flights"
-    - "V5 live campaign retained as shelf layer: pretest, Form I/II birds, five-card move, shared tree, forecasts and raid code remain; not the public menu surface"
-  explicitly_not_current:
-    - "automatic Telegram posting or background message sending"
-    - "user-uploaded proof workflow"
-    - "web admin panel"
-    - "automatic Telegram posting or manual content factory for V4"
-    - "automatic public V5 posting; the V5 publication gate is intentionally disabled"
-  current_product_decision:
-    status: "MVP core redesigned on V4 ?season=zero; V5 retained as shelf layer with game gate on and publication off"
-    file: "docs/mvp-core-2026-08-08/MVP_CORE.md"
-    rejected: "the lost-applicant navigator hypothesis and treating unfinished V5 UI as the public product"
-    chosen_direction:
-      name: "core on V4 home; crown A+B retained for V5 shelf"
-      file: "docs/direction-candidates-2026-08-07/CHOSEN_DIRECTION_AB.md"
-      first_session_flow: "docs/direction-candidates-2026-08-07/FIRST_SESSION_FLOW.md"
-      basis: "Igor core (worm respect, eggs, colors) plus one daily branch move on the existing V4 URL"
-      solo_rule: "solo daily series remains complete without other players"
-      group_rule: "reply-only /worm in the live chat; forecasts and flights entice but do not replace the primary CTA"
-      education_rule: "education lives inside the short series; CU remains a later optional bridge"
-    desired_core: "a compact live-chat product: bird identity, /worm respect economy, eggs/colors, and one clear daily move"
-    long_term_constraint: "must survive for months inside one roughly 250-person chat without CU content, operations or attention"
-    visual_hold: "Variant B graphite+cyan accepted for ZeroSeason (VISUAL_DIRECTION_CU.md); V5 crown UI remains shelf; publication gate stays disabled"
-    visual_direction:
-      status: "accepted Variant B"
-      file: "docs/mvp-core-2026-08-08/VISUAL_DIRECTION_CU.md"
-      tokens: "bg #141414, accent #5AC8D5, egg #8068F4, worm #D5F15A; Manrope+Inter"
+  invariant: "8Q once -> bird -> reply /worm -> +1 worm -> 5 worms = egg -> guaranteed-new cosmetic coloration -> equip -> reload persists"
+  first_time_funnel: "hook -> q1..q8 -> response-gated hatch -> reveal -> worm -> home"
+  backend_roles: 5
+  visual_results: 6
+  kotosov: "client-local presentation-only vibe subtype; backend/API/D1/scoring unchanged"
+  default_surface: "LocalKontur hook"
+  community_default: false
+  legacy_v4_v5_default: false
 
-    direction_candidates:
-      status: "owner selected A+B hybrid as V5 shelf direction; public MVP is V4 core surface"
-      file: "docs/direction-candidates-2026-08-07/README.md"
-      options:
-        - "A crown under storm"
-        - "B flock rally"
-        - "C branch tabletop"
-    implementation_boundary: "MVP core UI and optional V4 state.core enrichment allowed; no D1 reset, no V3 allowlist expansion, no V5 publication-gate change without a separate decision"
+authority:
+  primary_13_08:
+    transcript:
+      path: "docs/product/source/PRIMARY_SOURCE_IGOR_ZEZOKUK_2026-08-13.md"
+      sha256: "1f519becf36a44e1761a50c359e9dca02473c81f2f24194bb3c4c704052a436f"
+    final_tz:
+      path: "docs/product/source/FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md"
+      sha256: "7d092fa46a21de7931bf2f1a26aaea21df5926cd51c322d2b2ad420700074cbe"
+  accepted_14_08:
+    preview:
+      path: "docs/product/evidence/PREVIEW_INTEGRATION_GATE_2026-08-14.md"
+      sha256: "a11802a8b4fab881b4b19877a086786273fd1f16b48746ac5872cd1f844ef0fb"
+    taxonomy:
+      path: "docs/product/evidence/RESULT_TAXONOMY_ALIGNMENT_2026-08-14.md"
+      sha256: "5e6bdd4ca358d19ff1d1a97d93c0b1ccacea05ddd5d8756a17d253eb3d760bbe"
+  final_matrix: "docs/product/evidence/KONTUR_FINAL_REQUIREMENT_MATRIX_2026-08-22.md"
+  revalidation: "docs/product/evidence/KONTUR_CORE_DONE_REVALIDATION_2026-08-22.md"
+  evidence_index: "docs/product/evidence/KONTUR_EVIDENCE_INDEX_2026-08-22.md"
 
-production:
-  runtime: "Cloudflare Worker + D1"
-  authoritative_app: "apps/worker"
-  url: "https://kontur-igor.igorekglukhovskii43.workers.dev"
-  bot_username: "@kontur_igor_test_bot"
-  database_name: "kontur"
-  worker_version_id: "281f1076-ceb4-4769-8b2b-17e99d738766"
-  migrations:
-    - "0001_initial.sql"
-    - "0002_maintenance.sql"
-    - "0003_participation_journey.sql"
-    - "0004_journey_action_requests.sql"
-    - "0005_journey_reminders.sql"
-    - "0006_restored_product.sql"
-    - "0007_zero_season.sql"
-    - "0008_zero_season_closure.sql"
-    - "0009_zero_season_forecasts.sql"
-    - "0010_zero_season_series_starts.sql"
-    - "0011_zero_season_paths.sql"
-    - "0012_zero_season_cycle.sql"
-    - "0013_zero_season_active_birds.sql"
-    - "0014_zero_season_flights.sql"
-    - "0015_v5_campaign_foundation.sql"
-    - "0016_v5_player_progress.sql"
-    - "0017_v5_gameplay_writes.sql"
-    - "0018_v5_chat_narrative.sql"
-  experience_v2_gate: "disabled; data and tables retained as historical evidence"
-  experience_v3_gate: "enabled for exactly one existing internal user through a dedicated exact allowlist"
-  zero_season_v4_gate: "enabled for every correctly authenticated, non-banned member of the configured main Telegram chat; no user-ID allowlist"
-  live_campaign_v5_gate: "enabled for correctly authenticated Telegram participants after an administrator arms a campaign chat; no user-ID allowlist"
-  live_campaign_v5_publication_gate: "disabled globally; no public V5 posts are sent"
-  pilot_chats: "one configured general chat; specialist chat remains HOLD"
-  rollout_started: "2026-08-07T03:00:00+03:00"
-  cron_utc:
-    cleanup: "30 4 * * *"
-    daily_summary_retry_window: "0 6-10 * * *"
-    passive_reminders: "0 15 * * *"
+verification:
+  clean_exact_head: "pass"
+  frozen_linux_install: "pass"
+  native_rollup_esbuild: "pass"
+  miniapp_core_db_bot_worker_tests: "pass"
+  repository_typecheck: "pass"
+  production_vite_build_http: "pass"
+  real_chromium:
+    status: "pass"
+    viewports: ["320x568", "430x1000"]
+    motion: ["normal", "reduced"]
+    console_errors: 0
+    required_png: 8
+    required_webm: 3
+  staging:
+    status: "pass"
+    worker: "kontur-igor-staging"
+    d1_name: "kontur-staging"
+    d1_id: "22786b4b-99cc-4ca5-a18b-932e8781021b"
+    exact_asset_convergence: true
+    live_synthetic_auth_economy_persistence: true
+    production_touched: false
+  production:
+    status: "deployed_user_data_reset"
+    worker: "kontur-igor"
+    origin: "https://kontur-igor.igorekglukhovskii43.workers.dev"
+    runtime: "b153d4c96a775484c0cfc3b454029f9e4dadaf75"
+    exact_asset_convergence: true
+    health: "pass"
+    api_boundary: "pass"
+    telegram_webhook_boundary: "pass"
+    d1_data_preserved: true
+    post_deploy_counts: {users: 5, hatched: 4}
+    current_counts: {users: 0, hatched: 0, grants: 0}
+    deploy_executor: "Cloudflare Workers Builds kontur-igor-staging"
+    deploy_build_id: "dcb9cbe8-e1da-4b2a-8fa4-7e0a081d7af3"
+    data_reset:
+      status: "pass"
+      executor_commit: "51a0669b"
+      all_mutable_tables_proof_commit: "60fd17c7"
+      mutable_tables_checked: 62
+      mutable_rows_remaining: 0
+      static_seeds_preserved: true
+      schema_and_migrations_preserved: true
+      one_shot_harness_restored_commit: "23f6d016"
+      backup: "UNKNOWN_not_captured_in_available_executor_evidence"
+    telegram_entry:
+      bot: "@kontur_igor_test_bot"
+      public_page: "pass"
+      real_start_to_result: "HOLD_no_authenticated_telegram_session_in_agent_vm"
+  handoff:
+    status: "pass"
+    secret_scan: "pass"
+    internal_sha256_manifest: true
+    outer_sha256: true
+    excludes: [".git", "node_modules", "dist", ".env", "tokens", "sessions", "profiles", "private dumps", "keys"]
 
-checkpoints:
-  branch: "codex/v5-live-campaign"
-  deployed_runtime_commit: "3918744"
-  art_reference_commit: "91e37b2"
-  previous_stable_tag: "production-hardened-2026-08-06"
-  previous_v2_runtime_commit: "fd30448"
-  release_document: "PROJECT_STATE.yaml and WORKLOG.md"
-  final_handoff:
-    file: "KONTUR_HANDOFF_2026-08-06-RESTORED-V3.zip"
-    sha256: "stored in the adjacent verified .sha256 sidecar and final release report"
+historical_preview:
+  url: "https://5dabce57-kontur-igor.igorekglukhovskii43.workers.dev"
+  classification: "forensic_only_not_a_core_gate"
+  byte_equality_claimed: false
 
-last_verified_gate:
-  date: "2026-08-08"
-  mvp_core_v4_deploy: "pass; DisablePublish + GameAlreadyEnabled; health ok; ZeroSeason Variant B graphite 3918744 / worker 281f1076; V5_GAME=true V5_PUBLISH=false; no D1 reset"
-  pnpm_check: pass
-  unit_and_integration_tests: 77
-  node_api_scenarios: "50 passed"
-  worker_d1_scenarios: "50 legacy plus V2, V3 and V4 integration passed"
-  d1_schema_upgrade: "pass locally; production 0007 through 0014 applied after pre-migration logical SQL backup"
-  typed_workspace_projects: 9
-  production_build: pass
-  v5_pre_release_checks: "pass at c1e083a: core, Worker and Mini App checks, full Worker suite, V5 API scenario and Sol review fixes"
-  v5_post_release_harness_retry: "timed out after five minutes; no post-release regression result is claimed"
-  v5_full_check_after_closed_telegram_test: "pass on 2026-08-07: core, Worker, Mini App, typechecks, balance simulation, local D1 transfer and production build"
-  v5_atomic_item_start: "pass on 2026-08-07: two concurrent starts in separate local campaigns contested one lens; exactly one session and one item link persisted, with no unlinked session"
-  local_chromium_visual_qa:
-    status: pass
-    viewports: ["320x700", "390x844", "412x915", "1024x800"]
-    evidence: "five tabs, eight paths, onboarding, actions, nest, collection, reduced motion, no horizontal overflow, no console errors"
-  production_secret_safe_smoke:
-    health: 200
-    root: 200
-    v4_mini_app: "200; deployed current asset and online season UI rendered"
-    v4_anonymous_api: "401"
-    telegram_webhook_and_menu: "deploy script accepted both updates"
-    authenticated_v4_telegram_flow: unknown
-    v5_worker_and_assets: "deployed at f5660d3; post-deploy health passed with D1 and production mode"
-    v5_game_gate: "enabled; publication gate disabled"
-    authenticated_v5_telegram_flow: "closed solo path passed in the test bot/chat, including a real forecast stake; forecast settlement and live multi-user paths remain HOLD"
-  gate_rollback_drill: "V4 disabled before deploy and enabled after live checks; V1-V3 are independent gates"
+release_boundary:
+  merge_main: "owner_constrained"
+  production_promotion: "completed_owner_authorized_2026-08-22"
+  production_d1_write_or_reset: "completed_owner_authorized_2026-08-22"
+  production_secret_or_telegram_change: "owner_constrained"
+  direct_production_deploy: "fail_closed"
+  permitted_current_remote_target: "none_after_one_time_release"
 
-data_safety:
-  local_private_paths: [".env", "*.local", "backups/", "data/", "research-private/"]
-  production_started_without_local_test_import: true
-  current_pilot_user_count: 1
-  restored_actions_after_smoke: 0
-  restored_nest_items_after_smoke: 0
-  restored_preferences_after_smoke: 0
-  pre_migration_backup:
-    file: "backups/kontur-d1-20260806T084426Z.sql"
-    sha256: "D426C66EF5BA0FDC99DA9AAEA8632D3C530D33656569CABD9EA50EE0132D3830"
-    bytes: 30444
-  post_rollout_backup:
-    file: "backups/kontur-d1-20260806T090522Z.sql"
-    sha256: "FC81116830194F7C608E529101A6260C51A296145D039458DE543DD03C4195A0"
-    bytes: 38289
-  pre_v4_migration_backup:
-    file: "backups/kontur-d1-logical-20260806T235657Z.sql"
-    sha256: "86D961CF6741F61715AADC0D151492F2EBCE9BB2D7AE41E04093224673FF5334"
-    bytes: 37805
-    restore_dry_run: "pass in isolated local D1: 30 tables and 107 rows"
-  post_v4_release_backup:
-    file: "backups/kontur-d1-logical-20260807T001607Z.sql"
-    sha256: "390F87F59267BFB952DAC95D44984714481C95937B522D128B55D6992B3D3D74"
-    bytes: 42936
-    restore_dry_run: "pass in isolated local D1: 41 tables and 115 rows"
-  post_v5_recovery_point: "Cloudflare D1 Time Travel bookmark verified after V5 schema and Worker release; no restore was run"
-  final_v5_closed_test_recovery_point: "Cloudflare D1 Time Travel bookmark taken after the closed Telegram test; no restore was run"
-  pre_v5_forecast_settlement_recovery_point: "Cloudflare D1 Time Travel bookmark taken after the real forecast stake and before its scheduled settlement; no restore was run"
-  diagnostic_identity_repair: "pass - synthetic auth cleared username; username-only repair restored the verified pre-smoke value, final check reports missing_username=0"
-  note: "Backups contain personal data, stay outside Git and handoff; do not expand the allowlist automatically."
-
-monitoring:
-  automation_name: "Контур: V4 нулевой сезон"
-  status: active
-  mode: "daily read-only heartbeat; failed runs only"
-  prohibited: "writes, Telegram messages, secret changes or automatic game-mechanic changes"
-
-open_observations:
-  - id: "real-telegram-v5-path"
-    status: partial_pass
-    verified: "test chat arm/status/open and duplicate open; private deep link; six-question pretest; Form I bird; a server-checked five-card move; one-action lock; one raid-queue entry; hourly resolver closure; and one real egg forecast stake"
-    hold: "forecast settlement after the next scheduled resolver, a real 4-6 person raid completion, and concurrent-player branch advancement"
-    reopen_with: "keep publication disabled; verify the scheduled forecast settlement, then use real volunteers in the test chat for one four-person raid and concurrent branch progress"
-  - id: "v5-product-readiness"
-    status: hold
-    verified: "closed technical solo vertical is working; no public V5 post was sent"
-    hold: "current real Mini App is rejected as visually and conceptually insufficient; no evidence that chat participants understand or want the loop"
-    reopen_with: "owner selects an art/game direction, then validate one coherent prototype with intended chat participants before any production UI rewrite or publication"
-  - id: "real-telegram-v3-path"
-    status: not_run
-    reopen_with: "explicitly authorize a real question, reply and /worm path; this rollout intentionally sent no messages"
-  - id: "real-telegram-v4-path"
-    status: unknown
-    reopen_with: "open the V4 link from the configured bot while logged into Telegram and complete pretest, bird selection, one five-question series, forecast and a 4-person flight"
-  - id: "real-device-v3-qa"
-    status: hold
-    reopen_with: "run the current build inside real Telegram Desktop, iOS and Android"
-  - id: "five-person-comprehension"
-    status: not_run
-    reopen_with: "five independent people complete the first useful path"
-  - id: "specialist-chat"
-    status: hold
-    reopen_with: "provide and verify the exact production specialist chat ID"
-  - id: "pilot-outcomes"
-    status: unknown
-    reopen_with: "collect 7-14 days of privacy-safe V3 metrics"
-  - id: "cron-live-observation"
-    status: hold
-    reopen_with: "observe the next real scheduled executions and delivery logs"
-  - id: "cu-chat-research"
-    status: data_only_complete
-    protocol: "CHAT_RESEARCH_PROTOCOL.md"
-    private_path: "research-private/"
-
-authority_order:
-  - "current code and reproducible tests"
-  - "PROJECT_STATE.yaml"
-  - "AI_PROJECT_NAVIGATOR.md"
-  - "README.md and HANDOVER.md"
-  - "WORKLOG.md"
-  - "DESIGN.md and kontur-brief.html"
-  - ".superseded and old archives"
-
-entrypoint: "AI_PROJECT_NAVIGATOR.md"
-release: "RESTORED_PRODUCT_V3.md"
-human_case: "PROJECT_PASSPORT.md"
-backlog: "BACKLOG.md"
-product_redesign: "PRODUCT_REDESIGN_BRIEF.md"
-chat_research_protocol: "CHAT_RESEARCH_PROTOCOL.md"
-next_chat_prompt: "CURSOR_HANDOFF_2026-08-07.md"
-
-integration_candidate_2026_08_14:
-  status: "exact_v84_worker_module_reproducible_full_control_source_found_derived_frontend_integrated"
-  authority: "owner accepted the clean-derived frontend candidate as the basis for this integration stage"
-  source:
-    original_worktree: "K:\\SPO (первый проект)\\spo\\spo"
-    original_git_head: "a7906b4af7d890e92f016a8ba2412a97dcf5ffda"
-    original_worktree_changed_by_this_stage: false
-    secret_safe_snapshot_files: 238
-    excluded_generated_private_historical_files: 702
-    secret_scan_hits: 0
-  worker_proof:
-    exact_cloudflare_version_id: "ab3cce08-12a0-4fa7-879b-9f6bbe838076"
-    exact_module_sha256: "80510394f7a3e3c086b4c85e96dec0a555b105f5bbdb1e7c8f57d5f78dbdef39"
-    dry_run_module_sha256: "80510394f7a3e3c086b4c85e96dec0a555b105f5bbdb1e7c8f57d5f78dbdef39"
-    byte_exact_module_match: true
-    source_map_local_sources_exact: 27
-  frontend:
-    classification: "accepted clean-derived frontend; intentionally not byte-exact v84 assets"
-    overlay_added_files: 31
-    overlay_replaced_files: 4
-    overlay_byte_identical_files: 61
-  validation:
-    tests: pass
-    typecheck: pass
-    balance_simulation: pass
-    build: pass
-    synthetic_pglite_to_local_d1_transfer: pass
-    browser_430x1000: pass
-    browser_320x568: pass
-    browser_reduced_motion: pass
-    browser_community_branch: pass
-    browser_console_warnings_errors: 0
-    broken_images: 0
-    horizontal_overflow: 0
-  cloudflare_writes: "none"
-  production_changes: "none"
-  next_gate: "separately authorized preview-version evaluation; no traffic switch"
+control:
+  handoff_issue: "Ai-b0ss/kontur#9"
+  current_owner_directive: "2026-08-22 destructive production participant data reset"
+  direct_main_push: false
+  merge_requires_owner_permission: true

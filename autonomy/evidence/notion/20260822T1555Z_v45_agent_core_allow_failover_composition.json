@@ -1,0 +1,45 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "worker": "NOTION_CORE",
+  "created_at_utc": "2026-08-22T15:55:00Z",
+  "verdict": "V45_AGENT_CORE_ALLOW_FAILOVER_COMPOSITION_MODEL_PASS",
+  "scope": "Core protected provider-intent failover suppression composed with Agent DynamicReservationLeaseSession",
+  "fresh_agent_head_observed": "eaa7e812cb502649fb5291143070b33bfc94380e",
+  "exact_inputs": {
+    "payload/account_pool.py": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f",
+    "payload/server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "payload/reservation_aware_lease.py": "c77b4d5214911def1729243516aec73e43f8d425",
+    "agent_account_pool_materializer": "80aeb1872c1cab7f51c33039584b5786e441f9f0",
+    "agent_server_materializer": "2ed85ece7d3323b1619ec0963d3021c1623d0e0a",
+    "core_v41_patch": "autonomy/evidence/notion/20260822T1155Z_v41_accountlease_failover_optout_exact_candidate.patch",
+    "composition_patch": "autonomy/v3/candidates/NOTION_AGENT_CORE_ALLOW_FAILOVER_COMPOSITION_20260822.patch"
+  },
+  "proven_gap": "Agent materialization changes the first Responses call from AccountLease.run to DynamicReservationLeaseSession.run_selected. V41 on AccountLease alone is therefore insufficient unless allow_failover is explicitly forwarded through the dynamic-session wrapper.",
+  "candidate_rule": {
+    "default": "allow_failover=true keeps the legacy call shape and existing Agent failover behavior",
+    "protected": "allow_failover=false is forwarded to the real AccountLease.run for run_selected and later run calls",
+    "reservation_reselection": "late foreground reservation before provider entry remains a local routing event and may safely reselect while preserving allow_failover=false for the eventual provider step",
+    "implicit_provider_failover": "suppressed after durable provider-intent publication"
+  },
+  "local_model_cases": [
+    "legacy fake lease remains compatible when allow_failover is left at default true",
+    "protected run_selected forwards false; ambiguous transport performs one provider attempt and zero account switches",
+    "default Agent path still permits ordinary failover",
+    "protected later planner step forwards false and performs zero account switches",
+    "late reservation before provider entry reselects from account a to b and the eventual provider step still receives allow_failover=false"
+  ],
+  "result": {
+    "provider_duplicate_risk_after_intent": "closed in the wrapper model",
+    "agent_default_rotation": "preserved in the wrapper model",
+    "pre_provider_reservation_reselection": "preserved in the wrapper model"
+  },
+  "not_yet_proven": [
+    "full exact composed materialized source (Agent transforms + V41 + wrapper + Stage-B server orchestration) compiles and passes the existing Agent test suite",
+    "all three Stage-B server provider callsites use the protected dynamic-session/direct-lease surface after composition",
+    "full retry/restart/compaction/stream crash matrix on composed exact bytes",
+    "native Windows semantics"
+  ],
+  "windows_gate": "NOT_READY",
+  "live_provider_traffic": false,
+  "hosted_ci_started": false
+}

@@ -1,0 +1,41 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "id": "V30_STAGE_A_COMPATIBILITY_FLOOR",
+  "created_at_utc": "2026-08-22T06:50:00Z",
+  "source": {
+    "core_pr7_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_integration_head": "f58f0123b370ad786d337337eb03a6a4ce9963b3",
+    "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d"
+  },
+  "purpose": "Stage-A compatibility floor required by V27 before any durable-state v3 replay/provider-intent schema is allowed to be published.",
+  "candidate": {
+    "integration_patch": "autonomy/evidence/notion/20260822T0650Z_v30_stage_a_compatibility_floor_exact.patch",
+    "exact_preimage_materializer": "autonomy/evidence/notion/20260822T0650Z_v30_stage_a_compatibility_floor_materializer.py"
+  },
+  "local_model_results": [
+    "V30_UNSUPPORTED_OR_CORRUPT_LOAD_BLOCKS_PROVIDER_PASS",
+    "V30_GET_CLEANUP_WRITE_FAILURE_BLOCKS_PROVIDER_PASS",
+    "V30_COMPACTION_SHARES_PROVIDER_FLOOR_PASS",
+    "V30_EPHEMERAL_TEST_STORE_COMPAT_PASS",
+    "V30_HEALTHY_DURABLE_STORE_PROVIDER_ENTRY_PASS",
+    "V30_STAGE_A_COMPATIBILITY_FLOOR_MODEL_PASS"
+  ],
+  "materializer_contract": [
+    "Refuses unless exact Git blob preimages are conversation_segments=553bd349... and server=f02cef6a...",
+    "Requires exactly one textual insertion anchor per target file",
+    "Compiles both rendered Python files before any --apply mutation",
+    "Default mode is read-only preimage/compile check; mutation requires explicit --apply",
+    "Writes each rendered file through a sibling temporary file and os.replace"
+  ],
+  "remaining_before_product_apply": [
+    "Materialize exact PR8 checkout locally and run materializer in default --check mode",
+    "Apply only on an isolated local copy, then run current local server/conversation tests plus targeted unsupported-v3/corrupt-state/get-cleanup-write-failure provider-count assertions",
+    "Self-review interaction with Agent test fakes before any product branch mutation",
+    "Under ZERO-MINUTE do not push this candidate to PR8 because pull_request CI would be triggered"
+  ],
+  "product_change": false,
+  "hosted_ci_started": false,
+  "provider_traffic_started": false,
+  "native_windows_claimed": false
+}

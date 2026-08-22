@@ -1,0 +1,60 @@
+{
+  "schema": "notion_core_v39_planner_correction_durable_boundary_v1",
+  "created_at_utc": "2026-08-22T10:40:00Z",
+  "worker": "NOTION_CORE",
+  "source": {
+    "core_pr": 7,
+    "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_integration_pr": 8,
+    "agent_head": "8c46616f6c4d038fc3b578a0e516aa7fb832a0a1",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "account_pool_blob": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f"
+  },
+  "exact_source_observation": {
+    "responses_initial_provider_step": "handle_openai_responses calls lease.run(initial/continuation, retry_operation=initial_completion)",
+    "responses_correction_provider_step": "the same handler can make deliberate planner-correction lease.run calls after an invalid/refusal/malformed tool recommendation",
+    "correction_budget": "up to two correction provider calls after the initial completion; the third bad recommendation raises",
+    "compaction_provider_step": "handle_openai_compaction has its own lease.run(..., retry_operation=initial_completion)",
+    "outer_retry": "handle_openai_responses also contains an independent foreground transport recursion after AccountPoolExhausted"
+  },
+  "finding": {
+    "name": "durable provider intent must cover every deliberate planner step without allowing any implicit retry/failover",
+    "severity": "blocking_stage_b_orchestration_boundary",
+    "reason": "The current planner legitimately performs an explicit correction turn on the same Notion thread when the first answer is malformed or refuses the tool protocol. Treating Stage B as literally one provider call per successful request would silently remove this existing behavior. The safety invariant is instead: after strict provider-intent publication, every explicit provider step is attempted at most once, on the already selected lease/account, with AccountLease failover disabled and the server outer transport recursion disabled. A transport failure on any step leaves the durable intent unresolved and publishes no client result. A hard crash between explicit steps is fail-closed on retry."
+  },
+  "local_model": {
+    "harness": "/mnt/data/v39_harness.py",
+    "verdict": "V39_PLANNER_CORRECTION_DURABLE_BOUNDARY_MODEL_PASS",
+    "cases": [
+      "pool unavailable before intent -> no intent, provider_calls=0",
+      "initial bad-tool -> explicit correction good-tool -> same account, no failover, durable replay published",
+      "exact retry after durable finalize -> no new provider call",
+      "transport failure during correction -> unresolved intent remains, no replay payload, no failover",
+      "demonstration: allow_failover=true on correction can switch to a sibling account and create an implicit extra provider attempt",
+      "final durable write failure -> unresolved intent remains and no replay payload is published",
+      "intent write failure -> provider_calls=0"
+    ]
+  },
+  "required_server_rule": [
+    "acquire local lease before intent; pool/cooldown failure must not create intent",
+    "strictly write provider intent",
+    "pass allow_failover=false to the initial/continuation lease.run",
+    "pass allow_failover=false to every planner-correction lease.run under the same intent",
+    "suppress the outer foreground transport recursion after intent",
+    "on any ambiguous transport failure leave the intent unresolved and return fail-closed",
+    "only after a valid final completion build one canonical Responses payload and strictly finalize it",
+    "only after finalize publish memory affinity/reservation and client JSON/SSE"
+  ],
+  "acceptance_wording_correction": {
+    "old_shorthand": "exactly one provider entry",
+    "new_precise_invariant": "no implicit provider replay after durable intent; each deliberate planner step may enter the selected provider at most once",
+    "replay_provider_count": "after successful durable finalize, exact retry/restart adds zero provider calls"
+  },
+  "safety": {
+    "product_branch_mutated": false,
+    "hosted_ci_started": false,
+    "live_provider_started": false,
+    "rotation_policy_changed": false
+  },
+  "next": "Build the exact-local server/account-pool materializer so all protected lease.run call sites, including correction and compaction, use failover suppression and the outer foreground retry is gated off after intent; then run the full Stage-B matrix before native Windows."
+}

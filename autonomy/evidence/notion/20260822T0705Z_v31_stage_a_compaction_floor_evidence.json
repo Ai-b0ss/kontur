@@ -1,0 +1,38 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "id": "V31_STAGE_A_COMPACTION_FLOOR_CORRECTION",
+  "created_at_utc": "2026-08-22T07:05:00Z",
+  "source": {
+    "core_pr7_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_integration_head": "f58f0123b370ad786d337337eb03a6a4ce9963b3",
+    "conversation_segments_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "supersedes_stage_a_materializer": "autonomy/evidence/notion/20260822T0650Z_v30_stage_a_compatibility_floor_materializer.py"
+  },
+  "finding": "V30 inserted require_persistence_ready() only in handle_openai_responses. The real /v1/responses/compact path calls handle_openai_compaction separately; after ConversationSegmentStore.get() it can enter account_pool/provider without the Stage-A persistence floor. Therefore the V30 evidence claim that compaction shared the same provider floor was false for the exact product source.",
+  "exact_source_observation": {
+    "ordinary_anchor": "affinity = await turn_affinities.get(turn_key) -> segment = await conversation_segments.get(conversation_key) -> affinity_matches_model",
+    "compaction_anchor": "segment = await conversation_segments.get(conversation_key) -> current_fingerprints = response_input_fingerprints(body)",
+    "v30_materializer_compaction_mutation": false
+  },
+  "local_results": [
+    "V31_STAGE_A_COMPACTION_FLOOR_MODEL_PASS",
+    "V31_MATERIALIZER_ANCHOR_TRANSFORM_PASS",
+    "V31_MATERIALIZER_PY_COMPILE_PASS"
+  ],
+  "candidate": {
+    "materializer": "autonomy/evidence/notion/20260822T0705Z_v31_stage_a_compaction_floor_materializer.py",
+    "harness": "autonomy/evidence/notion/20260822T0705Z_v31_stage_a_compaction_floor_harness.py",
+    "preimage_policy": "same exact blobs as V30; transform refuses any drift",
+    "server_change": "insert the same post-get persistence gate in both ordinary Responses and handle_openai_compaction"
+  },
+  "remaining": [
+    "Materialize the complete exact PR8 source locally and run the V31 materializer in read-only check mode.",
+    "Apply only to an isolated copy and run current real server/conversation tests plus provider-count regressions for unsupported/corrupt state and get-cleanup write failure in ordinary Responses and compaction.",
+    "Only after Stage-A exact local PASS build the Stage-B v3 durable-state candidate; do not spend the native Windows gate yet."
+  ],
+  "product_change": false,
+  "hosted_ci_started": false,
+  "provider_traffic_started": false,
+  "native_windows_claimed": false
+}

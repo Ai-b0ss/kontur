@@ -1,0 +1,172 @@
+{
+  "archive": {
+    "parts": 7,
+    "sha256": "2e96d24614c1881ce3bf004513d2583bbefc1e728d224c6d948b2f656594bf94",
+    "size": 20203
+  },
+  "capsule_id": "20260822T035146Z-a7246ba3b8",
+  "created_at_utc": "2026-08-22T03:51:46Z",
+  "parts": [
+    {
+      "chars": 4096,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "e0f367a3656bd07ad36b1b615634bd34629db88e653f703bd327c5153daa8d68"
+    },
+    {
+      "chars": 4096,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "66ca21aff8fffc0783de34b9a6ecf2f50ed6bb2dbef76166f9a895da8b52a2e3"
+    },
+    {
+      "chars": 4096,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "4ea8935a1b48cb65db9cbb6c0451067fca9b5e25bb23786740e3d92ce100de24"
+    },
+    {
+      "chars": 4096,
+      "index": 3,
+      "name": "part-0003.b64",
+      "sha256_text": "0abc661f1a08a1a3ad3eb36fc1e37bc31bf96f0609a6acb59339fdd569009e23"
+    },
+    {
+      "chars": 4096,
+      "index": 4,
+      "name": "part-0004.b64",
+      "sha256_text": "79c9aa4b91475092930951ef8921881281b521eb4ae0a6719902a4191993a18d"
+    },
+    {
+      "chars": 4096,
+      "index": 5,
+      "name": "part-0005.b64",
+      "sha256_text": "05b67d6e99c2cb9c82f46f51ae19037abbeafa1f83a7e30f1a6adbdb046ca0b3"
+    },
+    {
+      "chars": 2364,
+      "index": 6,
+      "name": "part-0006.b64",
+      "sha256_text": "9dfcbe06963c8a2f2376aae8b07c0efce911f476c822320b73d413b47234c906"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@b6f4eef28ea7acdbba5fc32559fa635c28f72144+d2ada47dd096e1273a8bfb1977240a6034e8e622",
+  "worker": "NOTION_CORE",
+  "workspace": {
+    "CHECKPOINT.json": {
+      "mode": "0o644",
+      "sha256": "e6877fcde65b1195816083c061b79f6ef31acb81ccd4d5fe837a1815a99432cd",
+      "size": 1638,
+      "type": "file"
+    },
+    "CODEX_SHELL_ENV.json": {
+      "mode": "0o644",
+      "sha256": "7a2ea7b8ebee00d5936e49dccd7a344f40f47c201ea268394b60eaf5c5271f03",
+      "size": 604,
+      "type": "file"
+    },
+    "V10.json": {
+      "mode": "0o644",
+      "sha256": "ca4595a425200153ca9abc51dd5c4061a659fb832a36f9e73d7dda2b6265c8db",
+      "size": 867,
+      "type": "file"
+    },
+    "V10_NEXT.md": {
+      "mode": "0o644",
+      "sha256": "5126d53e2b3f55b7e2c12d9e8824d2c64ff9cdafaf8ee9118cfdd44fd93ad9a6",
+      "size": 408,
+      "type": "file"
+    },
+    "V11.json": {
+      "mode": "0o644",
+      "sha256": "08a57bc1b0efc0a898c23be665f8935d6b03797c0ec04afac82f7560f90ca86b",
+      "size": 843,
+      "type": "file"
+    },
+    "V11_NEXT.md": {
+      "mode": "0o644",
+      "sha256": "3308d7b07f6ee7a97e6db4a673396634eb4b2431c65bf3df0609c51da283add7",
+      "size": 438,
+      "type": "file"
+    },
+    "V12.json": {
+      "mode": "0o644",
+      "sha256": "59780a5147c86c8f9aeeba10dfa394f2f3d36e075365af06ecc1048dbaeb1024",
+      "size": 611,
+      "type": "file"
+    },
+    "V12_CONVERSATION_SEGMENTS_EXACT_CANDIDATE.py": {
+      "mode": "0o644",
+      "sha256": "614f93d64f3e63dfa63ae4cf36253615132aabddac27e683c0da838640f9631e",
+      "size": 14270,
+      "type": "file"
+    },
+    "V12_CONVERSATION_SEGMENTS_EXACT_HARNESS.py": {
+      "mode": "0o644",
+      "sha256": "94f2de80e5934d48d3310705c30f0dd4d1b37de6c1f89a8a1632c02ae40f2ca0",
+      "size": 6097,
+      "type": "file"
+    },
+    "V12_EXACT_PATCH_SPEC.json": {
+      "mode": "0o644",
+      "sha256": "6ac937e9e209d64105ee93d1d03cb8be69005209742f70f311bb327ec98faa1e",
+      "size": 3076,
+      "type": "file"
+    },
+    "V12_NEXT.md": {
+      "mode": "0o644",
+      "sha256": "d532179733c78740a83fa7374241baad5c71a6d4f2d2c7af7eb68cace7a6805c",
+      "size": 506,
+      "type": "file"
+    },
+    "V12_REPLAY_HARNESS.py": {
+      "mode": "0o644",
+      "sha256": "658061896f9fb6525d2f79f81b31d160a9a0de31ccf55e5dca0922cca315de00",
+      "size": 8140,
+      "type": "file"
+    },
+    "V12_RUN_EVIDENCE.json": {
+      "mode": "0o644",
+      "sha256": "3b3482f19fb25acfaf7fe2dc1e78e1b930d8d856a306f281c224094f13c1222a",
+      "size": 1888,
+      "type": "file"
+    },
+    "V12_SERVER_EXACT_LIFECYCLE_HARNESS.py": {
+      "mode": "0o644",
+      "sha256": "a6b849389401aed9a2c0a4a2cd4caa6359df256aee959e2ba61187bd6186ec39",
+      "size": 10163,
+      "type": "file"
+    },
+    "V12_STORE_CANDIDATE.py": {
+      "mode": "0o644",
+      "sha256": "9c75990b7569abf8e0f48dcf169daea98f4d47a11bc497cc094bcfa3edd98c33",
+      "size": 12191,
+      "type": "file"
+    },
+    "V12_STORE_HARNESS.py": {
+      "mode": "0o644",
+      "sha256": "67421276ade9e2f87acb72d7a87d2bbfe698f7eb8863441d3eea52e3047afe59",
+      "size": 4776,
+      "type": "file"
+    },
+    "V23.json": {
+      "mode": "0o644",
+      "sha256": "b8242ca7914a13d33c868613bb1e8f1148e7145a5299a27f941bd498e1281911",
+      "size": 899,
+      "type": "file"
+    },
+    "V23_ACCOUNTLEASE_POLICY_HARNESS.py": {
+      "mode": "0o644",
+      "sha256": "3dde0d0b899453b44abcb67397464d5365cce56544b71de1efb18376aada86fe",
+      "size": 2565,
+      "type": "file"
+    },
+    "V23_TRANSPORT_INTENT_HARNESS.py": {
+      "mode": "0o644",
+      "sha256": "f81454e1848bda5ec98676e517d72b6b9bd5972d48438f81bdbfcf247474b485",
+      "size": 2584,
+      "type": "file"
+    }
+  }
+}

@@ -2,7 +2,7 @@
 
 Core: `Ai-b0ss/notion-agent-bridge:candidate/ncm28-windows-fixed-v1`, PR #7, exact head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
-Agent integration boundary: draft PR #8 `autonomy/notion-prompt-modes-20260819`, fresh read-only head `eaa7e812cb502649fb5291143070b33bfc94380e`.
+Agent integration boundary: draft PR #8 `autonomy/notion-prompt-modes-20260819`, fresh read-only head `57bafc097d610e8055ab28f2fadc36a85af8200a`.
 Core-relevant exact blobs on that head:
 - `payload/server.py` — `f02cef6a0ffc202c75fbe71c520c72ac19ff876d`;
 - `payload/conversation_segments.py` — `553bd3496c21a7949c3a5dfa03f33b9e09293213`;
@@ -20,16 +20,16 @@ CircleCI — только один редкий финальный native-Window
 
 ## Постоянная память v4
 
-На старте был восстановлен точным `capsule_runtime_v4.py` проверенный `LATEST` `20260822T124805Z-7a66179727`, archive SHA-256 `6f87c85b580999d6e03bde8eb0701b7dbede291d0155edb8a2e13fd4555287f6`.
+На старте этого прохода точным `capsule_runtime_v4.py` был восстановлен канонический `LATEST` `20260822T164624Z-da2720d075`, archive SHA-256 `0ab562b0e83f3c444b5f4ac56102d845ec71ee40da6fb240be7be3d2899c479e`.
 
-После V47 создана новая immutable capsule:
-- `20260822T164624Z-da2720d075`;
-- archive SHA-256 `0ab562b0e83f3c444b5f4ac56102d845ec71ee40da6fb240be7be3d2899c479e`;
+После V48 создана новая immutable capsule:
+- `20260822T174313Z-983e2ae2ca`;
+- archive SHA-256 `d52325feb2e8b2c44c55ea152910565e58f34b20dfe6b4ffc48de495ede8e150`;
 - parts: 1;
-- part Git blob readback `5e4dfa17a1a7a029ca71e337d1d09f49042d8eac`;
-- manifest Git blob readback `f3e72e754171da4de926af49e88cf5cc97b36648`.
+- part Git blob readback `237d4eb0caabb70402131a9b764a74dc63cf1855`;
+- manifest Git blob readback `eb8c35b270e0b5f26c931398abaac9d36bf6fbe3`.
 
-Старый `LATEST` сохранён как `PREVIOUS`, затем новый указатель опубликован через CAS от родительского blob `18ce26b25c5b8f00c1e8eca449a593531d2fd331`. Финальный readback `LATEST.json` имеет blob `4e8f74da04b45501f7e2c566a549bd42aab37a94`. Не реконструировать неизвестные bytes и не force-write pointer.
+Старый `LATEST` сохранён как `PREVIOUS`, затем новый указатель опубликован через CAS от родительского blob `4e8f74da04b45501f7e2c566a549bd42aab37a94`. Финальный readback `LATEST.json` имеет blob `ea3964022f2ceb4f09c15d8d8c74dc8baf291949`. Не реконструировать неизвестные bytes и не force-write pointer.
 
 ## Stage A — закрыт
 
@@ -60,30 +60,29 @@ Evidence: `autonomy/evidence/notion/20260822T1240Z_v34_v35_exact_store_integrati
 - V44: stream/non-stream — только проекции одного уже долговечно сохранённого canonical Responses object; disconnect после provider-entered не отменяет commit-critical task.
 - V45: `allow_failover=false` должен проходить через `DynamicReservationLeaseSession.run_selected/run` и one-shot wrappers, иначе Agent wrapper тихо вернёт обычный failover.
 
-## V46 — признан устаревшим как основание composed PASS
+## V46/V47 — больше не основание exact composed proof
 
-`20260822T1605Z_v46_agent_core_composition_materializer.py` напрямую применяет только старые `apply_account_pool_dynamic_reservation` и `apply_startup_status_cleanup`, затем V41/V45.
+V46 был устаревшим, потому что обходил текущий tombstone pair materializer.
+V47 исправил это и стал вызывать `tools.materialize_agent_wiring_with_tombstones.materialize(...)`, но оставил новый provenance-gap: он фиксировал три product preimage blob, а Agent transformation toolchain импортировал динамически из checkout.
 
-Свежий PR #8 требует текущий pair materializer `tools/materialize_agent_wiring_with_tombstones.py`. Он запускает базовый pair transform, затем `apply_subagent_tombstone_wiring`, требует ровно один `subagent-uncertain-tasks.json` marker и содержит актуальные guards для interrupted pair materialization journal/recovery/finalization.
+Между прежней интеграционной точкой `eaa7e812...` и текущей `57bafc097...` сами product preimages не изменились, но `tools/materialize_agent_wiring.py` изменился. Значит старый V47 PASS не смог бы однозначно доказать, какими именно helper bytes построены composed файлы.
 
-Следствие: V46 может быть зелёным на старой Agent-поверхности и при этом не доказывать нынешний Agent↔Core composed product. Использовать его как основание final Windows gate нельзя.
+Evidence: `autonomy/evidence/notion/20260822T1840Z_v48_frozen_agent_toolchain_composition_evidence.json`.
 
-Evidence: `autonomy/evidence/notion/20260822T1655Z_v47_v46_stale_agent_composition_gap.json`.
+## V48 — текущий exact composition materializer
 
-## V47 — текущий composition materializer
+Создан `autonomy/evidence/notion/20260822T1840Z_v48_frozen_agent_toolchain_composition_materializer.py`, Git blob `dab975abd730481d0986b38cb2b2fb2d816e4244`.
 
-Создан `autonomy/evidence/notion/20260822T1648Z_v47_agent_core_tombstone_composition_materializer.py`.
+V48 до любого импорта фиксирует и проверяет exact Git blob всех Agent helper-файлов:
+- `tools/materialize_agent_wiring_with_tombstones.py` — `859039a5e408bc84e7046372cdb509131eb37a97`;
+- `tools/materialize_agent_wiring.py` — `30fb89286eb4457b25b2145918279fec2d735042`;
+- `tools/apply_account_pool_dynamic_reservation.py` — `80aeb1872c1cab7f51c33039584b5786e441f9f0`;
+- `tools/apply_startup_status_cleanup.py` — `2ed85ece7d3323b1619ec0963d3021c1623d0e0a`;
+- `tools/apply_subagent_tombstone_wiring.py` — `40ab3a448e33fb8a8c3ce045ef31a815d0554823`.
 
-Он:
-1. проверяет frozen base blobs V46;
-2. вызывает текущий `tools.materialize_agent_wiring_with_tombstones.materialize(base_account, base_server)`;
-3. требует ровно один tombstone marker в resulting server;
-4. поверх post-Agent `account_pool.py` накладывает V41;
-5. на exact `reservation_aware_lease.py` накладывает V45;
-6. компилирует три composed файла и печатает exact Git blob SHA;
-7. `--apply` предназначен только для изолированной disposable копии, не для product branch publication.
+После этого он проверяет три frozen product preimage blob, выполняет текущую Agent pair/tombstone materialization, накладывает V41/V45, компилирует composed файлы и печатает их exact Git blob SHA. `--apply` разрешён только на изолированной disposable копии.
 
-**V47 exact composed PASS ещё не объявлен**: его нужно прогнать на полном exact checkout и после этого запустить текущий Agent materializer/dynamic-reservation/tombstone test cluster вместе с protected-mode Core regressions.
+**V48 exact composed PASS ещё не объявлен**: нужен полный exact checkout текущего PR #8, затем V48 check/apply и актуальный Agent materializer/tombstone/dynamic-reservation cluster на этих же composed bytes.
 
 ## Обязательные durable-replay инварианты
 
@@ -96,8 +95,8 @@ Candidate: `autonomy/evidence/notion/20260821T1510Z_codex_shell_env_exact_candid
 
 ## Следующий порядок
 
-1. Exact checkout PR #8 source -> V47 без `--apply` -> V47 на изолированной копии с `--apply`; сохранить post-composition blobs.
-2. На V47 composed bytes прогнать текущие Agent pair-materializer/tombstone/dynamic-reservation tests + targeted V41/V45 protected-mode regressions. Старые отдельные PASS не переносить автоматически.
+1. Exact checkout PR #8 source -> V48 без `--apply` -> V48 на изолированной копии с `--apply`; сохранить post-composition blobs.
+2. На V48 composed bytes прогнать текущие Agent pair-materializer/journal-path/tombstone/dynamic-reservation tests + targeted V41/V45 protected-mode regressions. Старые отдельные PASS не переносить автоматически.
 3. На этих же composed bytes встроить Stage-B orchestration: account acquisition -> strict intent -> protected `run_selected/run(..., allow_failover=false)` для всех deliberate provider steps -> canonical Responses/compaction -> strict finalize -> cache/reservation -> client.
 4. Прогнать composed matrix: default Agent failover; protected no-failover; late reservation reselection; pool unavailable; intent/final write failure; ambiguous transport; exact retry/restart IDs; planner correction; compaction exact/restart/legacy; stream/non-stream; disconnect/hard crash; removed account; TTL/size/oversize/stale retry.
 5. Совместить Codex shell-env patch локально.

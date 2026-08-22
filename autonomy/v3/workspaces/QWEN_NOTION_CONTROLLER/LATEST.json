@@ -1,8 +1,8 @@
 {
-  "archive_sha256": "be60371d6772d7559067ec3e1d755eee50c8929cc8d12f4c574b51762fab49df",
-  "capsule_id": "20260822T223823Z-2b446a10b5",
-  "manifest": "20260822T223823Z-2b446a10b5/manifest.json",
+  "archive_sha256": "79ddf396df534e2d8399507d1894dcd3a6a0840f1bf639442841b12db6626215",
+  "capsule_id": "20260822T233654Z-controller",
+  "manifest": "20260822T233654Z-controller/manifest.json",
   "schema": "free_fabric_latest_v1",
-  "updated_at_utc": "2026-08-22T22:38:23Z",
+  "updated_at_utc": "2026-08-22T23:36:54Z",
   "worker": "QWEN_NOTION_CONTROLLER"
 }

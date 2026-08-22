@@ -2,8 +2,8 @@
 
 Core: `Ai-b0ss/notion-agent-bridge:candidate/ncm28-windows-fixed-v1`, PR #7, exact head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
-Agent integration boundary: draft PR #8 `autonomy/notion-prompt-modes-20260819`, fresh read-only head `57bafc097d610e8055ab28f2fadc36a85af8200a`.
-Core-relevant exact blobs on that head:
+Agent integration boundary: draft PR #8 `autonomy/notion-prompt-modes-20260819`, fresh read-only head `78e0642002af6e8eafa6a7fcafe5dae134a99ae2`.
+Core-relevant exact blobs from the previously revalidated V48 boundary remain unchanged by the newest commit; compare `57bafc097... -> 78e064200...` adds only `tests/test_subagent_tombstone_post_replace_sync_failure.py`.
 - `payload/server.py` — `f02cef6a0ffc202c75fbe71c520c72ac19ff876d`;
 - `payload/conversation_segments.py` — `553bd3496c21a7949c3a5dfa03f33b9e09293213`;
 - `payload/account_pool.py` — `11cea792a2f5aaa40ee1515faddfd44e76cbb23f`;
@@ -16,20 +16,12 @@ Core-relevant exact blobs on that head:
 Сначала бесплатные exact-source Linux/Python проверки. Production, секреты и живой Notion/Codex не трогать до локальных safety gates.
 CircleCI — только один редкий финальный native-Windows proof по `autonomy/ci/CIRCLECI_GATE_POLICY.md`, через disposable `ci/notion-core-windows-final-gate`, когда Stage A + актуальный composed Stage B уже локально зелёные и Windows semantics остаются последним реальным неизвестным.
 
-Исторический digest workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3` не перезапускать. На выходе этого прохода все пять старых checks всё ещё `pending`.
+Исторический digest workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3` не перезапускать.
 
 ## Постоянная память v4
 
-На старте этого прохода точным `capsule_runtime_v4.py` был восстановлен канонический `LATEST` `20260822T164624Z-da2720d075`, archive SHA-256 `0ab562b0e83f3c444b5f4ac56102d845ec71ee40da6fb240be7be3d2899c479e`.
-
-После V48 создана новая immutable capsule:
-- `20260822T174313Z-983e2ae2ca`;
-- archive SHA-256 `d52325feb2e8b2c44c55ea152910565e58f34b20dfe6b4ffc48de495ede8e150`;
-- parts: 1;
-- part Git blob readback `237d4eb0caabb70402131a9b764a74dc63cf1855`;
-- manifest Git blob readback `eb8c35b270e0b5f26c931398abaac9d36bf6fbe3`.
-
-Старый `LATEST` сохранён как `PREVIOUS`, затем новый указатель опубликован через CAS от родительского blob `4e8f74da04b45501f7e2c566a549bd42aab37a94`. Финальный readback `LATEST.json` имеет blob `ea3964022f2ceb4f09c15d8d8c74dc8baf291949`. Не реконструировать неизвестные bytes и не force-write pointer.
+Текущий канонический `LATEST` перед этим проходом: `20260822T174313Z-983e2ae2ca`, archive SHA-256 `d52325feb2e8b2c44c55ea152910565e58f34b20dfe6b4ffc48de495ede8e150`, pointer blob `ea3964022f2ceb4f09c15d8d8c74dc8baf291949`.
+Не реконструировать неизвестные bytes и не force-write pointer. При новом checkpoint соблюдать exact restore -> pack -> immutable upload/readback -> fresh LATEST read -> PREVIOUS -> CAS.
 
 ## Stage A — закрыт
 
@@ -60,29 +52,26 @@ Evidence: `autonomy/evidence/notion/20260822T1240Z_v34_v35_exact_store_integrati
 - V44: stream/non-stream — только проекции одного уже долговечно сохранённого canonical Responses object; disconnect после provider-entered не отменяет commit-critical task.
 - V45: `allow_failover=false` должен проходить через `DynamicReservationLeaseSession.run_selected/run` и one-shot wrappers, иначе Agent wrapper тихо вернёт обычный failover.
 
-## V46/V47 — больше не основание exact composed proof
+## V48 — frozen composition materializer, но больше не достаточен для final proof
 
-V46 был устаревшим, потому что обходил текущий tombstone pair materializer.
-V47 исправил это и стал вызывать `tools.materialize_agent_wiring_with_tombstones.materialize(...)`, но оставил новый provenance-gap: он фиксировал три product preimage blob, а Agent transformation toolchain импортировал динамически из checkout.
+`autonomy/evidence/notion/20260822T1840Z_v48_frozen_agent_toolchain_composition_materializer.py`, Git blob `dab975abd730481d0986b38cb2b2fb2d816e4244`.
 
-Между прежней интеграционной точкой `eaa7e812...` и текущей `57bafc097...` сами product preimages не изменились, но `tools/materialize_agent_wiring.py` изменился. Значит старый V47 PASS не смог бы однозначно доказать, какими именно helper bytes построены composed файлы.
+V48 фиксирует пять Agent helper-файлов и три product preimage, затем выполняет Agent pair/tombstone materialization, накладывает V41/V45 и компилирует composed files. На границе `57bafc097...` frozen input set был свежим.
 
-Evidence: `autonomy/evidence/notion/20260822T1840Z_v48_frozen_agent_toolchain_composition_evidence.json`.
+Свежий Agent commit `78e0642002af6e8eafa6a7fcafe5dae134a99ae2` добавил только новую регрессию и не изменил эти frozen inputs. Поэтому формально старый preimage-check остаётся свежим, но **V48 больше нельзя считать достаточной границей состава**: новая регрессия доказала существенный product safety state, который V48 вообще не фиксировал.
 
-## V48 — текущий exact composition materializer
+## V49 — новая стыковая блокировка no-replay
 
-Создан `autonomy/evidence/notion/20260822T1840Z_v48_frozen_agent_toolchain_composition_materializer.py`, Git blob `dab975abd730481d0986b38cb2b2fb2d816e4244`.
+Fresh exact Agent state:
+- `payload/subagent_tombstone_store.py` blob `b0e0ac9d911e5311729e997d8715d45857744549`;
+- `tests/test_subagent_tombstone_post_replace_sync_failure.py` blob `68f124aeac6cceb8de0313d3a2750f68a900901d`.
 
-V48 до любого импорта фиксирует и проверяет exact Git blob всех Agent helper-файлов:
-- `tools/materialize_agent_wiring_with_tombstones.py` — `859039a5e408bc84e7046372cdb509131eb37a97`;
-- `tools/materialize_agent_wiring.py` — `30fb89286eb4457b25b2145918279fec2d735042`;
-- `tools/apply_account_pool_dynamic_reservation.py` — `80aeb1872c1cab7f51c33039584b5786e441f9f0`;
-- `tools/apply_startup_status_cleanup.py` — `2ed85ece7d3323b1619ec0963d3021c1623d0e0a`;
-- `tools/apply_subagent_tombstone_wiring.py` — `40ab3a448e33fb8a8c3ce045ef31a815d0554823`.
+Текущий `SubagentTombstoneStore._persist_snapshot()` делает `os.replace(tmp, canonical)` и только затем `_sync_parent()`. В `resolve_call()` это означает: mutating local side effect уже выполнен; replace может убрать durable inflight marker; затем parent sync падает; текущий процесс становится uncertain, но fresh restart способен прочитать уже marker-cleared canonical file и разрешить replay уже выполненного side effect. Новый тест именно эту границу фиксирует и ослаблять его нельзя.
 
-После этого он проверяет три frozen product preimage blob, выполняет текущую Agent pair/tombstone materialization, накладывает V41/V45, компилирует composed файлы и печатает их exact Git blob SHA. `--apply` разрешён только на изолированной disposable копии.
+Evidence: `autonomy/evidence/notion/20260822T1945Z_v49_agent_no_replay_composition_blocker.json`.
+Вердикт: `V48_FROZEN_INPUTS_STILL_FRESH_BUT_FINAL_COMPOSITION_BLOCKED`.
 
-**V48 exact composed PASS ещё не объявлен**: нужен полный exact checkout текущего PR #8, затем V48 check/apply и актуальный Agent materializer/tombstone/dynamic-reservation cluster на этих же composed bytes.
+До Agent fix + green restart/tombstone cluster финальный Stage-B composed PASS и native-Windows gate запрещены. После фикса нельзя переносить старый V48 PASS автоматически: следующий exact composition proof обязан заморозить свежий Agent head, исправленный `payload/subagent_tombstone_store.py` и саму новую regression вместе с текущим helper toolchain.
 
 ## Обязательные durable-replay инварианты
 
@@ -95,12 +84,13 @@ Candidate: `autonomy/evidence/notion/20260821T1510Z_codex_shell_env_exact_candid
 
 ## Следующий порядок
 
-1. Exact checkout PR #8 source -> V48 без `--apply` -> V48 на изолированной копии с `--apply`; сохранить post-composition blobs.
-2. На V48 composed bytes прогнать текущие Agent pair-materializer/journal-path/tombstone/dynamic-reservation tests + targeted V41/V45 protected-mode regressions. Старые отдельные PASS не переносить автоматически.
-3. На этих же composed bytes встроить Stage-B orchestration: account acquisition -> strict intent -> protected `run_selected/run(..., allow_failover=false)` для всех deliberate provider steps -> canonical Responses/compaction -> strict finalize -> cache/reservation -> client.
-4. Прогнать composed matrix: default Agent failover; protected no-failover; late reservation reselection; pool unavailable; intent/final write failure; ambiguous transport; exact retry/restart IDs; planner correction; compaction exact/restart/legacy; stream/non-stream; disconnect/hard crash; removed account; TTL/size/oversize/stale retry.
-5. Совместить Codex shell-env patch локально.
-6. Только после зелёного exact-local composed Stage B — один disposable native-Windows gate с exact SHA/cases/logs/artifacts. Недоступный результат не считать PASS.
-7. После Windows PASS — bounded authorized `codex exec -> bridge -> Notion -> local tool -> verifier FAIL -> correction -> VERIFY_OK`, с обезличенным доказательством stable conversation id на initial/tool-result/retry/restart.
+1. Fresh-read PR #8 каждый проход. Пока head остаётся `78e064200...` и tombstone store blob остаётся `b0e0ac9...`, не объявлять composition достаточной и не запускать final Windows.
+2. Независимую Core Stage-B работу продолжать локально: V34/V35 store + V41/V45 protected mode + canonical Responses/compaction projection + strict intent/finalize orchestration.
+3. Когда Agent fix появится: сравнить exact changed files; потребовать PASS новой post-replace-sync regression и всего restart/tombstone cluster без ослабления теста.
+4. Сразу после Agent fix создать следующую composition version поверх V48: freeze exact fixed Agent head + fixed `subagent_tombstone_store.py` + regression-test blob + current five helper blobs + product preimages; затем check/apply на disposable exact checkout.
+5. На тех же composed bytes прогнать Agent pair-materializer/journal-path/tombstone/dynamic-reservation cluster + V41/V45 + Stage-B orchestration matrix.
+6. Совместить Codex shell-env patch локально.
+7. Только после exact-local composed green — один disposable native-Windows gate с exact SHA/cases/logs/artifacts. Недоступный результат не считать PASS.
+8. После Windows PASS — bounded authorized `codex exec -> bridge -> Notion -> local tool -> verifier FAIL -> correction -> VERIFY_OK`, с обезличенным доказательством stable conversation id на initial/tool-result/retry/restart.
 
 Product PR #7/#8 не менялись. Hosted CI, live Notion/Codex, секреты и пользовательские данные не трогались.

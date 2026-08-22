@@ -1,0 +1,85 @@
+*** Candidate only — rebase onto fresh exact PR #6 source before product apply. ***
+
+Goal: never reuse an upstream Qwen thread across an exact tool-policy change.
+The exact hash must be computed by the same canonical code that later builds the
+Qwen tool prompt; do not create a second drifting tool-prompt implementation.
+
+Preferred shape:
+
+--- a/src/chat-adapter.js
++++ b/src/chat-adapter.js
+@@
++function resolveEffectiveToolChoice(openaiBody, options = {}) {
++  const lastUserMsg = [...(openaiBody.messages || [])].reverse().find((m) => m?.role === 'user');
++  const lastUserText = (typeof lastUserMsg?.content === 'string' ? lastUserMsg.content : '').trim().toLowerCase();
++  const isContinuation = lastUserText.length <= 25 && /^(продолжи|продолжай|continue|go ahead|давай|делай|proceed)$/i.test(lastUserText);
++  let effectiveToolChoice = openaiBody.tool_choice;
++  if (isContinuation && Array.isArray(openaiBody.tools) && openaiBody.tools.length > 0 && !effectiveToolChoice) {
++    effectiveToolChoice = 'required';
++  }
++  return { effectiveToolChoice, isContinuation };
++}
++
++function toolPromptHashForRequest(openaiBody, options = {}) {
++  const { effectiveToolChoice } = resolveEffectiveToolChoice(openaiBody, options);
++  const fullToolPrompt = options.compaction
++    ? ''
++    : tools.buildToolPrompt(openaiBody.tools, effectiveToolChoice);
++  return fullToolPrompt
++    ? crypto.createHash('sha256').update(fullToolPrompt).digest('hex').slice(0, 16)
++    : '';
++}
+@@
+ async function preparePublicPayload(openaiBody, options = {}) {
+@@
+-  const lastUserMsg = [...(openaiBody.messages || [])].reverse().find((m) => m?.role === 'user');
+-  const lastUserText = (typeof lastUserMsg?.content === 'string' ? lastUserMsg.content : '').trim().toLowerCase();
+-  const isContinuation = lastUserText.length <= 25 && /^(продолжи|продолжай|continue|go ahead|давай|делай|proceed)$/i.test(lastUserText);
+-
+-  let effectiveToolChoice = openaiBody.tool_choice;
+-  if (isContinuation && Array.isArray(openaiBody.tools) && openaiBody.tools.length > 0 && !effectiveToolChoice) {
+-    effectiveToolChoice = 'required';
+-  }
++  const { effectiveToolChoice, isContinuation } = resolveEffectiveToolChoice(openaiBody, options);
+@@
+ module.exports = {
++  toolPromptHashForRequest,
+   ...
+ };
+
+--- a/server.js
++++ b/server.js
+@@
+       const rollover = Boolean((record && record.awaitingCompactedHistory && !compaction) || isContinuationTurn);
+-      const existingChatId = (!rollover && savedAccountAvailable) ? (record?.chatId || null) : null;
+       const restoredMessages = sessionStore.restoreCheckpoint(
+@@
+       const effectiveBody = restoreDurablePromptAuthority(
+         publicBody,
+         restoredBody,
+         record,
+         req.headers,
+       );
++
++      const requestedToolPromptHash = chatAdapter.toolPromptHashForRequest(effectiveBody, { compaction });
++      const toolPolicyMatches = Boolean(
++        record && record.chatId && record.toolPromptHash === requestedToolPromptHash
++      );
++      const existingChatId = (!rollover && savedAccountAvailable && toolPolicyMatches)
++        ? record.chatId
++        : null;
+@@
+       let prepared = await preparePublicPayloadGoverned(effectiveBody, {
+         chatId: existingChatId,
+         currentOnly: Boolean(existingChatId),
+@@
+       });
+
+Required regressions before product acceptance:
+1. same session/account + same exact toolPromptHash -> existing chatId reused;
+2. read-write tool set -> read-only tool set -> fresh chatId/full-history rebase;
+3. same tools + tool_choice none/auto -> required -> fresh chatId;
+4. legacy record with chatId but no toolPromptHash -> one safe fresh-thread rebase;
+5. pending mutating tool-call guard still runs before any provider I/O;
+6. failover still never reuses another account's thread;
+7. stream and non-stream persist the new exact toolPromptHash only after accepted checkpoint.

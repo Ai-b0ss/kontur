@@ -51,10 +51,9 @@ export function QuizEgg({
       <span className="lk-quiz-egg__glow" aria-hidden="true" />
       <img className="lk-quiz-egg__base" src={model.asset} alt="" width="1101" height="1429" draggable={false} />
       <img className="lk-quiz-egg__cracks" src="/quiz/egg-crack-light.webp" alt="" aria-hidden="true" draggable={false} />
-      <div className="lk-quiz-egg__hatch-shells" aria-hidden="true">
-        <img className="lk-quiz-egg__shell lk-quiz-egg__shell--left" src="/quiz/egg-stage-08.webp" alt="" draggable={false} />
-        <img className="lk-quiz-egg__shell lk-quiz-egg__shell--right" src="/quiz/egg-stage-08.webp" alt="" draggable={false} />
-        <img className="lk-quiz-egg__hatch-light" src="/quiz/egg-crack-light.webp" alt="" draggable={false} />
+      <div className="lk-hatch-halves" aria-hidden="true">
+        <img className="lk-hatch-half lk-hatch-half--left" src="/quiz/egg-stage-08.webp" alt="" draggable={false} />
+        <img className="lk-hatch-half lk-hatch-half--right" src="/quiz/egg-stage-08.webp" alt="" draggable={false} />
       </div>
       {hatching && resultId && (
         <div className="lk-quiz-hatch" aria-hidden="true">

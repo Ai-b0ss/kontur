@@ -229,6 +229,9 @@ console.log('CLOUDFLARE_WORKERS_BUILD_STAGING_PREP_PASS');
 NODE
 
 if [ "$release_status" -ne 0 ]; then
+  pnpm -F @kontur/worker exec wrangler deploy \
+    --keep-vars \
+    --config wrangler.staging.generated.jsonc
   echo "CLOUDFLARE_PRODUCTION_RELEASE_FAIL_CLOSED status=$release_status" >&2
   exit "$release_status"
 fi

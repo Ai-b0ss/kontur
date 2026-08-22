@@ -1,0 +1,37 @@
+{
+  "schema": "notion_core_durable_replay_v23_transport_intent_v1",
+  "created_at_utc": "2026-08-22T03:40:00Z",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_integration_head": "d2ada47dd096e1273a8bfb1977240a6034e8e622",
+  "status": "REPRODUCED_WITH_LOCAL_MODEL",
+  "finding": "V22 pre-provider intent is not sufficient if AccountLease performs an automatic retry/failover after an ambiguous transport failure. The first provider attempt may already have progressed remotely, yet a second account can be called and the final success can clear the intent, losing the uncertainty marker.",
+  "exact_source_facts": {
+    "account_pool_transport_context": {
+      "provider_call_entered": true,
+      "response_progress_observation_complete": false,
+      "source": "payload/account_pool.py::_record_transport_failure"
+    },
+    "account_pool_failover": "NotionAgentError(TRANSPORT) and httpx.HTTPError are failover-eligible; AccountLease.run can switch account and run retry_operation.",
+    "server_single_account_extra_retry": "handle_openai_responses also has a bounded foreground TRANSPORT retry after AccountPoolExhausted.",
+    "transport_evidence_semantics": "transport_evidence.py classifies incomplete progress observation as INDETERMINATE, not proof of no remote progress."
+  },
+  "reproduction": {
+    "current_v22_plus_lease": "intent pending -> provider attempt #1 enters -> ambiguous transport failure -> automatic retry on another account -> provider attempt #2 succeeds -> final publication clears intent",
+    "result": "provider_calls=2 and final state no longer records that attempt #1 may have progressed remotely"
+  },
+  "required_invariant": "A provider intent can be cleared only when the transaction can account for every provider attempt. If any attempt has possible/unknown remote progress, the durable state must remain unresolved and no fresh provider attempt may be started automatically for that exact logical request unless remote-progress absence is explicitly proven.",
+  "candidate_policy": {
+    "outcome_classes": ["PROVEN_NO_REMOTE_PROGRESS", "REMOTE_PROGRESS_POSSIBLE_OR_UNKNOWN", "REMOTE_PROGRESS_CONFIRMED"],
+    "retry_rule": "Only PROVEN_NO_REMOTE_PROGRESS permits another provider attempt under the same logical intent.",
+    "ambiguous_rule": "REMOTE_PROGRESS_POSSIBLE_OR_UNKNOWN leaves/strengthens the durable intent tombstone and returns fail-closed; it must not be converted to a clean success by a sibling-account retry.",
+    "http_error_rule": "Generic httpx.HTTPError must be treated as ambiguous unless a lower layer supplies an explicit no-remote-progress proof.",
+    "timeout_rule": "Existing outer timeout already fails closed and is compatible with this invariant.",
+    "existing_failover_impact": "This may intentionally suppress the current transport failover path for ambiguous attempts until the transport layer exposes a reliable no-remote-progress classification. Rotation policy itself is unchanged; only uncertain continuation is blocked."
+  },
+  "local_harness_verdicts": [
+    "CURRENT_V22_PLUS_LEASE_AMBIGUOUS_FAILOVER_REPRODUCED",
+    "V23_AMBIGUOUS_TRANSPORT_FAIL_CLOSED_PASS",
+    "V23_PROVEN_PRE_PROVIDER_RETRY_PASS"
+  ],
+  "next": "Fold V23 into the combined V12-V22 candidate before product materialization. The server/account-pool integration must not clear an unresolved provider intent after a transport failover whose first attempt has incomplete response-progress observation."
+}

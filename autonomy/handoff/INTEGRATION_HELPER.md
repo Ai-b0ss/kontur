@@ -1,104 +1,92 @@
 # Qwen + Notion — интеграционный помощник
 
-Обновлено: 2026-08-22 00:47 UTC.
+Обновлено: 2026-08-22 00:51 UTC.
 
 Worker id: `INTEGRATION_HELPER`.
 
 ## Свежая координация
 
-Перед работой перечитаны `OWNER_INTENT_RU.md`, четыре основных handoff, `CAPSULE_RUNTIME_PROTOCOL_V2.json`, `capsule_runtime_v4.py` и свежие PR.
-
-Свежие product heads на момент проверки:
+Свежие product heads на проверенной границе:
 - Qwen PR #6: `3bc544c08d6846f9d4d5db1da3076cd81504a6e1`;
 - Notion PR #8: `0ca44dd6df901fa848cede6be32e61235a75dcfb`;
 - Notion Core PR #7: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
-Не перехватывать текущую узкую работу основных работников:
-- Qwen Core — malformed/ambiguous detached owner authority и V6 alias validation;
-- Qwen Reliability — V9 monotonic recovery quarantine поверх уже закрытых V4–V8;
-- Notion Agent — ordinary Responses materialization/dynamic reservation + новая durable delegated cancellation/tombstone линия;
-- Notion Core — durable Responses replay/compaction ordering + native Windows rollback gate.
+Не перехватывать текущую узкую работу владельцев:
+- Qwen Core — detached owner authority / V6 alias validation;
+- Qwen Reliability — V9 monotonic recovery quarantine;
+- Notion Agent — ordinary Responses materialization/dynamic reservation + delegated cancellation/tombstone;
+- Notion Core — durable Responses replay/compaction + native Windows rollback.
 
-## Новый блок 1 — Notion durable tombstone store теряет marker при нескольких владельцах файла
+## Finding A — durable tombstone multiwriter lost-update
 
-После предыдущего Integration Helper checkpoint Notion PR #8 ушёл вперёд на 32 коммита и добавил новый `payload/subagent_tombstone_store.py`. Именно свежая дельта теперь обеспечивает durable `begin_call -> local mutating tool -> resolve/uncertain` защиту через process restart.
-
-Fresh exact blobs:
+Fresh exact Notion blobs:
 - `payload/subagent_tombstone_store.py` `6185f502fcdd7ead72237c1a0f3790b114e8a844`;
 - `payload/server_subagent_lifecycle.py` `5c9017350100a10e83072cb93f1b7aaced2c9ad7`;
 - `payload/server_subagent_runtime.py` `206d8cdfc0897979c981659e9edc378da08f2a78`.
 
-Новый store безопасно делает fsync + atomic `os.replace`, но каждая инстанция держит `_uncertain`/`_inflight` в памяти и при `begin_call/resolve_call/mark_uncertain` строит новый snapshot именно из этой локальной копии. Общей межпроцессной read-modify-write сериализации нет.
+`SubagentTombstoneStore` делает fsync + atomic `os.replace`, но `begin_call/resolve_call/mark_uncertain` строят новый snapshot из per-instance `_uncertain/_inflight`. Общей межпроцессной read-modify-write транзакции нет.
 
-Детерминированное offline воспроизведение:
-1. store A и store B загружают один durable empty generation;
-2. A делает `begin_call(child-A, call-A)` — canonical файл содержит A;
-3. B всё ещё имеет старый пустой memory snapshot;
-4. B делает `begin_call(child-B, call-B)` — atomic replace успешен, но canonical файл теперь содержит только B;
-5. marker A исчезает, хотя mutating child A уже мог перейти side-effect boundary.
+Детерминированный сценарий:
+1. A и B загрузили один empty generation;
+2. A durably пишет `(child-A, call-A)`;
+3. B остаётся со старым пустым memory snapshot;
+4. B durably пишет `(child-B, call-B)`;
+5. canonical файл содержит только B — marker A потерян.
 
-Verdict:
-`NOTION_TOMBSTONE_MULTIWRITER_RACE_REPRODUCED_AND_LOCK_CONTRACT_PASS`.
+Verdict: `NOTION_TOMBSTONE_MULTIWRITER_RACE_REPRODUCED_AND_LOCK_CONTRACT_PASS`.
 
-Безопасный контракт проверен на Linux-модели: весь `read current -> validate -> mutate -> fsync/replace -> publish memory` выполняется под одним общим межпроцессным lock; второй writer перечитывает canonical bytes уже внутри lock. Тогда оба marker сохраняются. `fcntl` использован только как proof-of-contract; в продукт его напрямую переносить нельзя, потому что Windows-семантика должна быть доказана нативно.
+Требование: одна cross-process critical section на весь `read canonical -> validate -> mutate -> fsync/replace -> publish memory`, причём canonical bytes перечитываются уже внутри lock. In-process `asyncio.Lock`, atomic replace без lock и read-before-lock недостаточны. Linux proof-of-contract PASS; конкретная Windows lock/replace семантика не доказана.
 
 Artifacts:
 - `autonomy/v3/tools/integration_notion_tombstone_store_concurrent_writer_probe.py`;
 - `autonomy/evidence/integration/20260822T0033Z_notion_subagent_tombstone_multiwriter_lost_update.json`;
 - `autonomy/v3/candidates/NOTION_TOMBSTONE_MULTIWRITER_GUARD_20260822.patch`.
 
-## Новый блок 2 — исчезнувший tombstone-файл после restart молча считается первым запуском
+## Finding B — missing tombstone after restart fail-open
 
-У того же свежего store есть отдельная fail-open граница на стыке Agent ↔ Core lifecycle. `_load_or_initialize()` при любом `FileNotFoundError` создаёт новый пустой generation. Это правильно только на самом первом установочном запуске, но runtime не умеет отличить его от потери уже существовавшего durable no-replay файла.
+Тот же store при любом `FileNotFoundError` создаёт новый пустой generation. Это безопасно только на самом первом install, но runtime не отличает first use от потери уже существовавшего no-replay файла.
 
-Детерминированное offline воспроизведение:
-1. runtime создаёт initial empty `subagent-uncertain-tasks.json`;
-2. `begin_call(child-A, call-A)` надёжно фиксируется;
-3. файл исчезает между поколениями процесса — например из-за ошибочного rollback/cleanup/deletion;
-4. новый runtime видит `FileNotFoundError`, снова создаёт пустой store;
-5. `state_uncertain=false`, `child-A` больше не блокируется.
+Repro:
+1. initial empty tombstone создан;
+2. `begin_call(child-A, call-A)` durably записан;
+3. файл исчезает между process generations;
+4. новый runtime видит `FileNotFoundError` и создаёт empty store;
+5. `state_uncertain=false`, child-A больше не блокируется.
 
-Verdict:
-`NOTION_TOMBSTONE_MISSING_RESTART_FAIL_OPEN_REPRODUCED_AND_STRICT_INSTALL_CONTRACT_PASS`.
+Verdict: `NOTION_TOMBSTONE_MISSING_RESTART_FAIL_OPEN_REPRODUCED_AND_STRICT_INSTALL_CONTRACT_PASS`.
 
-Правильная граница должна быть совместной с Core/install lifecycle: initial empty generation надо создавать в доказанном durable install/upgrade transaction до включения subagents. После того как installation established, отсутствие этого файла на runtime restart должно означать `uncertain/fail-closed`, а не «первый запуск». Upgrade/rollback тоже не должен законно стирать established no-replay generation.
+Требование на стыке Agent ↔ Core: initial empty generation должен создаваться внутри durable install/upgrade transaction до включения subagents. После established install отсутствие файла на runtime restart = `uncertain/fail-closed`, а не автоматическая инициализация. Rollback/upgrade не должен стирать этот no-replay generation.
 
 Artifacts:
 - `autonomy/v3/tools/integration_notion_tombstone_missing_restart_probe.py`;
 - `autonomy/evidence/integration/20260822T0045Z_notion_tombstone_missing_restart_fail_open.json`.
 
-Native Windows для lock/replace/install semantics НЕ заявлен: оба исправления надо совместить с одним будущим разрешённым Windows Core gate, а не плодить отдельный CI fanout.
+Оба finding переданы как regressions/contracts; основные product-файлы PR #8 helper не переписывал.
 
-Основные product-файлы PR #8 не менялись, чтобы не конфликтовать с активным Notion Agent worker.
+## Не повторять без изменения продукта
 
-## Предыдущие helper-блоки — не повторять без изменения продукта
-
-Уже отдельно зафиксированы: Qwen failover account-local governor accounting; governor-size accounting для поздно добавляемых owner prompt + skills; final-turn orphan tool side effect в Notion; truncated partial tool result; failover full-history rebase; durable pending obligation bypass; duplicate unresolved tool ids; stale/total session recovery; Qwen cross-process session/store races; command/reset races; historical command replay; prompt-policy vs upstream thread affinity; subagent claim/store races; uncertain side effects; partial-batch retry; rebind overlap/global parallelism; delegated prompt/tool policy; 24-vs-12 turn budget; empty successful Qwen result.
+Уже отдельно исследованы: Qwen failover governor account ownership; governor-size accounting для owner prompt + skills; final-turn orphan tool side effect; partial/truncated tool result; failover full-history rebase; durable pending obligation; duplicate unresolved tool ids; stale/total Qwen session recovery; Qwen cross-process session/store races; command/reset races; historical command replay; prompt-policy/thread affinity; subagent claim/store races; uncertain side effects; partial-batch retry; rebind overlap/global parallelism; delegated prompt/tool policy; turn-budget mismatch; empty successful Qwen result.
 
 ## Постоянная память
 
-Стартовый `INTEGRATION_HELPER/LATEST`:
-- pointer Git blob `8f68e70cfe2143f936409fd4e9165e8dde6a6cb4`;
-- capsule `20260821T225146Z-2f24453e26`;
-- archive SHA-256 `4faaa6d7e2a0a37d3b3bcf9f91fc2524132ce23fb58a693e081ff67b2d7139ed`.
+Стартовый pointer этого запуска был `8f68e70cfe2143f936409fd4e9165e8dde6a6cb4` -> capsule `20260821T225146Z-2f24453e26`.
 
-После блока 1 опубликована новая проверенная v4-капсула:
-- capsule `20260822T003922Z-99be32295b`;
-- archive SHA-256 `f6aef8b34bdba7addf2adf66c9f1c6f28e975be0e1d5e3bda79e5717a6ea649d`;
-- manifest blob `fe5937c0acbdfecf1eb7bd44980488c83cc05003`;
-- part blobs `b1f72a41dca8f6801889268790b857aba263490a`, `5dc5b17b42a803787d2d310b961ece7453c926eb`, `c6252bf839fda8fdc30832a0df7a631ba404dff0`;
-- old LATEST preserved as PREVIOUS;
-- CAS succeeded from exact parent blob `8f68e70c...`;
-- new `LATEST.json` blob `0e8682704ee36d16003302bcdbd407a5401fc377`.
+После первого finding была опубликована промежуточная v4 capsule `20260822T003922Z-99be32295b`; она теперь сохранена в `PREVIOUS`.
 
-Все три uploaded parts и manifest были перечитаны; Git blob SHA совпали с локально рассчитанными байтами. Блок 2 дополнительно долговечно сохранён отдельным probe/evidence после этой capsule publication; следующий запуск должен включить его в следующую v4-капсулу, а не менять уже immutable `20260822T003922Z-99be32295b`.
+Финальный текущий v4 `LATEST`:
+- capsule `20260822T004900Z-01bbd14e89`;
+- archive SHA-256 `7cfc2cdaaf7b389f2e124298a2bd9db4b6bad16a6c8e0eca8a3441f3ec26ae2f`;
+- 1 part, 1784 chars, part blob `004d2e03177eba60950598ab94ce1976f49635a6`;
+- manifest blob `0f11202e134c322fd5ec596e0926695cff04e3bc`;
+- `LATEST.json` blob `65ea91b001f8b7b2adfc38d46496b80f55c77676`.
+
+Part и manifest перечитаны после upload и совпали с локально рассчитанными Git blob SHA. Перед каждым переключением `LATEST` выполнялся повторный read; CAS прошёл без force-write. Старый pointer сохранён в `PREVIOUS`.
 
 ## Следующее
 
-1. Notion Agent owner закрывает оба tombstone gaps согласованно: cross-process transaction для mutation + strict missing-file semantics после established install.
-2. Минимальные регрессии: две независимые store instances/processes; `begin A + begin B`; `uncertain A + stale begin B`; `resolve A + concurrent begin B`; established file -> begin mutating call -> file missing -> restart must block.
-3. Initial empty generation должен появляться из Core/install transaction, а не самовольно из runtime после того, как система считается установленной.
-4. Один будущий native Windows gate проверяет locking + replace + install/rollback вместе с уже планируемым Core Windows проходом.
-5. Integration Helper после этого ищет следующий новый стык; эти findings повторно не исследовать без изменения продукта.
+1. Notion Agent owner должен закрыть оба tombstone gaps согласованно: cross-process mutation transaction + strict missing-file semantics после established install.
+2. Regression matrix: `begin A + begin B`, `uncertain A + stale begin B`, `resolve A + concurrent begin B`, established file -> mutating inflight -> file missing -> restart must block.
+3. Initial generation согласовать с Core install/rollback; не создавать отдельный Windows CI fanout. Один будущий native Windows gate должен проверить lock/replace/install semantics вместе с уже планируемым Core Windows проходом.
+4. После product change helper перепроверяет, иначе эти findings не исследовать заново.
 
 ZERO-MINUTE соблюдён: hosted CI/Cloudflare/live provider/Notion/Codex/production/реальные аккаунты/секреты не использовались.

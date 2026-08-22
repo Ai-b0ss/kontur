@@ -1,0 +1,28 @@
+*** Begin Patch
+*** Update File: src/request-governor.js
+@@
+-  const __w2INFLIGHT_STALE_MS = 2 * 60 * 60 * 1000;
+   const __w2inflightByAccount = new Map();
+@@
+-  function __w2artifactState(canonical,canonicalMissing){
+-    const dir=__w2path.dirname(__w2STATE),base=__w2path.basename(__w2STATE),now=Date.now();
++  function __w2artifactState(canonical,canonicalMissing){
++    const dir=__w2path.dirname(__w2STATE),base=__w2path.basename(__w2STATE);
+@@
+         try{parsed=JSON.parse(__w2fs.readFileSync(artifact,'utf8'))}
+         catch(_){return {ambiguousTxn,recentInflight:true,inspectionFailed:false};}
+         if(!parsed||Number(parsed.version)!==1||!Number.isFinite(Number(parsed.createdAt))||Number(parsed.createdAt)<0)
+           return {ambiguousTxn,recentInflight:true,inspectionFailed:false};
+-        if((now-Number(parsed.createdAt))<__w2INFLIGHT_STALE_MS){recentInflight=true;continue;}
+-        try{__w2fs.rmSync(artifact,{force:true});__w2syncParent(artifact)}
+-        catch(_){return {ambiguousTxn,recentInflight:true,inspectionFailed:false};}
++        // An orphan inflight marker means provider/account outcome may have been
++        // observed but not durably published before process loss. Wall-clock age
++        // cannot prove replay is safe: the current request governor accepts a
++        // dynamic `RateLimited: wait ~Nh` value with no proven maximum N. Keep
++        // the exact evidence and fail closed until a separate recovery procedure
++        // has positive evidence for this unknown outcome.
++        recentInflight=true;
++        continue;
+       }
+*** End Patch

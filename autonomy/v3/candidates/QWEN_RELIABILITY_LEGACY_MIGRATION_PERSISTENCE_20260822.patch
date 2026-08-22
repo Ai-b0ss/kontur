@@ -1,0 +1,16 @@
+diff --git a/src/account-store.js b/src/account-store.js
+--- a/src/account-store.js
++++ b/src/account-store.js
+@@
+     const legacy = JSON.parse(fs.readFileSync(config.ACCOUNT_FILE, 'utf8'));
+     if (legacy && legacy.token) {
+       const account = normalize(legacy, legacy.id || legacy.email || 'account-1');
+-      accounts.set(account.id, account);
+       persist(account);
++      // Publish migrated credentials in memory only after the canonical account
++      // file is durably installed. A failed fsync/rename must leave the current
++      // process in the same fail-closed state as a restart.
++      accounts.set(account.id, account);
+       fs.renameSync(config.ACCOUNT_FILE, `${config.ACCOUNT_FILE}.migrated`);
+       logger.info(`Legacy account migrated to config/accounts/${account.id}.json`, 'ACCOUNT');
+     }

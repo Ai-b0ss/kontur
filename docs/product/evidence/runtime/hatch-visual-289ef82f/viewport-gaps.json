@@ -1,0 +1,101 @@
+[
+  {
+    "label": "390x760",
+    "gap": 53.40625,
+    "findings": [],
+    "phases": [
+      "idle",
+      "pulse",
+      "cracks",
+      "flash",
+      "reveal"
+    ],
+    "errors": [],
+    "hatchCalls": 1,
+    "replay": {
+      "hatchCalls": 1,
+      "name": "сорока"
+    },
+    "hatchZ": "16",
+    "samples": 18,
+    "dense": 100,
+    "openHalves": 11
+  },
+  {
+    "label": "390x760-reduced",
+    "gap": 53.40625,
+    "findings": [],
+    "phases": [
+      "idle",
+      "pulse",
+      "cracks",
+      "flash",
+      "reveal",
+      "settled"
+    ],
+    "errors": [],
+    "hatchCalls": 1,
+    "replay": null,
+    "hatchZ": "16",
+    "samples": 21,
+    "dense": 100,
+    "openHalves": 7
+  },
+  {
+    "label": "390x844",
+    "gap": 44.75,
+    "findings": [],
+    "phases": [
+      "idle",
+      "pulse",
+      "cracks",
+      "flash",
+      "reveal"
+    ],
+    "errors": [],
+    "hatchCalls": 1,
+    "replay": null,
+    "hatchZ": "16",
+    "samples": 18,
+    "dense": 100,
+    "openHalves": 13
+  },
+  {
+    "label": "430x932",
+    "gap": 69.8515625,
+    "findings": [],
+    "phases": [
+      "idle",
+      "pulse",
+      "cracks",
+      "flash",
+      "reveal"
+    ],
+    "errors": [],
+    "hatchCalls": 1,
+    "replay": null,
+    "hatchZ": "16",
+    "samples": 17,
+    "dense": 100,
+    "openHalves": 9
+  },
+  {
+    "label": "320x568",
+    "gap": 31.2734375,
+    "findings": [],
+    "phases": [
+      "idle",
+      "pulse",
+      "cracks",
+      "flash",
+      "reveal"
+    ],
+    "errors": [],
+    "hatchCalls": 1,
+    "replay": null,
+    "hatchZ": "16",
+    "samples": 21,
+    "dense": 100,
+    "openHalves": 19
+  }
+]

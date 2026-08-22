@@ -1,5 +1,16 @@
 # Worklog
 
+## 2026-08-22 — independent visual acceptance of hatch candidate 289ef82f
+
+- Product SHA actually reviewed in Chromium: `289ef82f76536aa05b2efab59400e80bcb94d50a`. After owner candidate `b00a2d32` the only later product change is this SHA; `a43af7c7` is harness-only; `055044bd` is GitHub Actions only.
+- Navigator file on disk is `AI_PROJECT_NAVIGATOR.md` v3.1 · 2026-08-17. Documented production runtime `771f908b` / assets `index-DuA7dhZw.js` does not match live HTML. Live production currently serves `/assets/index-D13ey_3j.js` and `/assets/index-CcHYcZpN.css`. Treat that docs/runtime split as `UNKNOWN`, not as a product defect.
+- Real Chromium walkthrough (hook → q1–q8 → hatch → reveal, plus replay «посмотреть тест заново»): 390×760 normal and reduced-motion, 390×844, 430×932, 320×568. Replay did not call hatch API a second time.
+- Live production bug «ЭТО ТВОЯ ПТИЦА» under the cyan ring is gone on this candidate. Measured kicker-to-ring gap: 53px / 45px / 70px / 31px. Test invariant is now the kicker line, not the bird name.
+- Hatch sequence reviewed at ~15 fps: whole cracked egg → two halves open along the crack (no bird yet) → opaque white oval covers the swap → bird appears under the fading flash. Q8 copy unmounts. No empty frame, no early bird, no leftover `08`.
+- Candidate `b00a2d32` had real hatch defects (flash under opened halves, drop-shadow shard, weak overlapping split). Fixed in Mini App CSS only at `1260b92e` + `289ef82f`. Crane, scoring, D1, bot, webhook untouched.
+- Production Worker `kontur-igor` was NOT updated. GitHub Actions non-destructive release died on billing. This VM has no Cloudflare token. Workers Builds one-shots were pushed to `infra/cloudflare-workers-builds-staging` (`ff35229b`) and `ops/kontur-prod-auth-probe-20260822` (`6451c4b8`) without live asset change after 20+ minutes. Do not tell the owner Telegram already has the new hatch.
+- Frame proof: `docs/product/evidence/runtime/hatch-visual-289ef82f/`.
+
 ## 2026-08-22 — hatch flash continuity and result-ring artifact
 
 - Mini App only. No bot, D1, worker, deploy, scoring, or asset replacement.

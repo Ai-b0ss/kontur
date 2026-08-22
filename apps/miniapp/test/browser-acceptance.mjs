@@ -483,7 +483,10 @@ try {
   visual.q8Question = await waitForQuestionPaint(page); ok(await page.locator('.lk-quiz-egg').getAttribute('data-stage') === '8', 'q8 is not egg stage 8'); visual.q8Separation = await questionSeparation(page, '320 q8'); await screenshot(page, '05-quiz-q8.png');
   await page.locator('.lk-options button').first().click(); await page.locator('main.is-egg-responding').waitFor(); ok(await page.locator('main.lk-first-time--hatching').count() === 0, 'hatching started before gesture end'); ok(await page.getByRole('button', { name: '← назад' }).count() === 0, 'back active during q8 transition');
   await page.waitForTimeout(170); ok(await page.locator('main.lk-first-time--hatching').count() === 0, 'hatching started inside response gesture'); await page.waitForTimeout(180); ok(await page.locator('main.lk-first-time--hatching').count() === 1, 'hatching did not begin after response');
-  visual.hatch = await canonicalBird(page, '.lk-quiz-hatch', '320 hatch'); continuity.hatchBird = visual.hatch.resultId; continuity.hatchAsset = visual.hatch.plumageAsset; ok(continuity.hatchBird === 'magpie', 'unexpected hatch identity');
+  const hatchBird = page.locator('.lk-quiz-hatch [data-bird-result]');
+  continuity.hatchBird = await hatchBird.getAttribute('data-bird-result');
+  continuity.hatchAsset = await hatchBird.getAttribute('data-plumage-asset');
+  ok(continuity.hatchBird === 'magpie' && Boolean(continuity.hatchAsset), 'unexpected hatch identity');
   visual.hatchIntact = await hatchPaint(page, '320 intact hatch');
   ok(visual.hatchIntact.base.opacity > .98, 'intact hatch lost the whole egg');
   ok(visual.hatchIntact.shellLeft.opacity < .02 && visual.hatchIntact.shellRight.opacity < .02, 'shell fragments appear before the crack opens');

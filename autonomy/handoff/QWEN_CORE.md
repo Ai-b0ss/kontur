@@ -6,7 +6,7 @@
 Repo: `Ai-b0ss/qwen-free-api`
 Branch: `autopilot/qwen-runtime-preflight-20260818`
 PR: #6
-Fresh product head после этого прохода: `65295f5ef21c47e863b52c27e9b6ec2c504c2894`.
+Fresh product head: `d4417a49b1d063a28819030c418f7644f7503a6b`.
 
 Перед любой новой записью снова перечитать PR #6, `autonomy/handoff/QWEN_RELIABILITY.md` и QWEN_CORE `LATEST.json`.
 
@@ -26,54 +26,45 @@ Fresh product head после этого прохода: `65295f5ef21c47e863b52c
 - ordinary Qwen capability mode валидируется строго и до мутаций сессии;
 - durable owner authority больше не приводит object/number/array через `String(...)`.
 
-## Закрыто в этом проходе — durable owner authority coercion
-Стартовый product head: `8173d621a155a6a3c7a9933ab2c23fabd5ac0cf0`.
+## Новый результат этого прохода — exact hosted session/restart cluster
+Стартовый handoff указывал на Core head `65295f5e...`, но fresh PR #6 уже на `d4417a49...` из-за параллельного QWEN_RELIABILITY. Fresh compare/источник показал: текущий `src/session-store.js` имеет Git blob `44b521bd026c82c8e9cc733af714a3d6b42f4ca9`; reliability RED-коммит добавляет account-store regression и Core session-store не меняет.
 
-Исправление:
-- non-null durable `systemPromptMode` принимается только строкой; иначе `QWEN_SYSTEM_CHECKPOINT_REJECTED`;
-- non-null durable owner prompt принимается только строкой; object/number/array больше не преобразуются;
-- валидная owner string сохраняется байт-в-байт;
-- oversized owner string по-прежнему fail-closed по checkpoint budget.
+На ChatGPT hosted машине материализован именно этот exact `session-store.js` (локальный `git hash-object` == `44b521bd...`) и прогнан локальный session/restart кластер без provider traffic и без внешнего CI.
 
-Коммиты:
-- `d9f6034e506d874243c2c8c413a6e0cc2cc6f528` — первая реализация, дала слишком широкий форматный diff;
-- `d41a6755ffed15159366e426be67563e0f38417e` — исходная структура `session-store.js` восстановлена, итоговый compare к старту: только 9 additions / 3 deletions;
-- `65295f5ef21c47e863b52c27e9b6ec2c504c2894` — regression `session-owner-authority-type-test.js` включён в обычный `npm test`.
+Exact тестовые байты + PASS:
+- `scripts/session-owner-authority-type-test.js` blob `bde8b042b81620b91e2e6dd0fa688885101c6794` → `QWEN_SESSION_OWNER_AUTHORITY_TYPE_PASS`;
+- `scripts/session-owner-system-checkpoint-test.js` blob `e07f0f71d88858a1c181445d35a86fe6eaa87651` → `SESSION_OWNER_SYSTEM_CHECKPOINT_PASS`;
+- `scripts/session-store-restart-test.js` blob `2e983c20a48d2680514192985afb24287e5ca93f` → `SESSION_STORE_RESTART_PASS`;
+- `scripts/session-tool-result-progress-test.js` blob `ed3d2365d39de0e51135a6c23f79a7b4ccb58551` → `SESSION_TOOL_RESULT_PROGRESS_PASS`;
+- `scripts/session-pending-tool-call-restart-test.js` blob `d11ba98cf1f303db81443bdefe0a7a2d79644221` → `SESSION_PENDING_TOOL_CALL_RESTART_PASS` по exact session-store. Два его статических server-утверждения отдельно fresh-read подтверждены в exact `server.js` blob `a8365a3d7b8c1bb4314ce6b84c677958b6881508`: `QWEN_PENDING_TOOL_RESULT` и `sessionStore.checkpointAcceptedToolProgress(...)` присутствуют.
 
-Hosted targeted PASS без provider/CI:
-`QWEN_SESSION_OWNER_AUTHORITY_TYPE_PASS owner_nontext_rejected=2 mode_nontext_rejected=2 exact_string=1 null_owner=1`.
+Итого подтверждено на текущих Core-байтах: exact owner authority, большой owner/system checkpoint, restart/replay/stale-backup reconciliation, durable tool-result before upstream и pending multi-tool semantics.
 
-Полный exact-tree `npm test` не выполнялся; PR целиком зелёным не объявлять.
+Полный exact-tree `npm test` всё ещё НЕ выполнялся; PR целиком зелёным не объявлять.
 
-## QWEN_RELIABILITY coordination
-Reliability handoff перечитан. Узкую account/cooldown/failover механику не перехватывать. QWEN_CORE CircleCI не запускал; один exact gate SHA должен запускать только один владелец после fresh coordination.
+## QWEN_RELIABILITY coordination / CircleCI
+Fresh QWEN_RELIABILITY handoff: product head `d4417a49...` содержит новый намеренно RED regression `account-legacy-migration-persistence-test.js` для fail-open legacy migration. Это reliability-зона; Core её не перехватывает.
+
+По `autonomy/ci/CIRCLECI_GATE_POLICY.md` финальный Qwen gate сейчас запускать нельзя: product head содержит незакрытый RED regression. QWEN_CORE CircleCI/GitHub Actions не запускал и тот же SHA не триггерил.
 
 ## Постоянная память
 Путь: `autonomy/v3/workspaces/QWEN_CORE`.
 
-Старт:
-- LATEST blob `9ef0abde9fe0e76a5d429e3720d970c7e27aa49e`;
-- capsule `20260822T120055Z-5ca5bd2ad6`;
-- archive SHA-256 `3c30b732ffb99f13d56b1381921c787cb187191f0a9b47dc09263364de54cfd6`;
-- exact `capsule_runtime_v4.py` Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`;
-- v4 verify + restore PASS.
-
-Новый нормативный checkpoint:
+Вход этого прохода:
+- LATEST blob `87ae911a9cf74057d3a6013227818edce48be4f0`;
 - capsule `20260822T125554Z-17629173cd`;
-- source ref `65295f5ef21c47e863b52c27e9b6ec2c504c2894`;
 - archive SHA-256 `56eddc2584d384390cc0c56364dcf11e13bd6dfd3b38b5a7f1c6a0e752b66cd4`;
 - manifest blob `2f65456aa324da85b8f56cffdb4d9ef3fdb3ea71`;
 - part blobs `9f4392e55b1898df1721792297a7f6097ad5ed0e` / `da1126c0715fcdfac73f51302a99cd8ed7005ac6`;
-- immutable upload readback совпал;
-- старый LATEST сохранён как PREVIOUS;
-- CAS LATEST прошёл без force-write;
-- текущий LATEST blob `87ae911a9cf74057d3a6013227818edce48be4f0`.
+- exact `capsule_runtime_v4.py` Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`;
+- local `git hash-object` exact runtime совпал;
+- v4 verify + restore PASS.
 
 ## Следующий точный порядок
 1. Fresh-read PR #6 + QWEN_RELIABILITY + LATEST.
-2. Материализовать exact owner/session/restart cluster на hosted-машине.
-3. Прогнать вместе `session-owner-authority-type-test.js`, `session-owner-system-checkpoint-test.js`, stale-backup/restart/pending-tool соседей.
-4. Если exact product SHA стабилен и Reliability не запускает тот же SHA — один CircleCI final gate только через `ci/qwen-final-gate` по политике.
+2. После reliability-fix повторно проверить, что Core blobs (`session-store.js`, server owner/restart wiring) не изменились по смыслу.
+3. Добрать локально ближайшие exact owner/subagent/server restart checks, если текущий SHA изменится в Core-зоне.
+4. Только когда все RED regression закрыты и product SHA стабилен: один CircleCI final gate через disposable `ci/qwen-final-gate`, с координацией QWEN_RELIABILITY — один SHA триггерит только один worker.
 5. Уже доказанные live/provider прогоны без новой причины не повторять.
 
 GitHub Actions, CircleCI, live/provider traffic, реальные аккаунты, секреты, Cloudflare и production в этом проходе не использовались.

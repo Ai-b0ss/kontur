@@ -1,0 +1,76 @@
+{
+  "schema": "notion_core_evidence_v1",
+  "worker": "NOTION_CORE",
+  "created_at_utc": "2026-08-22T12:55:00Z",
+  "verdict": "V42_PROTECTED_SERVER_RETRY_BOUNDARY_MODEL_PASS",
+  "core_pr7_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_pr8_head_read_only": "fd0d9107daabb2153803206a3ac66dd5ab95c3d7",
+  "exact_blobs": {
+    "payload/account_pool.py": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f",
+    "payload/server.py": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d"
+  },
+  "candidate_under_test": "autonomy/evidence/notion/20260822T1155Z_v41_accountlease_failover_optout_exact_candidate.patch",
+  "facts_from_exact_source": [
+    "Current AccountLease.run has no caller opt-out and failover-eligible exceptions proceed to _switch_account().",
+    "Current handle_openai_responses enters its recursive foreground transport retry only from except AccountPoolExhausted.",
+    "Current initial/continuation step passes retry_operation=initial_completion to AccountLease.run.",
+    "Current planner correction is a deliberate second provider step on the same lease and also currently passes retry_operation=initial_completion."
+  ],
+  "local_cases": {
+    "protected_initial_transport_failure": {
+      "provider_calls": 1,
+      "switch_account_calls": 0,
+      "outer_recursive_retry_entries": 0,
+      "intent_published": 1,
+      "final_commits": 0,
+      "result": "PASS_FAIL_CLOSED"
+    },
+    "protected_healthy_initial": {
+      "provider_calls": 1,
+      "switch_account_calls": 0,
+      "outer_recursive_retry_entries": 0,
+      "final_commits": 1,
+      "result": "PASS"
+    },
+    "protected_deliberate_planner_correction": {
+      "provider_calls": 2,
+      "switch_account_calls": 0,
+      "outer_recursive_retry_entries": 0,
+      "correction_steps": 1,
+      "final_commits": 1,
+      "result": "PASS"
+    },
+    "protected_correction_transport_failure": {
+      "provider_calls": 2,
+      "switch_account_calls": 0,
+      "outer_recursive_retry_entries": 0,
+      "correction_steps": 1,
+      "final_commits": 0,
+      "result": "PASS_FAIL_CLOSED"
+    },
+    "default_agent_compatibility": {
+      "provider_calls": 2,
+      "switch_account_calls": 1,
+      "result": "PASS_EXISTING_FAILOVER_PRESERVED"
+    }
+  },
+  "conclusion": {
+    "outer_retry": "If every deliberate provider step after strict intent publication calls AccountLease.run(..., allow_failover=false), ambiguous transport propagates directly instead of becoming AccountPoolExhausted; therefore the current AccountPoolExhausted-only recursive foreground retry is unreachable for that protected path. A separate server retry-disable flag is not required for this exact path, but the invariant must be regression-tested in the combined Stage-B candidate.",
+    "planner_correction": "Planner correction remains valid as an explicit bounded second/third planner step on the same lease/account. Each deliberate step must use allow_failover=false and may execute at most once.",
+    "agent_rotation": "Default allow_failover=true preserves existing Agent failover behavior; Core must not change that default.",
+    "raw_httpx_evidence_gap": "Raw httpx.HTTPError is failover-eligible and V41 opt-out prevents switching, but current transport evidence recording is specialized to NotionAgentError(ErrorCode.TRANSPORT). This is an observability gap, not a duplicate-provider safety gap; do not broaden Agent behavior merely to close it before Stage-B safety is complete."
+  },
+  "windows_gate_ready": false,
+  "why_windows_not_ready": "Stage-B exact server orchestration is not yet integrated locally; Windows semantics are not yet the only remaining unknown.",
+  "old_digest_workflow": {
+    "workflow_id": "1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3",
+    "status_at_end_of_check": "all_five_pending",
+    "rerun": false
+  },
+  "next": [
+    "Apply V41 to an isolated exact copy of payload/account_pool.py and run exact-class targeted tests.",
+    "Integrate V34+V35 store with protected server ordering: acquire account -> strict intent -> deliberate steps all allow_failover=false -> canonical payload -> strict finalize -> cache/reservation/client.",
+    "Regression-test that AccountPoolExhausted recursive foreground transport retry remains unreachable after intent, while default Agent failover remains unchanged.",
+    "Only after the full exact-local Stage-B matrix is green consider one disposable native-Windows final gate."
+  ]
+}

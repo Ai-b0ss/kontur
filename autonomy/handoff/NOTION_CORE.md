@@ -2,10 +2,11 @@
 
 Core: `Ai-b0ss/notion-agent-bridge:candidate/ncm28-windows-fixed-v1`, PR #7, exact head `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 
-Agent integration boundary: draft PR #8 `autonomy/notion-prompt-modes-20260819`. Прямой свежий read-only PR read в этом проходе вернул head `093e4865b1db8519b3537471b57a5379477e78dc`; предыдущий handoff содержал `71749c86125fcc60b67fc477245150c7f5587813`. Не делать из этого вывода о порядке истории без отдельного ref-аудита; важная Core-граница не изменилась и подтверждена по точным blob:
+Agent integration boundary: draft PR #8 `autonomy/notion-prompt-modes-20260819`. Свежий read-only PR read этого прохода: head `eaa7e812cb502649fb5291143070b33bfc94380e`. Важная Core-граница не изменилась и подтверждена по точным blob:
 - `payload/server.py` — `f02cef6a0ffc202c75fbe71c520c72ac19ff876d`;
 - `payload/conversation_segments.py` — `553bd3496c21a7949c3a5dfa03f33b9e09293213`;
-- `payload/account_pool.py` — `11cea792a2f5aaa40ee1515faddfd44e76cbb23f`.
+- `payload/account_pool.py` — `11cea792a2f5aaa40ee1515faddfd44e76cbb23f`;
+- `payload/reservation_aware_lease.py` — `c77b4d5214911def1729243516aec73e43f8d425`.
 
 Не дублировать rotation, prompt modes, delegation или account/thread affinity.
 
@@ -21,11 +22,11 @@ Agent integration boundary: draft PR #8 `autonomy/notion-prompt-modes-20260819`.
 - parts: 1;
 - `LATEST.json` Git blob `18ce26b25c5b8f00c1e8eca449a593531d2fd331`.
 
-В этом проходе `LATEST`, manifest и immutable part перечитаны. Попытка локально материализовать `capsule_runtime_v4.py` из видимого decoded content не совпала с каноническим Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`; несовпадающий файл не использовался. Поэтому новую capsule/`LATEST` не публиковать из этого запуска. Новый V44 уже долговечно записан как обычное immutable evidence в control-ветке, а проверенный канонический pointer оставлен нетронутым. Не реконструировать неизвестные байты и не подменять exact v4-runtime самодельной копией.
+В этом проходе `LATEST`, manifest и immutable part перечитаны. Новую capsule/`LATEST` не публиковать без точного `capsule_runtime_v4.py restore -> pack -> readback -> CAS`. Не реконструировать неизвестные байты и не подменять exact v4-runtime самодельной копией. Новый V45 долговечно сохранён обычным immutable evidence в control-ветке, поэтому работа не потеряна даже без смены pointer.
 
 ## NCM28 / Windows
 
-Исторический digest workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3` не перезапускать. Финальный native-Windows gate пока не запускать: Stage A закрыт, но Stage B server orchestration ещё не exact-local green. Когда Stage B станет зелёным, один disposable gate должен совместить остаточный auth-rollback/NCM28 proof, PowerShell runtime-restore atomic replace semantics и полный Core candidate gate на exact SHA. Linux/Wine не считать доказательством Windows.
+Исторический digest workflow `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3` не перезапускать. Финальный native-Windows gate пока не запускать: Stage A закрыт, но Stage B server orchestration и Agent↔Core composition ещё не exact-local green. Когда Stage B станет зелёным, один disposable gate должен совместить остаточный auth-rollback/NCM28 proof, PowerShell runtime-restore atomic replace semantics и полный Core candidate gate на exact SHA. Linux/Wine не считать доказательством Windows.
 
 ## Stage A — compatibility floor
 
@@ -68,25 +69,42 @@ V41 прогнан на локально извлечённой точной л�
 Проверены: ordinary success; local validation error; `TRUST_RULE_DENIED`; Notion `TRANSPORT` с одним вызовом/нулём switch/`retry_scheduled=false`; raw HTTP transport с нулём switch; default failover compatibility; два deliberate planner-step на одном lease/account.
 
 Exact server-callsite audit на `server.py=f02cef6a...` подтвердил три обязательных места защищённого Stage-B вызова:
-1. Responses initial/continuation `lease.run(..., retry_operation=initial_completion)`;
-2. planner correction `lease.run(correction, retry_operation=initial_completion)`;
-3. compaction initial/continuation `lease.run(..., retry_operation=initial_completion)`.
+1. Responses initial/continuation;
+2. planner correction;
+3. compaction initial/continuation.
 
-После strict intent **все три** должны вызывать `lease.run(..., allow_failover=false)`. Compaction нельзя оставить на старом default failover, иначе обычные Responses будут защищены от ambiguous duplicate-provider, а `/v1/responses/compact` — нет.
+После strict intent все три должны выполнять provider-step с `allow_failover=false`. Compaction нельзя оставить на старом default failover.
 
 Evidence: `autonomy/evidence/notion/20260822T1345Z_v43_v41_exact_method_and_server_callsites.json`.
 
 ### V44 — buffered canonical stream projection PASS (model + exact existing projection)
 
-В текущем проходе exact `server.py=f02cef6a...` повторно проверен на streaming boundary. Нынешний `stream_openai_responses()` создаёт `resp_*` и `rs_*` до долговечной фиксации, начинает отдавать `response.created`/reasoning до завершения `handle_openai_responses()` и при закрытии генератора отменяет request task. Одновременно текущий same-process affinity-cache восстанавливает только текст и заново вызывает `responses_payload()`, поэтому генерирует новые IDs.
+Exact `server.py=f02cef6a...` проверен на streaming boundary. Нынешний `stream_openai_responses()` создаёт `resp_*` и `rs_*` до долговечной фиксации, начинает отдавать данные до завершения `handle_openai_responses()` и при закрытии генератора отменяет request task. Одновременно текущий same-process affinity-cache восстанавливает только текст и заново вызывает `responses_payload()`, поэтому генерирует новые IDs.
 
-Проверен более простой Stage-B путь: провайдерная работа и commit-critical transaction завершаются до клиентской проекции; stream/non-stream затем строятся из одного уже долговечно сохранённого canonical Responses-объекта. Локальная аварийная модель прошла как `V44_STAGE_B_BUFFERED_CANONICAL_PROJECTION_MODEL_PASS`: exact retry при `provider call_count=1`, pool unavailable до intent, begin/finalize write failures, ambiguous transport, deliberate correction на том же account, correction transport failure и client-waiter cancellation без отмены commit-critical task.
+Проверен более простой Stage-B путь: провайдерная работа и commit-critical transaction завершаются до клиентской проекции; stream/non-stream затем строятся из одного уже долговечно сохранённого canonical Responses-объекта. Локальная аварийная модель прошла как `V44_STAGE_B_BUFFERED_CANONICAL_PROJECTION_MODEL_PASS`.
 
-Отдельно exact существующие `responses_item_events()` + `responses_sse()` из blob `f02cef6a...` прогнаны на canonical function-call и message payload. Вердикт `V44_EXACT_EXISTING_RESPONSES_SSE_CANONICAL_PROJECTION_PASS`: `response.completed` сохраняет тот же `response_id`, а function-call — тот же `call_id`; сама проекция новых UUID не создаёт. Значит для Stage B безопаснее переиспользовать этот уже существующий post-result SSE projector, а не сохранять нынешний provider-coupled streaming path как источник истины.
+Отдельно exact существующие `responses_item_events()` + `responses_sse()` из blob `f02cef6a...` прогнаны на canonical function-call и message payload. Вердикт `V44_EXACT_EXISTING_RESPONSES_SSE_CANONICAL_PROJECTION_PASS`: проекция сохраняет уже созданные `response_id` и `call_id` и сама новых UUID не создаёт.
 
 Evidence: `autonomy/evidence/notion/20260822T1455Z_v44_buffered_canonical_stream_projection.json`.
 
 V44 не отменяет V20/V21: после фактического входа в Notion commit-critical coroutine всё равно должна иметь server-owned lifetime (`asyncio.shield` + bounded registry/equivalent), чтобы disconnect/cancellation клиента не уничтожил транзакцию до strict finalize. Но клиенту до strict finalize не должны выходить provider text или response/tool IDs.
+
+### V45 — Agent↔Core protected-failover composition PASS (wrapper model)
+
+Свежий Agent/Core аудит выявил реальный composition gap: Agent materialization меняет первый Responses-вызов с прямого `AccountLease.run(...)` на `DynamicReservationLeaseSession.run_selected(...)`. Поэтому V41, применённый только к `AccountLease`, **не защищает материализованный продукт**, пока wrapper не умеет принять и передать `allow_failover=false`.
+
+Точный Agent wrapper на blob `c77b4d52...` и его server/account-pool materializers перечитаны. Подготовленный composition patch `autonomy/v3/candidates/NOTION_AGENT_CORE_ALLOW_FAILOVER_COMPOSITION_20260822.patch` добавляет `allow_failover` в `run_selected/run/_run` и одноразовые wrappers. Критически важно: при default `true` он сохраняет старую форму вызова `lease.run(...)`, чтобы не ломать существующие fake/test leases; только защищённый Core-путь передаёт новый keyword явно.
+
+Локальная модель прошла как `V45_AGENT_CORE_ALLOW_FAILOVER_COMPOSITION_MODEL_PASS`:
+- legacy/default Agent wrapper сохраняет старую форму вызова;
+- protected `run_selected(..., allow_failover=false)` даёт один ambiguous provider attempt и zero account switch;
+- default Agent path по-прежнему умеет обычный failover;
+- protected later `run(..., allow_failover=false)` также не переключает аккаунт;
+- late foreground reservation **до provider entry** по-прежнему безопасно переизбирает аккаунт, а eventual provider-step остаётся с `allow_failover=false`.
+
+Evidence: `autonomy/evidence/notion/20260822T1555Z_v45_agent_core_allow_failover_composition.json`.
+
+Это меняет порядок сборки финального Stage B: нельзя отдельно доказать V41 на старом server/account-pool и затем считать Agent materialization автоматически совместимой. Финальный кандидат обязан быть проверен на **composed materialized bytes**. Agent dynamic-reservation transform и Core V41 должны иметь один воспроизводимый порядок/post-image, wrapper должен протащить флаг, а сервер после materialization должен поставить protected mode на первый `run_selected`, correction rounds и compaction/direct path. Safe pre-provider reservation reselection остаётся разрешённой; provider-error failover после intent — нет.
 
 ## Обязательные durable-replay инварианты V12–V29
 
@@ -98,12 +116,13 @@ V44 не отменяет V20/V21: после фактического вход�
 
 ## Следующий порядок
 
-1. Не исследовать Stage A, V34/V35 и V41 callsites заново.
-2. Собрать exact-local server orchestration на `server.py=f02cef6a...`: route/account acquisition -> strict intent -> все три защищённых `lease.run(..., allow_failover=false)` -> один canonical Responses/compaction payload -> strict finalize -> cache/reservation -> клиент. Same-process affinity-cache не должен быть authoritative replay и не должен заново генерировать IDs.
-3. Для `/v1/responses stream=true` не вести отдельную provider-facing streaming transaction: после strict durable finalize проецировать сохранённый canonical response через существующий `responses_sse()`. Provider thinking до finalize буферизовать/не публиковать. Commit-critical provider task после provider-entry должен принадлежать серверу, а не SSE-клиенту.
-4. Прогнать локальную матрицу: pool unavailable; intent write failure; ambiguous transport; final write failure; retry/restart exact IDs; planner bad-tool correction same account; correction transport failure; compaction exact/restart/legacy; stream/non-stream; disconnect/hard crash; removed account; TTL/size/oversize/stale retry.
-5. Совместить Codex shell-env patch локально.
-6. Только после зелёного exact-local Stage B запустить один disposable `ci/notion-core-windows-final-gate`; сохранить exact SHA/cases/logs/artifacts. Недоступный результат не считать PASS.
-7. После Windows PASS — один bounded authorized `codex exec -> bridge -> Notion -> local tool -> verifier FAIL -> correction -> VERIFY_OK`, с обезличенным доказательством стабильного conversation id на initial/tool-result/retry/restart.
+1. Не исследовать Stage A, V34/V35 и старые V41 callsites заново.
+2. Сначала собрать воспроизводимый **Agent+Core composition transform**: Agent dynamic-reservation materialization -> Core V41 account-pool opt-out -> V45 wrapper forwarding, с новым post-composition hash/compile и targeted regressions. Не применять V41 отдельно так, чтобы сломать Agent exact-preimage materializer.
+3. На composed server собрать Stage-B orchestration: route/account acquisition -> strict intent -> protected first `run_selected(..., allow_failover=false)` и все deliberate correction/direct calls без implicit failover -> один canonical Responses/compaction payload -> strict finalize -> cache/reservation -> клиент.
+4. Для `/v1/responses stream=true` после strict durable finalize проецировать сохранённый canonical response через существующий `responses_sse()`. Provider thinking до finalize не публиковать. Commit-critical provider task после provider-entry должен принадлежать серверу, а не SSE-клиенту.
+5. Прогнать composed local matrix: Agent default failover; protected no-failover; late reservation reselection; pool unavailable; intent write failure; ambiguous transport; final write failure; retry/restart exact IDs; planner correction same account; correction transport failure; compaction exact/restart/legacy; stream/non-stream; disconnect/hard crash; removed account; TTL/size/oversize/stale retry.
+6. Совместить Codex shell-env patch локально.
+7. Только после зелёного exact-local composed Stage B запустить один disposable `ci/notion-core-windows-final-gate`; сохранить exact SHA/cases/logs/artifacts. Недоступный результат не считать PASS.
+8. После Windows PASS — один bounded authorized `codex exec -> bridge -> Notion -> local tool -> verifier FAIL -> correction -> VERIFY_OK`, с обезличенным доказательством стабильного conversation id на initial/tool-result/retry/restart.
 
 Product PR #7/#8 не менялись. Hosted CI, live Notion/Codex, секреты и пользовательские данные не трогались.

@@ -24,6 +24,12 @@ export function CanonicalBirdVisual({
     WebkitMaskImage: `url(${asset.src})`,
     maskImage: `url(${asset.src})`,
   } satisfies CSSProperties) : undefined;
+  const markImageReady = (image: HTMLImageElement) => {
+    const afterPaint = () => window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      if (image.isConnected) setLoadedAsset(asset.src);
+    }));
+    void image.decode().then(afterPaint, afterPaint);
+  };
 
   return (
     <span
@@ -40,7 +46,7 @@ export function CanonicalBirdVisual({
         alt={asset.label}
         decoding="async"
         draggable={false}
-        onLoad={() => setLoadedAsset(asset.src)}
+        onLoad={(event) => markImageReady(event.currentTarget)}
       />
       {palette && imageReady && <span className="lk-canonical-bird__tint" style={tintStyle} aria-hidden="true" />}
     </span>

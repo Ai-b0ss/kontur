@@ -1,0 +1,43 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "NOTION_V41_AGENT_ACCOUNT_POOL_MATERIALIZER_ORDER_CONFLICT",
+  "verdict": "REPRODUCED_OFFLINE",
+  "fresh_heads": {
+    "qwen_pr_6": "d2540be894fa8e1a3dc4527e188010c6dd9e62e5",
+    "notion_agent_pr_8": "093e4865b1db8519b3537471b57a5379477e78dc",
+    "notion_core_pr_7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144"
+  },
+  "exact_inputs": {
+    "agent_apply_account_pool_dynamic_reservation_blob": "80aeb1872c1cab7f51c33039584b5786e441f9f0",
+    "agent_expected_account_pool_preimage_blob": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f",
+    "core_v41_candidate_patch_blob": "61001c95d38303c6be114f5543b2dc825225ead0"
+  },
+  "observed_conflict": [
+    "Agent account-pool transformer refuses any source whose Git blob is not 11cea792a2f5aaa40ee1515faddfd44e76cbb23f.",
+    "Core V41 changes payload/account_pool.py by adding AccountLease.run(..., allow_failover: bool = True) and protected no-failover semantics, so the Agent global preimage guard cannot match after Core V41.",
+    "The Agent RUN_ANCHOR itself contains the old AccountLease.run signature without allow_failover; after V41 that exact anchor count is zero even if the global blob guard were bypassed.",
+    "Therefore weakening/removing the exact blob guard does not solve the integration problem; it merely hides a semantic overlap in the same AccountLease.run method."
+  ],
+  "offline_probe": {
+    "path": "autonomy/v3/tools/integration_notion_v41_agent_account_pool_materializer_order_probe.py",
+    "result": "NOTION_V41_AGENT_ACCOUNT_POOL_MATERIALIZER_ORDER_CONFLICT_REPRODUCED",
+    "agent_run_anchor_matches_after_core_v41": 0,
+    "agent_global_blob_guard_can_match_after_core_v41": false
+  },
+  "required_integration_contract": [
+    "Treat Core V41 account_pool output as the next safety floor.",
+    "Rebase Agent apply_account_pool_dynamic_reservation.py onto the exact Core V41 postimage instead of relaxing preimage checks.",
+    "Preserve AccountLease.run allow_failover default=True for normal Agent rotation.",
+    "Preserve Core protected post-intent call sites passing allow_failover=False.",
+    "Preserve Agent reselect_avoiding and pending transport recovery semantics in the same transformed method.",
+    "Run combined regressions that prove default A->B rotation still works while protected ambiguous transport remains A-only with zero switch."
+  ],
+  "relation_to_prior_findings": "This extends the earlier server.py materializer-order conflict to the separately overlapping account_pool.py transform. It is also the exact-materialization counterpart of the already-recorded DynamicReservationLeaseSession allow_failover forwarding gap; it does not replace that forwarding fix.",
+  "limits": [
+    "No product file was changed.",
+    "No CircleCI/GitHub Actions trigger.",
+    "No live Notion/Qwen/Codex/provider traffic.",
+    "No Windows, production, real account data or secrets."
+  ]
+}

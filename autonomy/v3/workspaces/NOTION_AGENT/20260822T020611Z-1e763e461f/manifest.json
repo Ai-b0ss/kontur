@@ -1,0 +1,88 @@
+{
+  "archive": {
+    "parts": 10,
+    "sha256": "922d4ce7a5adb2a9c82c7f6d8d2955af70138a445345847ffc980da9bd73612d",
+    "size": 3614
+  },
+  "capsule_id": "20260822T020611Z-1e763e461f",
+  "created_at_utc": "2026-08-22T02:06:11Z",
+  "parts": [
+    {
+      "chars": 512,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "41d5dc735f95d7ec71a39c5506f12d162e012d9dfaa6e62c8b8bad42229719f3"
+    },
+    {
+      "chars": 512,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "75e07055ce933c57480eb99dbf8a9a1398847d519a053454b08a3b40a38bb94b"
+    },
+    {
+      "chars": 512,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "ae4dca801a0f6da0482467b2b8f8604e9bb4cf725b1c8f226810fb82dd42f7c1"
+    },
+    {
+      "chars": 512,
+      "index": 3,
+      "name": "part-0003.b64",
+      "sha256_text": "1f54b1ccb62a07f36a5613277d5837cd28fecbc1192f2d5d8439c4a777427d51"
+    },
+    {
+      "chars": 512,
+      "index": 4,
+      "name": "part-0004.b64",
+      "sha256_text": "a2dc16e6670af6c2fc834cdfc0c3c4830dfd7b1ef6a3d7f2671907025d63b27c"
+    },
+    {
+      "chars": 512,
+      "index": 5,
+      "name": "part-0005.b64",
+      "sha256_text": "1f3edec87b3b2e95a06526f4fea0b737a7a0ffc609ec79b6c99528a6c9c9a045"
+    },
+    {
+      "chars": 512,
+      "index": 6,
+      "name": "part-0006.b64",
+      "sha256_text": "425f52ba7b6494817ce869527d4ed83812d144363dcbf5913784e2c69b015a95"
+    },
+    {
+      "chars": 512,
+      "index": 7,
+      "name": "part-0007.b64",
+      "sha256_text": "e8ad5804307988f7362ad3035cd2deae9f2bc900318153d593cffefd6c6b5dcd"
+    },
+    {
+      "chars": 512,
+      "index": 8,
+      "name": "part-0008.b64",
+      "sha256_text": "c70006cc6662f6b0d6099db68f8daaafca231d2ad10b0cace3af26342f066bd0"
+    },
+    {
+      "chars": 212,
+      "index": 9,
+      "name": "part-0009.b64",
+      "sha256_text": "6af0ff240d48a1cd689bc32dd1573edc2f0fd63baf34c23478af2910d2ad4ba4"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@04a659a23b3d72b44b334c9e35f23c1220d73eb3",
+  "worker": "NOTION_AGENT",
+  "workspace": {
+    "CHECKPOINT.json": {
+      "mode": "0o644",
+      "sha256": "fd1a87b584c7a65b4bfb6d42f0b7c12ab3b3d485a9732231b94d34eb0f12cb33",
+      "size": 8664,
+      "type": "file"
+    },
+    "README.md": {
+      "mode": "0o644",
+      "sha256": "bf9776a6348f5f671e176f5a7df98c99d0682883c199a5daa031a0c579dcb521",
+      "size": 353,
+      "type": "file"
+    }
+  }
+}

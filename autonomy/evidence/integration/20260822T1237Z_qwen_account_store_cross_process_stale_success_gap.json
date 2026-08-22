@@ -1,0 +1,32 @@
+{
+  "schema": "integration_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "observed_at_utc": "2026-08-22T12:37:00Z",
+  "product": "Ai-b0ss/qwen-free-api",
+  "product_head": "8173d621a155a6a3c7a9933ab2c23fabd5ac0cf0",
+  "source": "src/account-store.js",
+  "finding": "QWEN_ACCOUNT_STORE_CROSS_PROCESS_STALE_SUCCESS_CAN_CLEAR_NEWER_COOLDOWN",
+  "facts": [
+    "account state is cached in a process-local Map",
+    "markFailure and markSuccess both derive next state from the caller process's canonical in-memory account object",
+    "persist(account) atomically replaces the per-account JSON file but does not serialize read-modify-write across processes and does not re-read the current canonical file before replacement",
+    "therefore overlapping old/new server processes can each hold the same pre-mutation account snapshot"
+  ],
+  "deterministic_model": {
+    "initial": {"failures": 0, "unavailableUntil": 0, "lastError": "", "lastUsedAt": 0},
+    "process_A": "from initial snapshot, markFailure(CAPTCHA) persists failures=1 and unavailableUntil=600000",
+    "process_B": "from its stale initial snapshot, later markSuccess() persists failures=0 and unavailableUntil=0",
+    "final_durable_state": {"failures": 0, "unavailableUntil": 0, "lastError": "", "lastUsedAt": 100},
+    "safety_loss": "newer provider cooldown from process A is erased by stale success from process B"
+  },
+  "impact": "During restart/rolling overlap, an older in-flight request can report success after a newer process has already established a CAPTCHA/rate-limit cooldown. Atomic rename protects file integrity but not mutation ordering; the stale process can reopen an account prematurely.",
+  "candidate_contract": [
+    "serialize per-account read-modify-write across processes, or use generation/CAS on durable account state",
+    "under the transaction re-read the newest canonical account bytes before applying a mutation",
+    "markSuccess must not clear a cooldown/failure generation established after the request that produced that success began",
+    "preserve current in-process monotonic cooldown as an additional guard, not a substitute for cross-process ordering"
+  ],
+  "not_product_modified": true,
+  "ci_triggered": false,
+  "live_provider_used": false
+}

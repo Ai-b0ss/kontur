@@ -132,9 +132,12 @@
 .lk-first-time--reveal .lk-quiz-egg__shell--left { transform: translateX(-18px); opacity: 0; }
 .lk-first-time--reveal .lk-quiz-egg__shell--right { transform: translateX(18px); opacity: 0; }
 .lk-first-time--reveal .lk-quiz-egg__hatch-light { opacity: 0; }
-/* Reveal keeps the persistent hatch art, but all earlier quiz/hook surfaces
-   must leave both the paint and hit-test trees. Repeat the state class so
-   local-kontur.css cannot reintroduce them when its CSS is emitted later. */
+/* Once the egg starts hatching, earlier quiz/hook surfaces must leave both
+   the paint and hit-test trees. This keeps all text outside the enlarged egg
+   and ring through hatching and reveal. */
+.lk-first-time.lk-first-time--hatching .lk-hook-copy,
+.lk-first-time.lk-first-time--hatching .lk-hook-action,
+.lk-first-time.lk-first-time--hatching .lk-question--egg,
 .lk-first-time.lk-first-time--reveal .lk-hook-copy,
 .lk-first-time.lk-first-time--reveal .lk-hook-action,
 .lk-first-time.lk-first-time--reveal .lk-question--egg {

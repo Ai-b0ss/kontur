@@ -1,8 +1,18 @@
 import asyncio
-from autonomy.evidence.notion._v21_commit_task_registry_candidate import CommitTaskRegistry, CommitTaskRegistryClosed
+import importlib.util
+from pathlib import Path
 
-# This file is stored next to the candidate in GitHub; when materialized locally,
-# adjust the import to the candidate filename or load it directly.
+candidate_path = Path(__file__).with_name(
+    "20260822T0310Z_durable_replay_v21_commit_task_registry_candidate.py"
+)
+spec = importlib.util.spec_from_file_location("v21_commit_registry_candidate", candidate_path)
+if spec is None or spec.loader is None:
+    raise RuntimeError("candidate module could not be loaded")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+CommitTaskRegistry = module.CommitTaskRegistry
+CommitTaskRegistryClosed = module.CommitTaskRegistryClosed
+
 
 async def main():
     reg = CommitTaskRegistry()

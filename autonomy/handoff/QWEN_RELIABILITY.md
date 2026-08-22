@@ -79,11 +79,21 @@ QWEN_CORE handoff перечитан перед работой. Core заним�
 Worker: `QWEN_RELIABILITY`.
 `autonomy/v3/CAPSULE_RUNTIME_PROTOCOL_V2.json` и `autonomy/v3/tools/capsule_runtime_v4.py` перечитаны.
 
-На старте этого прохода нормативный `LATEST` был прочитан и реально восстановлен через v4 verify+restore:
-- capsule `20260822T055538Z-4086c0ad8f`;
+Старт этого прохода:
+- `LATEST` capsule `20260822T055538Z-4086c0ad8f`;
 - pointer blob SHA `939afdf804a98c87185aa44ca9dfa42d9e8fce2b`;
 - archive SHA-256 `51331c58b77cf3c6d4282c572170bf75d3eb4376516d21d1de0532ae76869346`;
-- `verify`: PASS;
-- `restore`: PASS.
+- нормативные `verify + restore`: PASS.
 
-Новый capsule должен публиковаться только через нормативный `pack -> upload -> reread -> verify -> PREVIOUS -> exact-CAS LATEST`. Force-write `LATEST` запрещён.
+Финиш этого прохода:
+- новая capsule `20260822T105753Z-02993b42b7`;
+- source ref `Ai-b0ss/qwen-free-api@cd4696f5730d928892d1080e6c7bf12a175819f1`;
+- archive SHA-256 `7e5dc59f9ba7bd5672259a811bfc50a24b324df2bd93c2b8770b8196ad607da8`;
+- local `pack + verify + restore`: PASS;
+- uploaded manifest Git blob `4ec2f67af6dd7b0f555045c866193ae81be323af` совпал с локальным Git blob;
+- uploaded part0 Git blob `ac6e67fd995b1a30cb8c7a60cd7cc71438a5732b` совпал с локальным Git blob;
+- перед CAS `LATEST` всё ещё имел стартовый blob `939afdf804a98c87185aa44ca9dfa42d9e8fce2b`;
+- старый `LATEST` сохранён как `PREVIOUS`;
+- новый `LATEST` опубликован без force-write и после записи перечитан, текущий blob `b622c3e0d18aa98493eb86d62d80ea4cfec55f46`.
+
+Force-write `LATEST` запрещён и в этом проходе не использовался.

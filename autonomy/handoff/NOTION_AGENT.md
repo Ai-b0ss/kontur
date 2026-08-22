@@ -1,12 +1,12 @@
 # Notion — ротация / агентность / делегирование — финишный handoff
 
-Обновлено helper/red-team проходом 2026-08-22.
+Обновлено Agent-проходом 2026-08-22.
 
 ## Текущая линия
 Repo: `Ai-b0ss/notion-agent-bridge`
 Branch: `autonomy/notion-prompt-modes-20260819`
 Draft PR: #8
-Последний helper head: `b6302670a119d0c0426f276a3b0d760b8a5a45c3` (311 commits).
+Текущий Agent head: `04a659a23b3d72b44b334c9e35f23c1220d73eb3` (315 commits).
 Core/NCM28 PR #7 `candidate/ncm28-windows-fixed-v1` без отдельной Core-необходимости не менять.
 На каждом запуске сначала восстановить собственный v4 LATEST/PREVIOUS по нормативному протоколу, затем перечитать fresh PR head/blobs. Не force-write при CAS конфликте.
 
@@ -24,7 +24,7 @@ Core/NCM28 PR #7 `candidate/ncm28-windows-fixed-v1` без отдельной Co
 - pair commit journal/recovery, post-replace drift, exclusive journal publication и POSIX directory ordering.
 
 ## Новый закрытый блок: no-replay через rebind/restart
-PR body ещё частично описывает tombstone как in-process-only — на текущем helper head это устарело.
+PR body ещё частично описывает tombstone как in-process-only — на текущей линии это устарело.
 
 ### Rebind boundary
 - `af8cce3a47630738aef751e6f7106b5108d394f3` — `ServerSubagentLifecycle` держит uncertain task ids поверх pool generations;
@@ -54,6 +54,12 @@ PR body ещё частично описывает tombstone как in-process-o
 - `5c89e2ca01a37099514cbc7c73b8922967b9008d` — local uncertain RuntimeError не является provider failover error;
 - `0ca44dd6df901fa848cede6be32e61235a75dcfb` — новый lifecycle с тем же durable path после process restart блокирует старый inflight task; corrupt store блокирует до entrypoint.
 
+### Path-alias hardening — 2026-08-22
+- `78c81987721ab5d4a7b32fb62e516ca7859fe61f` — durable tombstone store теперь fail-closed проверяет непосредственного родителя и существующий canonical state перед чтением/заменой: symlink/junction parent запрещён; существующий state обязан быть обычным файлом с `st_nlink == 1`;
+- `04a659a23b3d72b44b334c9e35f23c1220d73eb3` — регрессии на symlink final path, symlink parent и hardlinked canonical state;
+- локальная сфокусированная семантическая проверка: normal restart state + symlink-parent rejection + hardlink rejection = PASS;
+- это POSIX/Linux доказательство. Native Windows durability/path semantics этим НЕ доказаны и остаются target-OS/Core gate.
+
 ## Materialization — актуальный путь
 Frozen product preimages пока не считать заменёнными:
 - `payload/server.py` Git blob `f02cef6a0ffc202c75fbe71c520c72ac19ff876d`;
@@ -71,8 +77,16 @@ Helper обнаружил стык: основной `tools/materialize_agent_wi
 Stable runtime path в generated server:
 `stable_conversation_state_path(ACCOUNT_HOME).with_name("subagent-uncertain-tasks.json")`.
 
+## Постоянная память
+Текущий проверенный v4 `LATEST` после этого прохода:
+- capsule `20260822T020611Z-1e763e461f`;
+- archive SHA-256 `922d4ce7a5adb2a9c82c7f6d8d2955af70138a445345847ffc980da9bd73612d`;
+- все 10 immutable parts и manifest перечитаны после загрузки; Git blob SHA совпали с локально рассчитанными;
+- canonical `capsule_runtime_v4.py verify` и `restore` = PASS;
+- публикация `LATEST` прошла CAS с исходного blob `e6b40f16241607c96580df95935db900927d0f54`; старый LATEST сохранён как PREVIOUS.
+
 ## Что НЕ заявлено
-- Helper записал regression tests, но НЕ заявляет их exact-tree PASS: hosted CI/live provider не запускались.
+- Полный exact-tree Agent cluster на текущем head ещё не прогнан.
 - Native Windows durability нового store НЕ доказана Linux/POSIX fsync. Windows/NCM28 остаётся Core acceptance gate.
 - Ordinary `/v1/responses` не считать финально materialized до exact pair apply/readback.
 - Real server child-launch не включать до зелёного restart/no-replay cluster.

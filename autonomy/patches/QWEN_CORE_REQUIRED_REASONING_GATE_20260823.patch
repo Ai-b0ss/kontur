@@ -1,0 +1,58 @@
+# QWEN_CORE candidate patch
+# Target repo: Ai-b0ss/qwen-free-api
+# Target base product head: 6bdc4b315bf83ffe9a8c2a87c03f909a2c156fbc
+# Target file blob before patch: src/chat-adapter.js = 933d5233d254874fce032defa75397a4ec956140
+# Purpose: when requireToolCall=true, hold reasoning/thinking output behind the same emitData gate as ordinary content.
+# Account/cooldown/provider-circuit are intentionally untouched.
+
+diff --git a/src/chat-adapter.js b/src/chat-adapter.js
+--- a/src/chat-adapter.js
++++ b/src/chat-adapter.js
+@@
+           const thinkText = thinkBuffer.slice(0, matchEnd.index);
+           if (thinkText) {
+-            emittedOutput = true;
+             const chunk = chunkId();
+             chunk.choices[0].delta.reasoning_content = thinkText;
+-            onData(`data: ${JSON.stringify(chunk)}\n\n`);
++            emitData(`data: ${JSON.stringify(chunk)}\n\n`);
+           }
+@@
+           if (closeIdx > 0) {
+             const thinkText = thinkBuffer.slice(0, closeIdx);
+-            emittedOutput = true;
+             const chunk = chunkId();
+             chunk.choices[0].delta.reasoning_content = thinkText;
+-            onData(`data: ${JSON.stringify(chunk)}\n\n`);
++            emitData(`data: ${JSON.stringify(chunk)}\n\n`);
+             thinkBuffer = thinkBuffer.slice(closeIdx);
+           }
+@@
+           } else {
+-            emittedOutput = true;
+             const chunk = chunkId();
+             chunk.choices[0].delta.reasoning_content = thinkBuffer;
+-            onData(`data: ${JSON.stringify(chunk)}\n\n`);
++            emitData(`data: ${JSON.stringify(chunk)}\n\n`);
+             thinkBuffer = '';
+             break;
+           }
+         } else {
+-          emittedOutput = true;
+           const chunk = chunkId();
+           chunk.choices[0].delta.reasoning_content = thinkBuffer;
+-          onData(`data: ${JSON.stringify(chunk)}\n\n`);
++          emitData(`data: ${JSON.stringify(chunk)}\n\n`);
+           thinkBuffer = '';
+           break;
+         }
+@@
+     const directContent = processThinkBuffer(false);
+ 
+     if (reasoning) {
+-      emittedOutput = true;
+       const chunk = chunkId();
+       chunk.choices[0].delta.reasoning_content = reasoning;
+-      onData(`data: ${JSON.stringify(chunk)}\n\n`);
++      emitData(`data: ${JSON.stringify(chunk)}\n\n`);
+     }

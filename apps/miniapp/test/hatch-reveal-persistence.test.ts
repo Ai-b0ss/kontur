@@ -115,6 +115,11 @@ test('reward bird art stays clear of copy and cannot intercept the equip action'
   const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
   assert.match(
     css,
+    /\.lk-canonical-bird > \.lk-result-bird\s*\{[\s\S]*?min-width:\s*0;[\s\S]*?min-height:\s*0;[\s\S]*?object-fit:\s*contain;/,
+    'every canonical master must be allowed to shrink inside its bounded frame regardless of its intrinsic aspect ratio',
+  );
+  assert.match(
+    css,
     /\.lk-bird-stage--drop,[\s\S]*?\.lk-bird-stage--drop \.lk-result-bird\s*\{[\s\S]*?pointer-events:\s*none;/,
     'the reward illustration must be click-through',
   );

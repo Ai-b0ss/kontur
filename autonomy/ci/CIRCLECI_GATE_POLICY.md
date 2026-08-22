@@ -15,7 +15,7 @@ User authorization: CircleCI may now be used, but only as a bounded evidence res
 ## Qwen
 Gate branch: `Ai-b0ss/qwen-free-api:ci/qwen-final-gate`.
 Purpose: exact locked dependency install + full offline `npm test` on one final Qwen head.
-Current first gate was created from product SHA `23891cbc845996726ba5e0477c8542ff8361cf4d` and Circle config commit `bd6c7bc0ac31dc91fe95c3e7151be99ad6c10fa4`.
+Current first gate is based on product SHA `23891cbc845996726ba5e0477c8542ff8361cf4d`; latest gate config commit `0b012a1b2faddde8b6a6889135224e3ad46d5dc7` pins the public official image `node:22.23.1-bookworm`, matching the established Qwen runtime Node version.
 For a later run: fresh-read PR #6 head; only after targeted local PASS, move `ci/qwen-final-gate` to that exact product SHA; then re-apply the isolated Qwen gate `.circleci/config.yml` as the sole gate-branch commit. The first ref move should not run the old product workflow because its branch filter excludes the gate branch; the config commit is the intended single trigger.
 QWEN_CORE and QWEN_RELIABILITY coordinate through their handoffs; do not both trigger for the same SHA.
 

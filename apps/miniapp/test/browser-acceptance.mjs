@@ -155,6 +155,80 @@ async function layout(page, label, width, height) {
   return actual;
 }
 
+async function canonicalBird(page, root, label, expectTint = true) {
+  const selector = `${root} [data-bird-result]`;
+  const bird = page.locator(selector).first();
+  await bird.waitFor();
+  await page.waitForFunction(
+    (candidate) => document.querySelector(candidate)?.getAttribute('data-image-ready') === 'true',
+    selector,
+  );
+  const actual = await bird.evaluate((element) => {
+    const image = element.querySelector('.lk-result-bird');
+    const tint = element.querySelector('.lk-canonical-bird__tint');
+    const imageStyle = image ? getComputedStyle(image) : null;
+    const tintStyle = tint ? getComputedStyle(tint) : null;
+    const imageRect = image?.getBoundingClientRect();
+    return {
+      resultId: element.getAttribute('data-bird-result'),
+      imageReady: element.getAttribute('data-image-ready'),
+      imageComplete: image?.complete ?? false,
+      naturalWidth: image?.naturalWidth ?? 0,
+      naturalHeight: image?.naturalHeight ?? 0,
+      imageWidth: imageRect?.width ?? 0,
+      imageHeight: imageRect?.height ?? 0,
+      imageDisplay: imageStyle?.display ?? null,
+      imageVisibility: imageStyle?.visibility ?? null,
+      imageOpacity: Number(imageStyle?.opacity ?? 0),
+      tintPresent: Boolean(tint),
+      tintOpacity: Number(tintStyle?.opacity ?? 0),
+      tintInlineStyle: tint?.getAttribute('style') ?? null,
+    };
+  });
+  ok(actual.imageReady === 'true' && actual.imageComplete, `${label}: canonical image is not ready`);
+  ok(actual.naturalWidth > 0 && actual.naturalHeight > 0, `${label}: canonical image did not decode`);
+  ok(actual.imageWidth > 0 && actual.imageHeight > 0, `${label}: canonical image has no painted box`);
+  ok(actual.imageDisplay !== 'none' && actual.imageVisibility !== 'hidden' && actual.imageOpacity > .99, `${label}: master art is hidden`);
+  ok(!expectTint || (actual.tintPresent && actual.tintOpacity > 0 && actual.tintOpacity <= .25), `${label}: palette tint is missing or opaque`);
+  return actual;
+}
+
+async function revealLayout(page, label) {
+  const actual = await page.evaluate(() => {
+    const rect = (element) => {
+      const value = element?.getBoundingClientRect();
+      return value ? { top: value.top, right: value.right, bottom: value.bottom, left: value.left, width: value.width, height: value.height } : null;
+    };
+    const paintState = (selector) => {
+      const element = document.querySelector(selector);
+      const style = element ? getComputedStyle(element) : null;
+      return { present: Boolean(element), opacity: Number(style?.opacity ?? 0), visibility: style?.visibility ?? null, pointerEvents: style?.pointerEvents ?? null };
+    };
+    const panel = document.querySelector('.lk-reveal--inline');
+    const bird = document.querySelector('.lk-quiz-hatch [data-bird-result]');
+    const panelRect = rect(panel);
+    const birdRect = rect(bird);
+    return {
+      position: panel ? getComputedStyle(panel).position : null,
+      panel: panelRect,
+      bird: birdRect,
+      hookCopy: paintState('.lk-hook-copy'),
+      hookAction: paintState('.lk-hook-action'),
+      question: paintState('.lk-question--egg'),
+      viewport: { width: innerWidth, height: innerHeight },
+      separated: Boolean(panelRect && birdRect && panelRect.top >= birdRect.bottom - 1),
+    };
+  });
+  for (const [surface, state] of Object.entries({ hookCopy: actual.hookCopy, hookAction: actual.hookAction, question: actual.question })) {
+    ok(!state.present || (state.opacity === 0 && state.visibility === 'hidden' && state.pointerEvents === 'none'), `${label}: stale ${surface} still paints or accepts input`);
+  }
+  ok(actual.position === 'absolute', `${label}: reveal panel lost absolute layout`);
+  ok(actual.panel && actual.panel.left >= -1 && actual.panel.right <= actual.viewport.width + 1, `${label}: reveal panel overflows horizontally`);
+  ok(actual.panel && actual.panel.top >= -1 && actual.panel.bottom <= actual.viewport.height + 1, `${label}: reveal panel overflows vertically`);
+  ok(actual.separated, `${label}: reveal copy overlaps the canonical bird`);
+  return actual;
+}
+
 async function answer(page) {
   await page.locator('.lk-options button').first().click();
   await page.waitForTimeout(330);
@@ -177,7 +251,7 @@ async function saveVideo(context, page, name) {
 
 const { server, origin } = await startServer();
 const browser = await chromium.launch({ headless: true });
-const viewports = {}; const continuity = {};
+const viewports = {}; const continuity = {}; const visual = {};
 try {
   const small = await phone(browser, origin, { width: 320, height: 568, slot: 1 });
   const page = small.page;
@@ -191,16 +265,16 @@ try {
   ok(await page.locator('.lk-quiz-egg').getAttribute('data-stage') === '8', 'q8 is not egg stage 8'); await screenshot(page, '05-quiz-q8.png');
   await page.locator('.lk-options button').first().click(); ok(await page.locator('main.is-egg-responding').count() === 1, 'q8 response gesture absent'); ok(await page.locator('main.lk-first-time--hatching').count() === 0, 'hatching started before gesture end'); ok(await page.getByRole('button', { name: '← назад' }).count() === 0, 'back active during q8 transition');
   await page.waitForTimeout(170); ok(await page.locator('main.lk-first-time--hatching').count() === 0, 'hatching started inside response gesture'); await page.waitForTimeout(180); ok(await page.locator('main.lk-first-time--hatching').count() === 1, 'hatching did not begin after response');
-  continuity.hatchBird = await page.locator('.lk-quiz-hatch [data-bird-result]').getAttribute('data-bird-result'); continuity.hatchTint = await page.locator('.lk-quiz-hatch .lk-canonical-bird__tint').getAttribute('style'); ok(continuity.hatchBird === 'magpie', 'unexpected hatch identity');
-  await page.getByRole('button', { name: 'что дальше' }).waitFor({ timeout: 4000 }); continuity.revealBird = await page.locator('.lk-quiz-hatch [data-bird-result]').getAttribute('data-bird-result'); continuity.revealTint = await page.locator('.lk-quiz-hatch .lk-canonical-bird__tint').getAttribute('style'); ok(continuity.revealBird === continuity.hatchBird && continuity.revealTint === continuity.hatchTint, 'hatch/reveal continuity failed'); await screenshot(page, '06-bird-reveal.png');
+  visual.hatch = await canonicalBird(page, '.lk-quiz-hatch', '320 hatch'); continuity.hatchBird = visual.hatch.resultId; continuity.hatchTint = visual.hatch.tintInlineStyle; ok(continuity.hatchBird === 'magpie', 'unexpected hatch identity');
+  await page.getByRole('button', { name: 'что дальше' }).waitFor({ timeout: 4000 }); visual.reveal = await canonicalBird(page, '.lk-quiz-hatch', '320 reveal'); continuity.revealBird = visual.reveal.resultId; continuity.revealTint = visual.reveal.tintInlineStyle; ok(continuity.revealBird === continuity.hatchBird && continuity.revealTint === continuity.hatchTint, 'hatch/reveal continuity failed'); visual.smallRevealLayout = await revealLayout(page, '320 reveal'); await screenshot(page, '06-bird-reveal.png');
   await page.getByRole('button', { name: 'что дальше' }).click(); await screenshot(page, '07-worm-loop.png'); await page.getByRole('button', { name: 'к моей птице' }).click();
-  continuity.homeBird = await page.locator('.lk-bird-stage--home [data-bird-result]').getAttribute('data-bird-result'); continuity.homeTint = await page.locator('.lk-bird-stage--home .lk-canonical-bird__tint').getAttribute('style'); ok(continuity.homeBird === continuity.revealBird && continuity.homeTint === continuity.revealTint, 'reveal/Home continuity failed'); viewports.smallHome = await layout(page, '320 home', 320, 568); await screenshot(page, '08-home.png');
+  visual.home = await canonicalBird(page, '.lk-bird-stage--home', '320 Home'); continuity.homeBird = visual.home.resultId; continuity.homeTint = visual.home.tintInlineStyle; ok(continuity.homeBird === continuity.revealBird && continuity.homeTint === continuity.revealTint, 'reveal/Home continuity failed'); viewports.smallHome = await layout(page, '320 home', 320, 568); await screenshot(page, '08-home.png');
   await page.getByRole('button', { name: 'открыть яйцо' }).click(); await page.getByRole('button', { name: 'надеть окрас' }).waitFor({ timeout: 2000 }); continuity.dropBird = await page.locator('.lk-drop [data-bird-result]').getAttribute('data-bird-result'); ok(continuity.dropBird === continuity.homeBird, 'drop changed identity'); await screenshot(page, '09-new-coloring-drop.png'); await page.getByRole('button', { name: 'надеть окрас' }).click(); await page.waitForTimeout(100);
-  continuity.equippedBird = await page.locator('.lk-bird-stage--home [data-bird-result]').getAttribute('data-bird-result'); continuity.equippedTint = await page.locator('.lk-bird-stage--home .lk-canonical-bird__tint').getAttribute('style'); ok(continuity.equippedBird === continuity.homeBird && continuity.equippedTint !== continuity.homeTint, 'equip identity/cosmetic contract failed'); await page.reload({ waitUntil: 'networkidle' }); await page.getByRole('button', { name: 'посмотреть тест заново' }).waitFor(); continuity.reloadBird = await page.locator('.lk-bird-stage--home [data-bird-result]').getAttribute('data-bird-result'); continuity.reloadTint = await page.locator('.lk-bird-stage--home .lk-canonical-bird__tint').getAttribute('style'); ok(continuity.reloadBird === continuity.equippedBird && continuity.reloadTint === continuity.equippedTint, 'reload persistence failed'); await screenshot(page, '10-reload-persistence.png');
-  await page.getByRole('button', { name: 'посмотреть тест заново' }).click(); await toQuestion(page, 8); await page.locator('.lk-options button').first().click(); await page.waitForTimeout(350); continuity.replayBird = await page.locator('.lk-quiz-hatch [data-bird-result]').getAttribute('data-bird-result'); continuity.replayTint = await page.locator('.lk-quiz-hatch .lk-canonical-bird__tint').getAttribute('style'); ok(continuity.replayBird === continuity.reloadBird && continuity.replayTint === continuity.reloadTint, 'replay changed identity/palette'); await screenshot(page, '11-replay-same-bird.png'); await small.context.close();
+  visual.equipped = await canonicalBird(page, '.lk-bird-stage--home', '320 equipped Home'); continuity.equippedBird = visual.equipped.resultId; continuity.equippedTint = visual.equipped.tintInlineStyle; ok(continuity.equippedBird === continuity.homeBird && continuity.equippedTint !== continuity.homeTint, 'equip identity/cosmetic contract failed'); await page.reload({ waitUntil: 'networkidle' }); await page.getByRole('button', { name: 'посмотреть тест заново' }).waitFor(); await page.evaluate(() => window.scrollTo(0, 0)); visual.reload = await canonicalBird(page, '.lk-bird-stage--home', '320 reload Home'); continuity.reloadBird = visual.reload.resultId; continuity.reloadTint = visual.reload.tintInlineStyle; ok(continuity.reloadBird === continuity.equippedBird && continuity.reloadTint === continuity.equippedTint, 'reload persistence failed'); await screenshot(page, '10-reload-persistence.png');
+  await page.getByRole('button', { name: 'посмотреть тест заново' }).click(); await toQuestion(page, 8); await page.locator('.lk-options button').first().click(); await page.waitForTimeout(350); visual.replayHatch = await canonicalBird(page, '.lk-quiz-hatch', '320 replay hatch'); continuity.replayBird = visual.replayHatch.resultId; continuity.replayTint = visual.replayHatch.tintInlineStyle; ok(continuity.replayBird === continuity.reloadBird && continuity.replayTint === continuity.reloadTint, 'replay changed identity/palette'); await page.getByRole('button', { name: 'что дальше' }).waitFor({ timeout: 4000 }); visual.replayReveal = await canonicalBird(page, '.lk-quiz-hatch', '320 replay reveal'); ok(visual.replayReveal.resultId === continuity.reloadBird && visual.replayReveal.tintInlineStyle === continuity.reloadTint, 'replay reveal changed identity/palette'); visual.replayRevealLayout = await revealLayout(page, '320 replay reveal'); await screenshot(page, '11-replay-same-bird.png'); await small.context.close();
 
-  const large = await phone(browser, origin, { width: 430, height: 1000, slot: 2 }); viewports.largeHook = await layout(large.page, '430 hook', 430, 1000); await screenshot(large.page, '12-large-hook.png'); await toQuestion(large.page, 8); await large.page.locator('.lk-options button').first().click(); await large.page.getByRole('button', { name: 'что дальше' }).waitFor({ timeout: 4000 }); await large.page.getByRole('button', { name: 'что дальше' }).click(); await large.page.getByRole('button', { name: 'к моей птице' }).click(); viewports.largeHome = await layout(large.page, '430 home', 430, 1000); await screenshot(large.page, '13-large-home.png'); await large.context.close();
-  const reduced = await phone(browser, origin, { width: 320, height: 568, slot: 3, reduced: true }); viewports.reducedHook = await layout(reduced.page, '320 reduced hook', 320, 568); ok(viewports.reducedHook.reducedClass, 'reduced-motion class absent'); await toQuestion(reduced.page, 8); await reduced.page.locator('.lk-options button').first().click(); await reduced.page.getByRole('button', { name: 'что дальше' }).waitFor({ timeout: 1000 }); ok(await reduced.page.locator('.lk-quiz-hatch [data-bird-result]').getAttribute('data-bird-result') === 'magpie', 'reduced-motion identity changed'); await screenshot(reduced.page, '14-reduced-motion-reveal.png'); await reduced.context.close();
+  const large = await phone(browser, origin, { width: 430, height: 1000, slot: 2 }); viewports.largeHook = await layout(large.page, '430 hook', 430, 1000); await screenshot(large.page, '12-large-hook.png'); await toQuestion(large.page, 8); await large.page.locator('.lk-options button').first().click(); await large.page.getByRole('button', { name: 'что дальше' }).waitFor({ timeout: 4000 }); visual.largeReveal = await canonicalBird(large.page, '.lk-quiz-hatch', '430 reveal'); visual.largeRevealLayout = await revealLayout(large.page, '430 reveal'); await large.page.getByRole('button', { name: 'что дальше' }).click(); await large.page.getByRole('button', { name: 'к моей птице' }).click(); visual.largeHome = await canonicalBird(large.page, '.lk-bird-stage--home', '430 Home'); viewports.largeHome = await layout(large.page, '430 home', 430, 1000); await screenshot(large.page, '13-large-home.png'); await large.context.close();
+  const reduced = await phone(browser, origin, { width: 320, height: 568, slot: 3, reduced: true }); viewports.reducedHook = await layout(reduced.page, '320 reduced hook', 320, 568); ok(viewports.reducedHook.reducedClass, 'reduced-motion class absent'); await toQuestion(reduced.page, 8); await reduced.page.locator('.lk-options button').first().click(); await reduced.page.getByRole('button', { name: 'что дальше' }).waitFor({ timeout: 1000 }); visual.reducedReveal = await canonicalBird(reduced.page, '.lk-quiz-hatch', '320 reduced reveal'); ok(visual.reducedReveal.resultId === 'magpie', 'reduced-motion identity changed'); visual.reducedRevealLayout = await revealLayout(reduced.page, '320 reduced reveal'); await screenshot(reduced.page, '14-reduced-motion-reveal.png'); await reduced.context.close();
 
   const video1 = await phone(browser, origin, { width: 320, height: 568, slot: 4, record: true }); await video1.page.waitForTimeout(250); await video1.page.getByRole('button', { name: 'начать' }).click(); await video1.page.waitForTimeout(700); await saveVideo(video1.context, video1.page, 'motion-1-hook-to-q1.webm');
   const video2 = await phone(browser, origin, { width: 320, height: 568, slot: 5, record: true }); await toQuestion(video2.page, 8); await video2.page.waitForTimeout(400); await saveVideo(video2.context, video2.page, 'motion-2-q1-q4-q8-cracks.webm');
@@ -209,7 +283,7 @@ try {
   ok(errors.length === 0, `browser console/runtime errors: ${errors.join(' | ')}`);
   const head = (await exec('git', ['rev-parse', 'HEAD'], { cwd: repo })).stdout.trim();
   const distFiles = (await stat(join(dist, 'index.html'))).isFile(); ok(distFiles, 'production dist missing');
-  const manifest = { result: 'PASS', exactHead: head, engine: `Chromium / Playwright ${process.env.npm_package_devDependencies__playwright_test || '1.55.0'}`, classification: { browser: 'real Chromium', backend: 'contract-faithful isolated mock; remote staging is a separate gate' }, viewports, continuity, consoleErrors: errors, artifacts, productionBuild: { indexSha256: await hash(join(dist, 'index.html')) } };
+  const manifest = { result: 'PASS', exactHead: head, engine: `Chromium / Playwright ${process.env.npm_package_devDependencies__playwright_test || '1.55.0'}`, classification: { browser: 'real Chromium', backend: 'contract-faithful isolated mock; remote staging is a separate gate' }, viewports, continuity, visual, consoleErrors: errors, artifacts, productionBuild: { indexSha256: await hash(join(dist, 'index.html')) } };
   await writeFile(join(evidence, 'browser-acceptance.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
   console.log(`KONTUR_BROWSER_ACCEPTANCE_PASS head=${head} artifacts=${artifacts.length}`);
 } finally {

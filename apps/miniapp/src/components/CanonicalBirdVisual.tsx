@@ -1,5 +1,6 @@
 import type { Palette } from '@kontur/contracts';
 import type { CSSProperties } from 'react';
+import { useState } from 'react';
 import type { BirdResultId } from '../result-taxonomy.js';
 import { RESULT_ASSETS } from './result-bird-assets.js';
 
@@ -15,6 +16,8 @@ export function CanonicalBirdVisual({
   className?: string;
 }) {
   const asset = RESULT_ASSETS[resultId];
+  const [loadedAsset, setLoadedAsset] = useState<string | null>(null);
+  const imageReady = loadedAsset === asset.src;
   const frameStyle = size ? ({ width: size, height: size } satisfies CSSProperties) : undefined;
   const tintStyle = palette ? ({
     background: `linear-gradient(145deg, ${palette.crest} 0 18%, ${palette.body} 28% 51%, ${palette.wing} 57% 76%, ${palette.tail} 82% 100%)`,
@@ -23,7 +26,12 @@ export function CanonicalBirdVisual({
   } satisfies CSSProperties) : undefined;
 
   return (
-    <span className={`lk-canonical-bird ${className}`.trim()} style={frameStyle} data-bird-result={resultId}>
+    <span
+      className={`lk-canonical-bird ${className}`.trim()}
+      style={frameStyle}
+      data-bird-result={resultId}
+      data-image-ready={imageReady ? 'true' : 'false'}
+    >
       <img
         className="lk-result-bird"
         src={asset.src}
@@ -32,8 +40,9 @@ export function CanonicalBirdVisual({
         alt={asset.label}
         decoding="async"
         draggable={false}
+        onLoad={() => setLoadedAsset(asset.src)}
       />
-      {palette && <span className="lk-canonical-bird__tint" style={tintStyle} aria-hidden="true" />}
+      {palette && imageReady && <span className="lk-canonical-bird__tint" style={tintStyle} aria-hidden="true" />}
     </span>
   );
 }

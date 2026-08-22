@@ -174,9 +174,19 @@ test('q8 hatch reuses shell art inside QuizEgg and delays visible hatch until re
 
 test('equipped palette stays on the same canonical bird from hatch through Home', async () => {
   const screen = await readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8');
+  const renderer = await readFile(new URL('../src/components/CanonicalBirdVisual.tsx', import.meta.url), 'utf8');
   assert.match(screen, /palette=\{reveal\?\.state\.player\.palette \?\? state\?\.player\.palette \?\? null\}/);
   assert.match(screen, /<CanonicalBirdVisual resultId=\{currentBird\.resultId\} palette=\{state\.player\.palette\} \/>/);
   assert.doesNotMatch(screen, /<ResultBird resultId=\{currentBird\.resultId\}/);
+  assert.match(renderer, /data-image-ready=\{imageReady \? 'true' : 'false'\}/);
+  assert.match(renderer, /onLoad=\{\(\) => setLoadedAsset\(asset\.src\)\}/);
+  assert.match(renderer, /palette && imageReady &&/);
+});
+
+test('reveal state removes stale hook and question surfaces and wins the final CSS order', async () => {
+  const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
+  assert.match(css, /\.lk-first-time\.lk-first-time--reveal \.lk-hook-copy,[\s\S]*?visibility:\s*hidden;[\s\S]*?pointer-events:\s*none;/);
+  assert.match(css, /\.lk-first-time\.lk-first-time--reveal \.lk-reveal\.lk-reveal--inline\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?top:\s*auto;/);
 });
 
 test('quiz back control is unavailable while an answer transition is locked', async () => {

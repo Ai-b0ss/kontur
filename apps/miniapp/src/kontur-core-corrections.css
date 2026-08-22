@@ -100,6 +100,12 @@
 .lk-first-time--hatching .lk-quiz-egg.is-hatching > .lk-quiz-hatch {
   animation: lk-hatch-inline-stage 2.3s cubic-bezier(.2,.8,.2,1) both;
 }
+/* QuizEgg already owns the crack light. The legacy full-stage glow/core would
+   wash out the right shell half and make the opening read as an empty egg. */
+.lk-quiz-egg.is-hatching > .lk-quiz-hatch .lk-quiz-hatch__glow,
+.lk-quiz-egg.is-hatching > .lk-quiz-hatch .lk-quiz-hatch__core {
+  display: none;
+}
 .lk-quiz-hatch__bird.lk-canonical-bird {
   position: absolute;
   z-index: 7;

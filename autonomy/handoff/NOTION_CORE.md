@@ -14,14 +14,14 @@ Agent integration boundary: draft PR #8 `autonomy/notion-prompt-modes-20260819`,
 ## Постоянная память v4
 
 Канонический `LATEST` после текущего запуска:
-- capsule `20260822T095123Z-7991a947ca`;
-- archive SHA-256 `7d93815bd165648af95470a947e9ff730a564cc331c51bff9babd27d8c8c6c2d`;
+- capsule `20260822T105649Z-f43025f69b`;
+- archive SHA-256 `bcb82a131b9276c7d6cf8acbe34f7c7f8b0ef9963220d791a7fd5cf811b421d5`;
 - parts: 1;
-- `LATEST.json` Git blob `13b0b93d787c72882cbf688b644ca95277e6cf2d`.
+- `LATEST.json` Git blob `e092670cc44cd569eee8d810e45e52fe908b986a`.
 
-Part и manifest после публикации перечитаны и их Git blob SHA совпали с локально рассчитанными. Предыдущий `LATEST` `20260822T084919Z-207772991a` сохранён как `PREVIOUS`, новый указатель опубликован через exact parent SHA/CAS.
+Capsule была собрана точным `capsule_runtime_v4.py` после восстановления предыдущего `LATEST`. Part и manifest после публикации перечитаны; их Git blob SHA совпали с локально рассчитанными. Перед CAS `LATEST` был перечитан и сохранил исходный blob `13b0b93d787c72882cbf688b644ca95277e6cf2d`; старый `LATEST` `20260822T095123Z-7991a947ca` сохранён как `PREVIOUS`, затем новый указатель опубликован через exact parent SHA/CAS и повторно прочитан.
 
-Новый checkpoint ссылается на `autonomy/evidence/notion/20260822T1240Z_v34_v35_exact_store_integration.json`.
+Checkpoint ссылается на `autonomy/evidence/notion/20260822T1049Z_v40_canonical_provider_step_invariant_correction.json`.
 
 ## NCM28 / Windows
 
@@ -81,13 +81,13 @@ V36 оставляет Agent-ротацию по умолчанию неизме
 
 Важно: одного AccountLease-флага недостаточно. В `handle_openai_responses()` существует ещё отдельный foreground transport retry/recursion. Уже сохранённый V36/V39 evidence требует подавить и этот второй слой после durable intent. Локальная повторная модель подтверждает: AccountLease-only suppression + outer retry создаёт лишний provider attempt; полное suppression обоих неявных уровней сохраняет границу «каждый deliberate planner step максимум один раз».
 
-### V37/V39 — route before intent и deliberate planner steps
+### V37/V39/V40 — route before intent и deliberate planner steps
 
 Provider-intent нельзя писать до локального выбора маршрута/аккаунта: `cooldown/exhausted` до любого provider call иначе оставит ложный unresolved marker.
 
 Правильный порядок Stage B: сначала local lease/account acquisition без provider traffic, затем strict intent, затем bounded deliberate planner steps на том же lease/account. Для каждого такого шага `allow_failover=false`; outer transport recursion после intent выключен. Коррекция planner-ответа не считается transport retry и не должна быть удалена из продукта ради ошибочного правила «ровно один provider call».
 
-Актуальная коррекция канона сохранена в `autonomy/evidence/notion/20260822T1049Z_v40_canonical_provider_step_invariant_correction.json`.
+V40 устранил противоречие в самом каноническом handoff: прежняя фраза `exactly one provider entry` расходилась с точным `server.py`, где сохранён bounded planner-correction loop. Актуальный инвариант: **no implicit provider replay; each deliberate planner step is attempted at most once**. Доказательство: `autonomy/evidence/notion/20260822T1049Z_v40_canonical_provider_step_invariant_correction.json`.
 
 ## Обязательные durable-replay инварианты из V12–V29
 

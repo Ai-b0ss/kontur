@@ -336,18 +336,19 @@ order.push('users');
 
 const byTarget = new Map(targets.map((t) => [t.name, t]));
 let sql = 'PRAGMA foreign_keys=OFF;\n';
-const countSelects = [];
+const verifyCols = [];
 for (const name of order) {
   const target = byTarget.get(name);
   const ident = qIdent(name);
   if (name === 'users') {
     sql += `DELETE FROM ${ident} WHERE id = ${ownerId};\n`;
-    countSelects.push(`SELECT 'users' AS table_name, COUNT(*) AS rows FROM ${ident} WHERE id = ${ownerId}`);
+    verifyCols.push(`(SELECT COUNT(*) FROM ${ident} WHERE id = ${ownerId}) AS ${qIdent('t_users')}`);
     continue;
   }
   const where = target.columns.map((col) => `${qIdent(col)} = ${ownerId}`).join(' OR ');
   sql += `DELETE FROM ${ident} WHERE ${where};\n`;
-  countSelects.push(`SELECT '${name.replaceAll("'", "''")}' AS table_name, COUNT(*) AS rows FROM ${ident} WHERE ${where}`);
+  const alias = `t_${name}`.replace(/[^A-Za-z0-9_]/g, '_');
+  verifyCols.push(`(SELECT COUNT(*) FROM ${ident} WHERE ${where}) AS ${qIdent(alias)}`);
 }
 if (/DELETE FROM\s+"?users"?\s*;/i.test(sql)) throw new Error('refusing unfiltered users delete');
 if (!sql.includes(`DELETE FROM "users" WHERE id = ${ownerId};`)) throw new Error('users delete is not scoped to owner id');
@@ -356,7 +357,7 @@ for (const name of preserve) {
   if (new RegExp(`DELETE FROM\\s+"?${name}"?`, 'i').test(sql)) throw new Error(`refusing delete from preserved table ${name}`);
 }
 fs.writeFileSync('/tmp/kontur-one-user-reset.sql', sql);
-fs.writeFileSync('/tmp/kontur-one-user-reset-verify.sql', countSelects.join('\nUNION ALL\n') + ';\n');
+fs.writeFileSync('/tmp/kontur-one-user-reset-verify.sql', `SELECT ${verifyCols.join(',\n  ')};\n`);
 fs.writeFileSync('/tmp/kontur-one-user-reset-targets.json', JSON.stringify({ ownerId, username: owner.ownerUsername, order }));
 console.log(`ONE_USER_RESET_PLAN_PASS tables=${order.length} owner_db_id=${ownerId}`);
 NODE
@@ -392,7 +393,7 @@ for (const statement of statements) {
     '-F', '@kontur/worker', 'exec', 'wrangler', 'd1', 'execute',
     process.env.CLOUDFLARE_PROD_D1_DATABASE_NAME,
     '--remote', '--config', 'wrangler.jsonc', '--command', command,
-  ], { encoding: 'utf8' });
+  ], { encoding: 'utf8', cwd: process.cwd() });
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
   if (result.status !== 0) {
@@ -440,8 +441,14 @@ const firstCounts = (path) => {
 };
 const relatedMap = (path) => {
   const found = [];
-  visit(JSON.parse(fs.readFileSync(path, 'utf8')), found, (row) => typeof row.table_name === 'string' && Number.isInteger(Number(row.rows)));
-  return Object.fromEntries(found.map((row) => [row.table_name, Number(row.rows)]));
+  visit(JSON.parse(fs.readFileSync(path, 'utf8')), found, (row) => Object.keys(row).some((key) => key.startsWith('t_')));
+  if (!found[0]) throw new Error(`related counts missing ${path}`);
+  const out = {};
+  for (const [key, value] of Object.entries(found[0])) {
+    if (!key.startsWith('t_')) continue;
+    out[key.slice(2)] = Number(value);
+  }
+  return out;
 };
 const identity = JSON.parse(fs.readFileSync('/tmp/kontur-owner-identity.json', 'utf8'));
 const plan = JSON.parse(fs.readFileSync('/tmp/kontur-one-user-reset-targets.json', 'utf8'));

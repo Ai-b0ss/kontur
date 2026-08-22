@@ -6,7 +6,7 @@
 Repo: `Ai-b0ss/notion-agent-bridge`
 Branch: `autonomy/notion-prompt-modes-20260819`
 Draft PR: #8
-Текущий Agent head: `f58f0123b370ad786d337337eb03a6a4ce9963b3` (322 commits).
+Текущий Agent head: `60ea23501cda46a6244311174b1db4e27f596c2c` (324 commits на момент фиксации).
 Core/NCM28 PR #7 `candidate/ncm28-windows-fixed-v1` без отдельной Core-необходимости не менять.
 На каждом запуске сначала восстановить собственный v4 LATEST/PREVIOUS по нормативному протоколу, затем перечитать fresh PR head/blobs. Не force-write при CAS конфликте.
 
@@ -20,22 +20,27 @@ Core/NCM28 PR #7 `candidate/ncm28-windows-fixed-v1` без отдельной Co
 - provider-neutral `DelegationRequest` / `DelegationDispatcher` без parent account/thread ids;
 - stateful Notion child session не повторяет objective/completed local tools при legitimate provider failover;
 - atomic tool-batch validation и bounded child model turns;
-- cancellation during started local tool становится uncertain, а safe pre-side-effect cancellation остаётся retryable;
-- pair commit journal/recovery, post-replace drift, exclusive journal publication и POSIX directory ordering;
+- cancellation during started local tool становится uncertain, safe pre-side-effect cancellation остаётся retryable;
 - durable two-phase no-replay store для mutating local tools поверх rebind/restart;
-- path-alias hardening durable tombstone store на POSIX/Linux.
+- path-alias hardening durable tombstone store на POSIX/Linux;
+- canonical child launch boundary: lifecycle валидирует и канонизирует identity до tombstone/pool/provider state.
 
-## Новый закрытый блок: canonical child launch boundary
-Коммиты:
-- `ab5c547e0819fed041d7532526bc8948c5cd62a2` — `ServerSubagentLifecycle.launch()` теперь сначала строит и валидирует `DelegationRequest`, затем передаёт дальше уже канонический `SubagentLaunch`;
-- `f58f0123b370ad786d337337eb03a6a4ce9963b3` — регрессия lifecycle/rebind обновлена под канонический identity и добавлена проверка malformed runtime `task_id`.
+## Новый закрытый блок: recovery до exact materialization
+Коммиты Agent-ветки:
+- `b6264cddc0168570069e9b96d265ec35df405b7a` — исправлен `tools/materialize_agent_wiring_with_tombstones.py`;
+- `60ea23501cda46a6244311174b1db4e27f596c2c` — добавлены регрессии `tests/test_materialize_agent_wiring_entry_recovery.py`.
 
-Контракт:
-1. `task_id`, `parent_turn_id`, `objective`, target и budget валидируются ДО tombstone/pool/provider state;
-2. downstream entrypoint получает уже canonical identities (`strip()` aliases не живут дальше lifecycle boundary);
-3. tombstone/no-replay lookup работает по тому же canonical `task_id`;
-4. runtime `task_id=None` больше не падает сырым `AttributeError`, а закрывается через `DelegationPolicyError` до provider work;
-5. локальная семантическая проверка boundary: **PASS 3/3** — canonical downstream identity, malformed task id fail-closed, whitespace alias не обходит uncertain-task lookup.
+Найденный дефект: канонический wrapper сначала вызывал exact-source transform и только потом попадал в `commit_pair()`, где жил recovery. После аварии между заменой `account_pool.py` и `server.py` checkout становился `new/old`; exact old-blob guard первого transform падал раньше, чем recovery вообще мог выполниться. То есть заявленная crash-recovery ветка была недостижима из реального CLI.
+
+Теперь:
+1. до чтения/transform wrapper проверяет наличие канонического transaction journal;
+2. обычный apply сначала вызывает базовый `recover_interrupted_commit(...)` под тем же guard финализации;
+3. смешанная пара `new/old` сначала возвращается к exact `old/old`, после чего применяется обычная exact materialization;
+4. если восстановлена уже полностью закоммиченная `new/new` пара, wrapper валидирует cross-file contract + tombstone wiring + compile и завершает работу без второго transform;
+5. `--check` остаётся строго read-only: при незавершённой транзакции выдаёт `AGENT_WIRING_INTERRUPTED_TRANSACTION_PRESENT` и ничего не меняет;
+6. если journal существует лексически, но базовый recovery не смог его разрешить, новый fresh transaction не начинается: `AGENT_WIRING_INTERRUPTED_TRANSACTION_UNRESOLVED`.
+
+Локальная сфокусированная семантическая проверка этих четырёх веток: **PASS 4/4**. Это НЕ полный exact-tree Agent cluster и не основание запускать финальный Circle gate.
 
 ## Durable no-replay — актуальное состояние
 `payload/subagent_tombstone_store.py` VERSION 2:
@@ -66,40 +71,46 @@ Frozen product preimages всё ещё НЕ заменены:
 - `tools/apply_startup_status_cleanup.py` — exact `server.py` transform: owner-mode isolation, startup cleanup, owner-aware reservations, `LeaseTransportContext`, dynamic lease session и fresh operation после фактической смены аккаунта;
 - `tools/apply_subagent_tombstone_wiring.py` — deterministic tombstone-path wiring;
 - `tools/materialize_agent_wiring.py` — парная транзакция, journal/backups/recovery/race guards;
-- `tools/materialize_agent_wiring_with_tombstones.py` — композиционный wrapper поверх того же pair transaction.
+- `tools/materialize_agent_wiring_with_tombstones.py` — композиционный wrapper, теперь с recovery ДО exact transform.
 
-Большие product файлы вручную не переписывать. Следующий проход должен уже материализовать exact-пару, а не продолжать боковой аудит при отсутствии нового воспроизводимого дефекта.
+Большие product файлы вручную не переписывать. Следующий проход должен уже материализовать exact-пару после полного локального Agent cluster, а не продолжать боковой аудит при отсутствии нового воспроизводимого дефекта.
 
-## Постоянная память — исправлено 2026-08-22
-На старте этого прохода нормативная v4-проверка выявила, что оба указателя были непригодны для восстановления:
-- старый `LATEST` → capsule `20260822T054449Z-620952bc2f`: manifest ожидал `part-0004.b64` длиной 836 и SHA-256 `a78aa0b3...`, а фактический GitHub blob имел 832 символа и SHA-256 `dc592a2e...`;
-- старый `PREVIOUS` → capsule `20260822T040635Z-e00776b282`: `part-0001.b64` имел правильную длину 2048, но фактический SHA-256 `65696205...` не совпал с manifest `2cc75607...`.
+## Постоянная память
+Старт этого прохода восстановлен нормативным `capsule_runtime_v4.py` из:
+- стартовый `LATEST` blob `0b96ad1d5f90d18acf77cfc61968e8dd3781cad1`;
+- capsule `20260822T073131Z-f03f8ff412`, archive SHA-256 `a098e467a44c6f1357d0ae45b67606a890986d6b2e9fe1e13f2567b9935abe34`;
+- `verify` и `restore` — PASS; unknown bytes не реконструировались.
 
-Неизвестные bytes не восстанавливались из истории разговора. По failure policy протокола v2 использован exact GitHub source floor: PR #8 head `f58f0123...`, `server.py` blob `f02cef6a...`, `account_pool.py` blob `11cea792...`.
+После работы создана и нормативно локально проверена новая v4 capsule:
+- `LATEST` → `20260822T080735Z-394fbafc55`;
+- archive SHA-256 `a5a2458939274e7a52779c65f9758ac70cf4c6e6887e2d1b9703deafdf4ff900`;
+- 2 immutable parts;
+- после загрузки обе parts и manifest перечитаны из GitHub, их Git blob SHA совпали с локальными байтами;
+- `LATEST` опубликован только CAS-обновлением с exact стартового blob `0b96ad1d...`; force-write не использовался;
+- `PREVIOUS` теперь сохраняет предыдущий валидный `LATEST` → `20260822T073131Z-f03f8ff412`.
 
-Постоянная память восстановлена двумя подряд проверенными capsule, чтобы вернуть и рабочий rollback:
-- `PREVIOUS` → capsule `20260822T072942Z-e9ae17922a`, archive SHA-256 `220712c2a820c242fb2d9441bb683a289fc36132cabab723f002f67ebebdcb7a`;
-- `LATEST` → capsule `20260822T073131Z-f03f8ff412`, archive SHA-256 `a098e467a44c6f1357d0ae45b67606a890986d6b2e9fe1e13f2567b9935abe34`.
+## CircleCI final evidence
+Политика: `autonomy/ci/CIRCLECI_GATE_POLICY.md`.
+Использовать только disposable ref `ci/notion-agent-final-gate`, не обычную PR #8 ветку.
+Gate должен дать два независимых доказательства на одном exact Agent SHA:
+1. exact Linux Agent safety cluster;
+2. отдельный materialized `server.py + account_pool.py` rehearsal.
 
-Обе новые capsule локально прошли штатные `pack → verify → restore`; после immutable upload part и manifest перечитаны обратно, их Git blob SHA совпали с локальными байтами. Первый LATEST опубликован CAS со старого blob `76255999...`, второй — CAS с первого валидного LATEST blob `5d0f7885...`; force-write не использовался.
-
-Важно: старые повреждённые capsule остаются immutable историческими объектами, но больше не являются pointer targets.
+В этом проходе CircleCI НЕ запускался: полного exact-tree локального cluster/materializer preflight ещё нет. Старые зелёные Agent runs не являются доказательством текущего head.
 
 ## Что НЕ заявлено
-- Полный exact-tree Agent cluster на текущем head ещё не прогнан.
+- Полный exact-tree Agent cluster на `60ea235...` ещё не прогнан.
 - Native Windows durability нового store не доказана Linux/POSIX проверками.
 - Ordinary `/v1/responses` не считать materialized до exact pair apply/readback.
 - Живой Codex/Notion acceptance на текущем head не выполнялся.
+- Production, секреты и live provider state не менялись.
 
 ## Следующий точный шаг
 1. Fresh-read PR #8 head и оба product blobs; при чужих новых изменениях не перетирать их.
 2. Получить exact tree локально без реконструкции неизвестных байтов.
-3. Прогнать локальный Agent cluster, включая prompt/routing/reservations/delegation/tool-loop/lifecycle/no-replay.
+3. Прогнать локальный Agent cluster, включая prompt/routing/reservations/delegation/tool-loop/lifecycle/no-replay и новую entry-recovery регрессию.
 4. `python tools/materialize_agent_wiring_with_tombstones.py --check` на exact blobs `11cea792... + f02cef6a...`.
 5. Если green — применить парную транзакцию, перечитать оба product blobs/diff/compile и повторить combined tests уже на materialized source.
 6. Отдельно доказать: `A transport fail → B late-reserved → 0 provider calls through B → C fresh recovery → old thread не переносится → transport evidence closes on C → completed local side effect не повторяется`.
-7. Только после крепкого локального PASS — один bounded authorized Codex/Notion project probe, затем two-slot и failover acceptance.
-8. После Agent acceptance синхронизировать на свежий Core без поломки NCM28/Windows line.
-
-## Стоп-условие
-После зелёного exact materialization + restart/no-replay cluster не продолжать косметический аудит. Переходить к bounded real acceptance и Core synchronization.
+7. Только после крепкого локального PASS — один bounded CircleCI final gate на `ci/notion-agent-final-gate`; сохранить exact gate SHA/result/artifacts в handoff. Не повторять green gate без релевантного изменения байтов.
+8. После зелёного exact materialization/restart/no-replay cluster прекратить косметический аудит и перейти к bounded authorized Codex/Notion acceptance, затем синхронизировать Agent на свежий Core без поломки NCM28/Windows line.

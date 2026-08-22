@@ -57,7 +57,7 @@ test('the active hatch and reveal states keep the persistent QuizEgg visible wit
   );
 });
 
-test('the future bird rises physically behind the shell before the shell fully opens', async () => {
+test('the intact egg stays singular until the shell actually begins opening', async () => {
   const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
 
   assert.match(
@@ -81,8 +81,18 @@ test('the future bird rises physically behind the shell before the shell fully o
   );
   assert.match(
     css,
-    /@keyframes lk-hatch-bird-rise[\s\S]*?38%\s*\{[\s\S]*?opacity:\s*\.34;[\s\S]*?54%\s*\{[\s\S]*?opacity:\s*\.72;/,
-    'bird hint must appear before the shell reaches its final opening phase',
+    /@keyframes lk-hatch-bird-rise[\s\S]*?0%,\s*58%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?68%\s*\{[\s\S]*?opacity:\s*\.34;/,
+    'the bird must stay hidden until the shell has started to open',
+  );
+  assert.match(
+    css,
+    /@keyframes lk-shell-left-open[\s\S]*?0%,\s*52%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?53%,\s*58%\s*\{[\s\S]*?opacity:\s*1;/,
+    'the duplicate shell layer must stay invisible while the base egg is still intact',
+  );
+  assert.match(
+    css,
+    /@keyframes lk-hatch-base-fade[\s\S]*?0%,\s*56%\s*\{\s*opacity:\s*1;\s*\}/,
+    'the single base egg must remain fully visible up to the opening hand-off',
   );
   assert.match(css, /animation:\s*lk-shell-left-open/);
   assert.match(css, /animation:\s*lk-shell-right-open/);

@@ -1,0 +1,38 @@
+diff --git a/src/agent.js b/src/agent.js
+--- a/src/agent.js
++++ b/src/agent.js
+@@
+ function resolveAgentSystemPromptMode(settings = {}) {
+-  const mode = String(settings.systemPromptMode || 'engineer').trim().toLowerCase();
++  const explicit = Object.prototype.hasOwnProperty.call(settings, 'systemPromptMode');
++  const rawMode = explicit ? settings.systemPromptMode : 'engineer';
++  if (typeof rawMode !== 'string' || !rawMode.trim()) {
++    const error = new Error('Agent system prompt mode must be a non-empty string: engineer or owner');
++    error.code = 'QWEN_AGENT_SYSTEM_PROMPT_MODE_INVALID';
++    throw error;
++  }
++  const mode = rawMode.trim().toLowerCase();
+   if (mode !== 'engineer' && mode !== 'owner') {
+     const error = new Error(`Unsupported agent system prompt mode: ${mode}`);
+     error.code = 'QWEN_AGENT_SYSTEM_PROMPT_MODE_INVALID';
+     throw error;
+   }
+diff --git a/src/subagent-agent-runner.js b/src/subagent-agent-runner.js
+--- a/src/subagent-agent-runner.js
++++ b/src/subagent-agent-runner.js
+@@
+ function resolveSubagentPromptMode(options = {}) {
+-  const mode = String(options.mode || 'engineer').trim().toLowerCase();
++  const explicit = Object.prototype.hasOwnProperty.call(options, 'mode');
++  const rawMode = explicit ? options.mode : 'engineer';
++  if (typeof rawMode !== 'string' || !rawMode.trim()) {
++    const error = new Error('Subagent system prompt mode must be a non-empty string: engineer or owner');
++    error.code = 'QWEN_SUBAGENT_MODE_INVALID';
++    throw error;
++  }
++  const mode = rawMode.trim().toLowerCase();
+   if (!['engineer', 'owner'].includes(mode)) {
+     const error = new Error(`Unsupported subagent system prompt mode: ${mode}`);
+     error.code = 'QWEN_SUBAGENT_MODE_INVALID';
+     throw error;
+   }

@@ -31,6 +31,7 @@ node tools/handoff-safety-check.mjs
 pnpm -F @kontur/miniapp test
 pnpm -F @kontur/miniapp build
 
+run_production_release() {
 # Prove the authenticated executor resolves the exact production D1. Read only.
 pnpm -F @kontur/worker exec wrangler d1 info "$CLOUDFLARE_PROD_D1_DATABASE_NAME" --config wrangler.jsonc --json > /tmp/kontur-prod-d1-info.json
 node --input-type=module <<'NODE'
@@ -174,6 +175,33 @@ else
   console.log(`DATA_PRESERVED_PASS users=${after.users} hatched=${after.hatched}`);
   console.log('API_BOUNDARY_PASS');
   console.log('TELEGRAM_WEBHOOK_BOUNDARY_PASS');
+NODE
+fi
+}
+
+set +e
+run_production_release > /tmp/kontur-production-release.log 2>&1
+release_status=$?
+set -e
+cat /tmp/kontur-production-release.log
+
+if [ "$release_status" -ne 0 ]; then
+  RELEASE_STATUS='BLOCKED' RELEASE_ERROR_LOG='/tmp/kontur-production-release.log' node --input-type=module <<'NODE'
+import fs from 'node:fs';
+const raw = fs.readFileSync(process.env.RELEASE_ERROR_LOG, 'utf8')
+  .replace(/\u001b\[[0-9;]*m/g, '')
+  .replace(/(authorization|bearer|token|secret)(\s*[:=]\s*)\S+/gi, '$1$2[REDACTED]');
+const lines = raw.split(/\r?\n/).filter(Boolean);
+const relevant = lines.filter((line) => /error|code|permission|auth|forbidden|unauthorized|failed|fail/i.test(line));
+const error = (relevant.length ? relevant : lines.slice(-35)).slice(-35).join('\n').slice(-6000);
+fs.mkdirSync('apps/miniapp/dist', { recursive: true });
+fs.writeFileSync('apps/miniapp/dist/cloudflare-production-release-b153d4c9.json', JSON.stringify({
+  status: process.env.RELEASE_STATUS,
+  release: process.env.RELEASE_SHA,
+  stage: 'production-release',
+  error,
+}, null, 2) + '\n');
+console.log('PRODUCTION_RELEASE_BLOCKED_DIAGNOSTIC_READY');
 NODE
 fi
 

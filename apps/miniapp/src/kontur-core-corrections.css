@@ -110,7 +110,7 @@
   height: 78%;
   opacity: 0;
   overflow: hidden;
-  transform: translate(18%, -4%) scale(.66);
+  transform: translate(6%, 4%) scale(.78);
 }
 .lk-first-time--hatching .lk-quiz-hatch__bird.lk-canonical-bird {
   animation: lk-hatch-bird-rise 2.3s cubic-bezier(.16,.9,.28,1.08) both;
@@ -160,35 +160,23 @@
   66%, 100% { opacity: 0; }
 }
 @keyframes lk-hatch-bird-rise {
-  0%, 68% {
+  0%, 86% {
     opacity: 0;
     visibility: hidden;
-    clip-path: inset(0 0 45% 0);
-    transform: translate(18%, -4%) scale(.66);
+    clip-path: inset(0);
+    transform: translate(6%, 4%) scale(.78);
   }
-  69% {
+  87% {
     opacity: 0;
     visibility: visible;
-    clip-path: inset(0 0 45% 0);
-    transform: translate(18%, -4%) scale(.66);
+    clip-path: inset(0);
+    transform: translate(6%, 4%) scale(.78);
   }
-  77% {
-    opacity: .32;
-    visibility: visible;
-    clip-path: inset(0 0 45% 0);
-    transform: translate(12%, -3%) scale(.76);
-  }
-  86% {
-    opacity: .62;
-    visibility: visible;
-    clip-path: inset(0 0 20% 0);
-    transform: translate(7%, -5%) scale(.86);
-  }
-  94% {
-    opacity: .9;
+  92% {
+    opacity: .52;
     visibility: visible;
     clip-path: inset(0);
-    transform: translate(2%, -7%) scale(.96);
+    transform: translate(3%, -2%) scale(.9);
   }
   100% {
     opacity: 1;
@@ -201,22 +189,25 @@
   0%, 56% { transform: none; opacity: 0; }
   62% { transform: none; opacity: .58; }
   66% { transform: translateX(0); opacity: 1; }
-  78% { transform: translateX(-12px); opacity: .72; }
-  88%, 100% { transform: translateX(-18px); opacity: 0; }
+  82% { transform: translateX(-8px); opacity: 1; }
+  92% { transform: translateX(-14px); opacity: .62; }
+  100% { transform: translateX(-18px); opacity: 0; }
 }
 @keyframes lk-shell-right-open {
   0%, 56% { transform: none; opacity: 0; }
   62% { transform: none; opacity: .58; }
   66% { transform: translateX(0); opacity: 1; }
-  78% { transform: translateX(12px); opacity: .72; }
-  88%, 100% { transform: translateX(18px); opacity: 0; }
+  82% { transform: translateX(8px); opacity: 1; }
+  92% { transform: translateX(14px); opacity: .62; }
+  100% { transform: translateX(18px); opacity: 0; }
 }
 @keyframes lk-hatch-light-window {
   0%, 30% { opacity: 0; }
-  46% { opacity: .28; }
-  58% { opacity: .72; }
-  68% { opacity: .92; }
-  84%, 100% { opacity: 0; }
+  46% { opacity: .18; }
+  58% { opacity: .32; }
+  68% { opacity: .45; }
+  86% { opacity: .2; }
+  100% { opacity: 0; }
 }
 
 /* The hook reserves real breathing room above and below the egg.  The old

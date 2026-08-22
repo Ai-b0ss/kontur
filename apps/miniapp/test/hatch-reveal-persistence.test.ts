@@ -86,13 +86,13 @@ test('the intact egg stays singular until the shell actually begins opening', as
   );
   assert.match(
     css,
-    /@keyframes lk-hatch-bird-rise[\s\S]*?0%,\s*68%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*hidden;[\s\S]*?clip-path:\s*inset\(0 0 45% 0\);[\s\S]*?transform:\s*translate\(18%,\s*-4%\) scale\(\.66\);[\s\S]*?69%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*visible;[\s\S]*?77%\s*\{[\s\S]*?opacity:\s*\.32;[\s\S]*?clip-path:\s*inset\(0 0 45% 0\);[\s\S]*?transform:\s*translate\(12%,\s*-3%\) scale\(\.76\);[\s\S]*?86%\s*\{[\s\S]*?opacity:\s*\.62;[\s\S]*?clip-path:\s*inset\(0 0 20% 0\);/,
-    'the bird must stay hidden until the shell opens, then reveal its body before the lower tail',
+    /@keyframes lk-hatch-bird-rise[\s\S]*?0%,\s*86%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*hidden;[\s\S]*?clip-path:\s*inset\(0\);[\s\S]*?87%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?visibility:\s*visible;[\s\S]*?92%\s*\{[\s\S]*?opacity:\s*\.52;[\s\S]*?clip-path:\s*inset\(0\);/,
+    'the complete bird silhouette must stay hidden until both shell halves have opened',
   );
   assert.match(
     css,
-    /@keyframes lk-shell-left-open[\s\S]*?0%,\s*56%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?62%\s*\{[\s\S]*?opacity:\s*\.58;[\s\S]*?66%\s*\{[\s\S]*?opacity:\s*1;/,
-    'the duplicate shell layer must stay invisible while the base egg is still intact',
+    /@keyframes lk-shell-left-open[\s\S]*?0%,\s*56%\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?62%\s*\{[\s\S]*?opacity:\s*\.58;[\s\S]*?66%\s*\{[\s\S]*?opacity:\s*1;[\s\S]*?82%\s*\{[\s\S]*?opacity:\s*1;[\s\S]*?92%\s*\{[\s\S]*?opacity:\s*\.62;/,
+    'the two shell halves must remain readable until the complete bird begins fading in',
   );
   assert.match(
     css,

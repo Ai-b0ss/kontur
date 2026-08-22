@@ -15,3 +15,12 @@
 - Commit `23f6d016` restored the executor script byte-for-byte to its safe read-only state, preventing a second reset.
 - Available executor evidence does not contain a retained pre-reset export or Time Travel bookmark; backup status is `UNKNOWN`, not claimed as PASS.
 - Telegram `/start` and first-time onboarding remain `HOLD` because this VM has no authenticated Telegram user session. No synthetic user was created after reset.
+
+## 2026-08-22 — quiz hatch state-machine candidate
+
+- Replaced split-shell geometry with an explicit frontend-only `pulse -> cracks -> flash -> reveal -> settled` sequence; no backend, API, scoring, D1, migration, bot, Telegram, taxonomy, or plumage asset changed.
+- The visual sequence starts after the q8 response gesture. Flash is fail-closed until both the API result and decoded final bird asset are ready, so fast and slow responses cannot skip visual phases.
+- The first Chromium run exposed a real empty-circle frame before handoff. Commit `1d6b0e72` hides the clipped result frame until the flash covers the egg-to-bird replacement.
+- Mini App tests, typecheck, production build, and isolated Chromium acceptance passed. Chromium covered 320x568, 390x844, and 430x1000 in normal and reduced motion, plus a delayed hatch API.
+- Fresh MP4 and 10 fps frame-sheet were manually reviewed at normal speed and frame-by-frame. No premature bird, empty frame, stale q8 copy, shell shard, early tail, settled geometry jump, route return, wrong hatch header, layout jump, or avatar bleed remained.
+- Production was not deployed or otherwise mutated by this candidate.

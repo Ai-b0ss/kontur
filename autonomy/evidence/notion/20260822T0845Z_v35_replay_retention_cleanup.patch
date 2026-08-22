@@ -1,0 +1,46 @@
+diff --git a/payload/conversation_segments.py b/payload/conversation_segments.py
+--- a/payload/conversation_segments.py
++++ b/payload/conversation_segments.py
+@@
+     def _cleanup_locked(self) -> bool:
+         cutoff = time.time() - self.ttl
+         before = len(self._items)
+         self._items = {
+             key: item for key, item in self._items.items() if item.updated_at >= cutoff
+         }
+@@
+         for key in stale_locks:
+             self._locks.pop(key, None)
+-        return len(self._items) != before
++        replay_changed = self._enforce_replay_budget_locked()
++        return len(self._items) != before or replay_changed
+@@
+-    def _enforce_replay_budget_locked(self) -> None:
++    def _enforce_replay_budget_locked(self) -> bool:
+         now = time.time()
+         total = 0
++        changed = False
+         candidates: list[tuple[str, float, int]] = []
+         for key, item in self._items.items():
+             if item.replay_payload is None:
+                 continue
+             if item.replay_updated_at is None or now - item.replay_updated_at > REPLAY_TTL:
+                 item.replay_payload = None
+                 item.replay_unavailable = True
++                changed = True
+                 continue
+             size = len(json.dumps(item.replay_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf8"))
+             total += size
+             candidates.append((key, item.replay_updated_at, size))
+         if total <= MAX_TOTAL_REPLAY_BYTES:
+-            return
++            return changed
+         for key, _, size in sorted(candidates, key=lambda row: row[1]):
+             item = self._items[key]
+             item.replay_payload = None
+             item.replay_unavailable = True
++            changed = True
+             total -= size
+             if total <= MAX_TOTAL_REPLAY_BYTES:
+                 break
++        return changed

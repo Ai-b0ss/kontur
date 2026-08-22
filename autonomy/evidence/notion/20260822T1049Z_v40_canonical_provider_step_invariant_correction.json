@@ -1,0 +1,50 @@
+{
+  "schema": "notion_core_v40_canonical_provider_step_invariant_correction_v1",
+  "created_at_utc": "2026-08-22T10:49:00Z",
+  "worker": "NOTION_CORE",
+  "source": {
+    "core_pr": 7,
+    "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_integration_pr": 8,
+    "agent_head": "8c46616f6c4d038fc3b578a0e516aa7fb832a0a1",
+    "server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "account_pool_blob": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f"
+  },
+  "finding": {
+    "name": "canonical handoff still says exactly one provider entry although exact server deliberately permits bounded planner-correction provider steps",
+    "severity": "blocking_implementation_spec_conflict",
+    "exact_source": [
+      "handle_openai_responses performs the initial or continuation completion through lease.run(..., retry_operation=initial_completion)",
+      "the same handler evaluates planner output in a bounded correction loop and can deliberately call lease.run again for a malformed, unavailable or refusal-style planner recommendation",
+      "correction_attempt == 2 is the exhaustion boundary; correction provider steps are intentional product behavior, not transport retries",
+      "the same server also contains a separate foreground transport recursion that is an implicit retry and must be suppressed after durable intent"
+    ],
+    "risk": "Implementing the literal handoff phrase 'exactly one provider entry' would either delete valid planner-correction behavior or force the durable transaction to end too early. Conversely, leaving correction lease.run calls on default failover would permit an implicit extra provider attempt after durable intent."
+  },
+  "corrected_invariant": {
+    "before_intent": "local lease/account acquisition only; provider call count must remain zero",
+    "after_intent": "no implicit provider replay: every deliberate planner step may enter the already-selected provider at most once, with AccountLease failover disabled and the outer foreground transport recursion disabled",
+    "correction": "a valid bounded planner correction is allowed under the same unresolved durable intent and on the same selected lease/account; a transport failure during any deliberate step leaves the intent unresolved and publishes no client result",
+    "finalize": "after the first valid final completion, build one canonical Responses or compaction payload and strictly finalize it before memory cache, reservation or client projection",
+    "retry_after_success": "an exact retry or restart after durable finalize adds zero provider calls and returns the same durable payload/identifiers"
+  },
+  "acceptance_counter_wording": {
+    "replace": "exactly one provider entry",
+    "with": "no implicit provider replay; each deliberate planner step is attempted at most once",
+    "ambiguous_transport_case": "provider step count does not increase after the failing deliberate step; there is no sibling failover and no outer transport retry"
+  },
+  "local_review": {
+    "v39_evidence_revalidated": true,
+    "v36_account_pool_opt_out_still_required": true,
+    "v37_route_before_intent_still_required": true,
+    "windows_gate_ready": false,
+    "reason_windows_not_started": "Stage-B server orchestration is not yet exact-local green"
+  },
+  "safety": {
+    "product_branch_mutated": false,
+    "hosted_ci_started": false,
+    "live_provider_started": false,
+    "rotation_policy_changed": false
+  },
+  "next": "Build the exact-local server/account-pool orchestration using this corrected provider-step invariant, then run the full local Stage-B matrix before any native-Windows gate."
+}

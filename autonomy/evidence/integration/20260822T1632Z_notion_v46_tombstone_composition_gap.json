@@ -1,0 +1,64 @@
+{
+  "schema": "integration_helper_evidence_v1",
+  "worker": "INTEGRATION_HELPER",
+  "finding": "NOTION_V46_OMITS_CANONICAL_AGENT_TOMBSTONE_WIRING",
+  "verdict": "SOURCE_LEVEL_EXACT_GAP_REPRODUCED",
+  "checked_at_utc": "2026-08-22T16:32:42Z",
+  "fresh_heads": {
+    "notion_agent_pr8": "eaa7e812cb502649fb5291143070b33bfc94380e",
+    "notion_core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "qwen_pr6_observed": "3f5729180f6669551d8a48a1c5e9be2e756445b3"
+  },
+  "exact_sources": {
+    "v46_composition_materializer": {
+      "path": "autonomy/evidence/notion/20260822T1605Z_v46_agent_core_composition_materializer.py",
+      "git_blob_sha": "76fc60af515cc6a9a0212ff6bcf1de957f6631c3"
+    },
+    "agent_canonical_tombstone_wrapper": {
+      "repo": "Ai-b0ss/notion-agent-bridge",
+      "path": "tools/materialize_agent_wiring_with_tombstones.py",
+      "git_blob_sha": "859039a5e408bc84e7046372cdb509131eb37a97"
+    },
+    "agent_server_transform": {
+      "repo": "Ai-b0ss/notion-agent-bridge",
+      "path": "tools/apply_startup_status_cleanup.py",
+      "git_blob_sha": "2ed85ece7d3323b1619ec0963d3021c1623d0e0a"
+    },
+    "tombstone_transform": {
+      "repo": "Ai-b0ss/notion-agent-bridge",
+      "path": "tools/apply_subagent_tombstone_wiring.py",
+      "git_blob_sha": "40ab3a448e33fb8a8c3ce045ef31a815d0554823"
+    },
+    "base_agent_materializer": {
+      "repo": "Ai-b0ss/notion-agent-bridge",
+      "path": "tools/materialize_agent_wiring.py",
+      "git_blob_sha": "87e62344acf93a0298aac8a7c3139216336162d1"
+    }
+  },
+  "proof": [
+    "V46 imports and calls apply_startup_status_cleanup.apply as agent_server_apply, then compiles server_after_agent.",
+    "V46 never imports or calls apply_subagent_tombstone_wiring/apply_tombstone_wiring.",
+    "The current canonical Agent wrapper explicitly applies apply_tombstone_wiring after base_wiring.materialize and requires exactly one subagent-uncertain-tasks.json marker.",
+    "apply_startup_status_cleanup.py contains no subagent-uncertain-tasks.json marker; that marker is introduced by apply_subagent_tombstone_wiring.py.",
+    "Therefore V46 isolated composed server bytes do not represent the current canonical Agent tombstone-path wiring.",
+    "The canonical Agent wrapper cannot simply be run after V46: base_wiring.materialize re-invokes the exact-source Agent transforms, while apply_startup_status_cleanup requires the frozen old server blob that V46 has already transformed."
+  ],
+  "risk": "A green Stage-B/Agent regression run on V46-composed bytes could omit the durable subagent uncertainty path that the current Agent safety contract requires. That would test a different product than the canonical Agent materialization and can hide restart/no-replay failures.",
+  "candidate": {
+    "probe": "autonomy/v3/tools/integration_notion_v46_tombstone_composition_probe.py",
+    "patch": "autonomy/v3/candidates/NOTION_V46_TOMBSTONE_COMPOSITION_20260822.patch",
+    "minimum_change": "Apply the current exact tombstone transform immediately after the current exact Agent server transform inside V46 and assert exactly one tombstone marker.",
+    "important_limit": "This only fixes isolated composed bytes. It does not replace the canonical Agent crash-safe transaction/recovery materializer; final product installation still needs a composed transactional materializer."
+  },
+  "required_regressions": [
+    "V46 composed server contains exactly one subagent-uncertain-tasks.json wiring marker.",
+    "Current Agent tombstone restart/no-replay tests run against the exact composed server bytes, not only the standalone Agent postimage.",
+    "Protected Core Stage-B no-failover invariants remain green on those same composed bytes.",
+    "Final product materialization preserves the Agent journal/backups/recovery guarantees rather than using V46 --apply as the production installer."
+  ],
+  "ci": {
+    "triggered": false,
+    "reason": "Notion Core/Agent owners have not yet reached their exact local composed gate; helper must not race their CircleCI gate."
+  },
+  "live_systems_touched": false
+}

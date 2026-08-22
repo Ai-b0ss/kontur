@@ -52,11 +52,17 @@ Targeted-проверки на ChatGPT hosted машине без provider/вн�
 3. Если кластер зелёный — искать следующий воспроизводимый Core-дефект в restart/tool-result/OpenCode/subagents/skills/errors; узкую механику cooldown/account selection не забирать у QWEN_RELIABILITY.
 4. Финальный большой рубеж после офлайн exact-tree проверки: один доказанный live многошаговый `read_file → tool result → следующий Qwen turn → bash → tool result → final`, затем restart/failover; уже доказанные provider-прогоны не повторять.
 
-## Постоянная память — старт текущего запуска
+## Постоянная память
+Старт запуска:
 - LATEST Git blob SHA: `0cbc9a1a425b6a09b627cf72ddb41a4e970a7d1f`;
 - capsule: `20260822T024825Z-35b7c606e9`;
 - archive SHA-256: `2c06c2b52ca4ed2d4e51d5ad54d1e7c2b92ed30644f9c99f6cc752b1b718e92a`;
 - exact `capsule_runtime_v4.py` Git blob: `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`;
 - manifest + обе parts материализованы exact bytes; нормативный v4 `restore`: PASS.
 
-После существенной работы требуется новый v4 checkpoint/pack/upload/reread/CAS. До его публикации этот раздел не считать завершённым.
+После работы:
+- exact v4 pack: capsule `20260822T035212Z-e334419500`, archive SHA-256 `8756ecb3a92dd097385927a512bf5e45009d96c56ad0a35b60556681e8ac3065`;
+- uploaded part blobs после reread: `a3fe6a9ce00c4a0dfa72d10839683f3b17a85852` и `f1217bb4d39f2b34e3732b86b793443c272e1bff`, совпадают с локальными `git hash-object`;
+- uploaded manifest blob после reread: `5cd77bfb873f463be9d1517464c9c44abd7f4a35`, совпадает с локальным;
+- перед CAS `LATEST` всё ещё имел исходный blob `0cbc9a1a...`; старый LATEST сохранён как PREVIOUS;
+- новый LATEST опубликован через `update_file` с exact parent SHA, без force-write; новый LATEST blob `dc12d4cb68e1c9f8522025783b8135e83939cfda`.

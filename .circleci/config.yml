@@ -28,11 +28,21 @@ jobs:
             pnpm install --frozen-lockfile
             pnpm -F @kontur/miniapp build
       - run:
-          name: Chromium diagnostic
+          name: Chromium diagnostic with HTTP URL logging
           no_output_timeout: 25m
           command: |
             set +e
             mkdir -p /tmp/kontur-circle-diagnostic "$KONTUR_TELEGRAM_EVIDENCE_DIR"
+            python3 - <<'PY'
+            from pathlib import Path
+            p=Path('apps/miniapp/test/telegram-hatch-browser.mjs')
+            s=p.read_text()
+            needle="  page.on('pageerror', (error) => errors.push(error.message));"
+            insert=needle+"\n  page.on('response', (response) => { if (response.status() >= 400) errors.push(`HTTP ${response.status()} ${response.url()}`); });"
+            if needle not in s:
+                raise SystemExit('diagnostic injection point missing')
+            p.write_text(s.replace(needle, insert, 1))
+            PY
             pnpm -F @kontur/miniapp exec playwright install --with-deps chromium > /tmp/kontur-circle-diagnostic/playwright-install.log 2>&1
             install_status=$?
             if [ "$install_status" -eq 0 ]; then
@@ -53,6 +63,7 @@ jobs:
             diag_branch="diagnostics/circle-kontur-browser-20260822"
             git config user.name "Kontur Circle Diagnostic"
             git config user.email "kontur-circle@users.noreply.github.com"
+            git restore apps/miniapp/test/telegram-hatch-browser.mjs 2>/dev/null || true
             git switch --create "$diag_branch" "$CIRCLE_SHA1"
             mkdir -p docs/product/evidence/runtime/circle-browser-diagnostic
             cp /tmp/kontur-circle-diagnostic/status.txt docs/product/evidence/runtime/circle-browser-diagnostic/status.txt 2>/dev/null || true

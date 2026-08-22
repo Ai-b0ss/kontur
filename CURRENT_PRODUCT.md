@@ -1,7 +1,10 @@
 # Контур — текущий продукт
 
-**Статус:** OWNER-CANONICAL · 2026-08-17  
+**Статус:** OWNER-CANONICAL · CORE revalidated 2026-08-22 · draft PR #12
+
 **Приоритет:** этот файл кратко фиксирует текущий продукт. Наличие старой механики в коде или документации НЕ делает её частью продукта.
+
+Финальный verdict/evidence находится в `docs/product/evidence/KONTUR_FINAL_REQUIREMENT_MATRIX_2026-08-22.md`, `KONTUR_CORE_DONE_REVALIDATION_2026-08-22.md` и owner-package `MANIFEST.json`. Merge/main/production не авторизованы.
 
 ## 1. Контур в одной строке
 
@@ -109,11 +112,11 @@ Owner указывал более ранний preview:
 Актуальный порядок — [`IMPLEMENTATION_PRIORITY.md`](IMPLEMENTATION_PRIORITY.md).
 
 Коротко:
-1. закончить зелёный clean-checkout handoff PR #11;
-2. не разрушительно доказать текущее public/deployed frontend generation перед человеческим smoke;
-3. продолжать forensic `5dabce57` и exhaustive legacy reachability отдельно, не блокируя передачу проекта;
+1. CORE acceptance и secret-safe handoff закрыты на exact release-record commit;
+2. PR #12 сохранять draft до отдельного решения owner;
+3. forensic `5dabce57` и exhaustive legacy reachability можно продолжать отдельно, не переоткрывая CORE;
 4. не изобретать заново A–E и не генерировать новые bird concepts без нового owner decision;
-5. merge в `main` — только после отдельного явного разрешения owner.
+5. merge в `main` и production — только после отдельного явного разрешения owner.
 
 ## 9. Источники истины
 

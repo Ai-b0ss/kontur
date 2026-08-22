@@ -1,5 +1,7 @@
 # KONTUR night full-acceptance audit — 2026-08-18T21:15Z
 
+> **Historical audit snapshot.** Its pending/failing verdict describes the 18.08 head and is superseded for release status by [`KONTUR_FINAL_REQUIREMENT_MATRIX_2026-08-22.md`](KONTUR_FINAL_REQUIREMENT_MATRIX_2026-08-22.md). Keep the findings as authority inputs; do not use this file as the current candidate verdict.
+
 Scope: adversarial verification of PR #12 against the full owner/TZ authority stack. This file is evidence only. It does not authorize `main`, production, production D1, destructive resets, Telegram publication, or any production Cloudflare write.
 
 Exact audited head before this evidence commit: `53d557e0852da9759473b8791b220e6a050fd256`.

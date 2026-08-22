@@ -1,6 +1,6 @@
 # Контур
 
-> **Текущий кандидат на передачу и проверку (19.08.2026).** Рабочая ветка: `fix/kontur-core-visual-continuity-20260818`, PR #12. Текущий проверяемый коммит: `60d1703a958757dc27222338cc41a9349382efb5`. Это развитие чистой handoff-базы `cleanup/repo-hygiene-shareable-source`: в нём собран текущий первый пользовательский путь, единая система шести визуальных персонажей и исправления непрерывности q1→q8→раскрытие. Полный Chromium/CircleCI и non-destructive Cloudflare staging proof для этого exact head ещё не закрыты, поэтому PR остаётся draft и в production не продвигается.
+> **KONTUR CORE — финальный кандидат 22.08.2026.** Рабочая ветка: `fix/kontur-core-visual-continuity-20260818`, draft PR #12. Runtime/product baseline: `287b9aa294dbec0af077cdcf96e8e5b864f32c03`; exact closing commit и все binding Circle/Cloudflare/package IDs записаны в финальном `MANIFEST.json` и канонических GitHub comments. Исчерпывающая матрица, real Chromium, exact isolated staging, backend/economy/persistence и secret-safe handoff закрыты. PR намеренно остаётся draft; merge/main/production не разрешены.
 >
 > **Начни отсюда.** Это единая текущая рабочая Git-база Telegram Mini App + бота «Контур». Она экспортирована из проверенного изолированного Codex `v86-local-candidate` 14 августа и содержит доказанную продуктовую линию A–E, Worker/D1 runtime, migrations, tests и release utilities.
 
@@ -31,7 +31,7 @@
 - q8 разделяет `eggResponding` и `hatchReady`: видимое раскрытие начинается только после завершения жеста и готовности результата;
 - hatching и reveal используют одну непрерывную сцену и один `QuizEgg`; отдельный дублирующий `ResultBird` удалён;
 - текущая скорлупа раскрывается двумя согласованными половинами, птица остаётся за скорлупой;
-- следующий обязательный gate — реальный Chromium user journey на exact head, затем isolated non-destructive staging и Telegram/WebView smoke.
+- exact-head real Chromium и isolated staging gates закрыты; воспроизводимые ссылки и hashes находятся в финальном evidence index/package.
 
 Current implementation:
 - `apps/miniapp/src/screens/LocalKontur.tsx`;
@@ -60,12 +60,13 @@ Current implementation:
 3. [`docs/product/source/FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md`](docs/product/source/FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md) — exact final ТЗ;
 4. [`docs/product/evidence/PREVIEW_INTEGRATION_GATE_2026-08-14.md`](docs/product/evidence/PREVIEW_INTEGRATION_GATE_2026-08-14.md) — exact интеграционный gate после STEP E;
 5. [`docs/product/evidence/RESULT_TAXONOMY_ALIGNMENT_2026-08-14.md`](docs/product/evidence/RESULT_TAXONOMY_ALIGNMENT_2026-08-14.md) — exact taxonomy/owner acceptance;
-6. [`docs/product/evidence/KONTUR_REQUIREMENT_MATRIX_2026-08-18.md`](docs/product/evidence/KONTUR_REQUIREMENT_MATRIX_2026-08-18.md) — текущая матрица выполненного/ожидающего проверки;
-7. [`ARCHITECTURE.md`](ARCHITECTURE.md) и [`CODEBASE_MAP.md`](CODEBASE_MAP.md);
-8. [`HANDOFF.md`](HANDOFF.md);
-9. [`AGENTS.md`](AGENTS.md) — правила для AI/агентов;
-10. [`docs/provenance/`](docs/provenance/) — provenance/release evidence;
-11. [`docs/archive/README.md`](docs/archive/README.md) — история, не ТЗ.
+6. [`docs/product/evidence/KONTUR_FINAL_REQUIREMENT_MATRIX_2026-08-22.md`](docs/product/evidence/KONTUR_FINAL_REQUIREMENT_MATRIX_2026-08-22.md) — финальная исчерпывающая матрица;
+7. [`docs/product/evidence/KONTUR_CORE_DONE_REVALIDATION_2026-08-22.md`](docs/product/evidence/KONTUR_CORE_DONE_REVALIDATION_2026-08-22.md) и [`KONTUR_EVIDENCE_INDEX_2026-08-22.md`](docs/product/evidence/KONTUR_EVIDENCE_INDEX_2026-08-22.md);
+8. [`ARCHITECTURE.md`](ARCHITECTURE.md) и [`CODEBASE_MAP.md`](CODEBASE_MAP.md);
+9. [`HANDOFF.md`](HANDOFF.md);
+10. [`AGENTS.md`](AGENTS.md) — правила для AI/агентов;
+11. [`docs/provenance/`](docs/provenance/) — provenance/release evidence;
+12. [`docs/archive/README.md`](docs/archive/README.md) — история, не ТЗ.
 
 ## Архитектура
 
@@ -121,7 +122,7 @@ pnpm install --frozen-lockfile
 pnpm check
 ```
 
-Для текущего PR этого недостаточно для финального выпуска: нужен отдельный реальный Chromium/CircleCI user journey, затем isolated non-destructive staging и Telegram/WebView smoke именно на проверяемом exact head.
+Финальная приёмка дополнительно запускает `pnpm -F @kontur/miniapp test:browser:kontur` в real Chromium и live synthetic journey только на isolated staging. Точные команды и binding IDs перечислены в `HANDOFF.md` и evidence index.
 
 Dev:
 

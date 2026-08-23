@@ -1,0 +1,84 @@
+{
+  "schema": "notion_agent_exact_pair_handoff_v1",
+  "created_at_msk": "2026-08-23T20:55:00+03:00",
+  "agent_pr": 8,
+  "agent_head": "4b344547d5e95bd4b3c62f5b80186059d849ff08",
+  "core_pr": 7,
+  "core_head_read_only": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "frozen_preimages": {
+    "payload/account_pool.py": {
+      "git_blob": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f",
+      "bytes": 43173
+    },
+    "payload/server.py": {
+      "git_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+      "bytes": 112748
+    }
+  },
+  "exact_materializers": {
+    "tools/apply_account_pool_dynamic_reservation.py": "80aeb1872c1cab7f51c33039584b5786e441f9f0",
+    "tools/apply_startup_status_cleanup.py": "20c2fb2e550daab52f3d27e791fa500002a73735",
+    "tools/apply_subagent_tombstone_wiring.py": "40ab3a448e33fb8a8c3ce045ef31a815d0554823",
+    "tools/materialize_agent_wiring.py": "30fb89286eb4457b25b2145918279fec2d735042",
+    "tools/materialize_agent_wiring_with_tombstones.py": "859039a5e408bc84e7046372cdb509131eb37a97"
+  },
+  "fresh_pair_target": {
+    "payload/account_pool.py": {
+      "git_blob": "c9ca6f3b4545e469966369a4220a6a2a60bf3697",
+      "bytes": 48066
+    },
+    "payload/server.py": {
+      "git_blob": "5c04b8cce34b29e63bf1839d59476f8081763c2b",
+      "bytes": 116047
+    }
+  },
+  "pair_identity_evidence": {
+    "prior_clean_composition_claim_comment": 5387025989,
+    "server_size_derivation": "112748 + exact current startup/server replacement delta 3153 + exact tombstone replacement delta 146 = 116047",
+    "account_pool_size_derivation": "43173 + exact current account-pool replacement delta 4893 = 48066",
+    "historical_server_blob_ba52edc7": "STALE_DO_NOT_PROMOTE_AFTER_STARTUP_CLEANUP_ROOT_FIX"
+  },
+  "durability_status": {
+    "fresh_target_blobs_currently_fetchable_by_git_blob_api": false,
+    "meaning": "hash/size alone are not accepted as materialized bytes; Core must reproduce from the exact preimages/materializers above, read back the produced bytes, verify these exact git blobs and sizes, and keep the bytes in its same-byte composition tree or another reachable immutable object"
+  },
+  "delegated_owner_engineer_exact_candidates": {
+    "payload/delegation_policy.py": "fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e",
+    "payload/delegation_dispatcher.py": "a9d15b79b421cd29b094b549be06d2b0319e26d9",
+    "payload/notion_delegated_model_step.py": "f36e9c91355dec667173b6265dd550554fb0f05d",
+    "payload/subagent_entrypoint.py": "2d57651b408ef2e6c75f29855f7cdbaeafa97c2e",
+    "payload/server_subagent_lifecycle.py": "f47838b338f2bd94163cf466110f939c065ac041",
+    "superseded_entrypoint": "aebefce4ff3e47efc9813ce4e49e70ca8c44972f"
+  },
+  "required_agent_matrix": [
+    "tests.test_prompt_modes",
+    "tests.test_prompt_policy_identity",
+    "tests.test_responses_prompt_mode_http_contract",
+    "tests.test_responses_prompt_wiring_contract",
+    "tests.test_delegation_policy",
+    "tests.test_delegation_dispatcher",
+    "tests.test_notion_delegated_model_step",
+    "tests.test_subagent_entrypoint",
+    "tests.test_delegated_tool_loop_runtime_validation",
+    "tests.test_delegated_uncertain_failover_boundary",
+    "tests.test_dynamic_reservation_inlease_reselect",
+    "tests.test_notion_delegated_synthetic_call_ids",
+    "tests.test_notion_delegated_thread_reentry",
+    "tests.test_notion_delegation_dynamic_reservations",
+    "tests.test_notion_subagent_runtime",
+    "tests.test_notion_subagent_server_reservations",
+    "tests.test_reservation_aware_lease",
+    "tests.test_responses_cooldown_failover",
+    "tests.test_startup_status_cleanup",
+    "tests.test_startup_status_repeated_cancellation",
+    "tests.test_startup_cleanup_failure_boundary_candidate",
+    "tests.test_subagent_lifecycle",
+    "tests.test_subagent_tombstone_post_replace_sync_failure"
+  ],
+  "authorization_boundary": {
+    "windows_allowed_now": false,
+    "circle_connectivity_reprobe_needed": false,
+    "live_notion_codex_allowed_now": false,
+    "next": "Core reproduces pair byte-for-byte; same-byte Agent matrix and Core Stage-B/full local matrix green; coverage/readiness verifiers green; only then one targeted native Windows gate"
+  }
+}

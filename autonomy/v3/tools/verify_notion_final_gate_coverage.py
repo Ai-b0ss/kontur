@@ -22,6 +22,20 @@ REQUIRED_EXACT_MODULES = (
     "tests.test_dynamic_reservation_lease_session",
     "tests.test_dynamic_reservation_inlease_reselect",
     "tests.test_real_codex_cli_probe_contract",
+    # Prompt-mode/delegation safety is part of the final same-byte Agent+Core
+    # contract. A generic Stage-B PASS must not be able to omit it.
+    "tests.test_prompt_modes",
+    "tests.test_prompt_policy_identity",
+    "tests.test_responses_prompt_mode_http_contract",
+    "tests.test_responses_prompt_wiring_contract",
+    "tests.test_delegation_policy",
+    "tests.test_delegation_dispatcher",
+    "tests.test_notion_delegated_model_step",
+    "tests.test_subagent_entrypoint",
+    # Current stage-aware routing/wiring regressions promoted on the exact
+    # Agent line are mandatory for the final composed candidate as well.
+    "tests.test_foreground_slot_routing",
+    "tests.test_server_subagent_wiring_materializer",
 )
 
 # The exact filename can evolve while Stage B is being composed. What matters

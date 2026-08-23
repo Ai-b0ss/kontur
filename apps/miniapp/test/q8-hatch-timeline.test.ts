@@ -22,9 +22,12 @@ test('flash is fail-closed until timeline, API result, and decoded bird are all 
   assert.equal(canBeginHatchFlash('cracks', true, true, true), true);
 });
 
-test('normal and reduced-motion timelines preserve phase order without zero-duration collapse', () => {
-  assert.deepEqual(hatchTimings(false), { pulse: 400, cracks: 400, flash: 250, flashOut: 250, reveal: 500 });
-  assert.deepEqual(hatchTimings(true), { pulse: 80, cracks: 80, flash: 80, flashOut: 160, reveal: 220 });
+test('normal timeline is 1.4s on the ready path and reduced motion preserves non-zero phase order', () => {
+  const normal = hatchTimings(false);
+  assert.deepEqual(normal, { pulse: 300, cracks: 300, flash: 200, flashOut: 120, reveal: 600 });
+  assert.equal(normal.pulse + normal.cracks + normal.flash + normal.reveal, 1400);
+
+  assert.deepEqual(hatchTimings(true), { pulse: 60, cracks: 60, flash: 80, flashOut: 80, reveal: 220 });
   assert.equal(Object.values(hatchTimings(true)).every((duration) => duration > 0), true);
 });
 

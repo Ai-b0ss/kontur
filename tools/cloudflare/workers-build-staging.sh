@@ -3,6 +3,8 @@ set -euo pipefail
 
 # Disposable visual-proof executor. STAGING ONLY.
 # Exact product parent for this branch: d4971eb15e2da1198ef776ad48cd9a365a439b1b
+# This build phase prepares the isolated staging bundle/config only.
+# The connected Cloudflare Workers Builds deploy phase owns the actual staging deploy.
 # Production Worker/D1 are never written by this script.
 
 export CLOUDFLARE_STAGING_WORKER_NAME='kontur-igor-staging'
@@ -44,25 +46,4 @@ if ('route' in c || 'routes' in c || 'triggers' in c) throw new Error('productio
 console.log('KONTUR_STAGING_CONFIG_ISOLATION_PASS');
 NODE
 
-(
-  cd apps/worker
-  pnpm exec wrangler deploy --config wrangler.staging.generated.jsonc --keep-vars
-)
-
-node --input-type=module <<'NODE'
-const origin = 'https://kontur-igor-staging.igorekglukhovskii43.workers.dev';
-let html = '';
-for (let i = 0; i < 30; i += 1) {
-  const r = await fetch(`${origin}/?hatch_master_frame=${Date.now()}-${i}`, { headers: { 'cache-control': 'no-cache, no-store' } });
-  if (r.ok) {
-    html = await r.text();
-    if (/\/assets\/index-[A-Za-z0-9_-]+\.js/.test(html) && /\/assets\/index-[A-Za-z0-9_-]+\.css/.test(html)) break;
-  }
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-}
-if (!html) throw new Error('staging HTML unavailable after deploy');
-const js = html.match(/\/assets\/index-[A-Za-z0-9_-]+\.js/)?.[0];
-const css = html.match(/\/assets\/index-[A-Za-z0-9_-]+\.css/)?.[0];
-if (!js || !css) throw new Error('staging hashed assets missing');
-console.log(`KONTUR_STAGING_DEPLOY_PASS js=${js} css=${css}`);
-NODE
+echo KONTUR_STAGING_BUILD_PREP_PASS

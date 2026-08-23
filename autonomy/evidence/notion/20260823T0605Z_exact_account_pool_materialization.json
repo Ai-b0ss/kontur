@@ -1,5 +1,5 @@
 {
-  "schema": "notion_core_exact_agent_materialization_v2",
+  "schema": "notion_core_exact_agent_materialization_v3",
   "worker": "NOTION_CORE",
   "observed_agent_head": "ee0ae241b3ef19da7d3a69ddeecf6bb5476f91a9",
   "file": "payload/account_pool.py",
@@ -29,6 +29,11 @@
     "result_bytes": 49195,
     "result_git_blob_sha": "94b914627204a660da748347deeb032199bc97d2",
     "python_compile": "PASS",
+    "targeted_runtime": {
+      "protected_transport_error_allow_failover_false": "raises original transport error; pool failure accounting exactly once; switch_account calls = 0",
+      "protected_success_allow_failover_false": "returns result; success accounting exactly once",
+      "verdict": "EXACT_AGENT_ACCOUNT_PLUS_V41_RUNTIME_TARGETED_PASS"
+    },
     "verdict": "EXACT_AGENT_ACCOUNT_PLUS_V41_COMPOSITION_PASS"
   },
   "durable_content_handoff": {

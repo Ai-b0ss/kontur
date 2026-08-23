@@ -1,0 +1,42 @@
+{
+  "schema": "notion_core_exact_agent_materialization_v1",
+  "worker": "NOTION_CORE",
+  "observed_agent_head": "ee0ae241b3ef19da7d3a69ddeecf6bb5476f91a9",
+  "file": "payload/account_pool.py",
+  "source": {
+    "git_blob_sha": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f",
+    "bytes": 43173,
+    "retrieval": "GitHub fetch_blob exact content",
+    "local_git_blob_readback": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f"
+  },
+  "transformer": {
+    "path": "tools/apply_account_pool_dynamic_reservation.py",
+    "git_blob_sha": "80aeb1872c1cab7f51c33039584b5786e441f9f0",
+    "local_git_blob_readback": "80aeb1872c1cab7f51c33039584b5786e441f9f0"
+  },
+  "result": {
+    "bytes": 48066,
+    "git_blob_sha": "c9ca6f3b4545e469966369a4220a6a2a60bf3697",
+    "matches_prior_agent_expected_sha": true,
+    "python_compile": "PASS",
+    "verdict": "EXACT_ACCOUNT_POOL_TRANSFORM_REPRODUCED_PASS"
+  },
+  "durable_content_handoff": {
+    "status": "PARTIAL_DO_NOT_USE_AS_FILE_YET",
+    "base64_total_chars": 64088,
+    "correct_unreferenced_chunk_blobs_in_order_prefix": [
+      "ac568fdd272d4447e67a2480c568f14684553d91",
+      "c243825fe20bb2824e7ba4e3c9136f0d49bc0647",
+      "3aa80cb41bce1d9b5808073a3f87c55272f8f9aa"
+    ],
+    "note": "Only the first three ordered base64-text chunks are verified. Do not reconstruct the file from this partial set. Several failed trial blobs are intentionally unreferenced and must be ignored."
+  },
+  "safety": {
+    "product_refs_moved": false,
+    "circleci_started": false,
+    "github_actions_started": false,
+    "live_notion_or_codex": false,
+    "secrets_read_or_written": false
+  },
+  "remaining_immediate_blocker": "Exact transformed payload/server.py bytes with expected Git blob ba52edc7a8528d58acd2c5bef2b86c3ca84ca298 are still not durably available to Core; V50 composed PASS is not claimed."
+}

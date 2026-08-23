@@ -1,0 +1,30 @@
+{
+  "schema": "notion_core_current_head_materializer_blocker_v1",
+  "observed_at_utc": "2026-08-23T12:49:00Z",
+  "core_pr7_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_pr8_head": "4441bbab44f65e8898fae970c26aa55aa91c5e96",
+  "active_claim": "NOTION_CORE-20260823T1145Z",
+  "source_materializer_blob": "2ed85ece7d3323b1619ec0963d3021c1623d0e0a",
+  "exact_patch_blob": "98dd78481736ba04d56bbcdf3615c49772e5ec12",
+  "exact_regression_blob": "6a1a15235c399f4d7cc07d2bb9f63c45596ac257",
+  "reproduced_defect": "STATUS_REPLACEMENT awaits asyncio.shield(cleanup_task) while catching only CancelledError; if new_pool.aclose() fails, cleanup failure escapes before cleanup_task.result() can preserve the original startup CancelledError as primary.",
+  "minimal_fix": "After except asyncio.CancelledError: pass, catch BaseException and break; existing cleanup_task.result() then attaches cleanup failure as cause to the original startup failure.",
+  "local_runtime": "Python 3.13",
+  "targeted_regression": {
+    "verdict": "PASS",
+    "tests": 3,
+    "cases": [
+      "cleanup failure keeps startup cancellation primary",
+      "repeated cancellation does not interrupt successful cleanup",
+      "repeated cancellation plus cleanup failure keeps original primary"
+    ]
+  },
+  "composition_consequence": {
+    "old_transformed_server_blob": "ba52edc7a8528d58acd2c5bef2b86c3ca84ca298",
+    "old_transformed_server_status": "STALE_DO_NOT_PROMOTE",
+    "required_next": "Regenerate exact transformed server bytes from source f02cef6a0ffc202c75fbe71c520c72ac19ff876d with corrected startup materializer, read back exact Git blob/size, compile, then rerun same-byte Agent+Core Stage-B/full matrix before any native Windows gate."
+  },
+  "windows_ready": false,
+  "native_windows_started": false,
+  "live_notion_codex_started": false
+}

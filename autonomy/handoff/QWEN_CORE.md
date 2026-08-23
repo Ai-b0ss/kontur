@@ -3,97 +3,99 @@
 Обновлено QWEN_CORE 2026-08-23.
 
 ## Текущая линия
-Repo: `Ai-b0ss/qwen-free-api`
-Branch: `autopilot/qwen-runtime-preflight-20260818`
-PR: #6
-Последний fresh product head: `747beb79d9f7f423c27e4b19c60949da83206b0b`.
+- Repo: `Ai-b0ss/qwen-free-api`
+- Branch: `autopilot/qwen-runtime-preflight-20260818`
+- PR: #6
+- Fresh product head после этого прохода: `c53ed44f415b3cf65d6356936d9a95ef9379735f`.
+- OWNER TEMPORARY CIRCLE FREEZE из `kontur#9` действует: CircleCI/его gate-ветки не запускать и не двигать до явной разморозки владельцем.
 
-Перед любой новой записью снова перечитать PR #6, `autonomy/OWNER_INTENT_RU.md`, `autonomy/CURRENT_RU.md`, `autonomy/handoff/QWEN_RELIABILITY.md`, issue #9, Circle policy и QWEN_CORE `LATEST.json`.
+Перед новой записью снова перечитать PR #6, `autonomy/OWNER_INTENT_RU.md`, `autonomy/CURRENT_RU.md`, `autonomy/handoff/QWEN_RELIABILITY.md`, issue #9, Circle policy и v4 LATEST/PREVIOUS.
 
-## Закрыто в этом проходе — required-tool reasoning leak
-На предыдущем head `2611b67fa01a0d939dc05821c21e163b36dc8ed1` при `requireToolCall=true` обычный `content` уже удерживался до полноценного tool-call, но `reasoning_content` и текст из `<think>...</think>` обходили этот барьер и шли напрямую в `onData()`.
+## Новый серьёзный Core RED — schema-invalid durable session record
+Fresh exact `src/session-store.js` blob на предыдущем product head `747beb79...`: `44b521bd026c82c8e9cc733af714a3d6b42f4ca9`.
 
-Root fix:
-- commit `42dbc2df3aa290a0eaa2a503bdf1bd33d9becdce`;
-- все reasoning/thinking SSE-дельты в `parseQwenSSE()` теперь проходят через тот же `emitData()` gate, что обычный content;
-- отвергнутый required-tool ответ не выпускает reasoning клиенту;
-- после принятия полноценного tool-call накопленный reasoning выпускается вместе с принятым ходом;
-- parser/account/cooldown/provider-circuit не менялись.
+`readSessionsFile()` сейчас проверяет только верхний объект `{sessions:{...}}`, но не схему каждой записи. Синтаксически корректный JSON вроде:
 
-Targeted hosted semantic check без provider/CI:
-`TOOL_REQUIRED_REASONING_LEAK_TARGET_PASS rejected_reasoning=2 accepted_reasoning=1`.
+`{ sessions: { damaged: { chatId: "new-thread", history: "not-an-array" } } }`
 
-Постоянный regression `scripts/tool-required-reasoning-leak-test.js` больше не standalone: commit `747beb79d9f7f423c27e4b19c60949da83206b0b` подключил его в штатный `npm test` сразу после `tool-required-terminal-frame-test.js`.
+принимается как хороший primary snapshot. Тогда:
+- backup не используется;
+- `recoveryState('damaged').uncertain === false`;
+- `getRecord()` возвращает этот `chatId` и строковый `history` как доверенное primary-состояние;
+- сервер может переиспользовать upstream thread при утраченной/повреждённой локальной истории, то есть fail-closed replay/restart boundary нарушается.
 
-Fresh compare `2611b67...747beb79` показывает только:
-- `src/chat-adapter.js` — root fix;
-- `package.json` — wiring regression в `npm test`.
+Hosted reproduction на логике, побайтно совпадающей с текущими `readSessionsFile/load/getRecord/recoveryState`, получен:
+`QWEN_SESSION_RECORD_SCHEMA_BUG_REPRODUCED primary_schema_unchecked=1 stale_thread_reused=1 backup_not_used=1`.
 
-Полный exact-tree `npm test` этим targeted proof НЕ заменяется и пока PASS не заявлен.
+Постоянный намеренно RED regression добавлен в PR #6:
+- commit `c53ed44f415b3cf65d6356936d9a95ef9379735f`;
+- `scripts/session-store-record-schema-recovery-test.js`.
 
-## CircleCI freeze — новый owner override
-Issue #9 содержит более свежую директиву владельца `OWNER TEMPORARY CIRCLE FREEZE — 2026-08-23`: до отдельного явного сообщения владельца полностью запрещено запускать CircleCI для Qwen/Notion/Kontur, двигать disposable gate branches ради запуска и тратить credits. Это временно сильнее общей `autonomy/ci/CIRCLECI_GATE_POLICY.md`.
+Regression требует:
+1. malformed primary record отвергает весь primary snapshot;
+2. валидный `.bak` поднимается как `recoveryUncertain`;
+3. backup `chatId` не переиспользуется (`chatId:null` до явного reconcile);
+4. поддерживаемый legacy string-record остаётся читаемым.
 
-Поэтому:
-- CircleCI в этом проходе = 0;
-- final Linux/Windows Circle gate не запускать до явной разморозки;
-- когда все локальные/exact prerequisites будут зелёными, состояние обозначать `READY_FOR_CIRCLE_AFTER_OWNER_RELEASE`, а не запускать gate самовольно.
+Тест намеренно НЕ включён в `npm test`, потому что продукт пока красный. Это допустимый временный standalone только до root fix; после targeted green его обязательно сразу подключить в штатный `npm test`.
 
-## Targeted Core evidence, которое сохраняет силу
-- plain-subagent exact cluster на ранее соответствующих байтах: `subagent dispatcher: PASS`;
-- owner/session/restart кластер ранее закрывает owner authority, большой owner/system checkpoint, stale-backup fail-closed, tool-result progress и pending multi-tool restart;
-- required-tool terminal-frame regression уже в `npm test`;
-- reasoning-leak invariant теперь root-fixed и regression тоже в `npm test`.
+## Следующий root fix
+Минимально чинить `src/session-store.js` в `readSessionsFile()` на свежих exact bytes:
+- каждая запись должна быть либо поддерживаемой legacy непустой строкой, либо не-массивным объектом;
+- если объект имеет `history`, оно обязано быть массивом;
+- `chatId`, если присутствует и не `null`, должен быть непустой строкой;
+- malformed record должен инвалидировать snapshot целиком, чтобы `load()` перешёл на backup и выставил uncertainty всем восстановленным ключам.
 
-Без нового контрпримера не открывать заново:
+Не расширять в этом же коммите схему без воспроизводимой необходимости. После fix:
+1. exact targeted `session-store-record-schema-recovery-test.js`;
+2. `session-store-restart-test.js`;
+3. stale-backup/system-retention/pending-tool restart cluster;
+4. только после green подключить новый regression в `npm test`.
+
+В этом проходе большой `session-store.js` не заменялся через Contents API: доступная операция требует полную замену файла, а собирать неизвестные байты вручную опаснее дефекта. Нужна побайтно проверенная материализация exact blob перед продуктовой записью.
+
+## Ранее закрытые Core invariants — без нового контрпримера не открывать заново
 - tool-result continuation/restart + pending-tool replay guard;
 - streaming tool checkpoint до выдачи клиенту;
 - assistant/system/project persistence;
 - duplicate `tool_call.id` semantics;
 - per-session serialization;
-- stale-backup recovery fail-closed;
+- stale-backup recovery fail-closed при реально невалидном/нечитаемом primary;
 - owner/system checkpoint + `QWEN_SYSTEM_CHECKPOINT_REJECTED`;
 - local checkpoint failure не штрафует provider account;
-- строгая ранняя валидация внешнего system-prompt mode/owner aliases;
-- direct agent/coding-subagents/plain subagents strict owner/engineer validation;
-- internal prompt-mode bounded-error regressions;
-- local tool `Error:` contract и required-argument validation;
+- строгая ранняя валидация system-prompt mode/owner aliases;
+- direct agent/coding/plain subagents strict owner/engineer validation;
+- local tool `Error:` contract + required-argument validation;
 - capability mode preflight;
 - durable owner authority type validation;
-- required-tool terminal frames и parser reset.
+- required-tool terminal frames/parser reset/reasoning gate.
 
 ## Координация с QWEN_RELIABILITY
-Fresh Reliability handoff/issue evidence:
+Fresh handoff до этого прохода:
 - account/cooldown/index/filename targeted cluster: 8/8 exact PASS;
 - provider-circuit cluster: 7/8 exact PASS;
-- остаётся exact `scripts/provider-safety-test.js` на locked dependency tree (`axios` отсутствует в hosted filesystem; semantic stub PASS запрещён).
+- единственный Reliability proof gap: exact `scripts/provider-safety-test.js` на настоящем locked dependency tree с axios.
 
-Core не трогает account-store/cooldown/provider-circuit. Перед общим экзаменом снова fresh-read Reliability и PR head.
+Core не трогает `account-store/cooldown/provider-circuit`.
 
-## Следующий точный порядок
-1. Fresh-read PR #6 head и Reliability. Если Core bytes не изменились — не повторять уже закрытый reasoning fix.
-2. На текущем stable SHA материализовать максимально точный stream/session/restart cluster и прогнать как минимум:
-   - `tool-required-reasoning-leak-test.js`;
-   - `tool-required-terminal-frame-test.js`;
-   - `tool-stream-truncation-test.js`;
-   - ближайшие stream lifecycle/restart/session pending-tool regressions.
-3. Закрыть Reliability exact `provider-safety-test.js` только на настоящем locked dependency tree.
-4. Когда Core + Reliability targeted green на одном стабильном SHA — выполнить полный exact-tree Linux `npm test` доступным бесплатным executor/local surface.
-5. Если после этого обязательный следующий шаг только Circle — выставить `READY_FOR_CIRCLE_AFTER_OWNER_RELEASE` и ждать явной разморозки. Не запускать Circle самостоятельно.
-6. После owner release: один native Windows Server 2022 Circle gate на тех же product bytes, locked install + полный offline suite, без provider/live/secrets/production.
-7. Только после Linux + native Windows green создавать Windows owner doctor/acceptance harness. Раньше не создавать.
+## Финальный порядок после закрытия нового RED
+1. Fresh PR head + fresh Reliability.
+2. Core session/restart cluster green на одном стабильном SHA.
+3. Reliability exact provider-safety proof green на тех же product bytes.
+4. Full exact-tree Linux `npm test` доступным бесплатным exact executor.
+5. Если остаётся только Circle — статус `READY_FOR_CIRCLE_AFTER_OWNER_RELEASE`; freeze не обходить.
+6. После явной разморозки — один native Windows Server 2022 gate на тех же product bytes, locked install + полный offline suite, без provider/live/secrets/production.
+7. Только после Linux + native Windows green создавать и проверять Windows owner doctor/acceptance harness.
 
-`QWEN_CORE_DONE` пока нет: full exact-tree Linux PASS, Reliability provider-safety exact PASS, native Windows PASS и проверенный owner-doctor ещё отсутствуют.
+`QWEN_CORE_DONE` пока нет.
 
 ## Постоянная память / v4 CAS
-Нормативный runtime fresh-read: `autonomy/v3/tools/capsule_runtime_v4.py`, Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`.
-
-Текущий `LATEST` fresh-read:
+Последний проверенный handoff до этого запуска указывал:
 - capsule `20260822T230801Z-b2fff032a7`;
 - archive SHA-256 `72602c3feae0ad139e4b17bc4e8b004ecf26e6796d704b45af9145803aa595fb`;
 - pointer blob `0fb9c8b2deb1d947c64a40db7e88b5905eb4edde`;
-- source_ref старой capsule `2611b67fa01a0d939dc05821c21e163b36dc8ed1`.
+- normative runtime blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`.
 
-В этом проходе новую v4 capsule пока НЕ опубликована: нормативный runtime был fresh-read exact из GitHub, но текущая hosted filesystem не получила его побайтно идентичную локальную копию для обязательного `pack -> verify -> restore`; приблизительную/ручную реализацию v4 использовать запрещено. Force-write/CAS обход не применялся. Следующий проход при exact materialization должен сначала сверить `LATEST` blob с `0fb9c8b2...`, затем pack/verify/restore и публиковать только через CAS.
+Новая capsule в этом проходе не публиковалась: exact v4 path/bytes не были безопасно материализованы в hosted filesystem, force-write/CAS bypass запрещён. Продуктовый RED regression и этот handoff дают точную точку продолжения; следующий проход при exact v4 materialization сначала fresh-read LATEST blob и только затем pack -> verify -> restore -> CAS.
 
-Live/provider traffic, реальные аккаунты, секреты, Cloudflare, production, GitHub Actions и CircleCI в этом проходе не использовались.
+Provider traffic, реальные аккаунты, секреты, Cloudflare, production, GitHub Actions и CircleCI в этом проходе = 0.

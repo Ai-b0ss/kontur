@@ -6,9 +6,9 @@ import json
 import re
 from pathlib import Path
 
-SCHEMA = "notion_windows_ready_candidate_v3"
+SCHEMA = "notion_windows_ready_candidate_v4"
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
-FINAL_GATE_COVERAGE_VERIFIER_BLOB = "b829c60e073d87cd04d31e30426cdcc8f3de7db0"
+FINAL_GATE_COVERAGE_VERIFIER_BLOB = "76ebba1f3e7cb4e7d2fa49d46868cac24b555535"
 
 REQUIRED_BLOBS = (
     "conversation_segments.py",
@@ -25,8 +25,11 @@ REQUIRED_GATES = (
     "agent_tombstone_restart",
     "agent_delegated_cancellation",
     "agent_dynamic_reservation",
-    # Prompt/delegation safety must be explicit at Windows readiness rather than
-    # being hidden behind one generic coverage PASS bit.
+    # Startup cleanup is a load-bearing Agent/Core composition boundary. Both
+    # direct failure chaining and repeated-cancellation/shield behavior must be
+    # green on the exact same-byte candidate.
+    "agent_startup_status_cleanup",
+    "agent_startup_status_repeated_cancellation",
     "agent_prompt_modes",
     "agent_prompt_policy_identity",
     "agent_responses_prompt_mode_http_contract",
@@ -82,16 +85,9 @@ def main() -> int:
         if not isinstance(value, str) or not HEX40.fullmatch(value):
             errors.append(key)
 
-    # Pin the exact fail-closed coverage verifier used by this readiness schema.
-    # A manifest produced with an older verifier must not be promoted merely
-    # because it contains a generic final_gate_coverage=PASS flag.
     if doc.get("final_gate_coverage_verifier_blob") != FINAL_GATE_COVERAGE_VERIFIER_BLOB:
         errors.append("final_gate_coverage_verifier_blob")
 
-    # Current owner policy: the Notion Circle project is already connected and
-    # a clean connectivity probe passed. Linux/offline composition work may use
-    # Circle, but native Windows remains forbidden until this exact local
-    # same-byte candidate is fully green.
     if doc.get("circle_connectivity") != "PASS":
         errors.append("circle_connectivity")
     if doc.get("native_windows_run_started") is not False:
@@ -116,10 +112,6 @@ def main() -> int:
             if gates.get(key) != "PASS":
                 errors.append(f"local_gates.{key}")
 
-    # V50 is a useful Agent/Core composition layer, but it does not by itself
-    # implement the Stage-B durable provider-intent/finalize and exact replay path.
-    # A Windows-ready declaration must therefore identify one immutable unified
-    # Stage-B candidate and its exact composed product blobs.
     if doc.get("stage_b_unified_candidate") != "PASS":
         errors.append("stage_b_unified_candidate")
     if doc.get("v50_only") is not False:

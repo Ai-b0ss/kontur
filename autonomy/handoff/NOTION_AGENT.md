@@ -27,9 +27,9 @@ Frozen preimages неизменны:
 - `payload/account_pool.py` -> `c9ca6f3b4545e469966369a4220a6a2a60bf3697`, 48066 bytes;
 - `payload/server.py` -> `ba52edc7a8528d58acd2c5bef2b86c3ca84ca298`, 115707 bytes, SHA-256 `5c8f96ac56576c5ffd89eb6292944e053bd7671b8b8cebc6093978006da6227b`.
 
-Agent ранее независимо получил эти SHA и compile PASS. В свежем `NOTION_CORE.md` Core независимо повторил обе материализации по тем же frozen preimages и exact transformers и получил **те же Git blob SHA**. Core evidence: `autonomy/evidence/notion/20260823T0658Z_exact_agent_server_materialization.json`.
+Agent ранее независимо получил эти SHA и compile PASS. Core независимо повторил обе материализации по тем же frozen preimages и exact transformers и получил те же Git blob SHA. Core evidence: `autonomy/evidence/notion/20260823T0658Z_exact_agent_server_materialization.json`.
 
-Следствие: прежний blocker «Core не может получить exact transformed Agent pair» **снят**. Отдельно сохранять pair в Agent repo только ради V50 больше не требуется. Core может строить V50 byte-identical disposable tree непосредственно из frozen preimages + transformers. PR #8 ref при этом не двигался.
+Следствие: прежний blocker «Core не может получить exact transformed Agent pair» снят. Core может строить V50 byte-identical disposable tree непосредственно из frozen preimages + transformers. PR #8 ref при этом не двигался.
 
 ## Routing/failover semantics, уже доказанные Agent
 Focused local semantics остаются 3/3 PASS:
@@ -39,59 +39,66 @@ Focused local semantics остаются 3/3 PASS:
 
 При смене provider account старый Notion thread не переносится: replacement использует полную локальную историю и новый thread. Pending transport evidence сохраняется через routing correction и закрывается фактическим исходом recovery.
 
-## Delegated prompt policy — точные candidate blobs для V50
+## Delegated prompt policy — exact bytes теперь достижимы из канонического control repo
 Fresh PR #8 source пока не переносит explicit `engineer|owner` policy в delegated envelope/model prompt. Текущие source blobs:
 - `payload/delegation_policy.py` = `cc50fc7373578262e6051e76716563a98f8f4935`;
 - `payload/delegation_dispatcher.py` = `e888c87262d4307a0c5a7de9e315e01601f20a33`;
 - `payload/notion_delegated_model_step.py` = `7d38b09be4c80d6ae531cd2282385e36dd5a57df`.
 
-Минимальный доказанный контракт уже сохранён как три **unreferenced content-addressed Git blobs**, без branch/ref movement:
-- candidate `payload/delegation_policy.py` = `fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e`;
-- candidate `payload/delegation_dispatcher.py` = `a9d15b79b421cd29b094b549be06d2b0319e26d9`;
-- candidate `payload/notion_delegated_model_step.py` = `f36e9c91355dec667173b6265dd550554fb0f05d`.
+Ранее доказанные candidate bytes теперь сохранены как обычные достижимые файлы в канонической control-ветке, причём readback Git blob SHA полностью совпадают с исходными content-addressed blobs:
+- `autonomy/evidence/notion/20260823T0740Z_delegated_prompt_candidate/delegation_policy.py` = `fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e`;
+- `.../delegation_dispatcher.py` = `a9d15b79b421cd29b094b549be06d2b0319e26d9`;
+- `.../notion_delegated_model_step.py` = `f36e9c91355dec667173b6265dd550554fb0f05d`.
 
-В этом проходе все три candidate blobs заново перечитаны через GitHub. Контракт:
+Добавлен exact disposable materializer:
+- `autonomy/evidence/notion/20260823T0750Z_delegated_prompt_policy_composition_materializer.py` = `39e56802f7a368750cc902ce6f98b086d9133956`.
+
+Он fail-closed проверяет три текущих product preimage blob, три exact candidate blob, компилирует все candidate modules до первой записи; `--check` ничего не меняет, `--apply` предназначен только для disposable composed tree и после замены повторно сверяет Git blob SHA. Product refs этим инструментом не двигаются.
+
+Контракт candidate:
 - `prompt_mode` только `engineer|owner`;
 - owner-mode требует непустой `owner_system_prompt`;
 - private owner text хранится только runtime-полем с `repr=False`;
 - `delegated_conversation_key()` не зависит от private prompt и prompt mode и не содержит их;
 - engineer-mode выбрасывает dormant owner text;
 - bad mode/type fail-closed;
-- первый полный Notion child prompt в owner-mode начинается **ровно** с private owner prompt, без инженерной персоны перед ним;
+- первый полный Notion child prompt в owner-mode начинается ровно с private owner prompt, без инженерной персоны перед ним;
 - tool/runtime facts идут после нейтральной границы;
 - incremental continuation существующего remote thread не вставляет owner prompt повторно;
 - engineer-mode сохраняет текущую subagent persona.
 
-Эти blobs пока не являются product state. Их нужно минимально включить в тот же disposable V50/composed tree и на тех же bytes повторить owner/engineer contract + общий Agent/Core cluster. Отдельную архитектурную ветку под prompt policy не создавать.
+Кандидат всё ещё не является product state. Его нужно включить в тот же disposable V50/composed tree и на тех же bytes повторить owner/engineer contract + общий Agent/Core cluster. Отдельную product-ветку под prompt policy не создавать.
 
 ## OWNER TEMPORARY CIRCLE FREEZE — активен
-Fresh `NOTION_CORE.md` прямо сохраняет `OWNER TEMPORARY CIRCLE FREEZE — 2026-08-23` для Notion. Пока нет отдельной owner-разморозки:
+Controller comment `5384843976` от 2026-08-23 явно сохраняет Notion freeze: проект `notion-agent-bridge` в Circle ещё не подтверждён/подключён; `free-fabric-gpt-bridge` нельзя считать тем же проектом.
+
+Пока нет отдельной owner-разморозки:
 - CircleCI/GitHub Actions = 0 запусков;
-- не двигать PR #8 и другие Circle-triggering product refs;
+- не двигать PR #8 и Notion gate refs;
 - `[ci skip]` не использовать как обход;
 - live Notion/Codex, secrets и production не трогать.
 
-Core next step — V50 exact-local same-byte composition. Native Windows Server 2022 final gate разрешён только после local composed green и отдельной owner-разморозки.
+Если полный local composed cluster станет зелёным, зафиксировать exact SHA/state как `READY_FOR_CIRCLE_AFTER_RECONNECT` и продолжать полезную локальную работу. Native Windows Server 2022 gate разрешён только после local composed green и отдельной owner-разморозки.
 
 ## Gate coverage
 Обычный Agent Circle suite сам по себе не финален: он не включает mandatory `tests/test_subagent_tombstone_post_replace_sync_failure.py`. Финальная composed-матрица обязана включать его вместе с tombstone/restart/cancellation, prompt policy, routing/failover, strict Core intent/finalize, exact replay, stream/non-stream/disconnect и `verify_notion_final_gate_coverage.py` PASS.
 
 ## Постоянная память v4
-На старте этого прохода нормативно восстановлен current `LATEST`:
+На старте текущего Agent-прохода нормативно восстановлен current `LATEST`:
 - pointer blob `bfcc0ca196d141c1e5309c596e45e47ec9406823`;
 - capsule `20260823T055121Z-d2a954b7b5`;
 - archive SHA-256 `36d1b293f7ca6dfaad57e5c1cc8a7f4c58ca524584bf154605d3385a491fe901`;
 - 13 immutable parts;
 - exact `capsule_runtime_v4.py` blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`;
-- `verify` + `restore` PASS.
+- все 13 parts повторно сверены по длине/SHA, archive SHA совпал, `verify` + `restore` PASS.
 
-Новая capsule этого прохода публикуется только после полного `checkpoint -> pack v4 -> immutable upload -> readback/verify -> reread LATEST -> CAS`; при любом несовпадении pointer не двигать.
+После существенной работы новый pointer публиковать только после полного `checkpoint -> pack v4 -> immutable upload -> readback/verify -> reread LATEST -> CAS`; при любом несовпадении pointer не двигать.
 
 ## Следующий точный шаг
-1. Core V50 должен собрать byte-identical disposable tree с Agent pair `c9ca6f3b.../ba52edc7...` из frozen preimages + exact transformers и frozen Core inputs.
-2. На тех же bytes включить три delegated prompt-policy candidate blobs `fd9a.../a9d.../f36e...`.
+1. На disposable V50 tree собрать byte-identical Agent pair `c9ca6f3b.../ba52edc7...` из frozen preimages + exact transformers и frozen Core inputs.
+2. На том же tree запустить `20260823T0750Z_delegated_prompt_policy_composition_materializer.py --check`, затем `--apply`; readback должен дать `fd9a.../a9d.../f36e...`.
 3. Прогнать полный local composed Agent+Core cluster; `verify_notion_final_gate_coverage.py` обязан PASS.
-4. Сохранить exact composed bytes/evidence долговечно, не двигая product refs во время Circle freeze.
+4. Сохранить exact composed bytes/evidence долговечно, не двигая product refs во время Circle freeze. Если всё зелёное — пометить `READY_FOR_CIRCLE_AFTER_RECONNECT` с exact composed SHA/blobs.
 5. После отдельной owner-разморозки — один disposable native Windows Server 2022 gate. Linux PASS не заменяет Windows.
 6. Только после Windows PASS — bounded authorized `Codex -> bridge -> Notion -> local tool -> correction -> VERIFY_OK`, затем restart/replay/rotation/affinity и owner-facing Windows doctor.
 

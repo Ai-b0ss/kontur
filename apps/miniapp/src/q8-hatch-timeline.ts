@@ -8,19 +8,22 @@ export type HatchTimings = {
   reveal: number;
 };
 
+// Normal path: 0.0–0.6 tension, 0.6–0.8 radial flash,
+// 0.8–1.4 spring reveal. If the result image is not decoded by 0.6s,
+// the tension phase safely extends instead of flashing to an empty frame.
 const NORMAL_HATCH_TIMINGS: Readonly<HatchTimings> = Object.freeze({
-  pulse: 400,
-  cracks: 400,
-  flash: 250,
-  flashOut: 250,
-  reveal: 500,
+  pulse: 300,
+  cracks: 300,
+  flash: 200,
+  flashOut: 120,
+  reveal: 600,
 });
 
 const REDUCED_HATCH_TIMINGS: Readonly<HatchTimings> = Object.freeze({
-  pulse: 80,
-  cracks: 80,
+  pulse: 60,
+  cracks: 60,
   flash: 80,
-  flashOut: 160,
+  flashOut: 80,
   reveal: 220,
 });
 

@@ -1,0 +1,40 @@
+{
+  "schema": "notion_windows_readiness_policy_v2_evidence",
+  "observed_core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "observed_agent_head": "ee0ae241b3ef19da7d3a69ddeecf6bb5476f91a9",
+  "owner_policy": {
+    "circle_connectivity": "PASS",
+    "reconnect_required": false,
+    "linux_offline_circle_allowed_before_windows": true,
+    "native_windows_requires_exact_same_byte_local_full_green": true
+  },
+  "bug": {
+    "old_verifier_blob": "97100e7a48d28467555b39947367319f79123f1a",
+    "old_schema": "notion_windows_ready_candidate_v1",
+    "stale_requirements": [
+      "circle_policy=FROZEN_DO_NOT_RUN",
+      "circle_or_windows_run_started=false",
+      "readiness_label=READY_FOR_WINDOWS_CIRCLE_AFTER_RECONNECT"
+    ],
+    "impact": "A correct current candidate could be rejected solely because the verifier still encoded the superseded Circle freeze/reconnect policy. The old field also conflated harmless Linux/offline Circle execution with the native Windows gate."
+  },
+  "fix": {
+    "commit": "e0b0ccfe75ec306bd938c1636f82badd43efdcc2",
+    "new_verifier_blob": "531f93d3c0130cf6451da46408e799df3eb8c139",
+    "new_schema": "notion_windows_ready_candidate_v2",
+    "required_circle_connectivity": "PASS",
+    "required_native_windows_run_started": false,
+    "readiness_label": "READY_FOR_TARGETED_WINDOWS_CIRCLE",
+    "generic_linux_circle_run_is_not_a_blocker": true
+  },
+  "self_test": {
+    "python_compile": "PASS",
+    "old_frozen_after_reconnect_manifest": "REJECTED",
+    "connectivity_pass_but_incomplete_local_matrix": "REJECTED",
+    "native_windows_already_started": "REJECTED",
+    "full_local_green_connectivity_pass_no_windows_started": "PASS",
+    "expected_success_output": "READY_FOR_TARGETED_WINDOWS_CIRCLE",
+    "local_git_blob_matches_github_readback": true
+  },
+  "safety_boundary": "This change does not make the current candidate Windows-ready. Exact same-byte unified Stage-B composition and the full local Agent+Core matrix remain mandatory before the first targeted native Windows Server 2022 proof."
+}

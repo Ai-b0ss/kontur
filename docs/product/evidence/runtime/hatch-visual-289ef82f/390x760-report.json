@@ -1,0 +1,276 @@
+{
+  "result": {
+    "label": "390x760",
+    "gap": 53.40625,
+    "findings": [],
+    "phases": [
+      "idle",
+      "pulse",
+      "cracks",
+      "flash",
+      "reveal"
+    ],
+    "errors": [],
+    "hatchCalls": 1,
+    "replay": {
+      "hatchCalls": 1,
+      "name": "сорока"
+    },
+    "hatchZ": "16",
+    "samples": 18,
+    "dense": 100,
+    "openHalves": 11
+  },
+  "reveal": {
+    "stage": "lk lk-onboarding lk-first-time lk-first-time--reveal",
+    "phase": "settled",
+    "hatchZ": "16",
+    "halvesZ": "9",
+    "base": {
+      "present": true,
+      "opacity": 0,
+      "visibility": "hidden",
+      "zIndex": "3",
+      "transform": "none",
+      "box": {
+        "top": 200.28125,
+        "bottom": 483.71875,
+        "left": 85.8046875,
+        "right": 304.1953125
+      },
+      "text": ""
+    },
+    "halves": {
+      "present": true,
+      "opacity": 0,
+      "visibility": "hidden",
+      "zIndex": "9",
+      "transform": "none",
+      "box": {
+        "top": 200.28125,
+        "bottom": 483.71875,
+        "left": 85.8046875,
+        "right": 304.1953125
+      },
+      "text": ""
+    },
+    "halfLeft": {
+      "present": true,
+      "opacity": 1,
+      "visibility": "hidden",
+      "zIndex": "3",
+      "transform": "none",
+      "box": {
+        "top": 200.28125,
+        "bottom": 483.71875,
+        "left": 85.8046875,
+        "right": 304.1953125
+      },
+      "text": ""
+    },
+    "halfRight": {
+      "present": true,
+      "opacity": 1,
+      "visibility": "hidden",
+      "zIndex": "3",
+      "transform": "none",
+      "box": {
+        "top": 200.28125,
+        "bottom": 483.71875,
+        "left": 85.8046875,
+        "right": 304.1953125
+      },
+      "text": ""
+    },
+    "cracks": {
+      "present": true,
+      "opacity": 0,
+      "visibility": "hidden",
+      "zIndex": "5",
+      "transform": "none",
+      "box": {
+        "top": 200.28125,
+        "bottom": 483.71875,
+        "left": 85.8046875,
+        "right": 304.1953125
+      },
+      "text": ""
+    },
+    "flash": {
+      "present": true,
+      "opacity": 0,
+      "visibility": "visible",
+      "zIndex": "20",
+      "transform": "none",
+      "box": {
+        "top": 160.28125,
+        "bottom": 523.71875,
+        "left": 45.8046875,
+        "right": 344.1953125
+      },
+      "text": ""
+    },
+    "frame": {
+      "present": true,
+      "opacity": 1,
+      "visibility": "visible",
+      "zIndex": "8",
+      "transform": "none",
+      "box": {
+        "top": 242.796875,
+        "bottom": 443.703125,
+        "left": 94.5390625,
+        "right": 295.4453125
+      },
+      "text": ""
+    },
+    "bird": {
+      "present": true,
+      "opacity": 1,
+      "visibility": "visible",
+      "zIndex": "2",
+      "transform": "matrix(1, 0, 0, 1, 0, 0)",
+      "box": {
+        "top": 242.796875,
+        "bottom": 482.109375,
+        "left": 94.5390625,
+        "right": 295.4453125
+      },
+      "text": ""
+    },
+    "question": {
+      "present": false,
+      "opacity": 0,
+      "visibility": null,
+      "zIndex": null,
+      "transform": null,
+      "box": null,
+      "text": null
+    },
+    "ring": {
+      "present": true,
+      "opacity": 1,
+      "visibility": "visible",
+      "zIndex": "1",
+      "transform": "none",
+      "box": {
+        "top": 190.28125,
+        "bottom": 493.71875,
+        "left": 75.8046875,
+        "right": 314.1953125
+      },
+      "text": ""
+    },
+    "kicker": {
+      "present": true,
+      "opacity": 1,
+      "visibility": "visible",
+      "zIndex": "auto",
+      "transform": "none",
+      "box": {
+        "top": 547.125,
+        "bottom": 560.171875,
+        "left": 18,
+        "right": 372
+      },
+      "text": "это твоя птица"
+    },
+    "name": {
+      "present": true,
+      "opacity": 1,
+      "visibility": "visible",
+      "zIndex": "auto",
+      "transform": "none",
+      "box": {
+        "top": 569.171875,
+        "bottom": 613.625,
+        "left": 18,
+        "right": 372
+      },
+      "text": "сорока"
+    },
+    "button": {
+      "present": true,
+      "opacity": 1,
+      "visibility": "visible",
+      "zIndex": "auto",
+      "transform": "none",
+      "box": {
+        "top": 690,
+        "bottom": 742,
+        "left": 18,
+        "right": 372
+      },
+      "text": "что дальше"
+    }
+  },
+  "openSample": {
+    "at": 1242.3000000000466,
+    "phase": "cracks",
+    "hatchZ": "16",
+    "halvesZ": "9",
+    "base": {
+      "present": true,
+      "opacity": 0.64852,
+      "visibility": "visible",
+      "zIndex": "3",
+      "transform": "matrix(0.999993, 0.0037892, -0.0037892, 0.999993, 0.542764, 0)"
+    },
+    "halves": {
+      "present": true,
+      "opacity": 1,
+      "visibility": "visible",
+      "zIndex": "9",
+      "transform": "none"
+    },
+    "halfLeft": {
+      "present": true,
+      "opacity": 1,
+      "visibility": "visible",
+      "zIndex": "3",
+      "transform": "matrix(0.996214, -0.0869385, 0.0869385, 0.996214, -21.95, -1.99167)"
+    },
+    "halfRight": {
+      "present": true,
+      "opacity": 1,
+      "visibility": "visible",
+      "zIndex": "3",
+      "transform": "matrix(0.996214, 0.0869385, -0.0869385, 0.996214, 21.95, -1.99167)"
+    },
+    "cracks": {
+      "present": true,
+      "opacity": 0.558908,
+      "visibility": "visible",
+      "zIndex": "5",
+      "transform": "matrix(1, 0, 0, 1, 0, 0)"
+    },
+    "flash": {
+      "present": true,
+      "opacity": 0,
+      "visibility": "visible",
+      "zIndex": "20",
+      "transform": "none"
+    },
+    "frame": {
+      "present": true,
+      "opacity": 0,
+      "visibility": "hidden",
+      "zIndex": "8",
+      "transform": "none"
+    },
+    "bird": {
+      "present": true,
+      "opacity": 0,
+      "visibility": "hidden",
+      "zIndex": "2",
+      "transform": "matrix(0.88, 0, 0, 0.88, 0, 0)"
+    },
+    "question": {
+      "present": false,
+      "opacity": 0,
+      "visibility": null,
+      "zIndex": null,
+      "transform": null
+    }
+  }
+}

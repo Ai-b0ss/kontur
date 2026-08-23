@@ -1,148 +1,139 @@
-# Контур — backlog после production-hardening
+# Контур — актуальный backlog
 
-> ## Актуальное переопределение · 2026-08-07
->
-> Этот backlog хранит историю V1–V4/V3-приоритетов. Он **не задаёт следующий
-> продуктовый ход**. Технический V5 уже развернут для закрытого test chat, но
-> владелец отверг текущий визуальный язык и прежнюю гипотезу «проводника для
-> потерянного абитуриента». До нового решения запрещено расширять V5, включать
-> publication gate, переписывать UI «по мелочи» или использовать пункты ниже как
-> автоматическое разрешение. Актуальная точка продолжения:
-> `CURSOR_HANDOFF_2026-08-07.md`. Направление выбрано:
-> `docs/direction-candidates-2026-08-07/CHOSEN_DIRECTION_AB.md`
-> («Крона + тихий зов», соло-first). UI/код — только после явного go.
+**Обновлено:** 2026-08-17.  
+Старый backlog: `docs/archive/legacy/BACKLOG_PRE_CANONICAL.md`.
 
-Обновлено: 2026-08-06
+## HANDOFF — текущая задача
 
-Backlog не является разрешением автоматически реализовать пункты. Для каждого
-большого этапа сначала фиксируются цель, граница и критерий готовности.
+Цель: одна ссылка/commit с полной рабочей кодовой базой и доказанным product state.
 
-## P0 · следующий продуктовый этап
+Сделано в PR #11:
+- exact primary source 13.08 восстановлен из исходного context-kit и импортирован byte-for-byte;
+- exact SHA-256 primary source закреплены в fail-closed CI;
+- accepted STEP E evidence 14.08 восстановлен и также закреплён exact SHA-256;
+- current product/TZ/decision log отделены от истории;
+- H3/B/C/D/E path подтверждён в current source;
+- текущая таксономия = 5 backend roles / 6 visual results, включая отдельного Котосова как presentation-only `vibe` subtype;
+- старые product docs/art/prototypes отделены в `docs/archive/legacy/`;
+- происхождение Git-export вынесено в `docs/provenance/`;
+- README/HANDOFF/ARCHITECTURE/CODEBASE_MAP/AGENTS/NAVIGATOR синхронизированы с recovered A–E;
+- `tools/package-handoff.ps1` строит share-safe ZIP из фактического `git ls-files`, secret-scan и SHA-256 manifest;
+- staging/production release workflows находятся в handoff-базе;
+- post-deploy verifier ждёт exact SHA свежего `dist/index.html` и проверяет critical egg assets по MIME + exact SHA;
+- regression воспроизводит stale-generation race и SPA fallback;
+- direct `pnpm cf:deploy` / worker `pnpm deploy` теперь fail-closed до любого Cloudflare request;
+- regression закрепляет direct-deploy refusal;
+- `tools/runtime-reachability.mjs` v2 разделяет runtime-import graph и source-dependency graph, исключая type-only imports из runtime;
+- reachability regression проверяет `import type`, runtime legacy candidates и dynamic egg-template assets;
+- `tools/miniapp-bundle-evidence.mjs` добавлен для более сильного Vite/Rollup evidence: `chunk.modules` + `renderedLength`, `build.write=false`;
+- production incident run `32030041504` классифицирован без повторного destructive reset.
 
-Статус: **восстановленный V3 включён в production ровно для одного внутреннего
-аккаунта; расширение закрыто минимум до 13 августа 2026 года**.
+Практический handoff считается готовым после зелёного CI **exact текущего head**, чтения reachability/bundle evidence и фиксации стабильного commit. Merge в `main` требует отдельного явного owner-разрешения.
 
-Текущая точка истины — `RESTORED_PRODUCT_V3.md`. V2 выключен и сохранён только
-как историческое свидетельство. Реализованы пять разделов, восемь равных входов,
-тёплая карта сигналов, opt-in видимость связей, личное гнездо и прогресс поверх
-сохранённой V1-основы. Полный gate, Chromium QA, backup до/после, signed
-production smoke и rollback-drill пройдены; Telegram-сообщения не отправлялись.
+## ЗАКРЫТО — exact primary source 13.08
 
-Главный документ направления: `PRODUCT_DIRECTION_V1.md`; устройство первой
-недели описано в принятом `EXPERIENCE_SPEC_V1.md`. В `ART_DIRECTION_V1.md`
-выбрана «Карта сигналов» с более тёплой и компактной птицей. Один путь собран
-отдельно в `stage5-prototype/` и описан в `STAGE5_PROTOTYPE_V1.md`. Пользователь
-разрешил перейти к Stage 6 без браузерной и аудиторной проверки; их статус
-остаётся неизвестным. Безопасная пересборка разложена в
-`IMPLEMENTATION_PLAN_V1.md`. Создана контрольная точка документов, пройден
-исходный набор проверок, добавлены договор, чистые правила, локальные миграции,
-закрытый `/api/v2`, новая Mini App и Telegram-связка на записанных обновлениях.
-Отдельный предпросмотр части 6 сохранён. После отдельного решения production
-получил добавочные миграции и закрытый список из одного внутреннего аккаунта с
-одним основным чатом. Текущая граница — наблюдение, пять проверяющих, настоящие
-устройства и точный специальный чат. Автоматическое расширение запрещено.
+`KONTUR_NEXT_CHAT_CONTEXT_KIT_2026-08-13.zip` доказан как исходный контейнер.
 
-1. Принято: для кого «Контур» и какое поведение он меняет в реальном
-   Telegram-чате.
-2. Принято: ценность для участника, владельца сообщества и ЦУ.
-3. Принято: главный недельный путь и три измеримых критерия успеха.
-4. Принято: устройство пути, граница чата и мини-приложения, новый смысл
-   птицы, благодарности и гнезда.
-5. Принято: «Карта сигналов» с более тёплой и компактной птицей.
-6. Подготовлено: один экран, четыре состояния птицы, путь от вопроса до
-   сохранённого результата и короткое движение без внешних подключений.
-7. Подготовлено: план добавочной схемы, совместимости, проверок, малого запуска
-   и возврата назад.
-8. Выполнено локально: договор и правила нового пути, следующая схема D1/PGlite,
-   проверка перехода D1 с `0002` без потери прежних данных.
-9. Выполнено локально: `/api/v2` под выключенным по умолчанию переключателем и
-   новая Mini App с архивом прежнего профиля без игровых действий.
-10. Выполнено локально: конкретная благодарность через `/worm`, защита повторов,
-    отсутствие старой валюты и одно личное напоминание после согласия.
-11. Выполнено: свежая резервная копия D1 проверена; отдельные Worker и D1
-    предпросмотра опубликованы без Telegram webhook и без изменения production.
-12. Следующая работа: провести короткую проверку из
-    `STAGE6_PREVIEW_TRIAL_V1.md` на пяти людях и настоящих Desktop/iOS/Android;
-    до неё результат остаётся `NOT RUN`.
-13. Для полного живого Telegram-пути нужен отдельный тестовый бот. Имеющийся
-    токен относится к рабочему боту, поэтому его webhook не переключался.
-14. Выполнено: production backup, миграции `0003`–`0005`, публикация с
-    выключенным флагом, проверка старого API, включение одного внутреннего
-    аккаунта, живой smoke без отправки сообщений и повторный backup.
-15. Исторический V2 выключен; таблицы и записи сохранены.
-16. Выполнено: production V3 `4147cb7`, D1 `0006`, exact-one allowlist,
-    backup до/после, signed smoke и disable/enable rollback без сообщений.
-17. До 13 августа: наблюдать V3 read-only. Не добавлять людей и специальный чат
-    без точных данных и отдельного решения по итогам.
+Импортированы exact bytes:
+- `PRIMARY_SOURCE_IGOR_ZEZOKUK_2026-08-13.md` — SHA-256 `1f519becf36a44e1761a50c359e9dca02473c81f2f24194bb3c4c704052a436f`;
+- `FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md` — SHA-256 `7d092fa46a21de7931bf2f1a26aaea21df5926cd51c322d2b2ad420700074cbe`.
 
-## P1 · доказательства пилота
+Не возвращать этот пункт в unresolved/recovery без нового противоречащего evidence.
 
-- Наблюдать ближайшие реальные исполнения всех cron и зафиксировать доставку
-  или безопасную ошибку. До наблюдения статус: `HOLD`, не `PASS` и не `FAIL`.
-- Собрать 7–14 дней обезличенных метрик: активация, D1/D7 при достаточной
-  выборке, активные участники, полезные сообщения, траты и signal-карты.
-- Провести короткие интервью с участниками: что понятно без объяснения, что
-  выглядит искусственно, ради чего они вернутся.
-- Проверить тексты, пустые состояния, ошибки, медленную сеть и повторный вход.
-- Принять решение о тестовом username и финальном брендинге бота.
+## ЗАКРЫТО — STEP E / bird taxonomy
 
-## P1 · техническая устойчивость следующего релиза
+Exact 14.08 evidence доказывает owner acceptance:
+- `PREVIEW_INTEGRATION_GATE_2026-08-14.md` — SHA-256 `a11802a8b4fab881b4b19877a086786273fd1f16b48746ac5872cd1f844ef0fb`;
+- `RESULT_TAXONOMY_ALIGNMENT_2026-08-14.md` — SHA-256 `5e6bdd4ca358d19ff1d1a97d93c0b1ccacea05ddd5d8756a17d253eb3d760bbe`.
 
-- Сохранять паритет Node/PGlite и Worker/D1 сценариев либо явно вывести
-  reference-runtime из эксплуатации отдельным решением.
-- Перед каждой новой D1-миграцией: backup, новая номерная миграция, локальная
-  проверка, production deploy и второй backup.
-- Добавить наблюдаемость только под найденные реальные сбои; не собирать PII
-  «на всякий случай».
-- После продуктовых изменений повторить Desktop+iOS smoke по короткому
-  чек-листу из `HANDOVER.md`.
+Current source реализует эту схему через `result-taxonomy.ts` и `LocalKontur.tsx`.
 
-## P2 · честное сравнение «было / стало»
+Не генерировать новые STEP E concepts как будто этот gate не проходили.
 
-Статус: **backlog**.
+## ЗАКРЫТО — production propagation / stale-asset incident
 
-- Поднять архивный baseline только в изолированной локальной среде.
-- Если он не запускается, показать это как проверенный факт и использовать
-  статические кадры/структуру, а не чинить его за кулисами и называть v1.
-- Не подключать старый baseline к production Telegram, D1 или рабочим секретам.
-- Зафиксировать одинаковый сценарий и viewport для архивного и текущего среза.
-- Публиковать только обезличенные изображения и проверяемые цифры.
+Исходный production run `32030041504`:
+- rollback evidence сохранён;
+- D1 reset + migrations завершены;
+- deploy завершён;
+- Worker Version `b6a03ac0-ec1f-43b9-886a-dd1664c9f6c1` создан;
+- health PASS;
+- immediate post-deploy asset smoke попал в старое public generation и вернул SPA fallback вместо `egg-stage-01.webp`.
 
-## DEFERRED · красивая публичная страница для Игоря
+После исправления verifier workflow `.github/workflows/production-readonly-verify.yml` многократно дал `PRODUCTION_READONLY_EXACT_PASS`, **без Cloudflare/D1 writes**, каждый раз с `attempts=1` на последовательных PR merge-builds.
 
-Платформа-кандидат: **Hugging Face Spaces**.
+Последняя подтверждённая стабильная серия в control issue использует exact public hashes:
+- root SHA-256 `175b2900bbf05cf4426dce272043b2f3dee591d96054881d1d95f8fd1dccbead`;
+- egg 01 SHA-256 `ac5a7a4205b3cf55b8cea477b49794b48ded19cf084973fd87a642f56277b199`;
+- egg 08 SHA-256 `6a0da2124b06d7c6440cd236024c017e36776007c0a1f0d903b74c977802bdc7`.
 
-Формат: отдельная реальная страница-кейс с сильным визуальным повествованием.
+Следствие: старый propagation race больше не является открытым release blocker. **Не повторять destructive production reset.**
 
-Место работы: **отдельный чат после стабилизации продукта**.
+## FORENSIC P0 — остаётся открытым
 
-Почему отложено: сейчас такая страница красиво упакует промежуточную версию и
-будет конкурировать за внимание с более ценным обновлением ядра.
+### 1. Historical preview `5dabce57`
 
-Входы для будущего этапа:
+Цель:
 
-- `PROJECT_PASSPORT.md` как честный текстовый каркас;
-- подтверждённый baseline и текущие скриншоты в одинаковых условиях;
-- финальная продуктовая формулировка и визуальная система;
-- privacy-safe метрики и архитектурная схема;
-- короткое живое видео/анимация сценария, если оно действительно усиливает
-  понимание.
+`https://5dabce57-kontur-igor.igorekglukhovskii43.workers.dev -> immutable Cloudflare Version ID -> exact Worker/assets -> exact source/worktree`
 
-Ограничения:
+Уже есть:
+- v84 immutable Version и exact Worker-module SHA — отдельная доказанная линия;
+- current Git export origin из Codex v86 candidate — отдельная доказанная линия;
+- production 17.08 Version ID — отдельная доказанная линия;
+- read-only public provenance probe, который снимает root/referenced JS/CSS/egg 01/08 hashes у `5dabce57` и current production.
 
-- не публиковать приватную переписку, токены, Telegram ID, usernames участников,
-  backup или внутренние URL;
-- не выдавать AI-assisted реализацию за полностью ручную;
-- не называть архив «работавшей первой версией», если запуск не доказан;
-- не использовать объём строк как главный показатель ценности;
-- не деплоить и не создавать Space в рамках текущего этапа.
+Сейчас автоматически идёт обновлённый read-only workflow, который должен вывести безопасную сводку `PUBLIC_PROVENANCE_READONLY` прямо в issue #9. До появления этой сводки не делать вывод о совпадении frontend bytes.
 
-## DONE · уже закрыто и не требует повторного открытия без нового дефекта
+Даже если измеренные frontend assets `5dabce57` совпадут с current build, всё равно отдельно останется `hostname -> immutable Cloudflare Version ID` и Worker identity.
 
-- постоянный Cloudflare Worker + D1;
-- Telegram webhook, menu и команды;
-- реальный Desktop/iOS smoke текущего цикла;
-- signal-карты и золотые перья;
-- maintenance, backup и Time Travel Dry Run;
-- secret-safe handoff и Git production checkpoint;
-- обязательный AI-навигатор, паспорт и машинное состояние проекта.
+### 2. Legacy runtime / build classification
+
+Два уровня evidence:
+
+1. `runtime-reachability-v2`:
+   - static runtime-import graph без type-only imports;
+   - source-dependency graph с type-only deps;
+   - narrow LocalKontur graphs;
+   - public asset refs.
+2. `miniapp-bundle-evidence-v1`:
+   - Vite production build с `write=false`;
+   - Rollup `chunk.modules`;
+   - `renderedLength > 0` как evidence, что модуль реально внёс код в generated chunk для exact build.
+
+Не путать:
+- static runtime reachable ≠ emitted bundle bytes;
+- emitted bundle bytes ≠ current product approval;
+- static unreachability ≠ deletion permission.
+
+Удаление legacy — только отдельным controlled diff после exact artifacts + semantic review.
+
+### 3. Codex artifact retention
+
+По возможности дособрать H3/B/C/D/E review boards/WebM/assets из Library/Codex lineage в provenance/evidence индекс. Отсутствие отдельного декоративного артефакта не отменяет уже доказанный current source и exact accepted text evidence.
+
+## CI / handoff gate — текущий инфраструктурный хвост
+
+GitHub Actions connector сейчас отвечает `403 Resource not accessible by integration` на `runs/jobs/check-runs`.
+
+Поэтому:
+- exact текущий head **не объявлять CI-green**;
+- green со старого commit не переносить;
+- production read-only bot comments можно использовать как доказательство публичных frontend bytes, но не как замену полного CI;
+- когда Actions API снова станет доступен, первым делом получить exact-head CI и artifacts:
+  - runtime reachability;
+  - Mini App Rollup bundle evidence;
+  - public provenance;
+  - share-safe packaging result.
+
+## Не делать
+
+Не возвращать tree/daily move/forecasts/raid/Form II/inventory/storm/leaderboard/streak/AI character/passive faucet/duplicate-refund economy только потому, что они встречаются в старом runtime/archive.
+
+Не повторять D1 reset или полный production release ради verification.
+
+Не использовать direct production deploy commands — они намеренно fail-closed.
+
+Не удалять legacy на основании одного static-import графа.
+
+Не merge PR #11 без отдельного явного разрешения owner.

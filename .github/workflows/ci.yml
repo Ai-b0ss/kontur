@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: kontur-ci-${{ github.event.pull_request.number || github.ref }}
@@ -18,7 +19,7 @@ jobs:
   check:
     name: remote verification
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -39,9 +40,43 @@ jobs:
         timeout-minutes: 5
         run: pnpm install --frozen-lockfile
 
+      - name: Handoff safety gate
+        timeout-minutes: 1
+        run: node tools/handoff-safety-check.mjs
+
+      - name: Direct production deploy refusal regression
+        timeout-minutes: 1
+        run: node --test tools/cloudflare/refuse-direct-production-deploy.test.mjs
+
+      - name: Runtime reachability regression
+        timeout-minutes: 1
+        run: node --test tools/runtime-reachability.test.mjs
+
+      - name: Runtime reachability graph
+        timeout-minutes: 1
+        env:
+          RUNTIME_REACHABILITY_OUTPUT: ${{ runner.temp }}/kontur-runtime-reachability.json
+          RUNTIME_REACHABILITY_MARKDOWN: ${{ runner.temp }}/kontur-runtime-reachability.md
+        run: node tools/runtime-reachability.mjs
+
+      - name: Upload runtime reachability evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: kontur-runtime-reachability-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/kontur-runtime-reachability.json
+            ${{ runner.temp }}/kontur-runtime-reachability.md
+
       - name: Cloudflare staging isolation gate
         timeout-minutes: 1
         run: node tools/cloudflare/staging-config-check.mjs
+
+      - name: Deployment propagation regression test
+        timeout-minutes: 1
+        run: node --test tools/cloudflare/wait-for-deployed-assets.test.mjs
 
       - name: Core unit tests
         timeout-minutes: 2
@@ -83,6 +118,45 @@ jobs:
         timeout-minutes: 5
         run: pnpm build
 
+      - name: Mini App Rollup emitted-module evidence
+        timeout-minutes: 3
+        env:
+          MINIAPP_BUNDLE_EVIDENCE_OUTPUT: ${{ runner.temp }}/kontur-miniapp-bundle-evidence.json
+        run: node tools/miniapp-bundle-evidence.mjs
+
+      - name: Upload Mini App bundle evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: kontur-miniapp-bundle-evidence-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/kontur-miniapp-bundle-evidence.json
+
+      - name: Read-only public provenance probe
+        timeout-minutes: 2
+        env:
+          PROVENANCE_OUTPUT: ${{ runner.temp }}/kontur-public-provenance.json
+        run: node tools/cloudflare/read-only-public-provenance.mjs
+
+      - name: Upload read-only public provenance evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: kontur-public-provenance-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/kontur-public-provenance.json
+
+      - name: Reproducible share-safe handoff archive
+        timeout-minutes: 4
+        shell: pwsh
+        run: |
+          ./tools/package-handoff.ps1 -ArchiveName KONTUR_CI_HANDOFF
+          if (-not (Test-Path ./KONTUR_CI_HANDOFF.zip)) { throw 'handoff zip missing' }
+          if (-not (Test-Path ./KONTUR_CI_HANDOFF.zip.sha256)) { throw 'handoff checksum missing' }
+          Remove-Item ./KONTUR_CI_HANDOFF.zip, ./KONTUR_CI_HANDOFF.zip.sha256 -Force
+
       - name: Generate isolated staging config for Wrangler dry-run
         timeout-minutes: 1
         env:
@@ -94,3 +168,19 @@ jobs:
       - name: Cloudflare staging Wrangler dry-run
         timeout-minutes: 2
         run: pnpm -F @kontur/worker exec wrangler deploy --config wrangler.staging.generated.jsonc --dry-run
+
+      - name: Report exact-head CI verdict to control issue
+        if: ${{ always() && github.event_name == 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          MERGE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          if [ "$JOB_STATUS" = "success" ]; then
+            MARKER="KONTUR_CI_EXACT_HEAD_PASS"
+          else
+            MARKER="KONTUR_CI_EXACT_HEAD_FAIL"
+          fi
+          gh issue comment 9 --repo "$GITHUB_REPOSITORY" --body "$MARKER head=${HEAD_SHA} merge=${MERGE_SHA} run=${GITHUB_RUN_ID} status=${JOB_STATUS} — clean checkout/frozen install + handoff safety + direct-deploy refusal + runtime reachability regression/evidence + staging isolation + propagation regression + unit/Worker/API/typecheck/economy/D1 + production build + Rollup bundle evidence + read-only public provenance + reproducible share-safe package + staging Wrangler dry-run. This report performs no Cloudflare/D1 writes and does not authorize merge/deploy."

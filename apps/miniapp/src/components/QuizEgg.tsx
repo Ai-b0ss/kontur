@@ -1,12 +1,74 @@
-export function QuizEgg({ stage }: { stage: number }) {
-  const safeStage = Math.max(1, Math.min(8, stage));
-  const number = String(safeStage).padStart(2, '0');
+import type { Palette } from '@kontur/contracts';
+import type { AnimationEvent, CSSProperties } from 'react';
+import { hatchTimings, type HatchPhase, type HatchTimings } from '../q8-hatch-timeline.js';
+import type { BirdResultId } from '../result-taxonomy.js';
+import { quizEggStageModel } from '../quiz-egg-model.js';
+import { CanonicalBirdVisual } from './CanonicalBirdVisual.js';
+import '../kontur-core-corrections.css';
+
+export function QuizEgg({
+  stage,
+  hatchPhase = 'idle',
+  resultId,
+  palette,
+  timings = hatchTimings(false),
+  onBirdReady,
+  onFlashCovered,
+}: {
+  stage: number;
+  hatchPhase?: HatchPhase;
+  resultId?: BirdResultId;
+  palette?: Palette | null;
+  timings?: Readonly<HatchTimings>;
+  onBirdReady?: () => void;
+  onFlashCovered?: () => void;
+}) {
+  const model = quizEggStageModel(stage);
+  const hatching = hatchPhase !== 'idle';
+  const hatchStyle = {
+    '--lk-hatch-pulse': `${timings.pulse}ms`,
+    '--lk-hatch-cracks': `${timings.cracks}ms`,
+    '--lk-hatch-flash': `${timings.flash}ms`,
+    '--lk-hatch-flash-out': `${timings.flashOut}ms`,
+    '--lk-hatch-reveal': `${timings.reveal}ms`,
+  } as CSSProperties;
+
+  const handleFlashAnimationEnd = (event: AnimationEvent<HTMLSpanElement>) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.animationName !== 'lk-hatch-flash-in') return;
+    onFlashCovered?.();
+  };
+
   return (
-    <div className="lk-quiz-egg" data-stage={safeStage} aria-label={`Яйцо: этап ${safeStage} из 8`}>
-      <span className="lk-quiz-egg__ring" style={{ '--lk-egg-progress': `${safeStage * 45}deg` } as CSSProperties} aria-hidden="true" />
+    <div
+      className={`lk-quiz-egg${hatching ? ' is-hatching' : ''}`}
+      data-stage={model.stage}
+      data-hatch-phase={hatchPhase}
+      style={hatchStyle}
+      aria-label={`Яйцо: этап ${model.stage} из 8`}
+    >
+      <span className="lk-quiz-egg__ring" style={{ '--lk-egg-progress': `${model.progressDegrees}deg` } as CSSProperties} aria-hidden="true" />
       <span className="lk-quiz-egg__glow" aria-hidden="true" />
-      <img src={`/quiz/egg-stage-${number}.webp`} alt="" width="1101" height="1429" draggable={false} />
+      <img className="lk-quiz-egg__base" src={model.asset} alt="" width="1101" height="1429" draggable={false} />
+      <img className="lk-quiz-egg__cracks" src="/quiz/egg-crack-light.webp" alt="" aria-hidden="true" draggable={false} />
+      <div className="lk-hatch-halves" aria-hidden="true">
+        <img className="lk-hatch-half lk-hatch-half--left" src="/quiz/egg-stage-08.webp" alt="" draggable={false} />
+        <img className="lk-hatch-half lk-hatch-half--right" src="/quiz/egg-stage-08.webp" alt="" draggable={false} />
+      </div>
+      {hatching && resultId && (
+        <div className="lk-quiz-hatch" aria-hidden="true">
+          <span className="lk-quiz-hatch__halo" />
+          <span className="lk-quiz-hatch__flash" onAnimationEnd={handleFlashAnimationEnd} />
+          <span className="lk-quiz-hatch__frame">
+            <CanonicalBirdVisual
+              resultId={resultId}
+              palette={palette}
+              className="lk-quiz-hatch__bird"
+              onReady={onBirdReady}
+            />
+          </span>
+        </div>
+      )}
     </div>
   );
 }
-import type { CSSProperties } from 'react';

@@ -1,0 +1,1160 @@
+{
+  "result": "PASS",
+  "exactHead": "1d6b0e72d364a6c4f2089181afea01b0da3e216f",
+  "engine": "Chromium / Playwright 1.55.0",
+  "classification": {
+    "browser": "real Chromium",
+    "backend": "contract-faithful isolated mock; remote staging is a separate gate"
+  },
+  "viewports": {
+    "smallHook": {
+      "width": 320,
+      "height": 568,
+      "scrollWidth": 320,
+      "bodyScrollWidth": 320,
+      "overflow": [],
+      "unnamedButtons": 0,
+      "safeTop": true,
+      "safeBottom": true,
+      "reducedClass": false
+    },
+    "smallHome": {
+      "width": 320,
+      "height": 568,
+      "scrollWidth": 320,
+      "bodyScrollWidth": 320,
+      "overflow": [],
+      "unnamedButtons": 0,
+      "safeTop": true,
+      "safeBottom": true,
+      "reducedClass": false
+    },
+    "largeHook": {
+      "width": 430,
+      "height": 1000,
+      "scrollWidth": 430,
+      "bodyScrollWidth": 430,
+      "overflow": [],
+      "unnamedButtons": 0,
+      "safeTop": true,
+      "safeBottom": true,
+      "reducedClass": false
+    },
+    "largeHome": {
+      "width": 430,
+      "height": 1000,
+      "scrollWidth": 430,
+      "bodyScrollWidth": 430,
+      "overflow": [],
+      "unnamedButtons": 0,
+      "safeTop": true,
+      "safeBottom": true,
+      "reducedClass": false
+    },
+    "mediumHook": {
+      "width": 390,
+      "height": 844,
+      "scrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "overflow": [],
+      "unnamedButtons": 0,
+      "safeTop": true,
+      "safeBottom": true,
+      "reducedClass": false
+    }
+  },
+  "continuity": {
+    "hatchBird": "magpie",
+    "hatchAsset": "/results/magpie.webp",
+    "revealBird": "magpie",
+    "revealAsset": "/results/magpie.webp",
+    "homeBird": "magpie",
+    "homeAsset": "/results/magpie.webp",
+    "dropBird": "magpie",
+    "equippedBird": "magpie",
+    "equippedAsset": "/results/magpie-northern.webp",
+    "reloadBird": "magpie",
+    "reloadAsset": "/results/magpie-northern.webp",
+    "replayBird": "magpie",
+    "replayAsset": "/results/magpie-northern.webp"
+  },
+  "visual": {
+    "smallHookSeparation": {
+      "copy": {
+        "top": 62,
+        "bottom": 231.59375,
+        "height": 169.59375
+      },
+      "egg": {
+        "top": 249.90625,
+        "bottom": 448.9375,
+        "height": 199.03125
+      },
+      "action": {
+        "top": 474.125,
+        "bottom": 557,
+        "height": 82.875
+      }
+    },
+    "q1Question": {
+      "opacity": 0.991392,
+      "visibility": "visible",
+      "number": "01"
+    },
+    "q1Separation": {
+      "ring": {
+        "top": 44.953125,
+        "bottom": 156.328125,
+        "height": 111.375
+      },
+      "number": {
+        "top": 172.43902587890625,
+        "bottom": 215.43902587890625,
+        "height": 43
+      },
+      "kicker": {
+        "top": 182.43902587890625,
+        "bottom": 193.31402587890625,
+        "height": 10.875
+      },
+      "heading": {
+        "top": 198.31402587890625,
+        "bottom": 246.31402587890625,
+        "height": 48
+      },
+      "firstTextTop": 172.43902587890625,
+      "gap": 16.11090087890625
+    },
+    "q4Question": {
+      "opacity": 1,
+      "visibility": "visible",
+      "number": "04"
+    },
+    "q4Separation": {
+      "ring": {
+        "top": 44,
+        "bottom": 154.84375,
+        "height": 110.84375
+      },
+      "number": {
+        "top": 172,
+        "bottom": 215,
+        "height": 43
+      },
+      "kicker": {
+        "top": 182,
+        "bottom": 192.875,
+        "height": 10.875
+      },
+      "heading": {
+        "top": 197.875,
+        "bottom": 245.875,
+        "height": 48
+      },
+      "firstTextTop": 172,
+      "gap": 17.15625
+    },
+    "q8Question": {
+      "opacity": 1,
+      "visibility": "visible",
+      "number": "08"
+    },
+    "q8Separation": {
+      "ring": {
+        "top": 44,
+        "bottom": 154.84375,
+        "height": 110.84375
+      },
+      "number": {
+        "top": 172,
+        "bottom": 215,
+        "height": 43
+      },
+      "kicker": {
+        "top": 182,
+        "bottom": 192.875,
+        "height": 10.875
+      },
+      "heading": {
+        "top": 197.875,
+        "bottom": 245.875,
+        "height": 48
+      },
+      "firstTextTop": 172,
+      "gap": 17.15625
+    },
+    "hatchIntact": {
+      "phase": "pulse",
+      "base": {
+        "present": true,
+        "opacity": 1,
+        "transform": "matrix(1.01689, 0, 0, 1.01689, -0.938444, 0)"
+      },
+      "cracks": {
+        "present": true,
+        "opacity": 0,
+        "transform": "none"
+      },
+      "flash": {
+        "present": true,
+        "opacity": 0,
+        "transform": "matrix(0.72, 0, 0, 0.72, 0, 0)"
+      },
+      "frame": {
+        "present": true,
+        "opacity": 0,
+        "transform": "none"
+      },
+      "bird": {
+        "present": true,
+        "opacity": 0,
+        "transform": "matrix(0.5, 0, 0, 0.5, 0, 35.7394)"
+      }
+    },
+    "hatchOpening": {
+      "phase": "cracks",
+      "base": {
+        "present": true,
+        "opacity": 1,
+        "transform": "matrix(0.999987, 0.00513887, -0.00513887, 0.999987, 1.6825, -0.920624)"
+      },
+      "cracks": {
+        "present": true,
+        "opacity": 0.358604,
+        "transform": "matrix(0.992953, 0, 0, 0.992953, 0, 0)"
+      },
+      "flash": {
+        "present": true,
+        "opacity": 0,
+        "transform": "matrix(0.72, 0, 0, 0.72, 0, 0)"
+      },
+      "frame": {
+        "present": true,
+        "opacity": 0,
+        "transform": "none"
+      },
+      "bird": {
+        "present": true,
+        "opacity": 0,
+        "transform": "matrix(0.5, 0, 0, 0.5, 0, 52.6488)"
+      }
+    },
+    "reveal": {
+      "resultId": "magpie",
+      "plumageAsset": "/results/magpie.webp",
+      "imageReady": "true",
+      "imageComplete": true,
+      "naturalWidth": 1067,
+      "naturalHeight": 1271,
+      "imageWidth": 158.234375,
+      "imageHeight": 188.484375,
+      "imageDisplay": "block",
+      "imageVisibility": "visible",
+      "imageOpacity": 1,
+      "renderedDetail": {
+        "width": 160,
+        "height": 190,
+        "samples": 7600,
+        "bright": 1077,
+        "brightRatio": 0.14171052631578948,
+        "maxLuma": 237.6166
+      }
+    },
+    "smallRevealLayout": {
+      "position": "absolute",
+      "opacity": 1,
+      "panel": {
+        "top": 389.984375,
+        "right": 304,
+        "bottom": 560,
+        "left": 16,
+        "width": 288,
+        "height": 170.015625
+      },
+      "bird": {
+        "top": 181.8671875,
+        "right": 239.109375,
+        "bottom": 370.3515625,
+        "left": 80.875,
+        "width": 158.234375,
+        "height": 188.484375
+      },
+      "ring": {
+        "top": 138.3828125,
+        "right": 256,
+        "bottom": 381.6171875,
+        "left": 64,
+        "width": 192,
+        "height": 243.234375
+      },
+      "hookCopy": {
+        "present": true,
+        "opacity": 0,
+        "visibility": "hidden",
+        "pointerEvents": "none"
+      },
+      "hookAction": {
+        "present": true,
+        "opacity": 0,
+        "visibility": "hidden",
+        "pointerEvents": "none"
+      },
+      "question": {
+        "present": true,
+        "opacity": 0,
+        "visibility": "hidden",
+        "pointerEvents": "none"
+      },
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "separated": true,
+      "frameSeparated": true
+    },
+    "smallHatchTrace": {
+      "samples": 157,
+      "active": 140
+    },
+    "home": {
+      "resultId": "magpie",
+      "plumageAsset": "/results/magpie.webp",
+      "imageReady": "true",
+      "imageComplete": true,
+      "naturalWidth": 1067,
+      "naturalHeight": 1271,
+      "imageWidth": 256,
+      "imageHeight": 294,
+      "imageDisplay": "block",
+      "imageVisibility": "visible",
+      "imageOpacity": 1,
+      "renderedDetail": {
+        "width": 256,
+        "height": 294,
+        "samples": 18816,
+        "bright": 1741,
+        "brightRatio": 0.09252763605442177,
+        "maxLuma": 238.9014
+      }
+    },
+    "drop": {
+      "resultId": "magpie",
+      "plumageAsset": "/results/magpie-northern.webp",
+      "imageReady": "true",
+      "imageComplete": true,
+      "naturalWidth": 1067,
+      "naturalHeight": 1271,
+      "imageWidth": 252,
+      "imageHeight": 251.99993896484375,
+      "imageDisplay": "block",
+      "imageVisibility": "visible",
+      "imageOpacity": 1,
+      "renderedDetail": {
+        "width": 252,
+        "height": 253,
+        "samples": 15939,
+        "bright": 1553,
+        "brightRatio": 0.09743396699918438,
+        "maxLuma": 233.11520000000002
+      }
+    },
+    "dropLayout": {
+      "image": {
+        "top": 315.9375,
+        "right": 286,
+        "bottom": 567.9375,
+        "left": 34,
+        "width": 252,
+        "height": 252
+      },
+      "heading": {
+        "top": 602.9375,
+        "right": 304,
+        "bottom": 636.25,
+        "left": 16,
+        "width": 288,
+        "height": 33.3125
+      },
+      "copy": {
+        "top": 642.25,
+        "right": 304,
+        "bottom": 659.640625,
+        "left": 16,
+        "width": 288,
+        "height": 17.390625
+      },
+      "button": {
+        "top": 681.640625,
+        "right": 304,
+        "bottom": 733.640625,
+        "left": 16,
+        "width": 288,
+        "height": 52
+      },
+      "viewport": {
+        "width": 320,
+        "height": 568
+      }
+    },
+    "equipped": {
+      "resultId": "magpie",
+      "plumageAsset": "/results/magpie-northern.webp",
+      "imageReady": "true",
+      "imageComplete": true,
+      "naturalWidth": 1067,
+      "naturalHeight": 1271,
+      "imageWidth": 259.0203857421875,
+      "imageHeight": 297.4687194824219,
+      "imageDisplay": "block",
+      "imageVisibility": "visible",
+      "imageOpacity": 1,
+      "renderedDetail": {
+        "width": 256,
+        "height": 294,
+        "samples": 18816,
+        "bright": 2123,
+        "brightRatio": 0.1128295068027211,
+        "maxLuma": 232.1444
+      }
+    },
+    "reload": {
+      "resultId": "magpie",
+      "plumageAsset": "/results/magpie-northern.webp",
+      "imageReady": "true",
+      "imageComplete": true,
+      "naturalWidth": 1067,
+      "naturalHeight": 1271,
+      "imageWidth": 256,
+      "imageHeight": 294,
+      "imageDisplay": "block",
+      "imageVisibility": "visible",
+      "imageOpacity": 1,
+      "renderedDetail": {
+        "width": 256,
+        "height": 294,
+        "samples": 18816,
+        "bright": 2150,
+        "brightRatio": 0.11426445578231292,
+        "maxLuma": 233.11520000000002
+      }
+    },
+    "replayHatch": {
+      "resultId": "magpie",
+      "plumageAsset": "/results/magpie-northern.webp",
+      "imageReady": "true",
+      "imageComplete": true,
+      "naturalWidth": 1067,
+      "naturalHeight": 1271,
+      "imageWidth": 151.36483764648438,
+      "imageHeight": 180.30157470703125,
+      "imageDisplay": "block",
+      "imageVisibility": "visible",
+      "imageOpacity": 1
+    },
+    "replayReveal": {
+      "resultId": "magpie",
+      "plumageAsset": "/results/magpie-northern.webp",
+      "imageReady": "true",
+      "imageComplete": true,
+      "naturalWidth": 1067,
+      "naturalHeight": 1271,
+      "imageWidth": 158.234375,
+      "imageHeight": 188.484375,
+      "imageDisplay": "block",
+      "imageVisibility": "visible",
+      "imageOpacity": 1,
+      "renderedDetail": {
+        "width": 160,
+        "height": 190,
+        "samples": 7600,
+        "bright": 1186,
+        "brightRatio": 0.15605263157894736,
+        "maxLuma": 229.10999999999999
+      }
+    },
+    "replayRevealLayout": {
+      "position": "absolute",
+      "opacity": 1,
+      "panel": {
+        "top": 389.984375,
+        "right": 304,
+        "bottom": 560,
+        "left": 16,
+        "width": 288,
+        "height": 170.015625
+      },
+      "bird": {
+        "top": 181.8671875,
+        "right": 239.109375,
+        "bottom": 370.3515625,
+        "left": 80.875,
+        "width": 158.234375,
+        "height": 188.484375
+      },
+      "ring": {
+        "top": 138.3828125,
+        "right": 256,
+        "bottom": 381.6171875,
+        "left": 64,
+        "width": 192,
+        "height": 243.234375
+      },
+      "hookCopy": {
+        "present": true,
+        "opacity": 0,
+        "visibility": "hidden",
+        "pointerEvents": "none"
+      },
+      "hookAction": {
+        "present": true,
+        "opacity": 0,
+        "visibility": "hidden",
+        "pointerEvents": "none"
+      },
+      "question": {
+        "present": true,
+        "opacity": 0,
+        "visibility": "hidden",
+        "pointerEvents": "none"
+      },
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "separated": true,
+      "frameSeparated": true
+    },
+    "largeHookSeparation": {
+      "copy": {
+        "top": 104,
+        "bottom": 365.171875,
+        "height": 261.171875
+      },
+      "egg": {
+        "top": 386,
+        "bottom": 732,
+        "height": 346
+      },
+      "action": {
+        "top": 881.375,
+        "bottom": 983,
+        "height": 101.625
+      }
+    },
+    "largeHatch": {
+      "bird": {
+        "resultId": "magpie",
+        "plumageAsset": "/results/magpie.webp",
+        "imageReady": "true",
+        "imageComplete": true,
+        "naturalWidth": 1067,
+        "naturalHeight": 1271,
+        "imageWidth": 239.1875,
+        "imageHeight": 284.90625,
+        "imageDisplay": "block",
+        "imageVisibility": "visible",
+        "imageOpacity": 1,
+        "renderedDetail": {
+          "width": 240,
+          "height": 286,
+          "samples": 17160,
+          "bright": 2652,
+          "brightRatio": 0.15454545454545454,
+          "maxLuma": 237.9014
+        }
+      },
+      "reveal": {
+        "position": "absolute",
+        "opacity": 1,
+        "panel": {
+          "top": 778.578125,
+          "right": 412,
+          "bottom": 982,
+          "left": 18,
+          "width": 394,
+          "height": 203.421875
+        },
+        "bird": {
+          "top": 381.8828125,
+          "right": 334.578125,
+          "bottom": 666.7890625,
+          "left": 95.390625,
+          "width": 239.1875,
+          "height": 284.90625
+        },
+        "ring": {
+          "top": 321.2734375,
+          "right": 355,
+          "bottom": 678.7265625,
+          "left": 75,
+          "width": 280,
+          "height": 357.453125
+        },
+        "hookCopy": {
+          "present": true,
+          "opacity": 0,
+          "visibility": "hidden",
+          "pointerEvents": "none"
+        },
+        "hookAction": {
+          "present": true,
+          "opacity": 0,
+          "visibility": "hidden",
+          "pointerEvents": "none"
+        },
+        "question": {
+          "present": true,
+          "opacity": 0,
+          "visibility": "hidden",
+          "pointerEvents": "none"
+        },
+        "viewport": {
+          "width": 430,
+          "height": 1000
+        },
+        "separated": true,
+        "frameSeparated": true
+      },
+      "trace": {
+        "samples": 154,
+        "active": 137
+      }
+    },
+    "largeHome": {
+      "resultId": "magpie",
+      "plumageAsset": "/results/magpie.webp",
+      "imageReady": "true",
+      "imageComplete": true,
+      "naturalWidth": 1067,
+      "naturalHeight": 1271,
+      "imageWidth": 310,
+      "imageHeight": 294,
+      "imageDisplay": "block",
+      "imageVisibility": "visible",
+      "imageOpacity": 1,
+      "renderedDetail": {
+        "width": 310,
+        "height": 294,
+        "samples": 22785,
+        "bright": 1711,
+        "brightRatio": 0.07509326311169628,
+        "maxLuma": 238.9014
+      }
+    },
+    "mediumHookSeparation": {
+      "copy": {
+        "top": 104,
+        "bottom": 342.921875,
+        "height": 238.921875
+      },
+      "egg": {
+        "top": 371.359375,
+        "bottom": 685.1875,
+        "height": 313.828125
+      },
+      "action": {
+        "top": 725.375,
+        "bottom": 827,
+        "height": 101.625
+      }
+    },
+    "mediumHatch": {
+      "bird": {
+        "resultId": "magpie",
+        "plumageAsset": "/results/magpie.webp",
+        "imageReady": "true",
+        "imageComplete": true,
+        "naturalWidth": 1067,
+        "naturalHeight": 1271,
+        "imageWidth": 218.859375,
+        "imageHeight": 260.703125,
+        "imageDisplay": "block",
+        "imageVisibility": "visible",
+        "imageOpacity": 1,
+        "renderedDetail": {
+          "width": 220,
+          "height": 262,
+          "samples": 14410,
+          "bright": 2182,
+          "brightRatio": 0.15142262317834837,
+          "maxLuma": 237.9014
+        }
+      },
+      "reveal": {
+        "position": "absolute",
+        "opacity": 1,
+        "panel": {
+          "top": 627.125,
+          "right": 372,
+          "bottom": 826,
+          "left": 18,
+          "width": 354,
+          "height": 198.875
+        },
+        "bird": {
+          "top": 313.9375,
+          "right": 304.4296875,
+          "bottom": 574.640625,
+          "left": 85.5703125,
+          "width": 218.859375,
+          "height": 260.703125
+        },
+        "ring": {
+          "top": 257.625,
+          "right": 323.9453125,
+          "bottom": 586.375,
+          "left": 66.0546875,
+          "width": 257.890625,
+          "height": 328.75
+        },
+        "hookCopy": {
+          "present": true,
+          "opacity": 0,
+          "visibility": "hidden",
+          "pointerEvents": "none"
+        },
+        "hookAction": {
+          "present": true,
+          "opacity": 0,
+          "visibility": "hidden",
+          "pointerEvents": "none"
+        },
+        "question": {
+          "present": true,
+          "opacity": 0,
+          "visibility": "hidden",
+          "pointerEvents": "none"
+        },
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "separated": true,
+        "frameSeparated": true
+      },
+      "trace": {
+        "samples": 153,
+        "active": 136
+      }
+    },
+    "reducedHatches": [
+      {
+        "bird": {
+          "resultId": "magpie",
+          "plumageAsset": "/results/magpie.webp",
+          "imageReady": "true",
+          "imageComplete": true,
+          "naturalWidth": 1067,
+          "naturalHeight": 1271,
+          "imageWidth": 158.234375,
+          "imageHeight": 188.484375,
+          "imageDisplay": "block",
+          "imageVisibility": "visible",
+          "imageOpacity": 1,
+          "renderedDetail": {
+            "width": 160,
+            "height": 190,
+            "samples": 7600,
+            "bright": 1077,
+            "brightRatio": 0.14171052631578948,
+            "maxLuma": 237.6166
+          }
+        },
+        "reveal": {
+          "position": "absolute",
+          "opacity": 1,
+          "panel": {
+            "top": 389.984375,
+            "right": 304,
+            "bottom": 560,
+            "left": 16,
+            "width": 288,
+            "height": 170.015625
+          },
+          "bird": {
+            "top": 181.8671875,
+            "right": 239.109375,
+            "bottom": 370.3515625,
+            "left": 80.875,
+            "width": 158.234375,
+            "height": 188.484375
+          },
+          "ring": {
+            "top": 138.3828125,
+            "right": 256,
+            "bottom": 381.6171875,
+            "left": 64,
+            "width": 192,
+            "height": 243.234375
+          },
+          "hookCopy": {
+            "present": true,
+            "opacity": 0,
+            "visibility": "hidden",
+            "pointerEvents": "none"
+          },
+          "hookAction": {
+            "present": true,
+            "opacity": 0,
+            "visibility": "hidden",
+            "pointerEvents": "none"
+          },
+          "question": {
+            "present": true,
+            "opacity": 0,
+            "visibility": "hidden",
+            "pointerEvents": "none"
+          },
+          "viewport": {
+            "width": 320,
+            "height": 568
+          },
+          "separated": true,
+          "frameSeparated": true
+        },
+        "trace": {
+          "samples": 61,
+          "active": 57
+        }
+      },
+      {
+        "bird": {
+          "resultId": "magpie",
+          "plumageAsset": "/results/magpie.webp",
+          "imageReady": "true",
+          "imageComplete": true,
+          "naturalWidth": 1067,
+          "naturalHeight": 1271,
+          "imageWidth": 218.859375,
+          "imageHeight": 260.703125,
+          "imageDisplay": "block",
+          "imageVisibility": "visible",
+          "imageOpacity": 1,
+          "renderedDetail": {
+            "width": 220,
+            "height": 262,
+            "samples": 14410,
+            "bright": 2182,
+            "brightRatio": 0.15142262317834837,
+            "maxLuma": 237.9014
+          }
+        },
+        "reveal": {
+          "position": "absolute",
+          "opacity": 1,
+          "panel": {
+            "top": 627.125,
+            "right": 372,
+            "bottom": 826,
+            "left": 18,
+            "width": 354,
+            "height": 198.875
+          },
+          "bird": {
+            "top": 313.9375,
+            "right": 304.4296875,
+            "bottom": 574.640625,
+            "left": 85.5703125,
+            "width": 218.859375,
+            "height": 260.703125
+          },
+          "ring": {
+            "top": 257.625,
+            "right": 323.9453125,
+            "bottom": 586.375,
+            "left": 66.0546875,
+            "width": 257.890625,
+            "height": 328.75
+          },
+          "hookCopy": {
+            "present": true,
+            "opacity": 0,
+            "visibility": "hidden",
+            "pointerEvents": "none"
+          },
+          "hookAction": {
+            "present": true,
+            "opacity": 0,
+            "visibility": "hidden",
+            "pointerEvents": "none"
+          },
+          "question": {
+            "present": true,
+            "opacity": 0,
+            "visibility": "hidden",
+            "pointerEvents": "none"
+          },
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "separated": true,
+          "frameSeparated": true
+        },
+        "trace": {
+          "samples": 64,
+          "active": 60
+        }
+      },
+      {
+        "bird": {
+          "resultId": "magpie",
+          "plumageAsset": "/results/magpie.webp",
+          "imageReady": "true",
+          "imageComplete": true,
+          "naturalWidth": 1067,
+          "naturalHeight": 1271,
+          "imageWidth": 239.1875,
+          "imageHeight": 284.90625,
+          "imageDisplay": "block",
+          "imageVisibility": "visible",
+          "imageOpacity": 1,
+          "renderedDetail": {
+            "width": 240,
+            "height": 286,
+            "samples": 17160,
+            "bright": 2652,
+            "brightRatio": 0.15454545454545454,
+            "maxLuma": 237.9014
+          }
+        },
+        "reveal": {
+          "position": "absolute",
+          "opacity": 1,
+          "panel": {
+            "top": 778.578125,
+            "right": 412,
+            "bottom": 982,
+            "left": 18,
+            "width": 394,
+            "height": 203.421875
+          },
+          "bird": {
+            "top": 381.8828125,
+            "right": 334.578125,
+            "bottom": 666.7890625,
+            "left": 95.390625,
+            "width": 239.1875,
+            "height": 284.90625
+          },
+          "ring": {
+            "top": 321.2734375,
+            "right": 355,
+            "bottom": 678.7265625,
+            "left": 75,
+            "width": 280,
+            "height": 357.453125
+          },
+          "hookCopy": {
+            "present": true,
+            "opacity": 0,
+            "visibility": "hidden",
+            "pointerEvents": "none"
+          },
+          "hookAction": {
+            "present": true,
+            "opacity": 0,
+            "visibility": "hidden",
+            "pointerEvents": "none"
+          },
+          "question": {
+            "present": true,
+            "opacity": 0,
+            "visibility": "hidden",
+            "pointerEvents": "none"
+          },
+          "viewport": {
+            "width": 430,
+            "height": 1000
+          },
+          "separated": true,
+          "frameSeparated": true
+        },
+        "trace": {
+          "samples": 67,
+          "active": 63
+        }
+      }
+    ],
+    "slowApiHatchTrace": {
+      "samples": 190,
+      "active": 173
+    },
+    "coloringGalleries": [
+      {
+        "resultId": "magpie",
+        "count": 10,
+        "uniqueAssets": 3,
+        "uniqueRendered": 3
+      },
+      {
+        "resultId": "woodpecker",
+        "count": 10,
+        "uniqueAssets": 1,
+        "uniqueRendered": 1
+      },
+      {
+        "resultId": "jay",
+        "count": 10,
+        "uniqueAssets": 1,
+        "uniqueRendered": 1
+      },
+      {
+        "resultId": "crane",
+        "count": 10,
+        "uniqueAssets": 1,
+        "uniqueRendered": 1
+      },
+      {
+        "resultId": "owl",
+        "count": 10,
+        "uniqueAssets": 1,
+        "uniqueRendered": 1
+      },
+      {
+        "resultId": "kotosov",
+        "count": 10,
+        "uniqueAssets": 1,
+        "uniqueRendered": 1
+      }
+    ]
+  },
+  "consoleErrors": [],
+  "artifacts": [
+    {
+      "name": "01-hook.png",
+      "sha256": "7a7c5b9e70d172d37d637ca891829afee1b56f40fdfa29e2577ffaf1c7cd5de6"
+    },
+    {
+      "name": "02-hook-start-before.png",
+      "sha256": "6538921f73d3859ea4c15a6c97f18bec19a6612e0520f00a0bd82a4f5d261c6a"
+    },
+    {
+      "name": "03-quiz-q1.png",
+      "sha256": "82bc2122d206e89896a3579d855c6928c60ef98ecfad2858665dcf66dd46d472"
+    },
+    {
+      "name": "04-quiz-q4.png",
+      "sha256": "0b3d0d8ee81c532a25862c26695fb6df0ab1e8fe422d8fd6beb8ba7e03f677fe"
+    },
+    {
+      "name": "05-quiz-q8.png",
+      "sha256": "6a14076db5f8f4e4f20b901bd2e4eb3f5aad2d3033a1e1bfe57691e1a445aa54"
+    },
+    {
+      "name": "15-hatch-intact.png",
+      "sha256": "183b0b732bc2aa8157a573aa0b88e942b3e7c78a4141e218dfe0ebdf072f07a8"
+    },
+    {
+      "name": "16-hatch-opening.png",
+      "sha256": "9b2a0223df484c6d7d52a10e556e313ca7cfbbce5f77eb04a09b65bd2f133b92"
+    },
+    {
+      "name": "06-bird-reveal.png",
+      "sha256": "242123719e945c7121e6bd55dcf6f29d88837a3a4bda4a5437571127aef47a1f"
+    },
+    {
+      "name": "07-worm-loop.png",
+      "sha256": "6d09f7ee6473111b134503ec9ce3f59778d34b5bbd25c3f55f468ef40a574370"
+    },
+    {
+      "name": "08-home.png",
+      "sha256": "a081304c9d75d3af3e6fa56382daf5ce4f5e1f17cd11409a87b2d7fd031f0b60"
+    },
+    {
+      "name": "09-new-coloring-drop.png",
+      "sha256": "f5b779a86df94ea3e762fff14744f5a2a3790e87a0717cd304e2801315ea5962"
+    },
+    {
+      "name": "10-reload-persistence.png",
+      "sha256": "317a4142485972f2c7cebda57c28fd2bc59cb746006b24e5ff410f323debe456"
+    },
+    {
+      "name": "11-replay-same-bird.png",
+      "sha256": "2a399341676801498e46091ade40f15cb8e6a140a81df022a60cf6dc02a523b6"
+    },
+    {
+      "name": "12-large-hook.png",
+      "sha256": "a06e4c0539f1372bad9e55bdc03750fedd058fb0eb8c104539102c25cc4272a4"
+    },
+    {
+      "name": "18-hatch-430x1000.png",
+      "sha256": "11e06ffad4c8abc0c0241a77539f3592cddd2ea24e8006c95fc3f1d82f7316a9"
+    },
+    {
+      "name": "13-large-home.png",
+      "sha256": "37b96f4c143d3f8b340ede19906c81631ea0550653e1a2a5cb6068a0bf768868"
+    },
+    {
+      "name": "17-hook-390x844.png",
+      "sha256": "9cf2bad466da5c8fd06fa99eb3b4e8005e1138e0acabcd3f29d607328e9055aa"
+    },
+    {
+      "name": "19-hatch-390x844.png",
+      "sha256": "6802433a1a37b5dc01d3f9fdade4954e3fcc102feb77db85c26feb4b038df0a8"
+    },
+    {
+      "name": "20-hatch-reduced-320x568.png",
+      "sha256": "242123719e945c7121e6bd55dcf6f29d88837a3a4bda4a5437571127aef47a1f"
+    },
+    {
+      "name": "21-hatch-reduced-390x844.png",
+      "sha256": "d580c279ef88f41f0f16f2baaecc04165e199c5fc5253131c324ddd7451031c2"
+    },
+    {
+      "name": "22-hatch-reduced-430x1000.png",
+      "sha256": "11e06ffad4c8abc0c0241a77539f3592cddd2ea24e8006c95fc3f1d82f7316a9"
+    },
+    {
+      "name": "23-hatch-slow-api-390x844.png",
+      "sha256": "1a171c227a9fc8448458c057eb12928b8bb6e01d254eaea9feeb1782665f45d2"
+    },
+    {
+      "name": "motion-1-hook-to-q1.webm",
+      "sha256": "c19df4541a20b572b100c1e8596bdf4d4c3c36aac712b7be112601dbda8d7cfd"
+    },
+    {
+      "name": "motion-2-q1-q4-q8-cracks.webm",
+      "sha256": "dfab878ed370811f8bcf8b0abc6674de7add257deb61c1921094d5e858912fd5"
+    },
+    {
+      "name": "motion-3-q8-to-reveal.webm",
+      "sha256": "581eac8126922e634bc8b9a3fb3c908aef29198f267d4daa9641d56b4a3278b2"
+    },
+    {
+      "name": "gallery-magpie-real-plumage.png",
+      "sha256": "cc903feece859394d15d672c951673e4c0581db6fee0eba53bb8247eac3e165f"
+    },
+    {
+      "name": "gallery-magpie-10-colorings.png",
+      "sha256": "cc903feece859394d15d672c951673e4c0581db6fee0eba53bb8247eac3e165f"
+    },
+    {
+      "name": "gallery-woodpecker-10-colorings.png",
+      "sha256": "15bdcb463b0846c6f5f51321a6e328fe7fe812d198837fa195b83a13fdc9ca4f"
+    },
+    {
+      "name": "gallery-jay-10-colorings.png",
+      "sha256": "14de7c09017c015c3226e5be9939712c9d0e3736ccc5b687c4a483e052cc690c"
+    },
+    {
+      "name": "gallery-crane-10-colorings.png",
+      "sha256": "d1cb1e6ab5efabb2b6a556b71d76f01ac9e90dc524526f94cbf56bcd58ae2edb"
+    },
+    {
+      "name": "gallery-owl-10-colorings.png",
+      "sha256": "7ecbca4810bbe6d175b4293bb8ed0918c128908153b5f20f15b3467500d0c822"
+    },
+    {
+      "name": "gallery-kotosov-10-colorings.png",
+      "sha256": "8a8435c797ae5854c2fcc1b721b9642d6e75edc86e0589a4836573c8dc3a62e8"
+    },
+    {
+      "name": "KONTUR_VISUAL_FIX_WALKTHROUGH.webm",
+      "sha256": "b8406678c9fe705dc5058c7beddd85c9a68dd8b270db36a4d983059a2687d5d8"
+    }
+  ],
+  "productionBuild": {
+    "indexSha256": "3b64e17bf80945504a8548e06ec8139ebe24f8f1904ae44fc5226f2d713f7722"
+  }
+}

@@ -1,0 +1,66 @@
+name: Kontur exact-head browser acceptance
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/kontur-core-visual-continuity-20260818
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kontur-browser-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  chromium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Enable pnpm 11
+        run: |
+          corepack enable
+          corepack prepare pnpm@11 --activate
+      - name: Frozen install and exact production build
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm -F @kontur/miniapp test
+          pnpm -F @kontur/miniapp typecheck
+          pnpm -F @kontur/miniapp build
+      - name: Install Chromium runtime
+        run: pnpm -F @kontur/miniapp exec playwright install --with-deps chromium
+      - name: Run mobile, reduced-motion and continuity acceptance
+        env:
+          KONTUR_BROWSER_EVIDENCE_DIR: ${{ runner.temp }}/kontur-browser-evidence
+        run: pnpm -F @kontur/miniapp test:browser:kontur
+      - name: Verify required visual artifact set
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/kontur-browser-evidence"
+          for file in \
+            01-hook.png 02-hook-start-before.png 03-quiz-q1.png 04-quiz-q4.png \
+            05-quiz-q8.png 06-bird-reveal.png 07-worm-loop.png 08-home.png \
+            15-hatch-intact.png 16-hatch-opening.png 17-hook-390x844.png \
+            gallery-magpie-10-colorings.png gallery-woodpecker-10-colorings.png \
+            gallery-jay-10-colorings.png gallery-crane-10-colorings.png \
+            gallery-owl-10-colorings.png gallery-kotosov-10-colorings.png \
+            motion-1-hook-to-q1.webm motion-2-q1-q4-q8-cracks.webm motion-3-q8-to-reveal.webm \
+            KONTUR_VISUAL_FIX_WALKTHROUGH.webm \
+            browser-acceptance.json; do
+            test -s "$evidence/$file"
+          done
+          node -e "const p=require(process.env.RUNNER_TEMP+'/kontur-browser-evidence/browser-acceptance.json');if(p.result!=='PASS'||p.exactHead!==process.env.GITHUB_SHA)throw new Error('browser manifest/head mismatch')"
+      - name: Upload exact-head browser evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: kontur-browser-evidence-${{ github.sha }}
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/kontur-browser-evidence

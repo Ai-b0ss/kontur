@@ -1,5 +1,5 @@
 schema_version: 7
-updated_at: "2026-08-22"
+updated_at: "2026-08-23"
 status: "kontur_core_done_external_exact_binding"
 
 repository:
@@ -63,6 +63,27 @@ verification:
     exact_asset_convergence: true
     live_synthetic_auth_economy_persistence: true
     production_touched: false
+  production_live_2026_08_23:
+    status: "hatch_289ef82f_deployed_owner_fff6pm_reset"
+    worker: "kontur-igor"
+    origin: "https://kontur-igor.igorekglukhovskii43.workers.dev"
+    runtime: "289ef82f76536aa05b2efab59400e80bcb94d50a"
+    exact_asset_convergence: true
+    live_assets:
+      js: "/assets/index-BVo4e4i5.js"
+      css: "/assets/index-DqWMARjT.css"
+    health: "ok/devMode=false/driver=d1"
+    api_boundary: "401"
+    telegram_webhook_boundary: "403"
+    users_before: 4
+    users_after: 3
+    hatched_before: 4
+    hatched_after: 3
+    owner_username_removed: "fff6pm"
+    owner_db_id_removed: 58
+    remaining_usernames: ["fff999o", "fff6dm", "belasblesov"]
+    global_d1_wipe: false
+    executor_restored_read_only: true
   handoff:
     status: "pass"
     secret_scan: "pass"

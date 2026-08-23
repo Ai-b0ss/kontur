@@ -1,85 +1,66 @@
 version: 2.1
 
 jobs:
-  kontur-browser-diagnostic:
+  kontur-production-observer:
     docker:
       - image: cimg/node:22.18-browsers
     resource_class: medium
     environment:
-      KONTUR_EXPECTED_SHA: a43af7c736440696fc97d213eca88f1e2e10bb10
-      KONTUR_TELEGRAM_EVIDENCE_DIR: /tmp/kontur-telegram-hatch-evidence
+      KONTUR_EXPECTED_SHA: 289ef82f76536aa05b2efab59400e80bcb94d50a
+      PROD_ORIGIN: https://kontur-igor.igorekglukhovskii43.workers.dev
     steps:
       - checkout
       - run:
-          name: Exact candidate
-          command: |
-            set -euo pipefail
-            git fetch origin fix/kontur-hatch-shells-telegram-viewport-20260822
-            git checkout --detach "$KONTUR_EXPECTED_SHA"
-            test "$(git rev-parse HEAD)" = "$KONTUR_EXPECTED_SHA"
-            test -z "$(git status --porcelain)"
-      - run:
-          name: Install and build
+          name: Build exact candidate and derive asset hashes
           no_output_timeout: 25m
           command: |
             set -euo pipefail
+            git fetch origin cursor/hatch-product-289ef82f-1021
+            git checkout --detach "$KONTUR_EXPECTED_SHA"
+            test "$(git rev-parse HEAD)" = "$KONTUR_EXPECTED_SHA"
             corepack enable
             corepack prepare pnpm@11.22.0 --activate
             pnpm install --frozen-lockfile
             pnpm -F @kontur/miniapp build
+            node --input-type=module <<'NODE'
+            import fs from 'node:fs';
+            const html=fs.readFileSync('apps/miniapp/dist/index.html','utf8');
+            const js=html.match(/\/assets\/index-[A-Za-z0-9_-]+\.js/)?.[0];
+            const css=html.match(/\/assets\/index-[A-Za-z0-9_-]+\.css/)?.[0];
+            if(!js||!css) throw new Error('candidate hashed assets missing');
+            fs.writeFileSync('/tmp/expected-assets.env', `EXPECTED_JS=${js}\nEXPECTED_CSS=${css}\n`);
+            console.log(`EXPECTED_ASSETS js=${js} css=${css}`);
+            NODE
       - run:
-          name: Chromium diagnostic with HTTP URL logging
-          no_output_timeout: 25m
-          command: |
-            set +e
-            mkdir -p /tmp/kontur-circle-diagnostic "$KONTUR_TELEGRAM_EVIDENCE_DIR"
-            python3 - <<'PY'
-            from pathlib import Path
-            p=Path('apps/miniapp/test/telegram-hatch-browser.mjs')
-            s=p.read_text()
-            needle="  page.on('pageerror', (error) => errors.push(error.message));"
-            insert=needle+"\n  page.on('response', (response) => { if (response.status() >= 400) errors.push(`HTTP ${response.status()} ${response.url()}`); });"
-            if needle not in s:
-                raise SystemExit('diagnostic injection point missing')
-            p.write_text(s.replace(needle, insert, 1))
-            PY
-            pnpm -F @kontur/miniapp exec playwright install --with-deps chromium > /tmp/kontur-circle-diagnostic/playwright-install.log 2>&1
-            install_status=$?
-            if [ "$install_status" -eq 0 ]; then
-              pnpm --dir apps/miniapp exec node test/telegram-hatch-browser.mjs > /tmp/kontur-circle-diagnostic/browser.log 2>&1
-              browser_status=$?
-            else
-              browser_status=99
-              echo 'browser skipped because playwright install failed' > /tmp/kontur-circle-diagnostic/browser.log
-            fi
-            printf 'install_status=%s\nbrowser_status=%s\n' "$install_status" "$browser_status" > /tmp/kontur-circle-diagnostic/status.txt
-            cat /tmp/kontur-circle-diagnostic/status.txt
-            exit "$browser_status"
-      - run:
-          name: Publish diagnostic log to GitHub
-          when: always
+          name: Wait for exact production assets and verify boundaries
+          no_output_timeout: 12m
           command: |
             set -euo pipefail
-            diag_branch="diagnostics/circle-kontur-browser-20260822"
-            git config user.name "Kontur Circle Diagnostic"
-            git config user.email "kontur-circle@users.noreply.github.com"
-            git restore apps/miniapp/test/telegram-hatch-browser.mjs 2>/dev/null || true
-            git switch --create "$diag_branch" "$CIRCLE_SHA1"
-            mkdir -p docs/product/evidence/runtime/circle-browser-diagnostic
-            cp /tmp/kontur-circle-diagnostic/status.txt docs/product/evidence/runtime/circle-browser-diagnostic/status.txt 2>/dev/null || true
-            cp /tmp/kontur-circle-diagnostic/playwright-install.log docs/product/evidence/runtime/circle-browser-diagnostic/playwright-install.log 2>/dev/null || true
-            cp /tmp/kontur-circle-diagnostic/browser.log docs/product/evidence/runtime/circle-browser-diagnostic/browser.log 2>/dev/null || true
-            cp "$KONTUR_TELEGRAM_EVIDENCE_DIR"/*.png docs/product/evidence/runtime/circle-browser-diagnostic/ 2>/dev/null || true
-            git add docs/product/evidence/runtime/circle-browser-diagnostic
-            if ! git diff --cached --quiet; then
-              git commit -m "evidence: capture Circle browser diagnostic"
-              git push --force origin "HEAD:refs/heads/$diag_branch"
-            fi
+            . /tmp/expected-assets.env
+            matched=0
+            for i in $(seq 1 60); do
+              html="$(curl -fsS -H 'Cache-Control: no-cache, no-store, max-age=0' "$PROD_ORIGIN/?kontur_observer=$KONTUR_EXPECTED_SHA-$i")"
+              if printf '%s' "$html" | grep -Fq "$EXPECTED_JS" && printf '%s' "$html" | grep -Fq "$EXPECTED_CSS"; then
+                matched=1
+                echo "LIVE_ASSET_MATCH_PASS attempt=$i js=$EXPECTED_JS css=$EXPECTED_CSS"
+                break
+              fi
+              echo "waiting_for_live_assets attempt=$i expected_js=$EXPECTED_JS expected_css=$EXPECTED_CSS"
+              sleep 10
+            done
+            test "$matched" = '1'
+            health="$(curl -fsS -H 'Cache-Control: no-cache, no-store, max-age=0' "$PROD_ORIGIN/api/v1/health?kontur_observer=$KONTUR_EXPECTED_SHA")"
+            printf '%s' "$health" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s);if(j.ok!==true||j.devMode!==false||j.driver!=='d1')process.exit(1);console.log('HEALTH_PASS')})"
+            api_code="$(curl -sS -o /tmp/unauth.json -w '%{http_code}' "$PROD_ORIGIN/api/v4/local/state?kontur_observer=$KONTUR_EXPECTED_SHA")"
+            test "$api_code" = '401'
+            webhook_code="$(curl -sS -o /tmp/webhook.txt -w '%{http_code}' -X POST -H 'content-type: application/json' --data '{"update_id":1}' "$PROD_ORIGIN/telegram/webhook")"
+            test "$webhook_code" = '403'
+            echo "PRODUCTION_OBSERVER_PASS sha=$KONTUR_EXPECTED_SHA api=$api_code webhook=$webhook_code"
 
 workflows:
-  kontur-browser-diagnostic:
+  kontur-production-observer:
     jobs:
-      - kontur-browser-diagnostic:
+      - kontur-production-observer:
           filters:
             branches:
               only: ci/kontur-circle-vite-20260821

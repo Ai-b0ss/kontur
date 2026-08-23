@@ -6,50 +6,60 @@
 - Repo: `Ai-b0ss/qwen-free-api`
 - Branch: `autopilot/qwen-runtime-preflight-20260818`
 - PR: #6
-- Fresh product head: `cd05b3858260cbbf6516875162257ef8aee10b28`.
+- Fresh product head: `8ef4f0e4740ced01ab1806a3ad086755e8cf1f3b`.
 - Kontur и AI Mirrors не трогать.
 - QWEN_RELIABILITY владеет account/cooldown/provider-circuit; Core туда не заходит.
 
 Перед новой записью fresh-read PR #6, `autonomy/OWNER_INTENT_RU.md`, `autonomy/CURRENT_RU.md`, QWEN_CORE/QWEN_RELIABILITY, issue #9, Circle policy, v4 runtime, LATEST/PREVIOUS.
 
-## ЗАКРЫТО В ЭТОМ ЦИКЛЕ: конфликтующие aliases skills
+## ЗАКРЫТО В ЭТОМ ЦИКЛЕ №1: конфликтующие aliases skills
 
-До исправления `requestedSkillNames()` уже отвергал нестроковые значения, но верхний выбор всё ещё делался через `body.skills ?? body.skill_names ?? body.skillNames`, поэтому несколько одновременно переданных aliases не сверялись.
+До исправления `requestedSkillNames()` уже отвергал нестроковые значения, но несколько одновременно переданных aliases `skills/skill_names/skillNames` не сверялись.
 
 Root fix:
-- `6be7da56d94bf64fd56b23cb804ff6ae1a08bba6` — `src/skills.js`: каждый из `skills`, `skill_names`, `skillNames` нормализуется отдельно; несколько реально заданных aliases обязаны дать один и тот же упорядоченный список, иначе `QWEN_SKILL_SELECTOR_INVALID`.
+- `6be7da56d94bf64fd56b23cb804ff6ae1a08bba6` — строгая нормализация и сверка aliases в `src/skills.js`; конфликт -> `QWEN_SKILL_SELECTOR_INVALID`.
 - blob `src/skills.js`: `61314aea3c39c62728041c608f9c5555b7c727a6`.
-- `86179ad57a06cfa94c3840bbc4daa03b6f142c96` — расширена уже штатная `scripts/skills-selector-type-validation-test.js`; blob `0c9ed02a7ed07497ffd84b68136c880ad9f863db`.
-- regression уже был включён в ordinary `npm test`; `package.json` не менялся.
+- `86179ad57a06cfa94c3840bbc4daa03b6f142c96` — расширен уже штатный `scripts/skills-selector-type-validation-test.js`; blob `0c9ed02a7ed07497ffd84b68136c880ad9f863db`.
+- package wiring не требовался: regression уже входил в ordinary `npm test`.
 
-Targeted локально без provider/CI:
+Targeted local PASS без provider/CI:
 `QWEN_SKILL_SELECTOR_ALIAS_TARGET_PASS inherited=2 equivalent=1 conflicts=3`.
 
-Compare старого head `d6e843914...` до `86179ad57...` = ровно `src/skills.js` + regression, Core соседние файлы и Reliability-зона не затронуты.
+## ЗАКРЫТО В ЭТОМ ЦИКЛЕ №2: пустой internal-agent completion больше не считается успехом
 
-## НОВЫЙ ДОКАЗАННЫЙ CORE RED: внутренний агент может принять пустой completion за успех
+На exact предыдущем `src/agent.js` blob `3a2b6a6d9414dab18cdb21f8d69143ac77a73cba` ветка без tool-calls делала synthetic success:
+`result.content.trim() ? result.content : '(пустой ответ)'`.
 
-На exact `src/agent.js` blob `3a2b6a6d9414dab18cdb21f8d69143ac77a73cba` ветка без tool-calls делает:
-`const content = result.content.trim() ? result.content : '(пустой ответ)'`
-и возвращает обычный успешный assistant-turn.
+RED был воспроизведён на byte-exact materialization: `agent.runTurn()` не отклонял metadata/terminal stream без текста/tool-call и возвращал успешный `assistant` с `(пустой ответ)`.
 
-`chat-adapter.parseQwenSSE()` при non-`requireToolCall` terminal frame может завершить поток без текстового/tool output; поэтому этот synthetic success достижим, а не только теоретический. Для автономного coding/subagent пути это ложный DONE: пустой upstream не должен превращаться в успешный ответ.
+Постоянная красная проверка сначала добавлена отдельно:
+- `cd05b3858260cbbf6516875162257ef8aee10b28` — `scripts/agent-empty-response-test.js`.
 
-Зафиксирована намеренно красная постоянная проверка:
-- `cd05b3858260cbbf6516875162257ef8aee10b28` — новый `scripts/agent-empty-response-test.js`.
-- тест пока НЕ включён в `npm test`, потому что продукт доказанно красный; это обязательное исключение только до root fix.
+Root fix:
+- исходный `src/agent.js` был локально реконструирован строго из GitHub line-ranges; `git hash-object` перед mutation точно совпал с `3a2b6a6d9414dab18cdb21f8d69143ac77a73cba`;
+- `89a993f8f3454ea43888cf656e634bd2d54ca61f` — если `toolCalls.length===0` и `content.trim()` пуст, агент бросает короткую `QWEN_AGENT_EMPTY_RESPONSE`; synthetic assistant success больше не записывается;
+- новый blob `src/agent.js`: `d5daf1f2f269772c7da6ac335ee291de293185b0`;
+- `8ef4f0e4740ced01ab1806a3ad086755e8cf1f3b` — regression сразу включён в ordinary `npm test`; `package.json` blob `5099b82edad372c88f450fd86a9816b10d924769`.
 
-Требуемый минимальный root fix:
-- при `result.toolCalls.length === 0 && !result.content.trim()` бросать короткую локальную ошибку `QWEN_AGENT_EMPTY_RESPONSE` вместо создания `(пустой ответ)`;
-- не записывать synthetic assistant success;
-- tool-call с пустым preamble остаётся допустимым;
-- после targeted green сразу включить `agent-empty-response-test.js` в ordinary `npm test` и прогнать соседние `offline-agent-loop-test.js`, `agent-round-limit-test.js`, `agent-tool-error-recovery-test.js`.
+Targeted до fix: ожидаемый RED `Missing expected rejection`.
+Targeted после fix на том же exact source + minimal patch:
+`QWEN_AGENT_EMPTY_RESPONSE_REJECTED provider_calls=1 synthetic_success=0`.
+`node --check src/agent.js` = PASS.
 
-В текущем запуске root fix не записан: доступный GitHub write для `src/agent.js` требует полной замены 14KB файла, а надёжного byte-preserving patch primitive нет. Частичный/реконструированный large-file overwrite запрещён. RED оставлен явным, не замаскирован PASS.
+Семантика tool-call с пустым preamble не менялась: fail-closed действует только когда нет ни tool-call, ни непустого финального текста.
+
+## Diff-граница этого запуска
+Compare исходного head `d6e843914078168ba2026c0c99746cfcd99fe480` -> `8ef4f0e4740ced01ab1806a3ad086755e8cf1f3b` = ровно 5 commits и 5 Core-файлов:
+- `src/skills.js`;
+- `scripts/skills-selector-type-validation-test.js`;
+- `src/agent.js`;
+- `scripts/agent-empty-response-test.js`;
+- `package.json` test wiring.
+
+`session-store.js`, `server.js`, `chat-adapter.js`, account/cooldown/provider-circuit и `package-lock.json` не затронуты.
 
 ## Сохраняющий силу Core proof
 На неизменённых участках сохраняются прежние targeted доказательства:
-- strict top-level skills element type + alias conflict;
 - nested durable session schema fail-closed;
 - incremental tool-results сохраняют durable assistant/tool pair;
 - owner authority type checks и большой owner-system checkpoint/restart;
@@ -61,7 +71,7 @@ Compare старого head `d6e843914...` до `86179ad57...` = ровно `src
 - execution error classification и required tool arguments.
 
 ## CircleCI — reconnect остаётся НЕ ДОКАЗАН
-Разрешённый единственный дешёвый reconnect-probe уже израсходован:
+Единственный дешёвый reconnect-probe уже израсходован:
 - branch `ci/qwen-reconnect-probe`;
 - probe commit `f1e70505751e1d6648758b289c57a60da9d9de3b`;
 - provider/live/secrets = 0.
@@ -78,15 +88,14 @@ Fresh handoff сообщает:
 - единственный proof gap: exact `node scripts/provider-safety-test.js` на настоящем locked dependency tree с real `axios` 1.19.0; shim/reconstructed tree не принимать.
 
 ## Что осталось до DONE
-1. Закрыть `QWEN_AGENT_EMPTY_RESPONSE`, targeted verify, включить regression в `npm test`.
-2. Fresh stable common product SHA.
-3. Core targeted cluster на том же SHA: session/restart/stale-backup/pending-tool/tool-result + owner/system modes + plain/coding subagents + skills + stream/tool/agent gates.
-4. Reliability exact `provider-safety-test.js` и её targeted cluster на том же SHA.
-5. Full exact-tree Linux `npm test` на этом SHA.
-6. Дождаться читаемого status/result уже созданного Circle reconnect probe; второй probe не создавать.
-7. После доказанной связи — один native Windows Server 2022 Circle gate на тех же product bytes через disposable `ci/qwen-final-gate`, locked install + полный offline suite, без provider/live/secrets/production.
-8. Затем PowerShell owner-doctor: prerequisites/Node, локальный старт, offline/self-test, session/restart/tool-result/subagent smoke; harness должен пройти native Windows Circle и вывести `QWEN_WINDOWS_READY` либо первый blocker.
-9. Только после этого и при отсутствии серьёзных RED ставить `QWEN_CORE_DONE`.
+1. Fresh stable common product SHA.
+2. Core targeted cluster на том же SHA: session/restart/stale-backup/pending-tool/tool-result + owner/system modes + plain/coding subagents + skills + stream/tool/agent gates.
+3. Reliability exact `provider-safety-test.js` и её targeted cluster на том же SHA.
+4. Full exact-tree Linux `npm test` на этом SHA.
+5. Дождаться читаемого status/result уже созданного Circle reconnect probe; второй probe не создавать.
+6. После доказанной связи — один native Windows Server 2022 Circle gate на тех же product bytes через disposable `ci/qwen-final-gate`, locked install + полный offline suite, без provider/live/secrets/production.
+7. Затем PowerShell owner-doctor: prerequisites/Node, локальный старт, offline/self-test, session/restart/tool-result/subagent smoke; harness должен пройти native Windows Circle и вывести `QWEN_WINDOWS_READY` либо первый blocker.
+8. Только при отсутствии незакрытого серьёзного воспроизводимого дефекта ставить `QWEN_CORE_DONE`.
 
 Полный exact-tree Linux `npm test` в этом запуске НЕ заявляется.
 

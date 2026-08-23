@@ -1,111 +1,96 @@
-# Qwen — агентное ядро / финишный handoff
+# Qwen — агентное ядро / текущий handoff
 
-Обновлено QWEN_CORE 2026-08-23.
+Обновлено QWEN_CORE 2026-08-24.
 
 ## Текущая линия
 - Repo: `Ai-b0ss/qwen-free-api`
 - Branch: `autopilot/qwen-runtime-preflight-20260818`
 - PR: #6
-- Fresh product head: `8ef4f0e4740ced01ab1806a3ad086755e8cf1f3b`.
+- Fresh product head после Core-изменений: `86cf45b93cf51aca5f077ed86259525358764e35`.
 - Kontur и AI Mirrors не трогать.
-- QWEN_RELIABILITY владеет account/cooldown/provider-circuit; Core туда не заходит.
+- QWEN_RELIABILITY владеет `account-store` / cooldown / provider-circuit. Core туда не заходит.
+- Более свежий issue #9 Reliability handoff (`5388496615`) отменяет старую границу из файла QWEN_RELIABILITY: на `bc780713...` malformed persisted cooldown fail-open уже минимально исправлен в `src/account-store.js`, но exact runtime regression Reliability ещё должен доказать и только затем встроить в `npm test`.
 
-Перед новой записью fresh-read PR #6, `autonomy/OWNER_INTENT_RU.md`, `autonomy/CURRENT_RU.md`, QWEN_CORE/QWEN_RELIABILITY, issue #9, Circle policy, v4 runtime, LATEST/PREVIOUS.
+Перед новой записью: fresh-read PR #6, latest OWNER/CIRCLE POLICY/CLAIM/RELEASE в `kontur#9`, оба Qwen handoff и disposable CI surfaces. Если product head изменился после начала проверки — stale evidence не продолжать.
 
-## ЗАКРЫТО В ЭТОМ ЦИКЛЕ №1: конфликтующие aliases skills
+## ЗАКРЫТО В ЭТОМ ПРОХОДЕ: типы числовых настроек coding-subagents
 
-До исправления `requestedSkillNames()` уже отвергал нестроковые значения, но несколько одновременно переданных aliases `skills/skill_names/skillNames` не сверялись.
+На exact исходном `src/subagent-agent-runner.js` blob `a3d2013437768197d167022c9c6d888136c4fc7d` явные значения `maxRounds` и `streamRecoveryAttempts` проходили через `Number.parseInt(...)`. Из-за этого повреждённый JSON-конфиг мог молча менять исполнение:
+- `maxRounds: "9"` принимался как `9`;
+- `maxRounds: 1.5` принимался как `1`;
+- мусорная строка/объект молча откатывались к fallback вместо fail-closed;
+- аналогично для `streamRecoveryAttempts`.
 
-Root fix:
-- `6be7da56d94bf64fd56b23cb804ff6ae1a08bba6` — строгая нормализация и сверка aliases в `src/skills.js`; конфликт -> `QWEN_SKILL_SELECTOR_INVALID`.
-- blob `src/skills.js`: `61314aea3c39c62728041c608f9c5555b7c727a6`.
-- `86179ad57a06cfa94c3840bbc4daa03b6f142c96` — расширен уже штатный `scripts/skills-selector-type-validation-test.js`; blob `0c9ed02a7ed07497ffd84b68136c880ad9f863db`.
-- package wiring не требовался: regression уже входил в ordinary `npm test`.
+Это реально пользовательский/оркестраторский JSON-path: `scripts/run-agent-subagents.js` читает `payload.options` напрямую и передаёт в `runAgentSubagents()`.
 
-Targeted local PASS без provider/CI:
-`QWEN_SKILL_SELECTOR_ALIAS_TARGET_PASS inherited=2 equivalent=1 conflicts=3`.
-
-## ЗАКРЫТО В ЭТОМ ЦИКЛЕ №2: пустой internal-agent completion больше не считается успехом
-
-На exact предыдущем `src/agent.js` blob `3a2b6a6d9414dab18cdb21f8d69143ac77a73cba` ветка без tool-calls делала synthetic success:
-`result.content.trim() ? result.content : '(пустой ответ)'`.
-
-RED был воспроизведён на byte-exact materialization: `agent.runTurn()` не отклонял metadata/terminal stream без текста/tool-call и возвращал успешный `assistant` с `(пустой ответ)`.
-
-Постоянная красная проверка сначала добавлена отдельно:
-- `cd05b3858260cbbf6516875162257ef8aee10b28` — `scripts/agent-empty-response-test.js`.
+RED воспроизведён на byte-exact исходнике:
+`Missing expected exception: explicit malformed maxRounds=9 must fail closed`.
 
 Root fix:
-- исходный `src/agent.js` был локально реконструирован строго из GitHub line-ranges; `git hash-object` перед mutation точно совпал с `3a2b6a6d9414dab18cdb21f8d69143ac77a73cba`;
-- `89a993f8f3454ea43888cf656e634bd2d54ca61f` — если `toolCalls.length===0` и `content.trim()` пуст, агент бросает короткую `QWEN_AGENT_EMPTY_RESPONSE`; synthetic assistant success больше не записывается;
-- новый blob `src/agent.js`: `d5daf1f2f269772c7da6ac335ee291de293185b0`;
-- `8ef4f0e4740ced01ab1806a3ad086755e8cf1f3b` — regression сразу включён в ordinary `npm test`; `package.json` blob `5099b82edad372c88f450fd86a9816b10d924769`.
+- `c6d0027625b3e271ff4a695e776f92a4d7b90a8e` — `src/subagent-agent-runner.js`;
+- новый blob runner: `be73260345f5071e0dab71c62693fcb6e4ab87bb`;
+- явные значения теперь обязаны быть finite integer numbers; иначе `QWEN_SUBAGENT_SETTING_INVALID`;
+- числовые значения сохраняют старую bounded-семантику: `maxRounds` clamp 1..12, recovery clamp 0..4;
+- env vars намеренно остаются строковой конфигурацией и по-прежнему разбираются через прежний `clampInteger`.
 
-Targeted до fix: ожидаемый RED `Missing expected rejection`.
-Targeted после fix на том же exact source + minimal patch:
-`QWEN_AGENT_EMPTY_RESPONSE_REJECTED provider_calls=1 synthetic_success=0`.
-`node --check src/agent.js` = PASS.
+Regression:
+- `55fef2fa9b12cf4b4e06cd75457d6e20f74f1bd2` — добавлен `scripts/subagent-numeric-option-type-test.js`;
+- `86cf45b93cf51aca5f077ed86259525358764e35` — regression усилен проверкой реального `runAgentSubagents()` и `provider_calls=0` для всех плохих значений;
+- test blob: `81aa2cb3f212b8c5d10644ea356982a9c6bf237a`.
 
-Семантика tool-call с пустым preamble не менялась: fail-closed действует только когда нет ни tool-call, ни непустого финального текста.
+Ordinary npm wiring:
+- `c4bba7b8614c86eca1a5e8021da4ff927fa3235b` — `package.json` включает `node scripts/subagent-numeric-option-type-test.js` сразу после существующего capability-type regression;
+- package blob `52bde847ed854a8bbbe6822dcebd4c099ad779f9` read-back подтверждён.
 
-## Diff-граница этого запуска
-Compare исходного head `d6e843914078168ba2026c0c99746cfcd99fe480` -> `8ef4f0e4740ced01ab1806a3ad086755e8cf1f3b` = ровно 5 commits и 5 Core-файлов:
-- `src/skills.js`;
-- `scripts/skills-selector-type-validation-test.js`;
-- `src/agent.js`;
-- `scripts/agent-empty-response-test.js`;
-- `package.json` test wiring.
+Targeted exact local PASS на тех же runner/test bytes, без provider/CI:
+- существующий exact `scripts/subagent-capability-option-type-test.js` blob `f21017197acacfb1bf19bff60adb45d219be2c3c` -> `QWEN_SUBAGENT_CAPABILITY_OPTION_TYPE_PASS ... provider_calls=0`;
+- новый exact regression blob `81aa2cb...` -> `QWEN_SUBAGENT_NUMERIC_OPTION_TYPE_PASS malformed=8 numeric=4 env_strings=2 provider_calls=0`;
+- `node --check src/subagent-agent-runner.js` = PASS.
 
-`session-store.js`, `server.js`, `chat-adapter.js`, account/cooldown/provider-circuit и `package-lock.json` не затронуты.
+Изменён только Core-owned execution-setting path + новый regression + `package.json` wiring. Account/cooldown/provider-circuit не менялись.
 
 ## Сохраняющий силу Core proof
 На неизменённых участках сохраняются прежние targeted доказательства:
-- nested durable session schema fail-closed;
-- incremental tool-results сохраняют durable assistant/tool pair;
-- owner authority type checks и большой owner-system checkpoint/restart;
-- tool-result durable-before-next-Qwen;
-- pending multi-tool restart и duplicate tool-call-id protection;
-- stale-backup fail-closed;
+- session record schema fail-closed;
+- incremental tool-results + durable assistant/tool pair;
+- owner authority и большой owner-system checkpoint/restart;
+- pending multi-tool restart, duplicate tool-call-id protection;
+- stale-backup recovery fail-closed;
 - required-tool terminal/reasoning gates;
-- plain/coding subagent prompt/sessionPrefix/batch-state fail-closed;
-- execution error classification и required tool arguments.
+- plain/coding subagent prompt/sessionPrefix/batch-state checks;
+- tool execution errors/required arguments;
+- skills alias/type validation;
+- internal agent/subagent prompt-mode validation.
 
-## CircleCI — reconnect остаётся НЕ ДОКАЗАН
-Единственный дешёвый reconnect-probe уже израсходован:
-- branch `ci/qwen-reconnect-probe`;
-- probe commit `f1e70505751e1d6648758b289c57a60da9d9de3b`;
-- provider/live/secrets = 0.
+Это НЕ заменяет full exact-tree Linux `npm test` на текущем общем SHA.
 
-В этом запуске GitHub combined status снова: `statuses=[]`.
-Классификация `CIRCLE_RECONNECT_UNPROVEN`, НЕ PASS.
-- второй probe не запускать;
-- heavy final Linux/Windows Circle gate до читаемого result не запускать.
+## QWEN_RELIABILITY — текущая внешняя граница
+Самый свежий источник — issue #9 release `5388496615`, не старый handoff-файл:
+- на бывшем common head `bc780713...` найден и минимально исправлен malformed persisted numeric cooldown fail-open;
+- новый `scripts/account-store-malformed-cooldown-test.js` существует, но Reliability ещё не заявлял exact runtime PASS и не встраивал его в ordinary `npm test`;
+- Core не запускает/не чинит этот тест и не пишет account-store.
 
-## QWEN_RELIABILITY — свежая граница
-Fresh handoff сообщает:
-- account/cooldown/index/filename: 8/8 exact targeted PASS;
-- provider-circuit: 7/8 exact targeted PASS;
-- единственный proof gap: exact `node scripts/provider-safety-test.js` на настоящем locked dependency tree с real `axios` 1.19.0; shim/reconstructed tree не принимать.
+Следовательно `86cf45b...` пока нельзя считать общим stable green SHA для финального Linux gate: Reliability должна перепроверить свой owned fix уже поверх нового Core head и встроить regression после exact green.
 
-## Что осталось до DONE
-1. Fresh stable common product SHA.
-2. Core targeted cluster на том же SHA: session/restart/stale-backup/pending-tool/tool-result + owner/system modes + plain/coding subagents + skills + stream/tool/agent gates.
-3. Reliability exact `provider-safety-test.js` и её targeted cluster на том же SHA.
-4. Full exact-tree Linux `npm test` на этом SHA.
-5. Дождаться читаемого status/result уже созданного Circle reconnect probe; второй probe не создавать.
-6. После доказанной связи — один native Windows Server 2022 Circle gate на тех же product bytes через disposable `ci/qwen-final-gate`, locked install + полный offline suite, без provider/live/secrets/production.
-7. Затем PowerShell owner-doctor: prerequisites/Node, локальный старт, offline/self-test, session/restart/tool-result/subagent smoke; harness должен пройти native Windows Circle и вывести `QWEN_WINDOWS_READY` либо первый blocker.
-8. Только при отсутствии незакрытого серьёзного воспроизводимого дефекта ставить `QWEN_CORE_DONE`.
+## Circle / Linux / Windows
+Connectivity ранее доказана; reconnect повторять запрещено.
 
-Полный exact-tree Linux `npm test` в этом запуске НЕ заявляется.
+На этом проходе Circle не запускался: есть свежий Reliability gate, который должен быть закрыт на общем head. Правильный порядок:
+1. Reliability exact regression + соседний account/cooldown cluster на fresh common SHA; при PASS — wiring в `npm test`.
+2. Core fresh-read того же SHA; если Core blobs не изменились — targeted доказательства выше сохраняются.
+3. Один full exact Linux `npm test` на disposable config-only Circle от того же product SHA.
+4. Linux FAIL -> первый настоящий падающий тест по штатному порядку, без семантически меняющего разрезания suite.
+5. Только Linux PASS -> native Windows Server 2022 full на ТЕХ ЖЕ product bytes.
+6. Затем owner-doctor; live soak отдельно позже.
+
+`QWEN_CORE_DONE` пока не ставить.
 
 ## Постоянная память / v4 CAS
-Последний нормативно подтверждённый pointer из предыдущего handoff:
-- capsule `20260823T021610Z-f761e59acb`;
+Последняя нормативно подтверждённая QWEN_CORE capsule из предыдущего handoff остаётся:
+- `20260823T021610Z-f761e59acb`;
 - archive SHA-256 `78be915380698f3af3b6d4806b54bcbca4dd8ba428cca46165a4d7593517e3d6`;
-- source_ref `04b9f75f62da4d5380e3b5a5dfee76e7d18180cb`;
 - pointer blob `df27abdb99b66f68dc3a68aa8b95c93fc304a717`.
 
-Exact QWEN_CORE `LATEST/PREVIOUS` и normative runtime paths в доступном control tree снова не удалось надёжно разрешить. Новый pointer не публиковался: guessed path, pseudo-v4 и force-write запрещены. Новое состояние долговечно закреплено product commits + handoff + issue #9.
+В этом проходе exact runtime/LATEST/PREVIOUS paths не были заново нормативно разрешены, поэтому новый pointer не публиковался. Никаких guessed-path/pseudo-v4/force-write/CAS bypass. Новое состояние долговечно закреплено product commits + этот handoff + issue #9.
 
-Provider traffic, реальные аккаунты, секреты, Cloudflare, production, GitHub Actions = 0. Circle новых запусков = 0.
+Provider traffic, реальные аккаунты, секреты, Cloudflare, production, GitHub Actions, Circle = 0.

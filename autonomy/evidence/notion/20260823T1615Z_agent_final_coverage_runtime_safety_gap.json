@@ -1,0 +1,51 @@
+{
+  "schema": "notion_agent_final_coverage_gap_v1",
+  "observed_at_utc": "2026-08-23T16:15:00Z",
+  "agent_head": "4b344547d5e95bd4b3c62f5b80186059d849ff08",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "coverage_verifier_blob": "42cdae4c422068153f41697f063cf8a1cc28e8f9",
+  "finding": "FINAL_GATE_COVERAGE_CAN_PASS_WITHOUT_EXISTING_AGENT_RUNTIME_SAFETY_REGRESSIONS",
+  "synthetic_reproducer": {
+    "result": "PASS",
+    "description": "Verifier-equivalent local synthetic repo/suite contained every current REQUIRED_EXACT_MODULES entry plus Stage-B durable_replay/provider_intent tests, while omitting the fresh Agent regressions listed below. Current coverage logic still returned PASS because those modules are not REQUIRED_EXACT_MODULES."
+  },
+  "fresh_confirmed_omitted_regressions": [
+    {
+      "module": "tests.test_delegated_tool_loop_runtime_validation",
+      "blob": "c2bfce7bb6a2a6d942d38640ef03212bbbf252cc",
+      "boundary": "Malformed delegated model replies must fail before tool side effects or model-state mutation."
+    },
+    {
+      "module": "tests.test_delegated_uncertain_failover_boundary",
+      "blob": "a044f0e059c1da37448807830c3ca25b21d85942",
+      "boundary": "Uncertain local side effects must not be classified as provider failover errors."
+    },
+    {
+      "module": "tests.test_notion_delegated_synthetic_call_ids",
+      "blob": "2741e767b5df04cb2d4745506bb6aa9261bbaded",
+      "boundary": "A legitimate identical tool retry without provider call_id must get a fresh local call identity rather than collide with prior execution."
+    },
+    {
+      "module": "tests.test_notion_delegated_thread_reentry",
+      "blob": "bc13224559ec42a4ea66607845b3c04243e6e31d",
+      "boundary": "Returning to an old provider client after account movement must rebase full local history rather than resume a stale remote thread."
+    },
+    {
+      "module": "tests.test_reservation_aware_lease",
+      "blob": "e6d5a50575b8bc92eb36ecbfbaea37a98fdbb80f",
+      "boundary": "Reservation-aware transport/reselection semantics must remain fail-closed across account movement."
+    },
+    {
+      "module": "tests.test_responses_cooldown_failover",
+      "blob": "7195a0b2a123e3145ef6a9f26e2a36c9609fe147",
+      "boundary": "Responses affinity/thread state must survive legitimate cooldown failover without carrying the old thread to the replacement account."
+    },
+    {
+      "module": "tests.test_subagent_lifecycle",
+      "blob": "2d0451ee466502799fb28bfa3236534bbb7d01a5",
+      "boundary": "Parallel child lifecycle/admission/cleanup semantics must remain covered."
+    }
+  ],
+  "required_action_for_core": "Before Windows readiness, the same-byte final suite and/or coverage verifier must explicitly require these current-head runtime-safety regressions (or a stronger byte-equivalent set). A PASS from coverage blob 42cdae4c alone is insufficient if the suite omits them.",
+  "ownership": "Audit only. NOTION_AGENT did not mutate Core verifier/readiness, pair/materializers, PR#7, PR#8, CircleCI, Windows, live Notion/Codex, accounts, secrets, main, merge, or production."
+}

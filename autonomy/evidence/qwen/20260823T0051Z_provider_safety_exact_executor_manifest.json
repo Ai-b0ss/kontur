@@ -1,0 +1,49 @@
+{
+  "worker": "QWEN_RELIABILITY",
+  "created_utc": "2026-08-23T00:51:30Z",
+  "status": "EXACT_EXECUTION_PENDING",
+  "product": {
+    "repo": "Ai-b0ss/qwen-free-api",
+    "pr": 6,
+    "branch": "autopilot/qwen-runtime-preflight-20260818",
+    "fresh_head": "77e29f8fd1f4bfa6f3305925cbe8e4972e308ee0",
+    "compare_from_previous_core_head": {
+      "base": "747beb79d9f7f423c27e4b19c60949da83206b0b",
+      "ahead_by": 2,
+      "changed_files": [
+        "scripts/session-store-record-schema-recovery-test.js",
+        "src/session-store.js"
+      ],
+      "reliability_provider_bytes_changed": false
+    }
+  },
+  "exact_inputs": {
+    "scripts/provider-safety-test.js": "b593a77fe73b9041081c2cc6de90195ffe074952",
+    "src/qwen-client.js": "04ed2eb19dde860331d2722be9fe91c804d919b4",
+    "src/account-store.js": "7f60373a4335a82253ac3bfbc047283079de1d77",
+    "src/provider-circuit.js": "014b681c8032c86401801c6f0a6405f0b2149192",
+    "package-lock.json": "b38e85ce68a6f2e65e70bfd564c37b1eb82bdd3b"
+  },
+  "locked_dependency": {
+    "name": "axios",
+    "version": "1.19.0",
+    "resolved": "https://registry.npmjs.org/axios/-/axios-1.19.0.tgz",
+    "integrity": "sha512-ht/iuYZXEjFxLH/Hkezgd7m6JKlHHXEUSneaDz8uZe1Gj5QZtCnpyDsckvAiEnT89OEbCLmnte4R4sn7P0EKFw=="
+  },
+  "required_execution": {
+    "install": "npm ci on the exact package-lock tree",
+    "test": "node scripts/provider-safety-test.js",
+    "expected_success_marker": "PROVIDER_SAFE_ROTATION_PASS",
+    "network_to_qwen": false,
+    "real_accounts": false,
+    "secrets": false
+  },
+  "current_executor_checks": {
+    "hosted_container": "BLOCKED: registry.npmjs.org/GitHub DNS unavailable; npm view timed out; no axios in npm cache",
+    "replit_existing_app": "BLOCKED: two independent read-only Agent queries timed out; app was not modified",
+    "circleci": "FORBIDDEN_BY_OWNER_TEMPORARY_CIRCLE_FREEZE_2026-08-23",
+    "github_actions": "NOT_USED"
+  },
+  "proof_boundary": "Do not count a stub, manually reconstructed axios module, semantic model, or unreadable CI status as exact PASS.",
+  "next": "First already-authorized surface that can materialize this exact locked tree runs provider-safety once. If green, continue fresh targeted Reliability clusters on the same product SHA; if only Circle remains, mark READY_FOR_CIRCLE_AFTER_OWNER_RELEASE."
+}

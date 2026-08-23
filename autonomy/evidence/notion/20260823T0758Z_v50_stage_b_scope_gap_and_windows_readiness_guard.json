@@ -1,0 +1,70 @@
+{
+  "schema": "notion_core_v50_stage_b_scope_gap_v1",
+  "observed_at_utc": "2026-08-23T07:58:00Z",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_head": "ee0ae241b3ef19da7d3a69ddeecf6bb5476f91a9",
+  "v50": {
+    "path": "autonomy/evidence/notion/20260822T2043Z_v50_fixed_agent_core_composition_materializer.py",
+    "blob": "8c36e9cbca05498c43a48bc2094756ce8c854d4b",
+    "scope": [
+      "V48 Agent/Core composition layer",
+      "protected no-failover plumbing from V41/V45",
+      "Codex shell-environment secret exclusion"
+    ],
+    "does_not_compose": [
+      "V34/V35 durable provider-intent store",
+      "strict provider-intent/finalize transaction in server.py",
+      "canonical durable Responses replay with stable response/item/call IDs",
+      "durable compaction replay",
+      "buffered stream/non-stream projection from one persisted canonical result",
+      "restart/stale/oversize/TTL/remove-account Stage-B behavior"
+    ]
+  },
+  "fresh_product_store": {
+    "path": "payload/conversation_segments.py",
+    "blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "state_version": 2,
+    "provider_intents_present": false,
+    "durable_exact_response_replay_present": false,
+    "strict_write_failure_propagation_present": false,
+    "detached_get_present": false
+  },
+  "finding": "V50_FIXED_AGENT_CORE_COMPOSITION_CHECK/APPLY_PASS is not a Stage-B composed PASS and must never be sufficient for Windows readiness.",
+  "readiness_guard": {
+    "path": "autonomy/v3/tools/verify_notion_windows_ready_candidate.py",
+    "blob": "97100e7a48d28467555b39947367319f79123f1a",
+    "required_label": "READY_FOR_WINDOWS_CIRCLE_AFTER_RECONNECT",
+    "requires_unified_stage_b_candidate": true,
+    "requires_v50_only_false": true,
+    "requires_exact_composed_blobs": [
+      "conversation_segments.py",
+      "server.py",
+      "account_pool.py",
+      "reservation_aware_lease.py",
+      "subagent_tombstone_store.py"
+    ],
+    "requires_local_gate_matrix": true,
+    "requires_circle_frozen_and_not_started": true
+  },
+  "offline_self_test": {
+    "python_compile": "PASS",
+    "incomplete_manifest": {
+      "exit_code": 1,
+      "verdict": "NOTION_WINDOWS_READY_NOT_READY"
+    },
+    "complete_synthetic_manifest": {
+      "exit_code": 0,
+      "verdict": "READY_FOR_WINDOWS_CIRCLE_AFTER_RECONNECT"
+    }
+  },
+  "circle_windows": {
+    "policy": "FROZEN_DO_NOT_RUN",
+    "new_run_started": false,
+    "old_digest_reused_as_fresh": false
+  },
+  "capsule": {
+    "latest_changed": false,
+    "reason": "current canonical capsule readback cannot be byte-exactly restored in this runtime because one fetched part does not match its manifest hash; force-write/reconstruction forbidden"
+  },
+  "next": "Build one unified exact Stage-B candidate on the byte-identical Agent pair, then run the full local matrix and feed exact composed blobs/verdicts to the readiness guard. V50 alone is only a composition prerequisite."
+}

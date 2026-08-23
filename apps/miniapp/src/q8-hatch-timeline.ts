@@ -9,18 +9,18 @@ export type HatchTimings = {
 };
 
 const NORMAL_HATCH_TIMINGS: Readonly<HatchTimings> = Object.freeze({
-  pulse: 500,
-  cracks: 500,
-  flash: 140,
-  flashOut: 300,
-  reveal: 400,
+  pulse: 400,
+  cracks: 400,
+  flash: 250,
+  flashOut: 250,
+  reveal: 500,
 });
 
 const REDUCED_HATCH_TIMINGS: Readonly<HatchTimings> = Object.freeze({
   pulse: 80,
   cracks: 80,
   flash: 80,
-  flashOut: 180,
+  flashOut: 160,
   reveal: 220,
 });
 

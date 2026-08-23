@@ -1,0 +1,54 @@
+{
+  "schema": "notion_core_gate_hardening_v3",
+  "observed_at_utc": "2026-08-23T10:58:00Z",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_head": "6672cc0de99acb648b587612bb900f100f5eff42",
+  "agent_head_drift_from_previous": {
+    "base": "ee0ae241b3ef19da7d3a69ddeecf6bb5476f91a9",
+    "ahead_by": 3,
+    "changed_files": [
+      "payload/notion_delegation_adapter.py",
+      "tests/test_account_pool_reselect_release_abort_semantics.py",
+      "tests/test_delegated_failover_session.py",
+      "tests/test_dynamic_reservation_lease_session.py",
+      "tests/test_foreground_slot_routing.py",
+      "tests/test_notion_tool_subagent_runtime.py",
+      "tests/test_server_subagent_wiring_materializer.py"
+    ],
+    "core_pair_inputs_changed": false,
+    "final_agent_test_surface_changed": true
+  },
+  "issue": "The previous final coverage verifier could PASS while omitting existing prompt/delegation safety tests. Windows readiness also trusted one generic final_gate_coverage PASS bit and did not pin which coverage verifier produced it.",
+  "fix": {
+    "final_gate_coverage_verifier_blob": "b829c60e073d87cd04d31e30426cdcc8f3de7db0",
+    "windows_readiness_verifier_blob": "3eccd05fd3cfd84f8ebf35bd11f644bc73759632",
+    "windows_readiness_schema": "notion_windows_ready_candidate_v3",
+    "new_required_prompt_delegation_modules": [
+      "tests.test_prompt_modes",
+      "tests.test_prompt_policy_identity",
+      "tests.test_responses_prompt_mode_http_contract",
+      "tests.test_responses_prompt_wiring_contract",
+      "tests.test_delegation_policy",
+      "tests.test_delegation_dispatcher",
+      "tests.test_notion_delegated_model_step",
+      "tests.test_subagent_entrypoint",
+      "tests.test_foreground_slot_routing",
+      "tests.test_server_subagent_wiring_materializer"
+    ],
+    "readiness_pins_final_gate_coverage_verifier_blob": true,
+    "readiness_requires_explicit_prompt_delegation_gate_bits": true
+  },
+  "offline_self_test": {
+    "python_compile": "PASS",
+    "old_suite_omitting_prompt_delegation": "NOT_READY",
+    "complete_synthetic_suite": "PASS",
+    "single_missing_delegation_dispatcher": "NOT_READY",
+    "readiness_stale_v2_schema": "NOT_READY",
+    "readiness_stale_coverage_verifier_blob": "NOT_READY",
+    "readiness_missing_prompt_gate": "NOT_READY",
+    "complete_synthetic_readiness_v3": "PASS"
+  },
+  "native_windows_started": false,
+  "stage_b_unified_candidate": "NOT_YET_MATERIALIZED",
+  "verdict": "GATE_HARDENING_PASS_STAGE_B_STILL_REQUIRED"
+}

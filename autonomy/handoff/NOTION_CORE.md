@@ -9,9 +9,9 @@
 
 ## Ownership / claims
 
-- Активный Core claim: `NOTION_CORE-20260823T1544Z`, expires `2026-08-23T17:14:00Z`, scope = same-byte Core Stage-B composition/local full matrix/coverage.
-- Параллельный Agent claim: `NOTION_AGENT-20260823T1839MSK`, expires `2026-08-23T20:09:00+03:00`, scope = fresh exact Agent pair rematerialization/readback/compile/current-head Agent matrix.
-- Пока Agent claim активен, Core не мутирует PR #8/materializers/pair и не дублирует их rematerialization. Core может менять только свою control/readiness поверхность.
+- Активный Core claim: `NOTION_CORE-20260823T1746Z`, mode=AUDIT, expires `2026-08-23T19:16:00Z`; scope = Core-only Stage-B/final-gate readiness и same-byte manifest prerequisites.
+- Параллельный Agent claim: `NOTION_AGENT-20260823T2043MSK`, expires `2026-08-23T21:50:00+03:00`; scope = current-head exact pair rematerialization/readback/compile + local Agent safety matrix + byte-exact Core handoff.
+- Пока Agent claim активен, Core не мутирует PR #8/materializers/pair и не дублирует rematerialization. Core меняет только свою control/readiness поверхность.
 
 ## Exact Agent pair
 
@@ -24,9 +24,9 @@
 
 Historical transformed server `ba52edc7a8528d58acd2c5bef2b86c3ca84ca298` = **STALE_DO_NOT_PROMOTE**.
 
-Current startup-cleanup materializer blob `20c2fb2e550daab52f3d27e791fa500002a73735` содержит accepted root fix. Fresh regressions independently green by Agent on Python 3.13:
-- `tests/test_startup_status_repeated_cancellation.py` current blob prefix `9b649f7b...`: 2/2 PASS;
-- `tests/test_startup_cleanup_failure_boundary_candidate.py` blob prefix `6a1a1523...`: 3/3 PASS;
+Current startup-cleanup materializer blob `20c2fb2e550daab52f3d27e791fa500002a73735` содержит accepted root fix. Fresh regressions независимо зелёные на Python 3.13:
+- `tests/test_startup_status_repeated_cancellation.py`: 2/2 PASS;
+- `tests/test_startup_cleanup_failure_boundary_candidate.py`: 3/3 PASS;
 - дополнительные cleanup RuntimeError/CancelledError/repeated-cancellation negative cases PASS.
 
 До свежего transformed `server.py` blob+size+readback+compile и current-head Agent matrix старый `ba52...` не использовать ни в composition, ни в Stage-B, ни в Windows.
@@ -53,20 +53,30 @@ Stage-B store foundation ранее доказана на старой compositi
 
 ## Final coverage / Windows readiness — current hardened bytes
 
-Свежий Agent audit доказал новый acceptance gap: accepted startup-cleanup fix опирается на `tests.test_startup_cleanup_failure_boundary_candidate`, но предыдущий final coverage verifier мог PASS, не запуская эту регрессию. Windows readiness также не требовал отдельного результата этого boundary.
+Final coverage остаётся:
+- `autonomy/v3/tools/verify_notion_final_gate_coverage.py` = `42cdae4c422068153f41697f063cf8a1cc28e8f9`.
 
-Core независимо воспроизвёл gap и проверил exact Agent-provided candidates:
-- old coverage blob `76ebba1f...` без новой regression -> synthetic PASS (небезопасно);
-- new coverage без regression -> NOT_READY; с regression -> PASS;
-- new readiness full synthetic manifest -> READY; без cleanup-failure gate -> NOT_READY; со старым coverage blob -> NOT_READY;
-- оба кандидата компилируются; локальные Git blob SHA точно совпали с Agent handoff.
+В этом Core-проходе найден ещё один fail-open уже в Windows readiness. Предыдущий verifier `c54866cba891fa81c38a399b0b5741b708c008aa` (`notion_windows_ready_candidate_v4`) проверял `composed_blobs` только как синтаксически корректные 40-hex SHA и доверял PASS-меткам manifest. Он не читал сам composed candidate tree. Локальный контрпример с произвольными 40-hex blob values и всеми PASS labels получил `READY_FOR_TARGETED_WINDOWS_CIRCLE`.
 
-Канонические control bytes теперь:
-- `autonomy/v3/tools/verify_notion_final_gate_coverage.py` = `42cdae4c422068153f41697f063cf8a1cc28e8f9`;
-- `autonomy/v3/tools/verify_notion_windows_ready_candidate.py` = `c54866cba891fa81c38a399b0b5741b708c008aa`;
-- readiness schema остаётся `notion_windows_ready_candidate_v4`, но теперь pin-ит coverage `42cdae4c...` и требует gate `agent_startup_cleanup_failure_boundary=PASS`.
+Минимальный fix опубликован и прочитан обратно из GitHub:
+- `autonomy/v3/tools/verify_notion_windows_ready_candidate.py` = `ee286280c59d25d2ab634dad8b9c37c7bf072255`;
+- schema = `notion_windows_ready_candidate_v5`;
+- обязательный `--candidate-root`;
+- каждый required composed file должен быть обычным non-symlink файлом;
+- verifier сам вычисляет Git blob SHA из точных байтов `candidate-root` и требует равенство manifest `composed_blobs`.
 
-Durable evidence: `autonomy/evidence/notion/20260823T1558Z_startup_cleanup_failure_gate_hardening.json`.
+Локальная самопроверка v5:
+- Python compile PASS;
+- без `--candidate-root` -> NOT_READY;
+- изменённые `server.py` bytes -> `candidate_blob_mismatch.server.py`;
+- symlink вместо `account_pool.py` -> `candidate_file.account_pool.py`;
+- пять точных файлов, чьи Git blob SHA совпадают с manifest -> `READY_FOR_TARGETED_WINDOWS_CIRCLE`.
+
+Маркер: `V5_READINESS_EXACT_BYTE_BINDING_LOCAL_PASS`.
+Durable evidence: `autonomy/evidence/notion/20260823T1755Z_windows_readiness_exact_byte_binding.json`.
+Verifier commit: `a434fb23d24c10bd8d15e1e06750aa02b51ee7b4`.
+
+Это **не** real readiness PASS: exact unified Stage-B candidate ещё не получен. Новый v5 только делает невозможным Windows-допуск по manifest, не связанному с фактическими same-byte candidate files.
 
 Final same-byte suite обязательно включает Agent materializer/journal/tombstone/dynamic reservation, startup cleanup + cleanup-failure boundary + repeated cancellation, `test_subagent_tombstone_post_replace_sync_failure.py`, restart/delegated cancellation, prompt engineer/owner identity/wiring, delegation policy/dispatcher/model step/subagent entrypoint, routing/affinity/fresh-thread failover, Core strict intent/finalize, canonical Responses+compaction replay, retry/restart/tool-call, stream/non-stream/disconnect, ambiguous transport, removed account, TTL/size/oversize/stale retry >32, rollback floor и Codex shell-env secret exclusion.
 
@@ -75,7 +85,7 @@ Final same-byte suite обязательно включает Agent materializer
 1. Fresh-read PR #8/#9. Если Agent head/materializer меняется — freeze inputs заново; stale transformed bytes/gates не переносить.
 2. Получить от Agent свежую exact transformed pair после startup fix: оба файла должны иметь blob SHA + size + readback + compile + current-head Agent matrix. Частичный handoff не реконструировать.
 3. На этой exact pair наложить только канонический Core Stage-B и прогнать полный Agent+Core same-byte local matrix.
-4. Final coverage `42cdae4c...` и readiness `c54866cb...` должны PASS на exact manifest этих же байтов.
+4. Final coverage `42cdae4c...` должен PASS на exact suite; readiness **v5** `ee286280...` запускается с `--candidate-root <exact composed tree>` и должен сам подтвердить byte-for-byte Git blob binding manifest↔candidate.
 5. Только после этого запустить ровно один targeted native Windows Server 2022 proof. Pending не дублировать; historical PR #7 Windows не является доказательством новой composition.
 6. Targeted PASS -> full promoted Ubuntu+Windows/exact-source/security на тех же bytes.
 7. После promoted green -> isolated encrypted runtime restore -> real Codex-only `codex exec -> bridge -> Notion -> local tool -> verifier FAIL -> correction -> VERIFY_OK` со стабильным conversation id через initial/tool-result/retry/restart.

@@ -40,7 +40,9 @@
   left: auto;
   width: 100%;
   margin: 0 auto;
-  padding: calc(50dvh + 138px) 0 max(18px, env(safe-area-inset-bottom));
+  /* Egg geometry is 1101/1429, so the full-height master frame is taller
+     than its width. Reserve the real half-height plus a visible text gap. */
+  padding: calc(50dvh + 166px) 0 max(18px, env(safe-area-inset-bottom));
   text-align: center;
 }
 
@@ -68,7 +70,7 @@
   }
 
   .lk-first-time.lk-first-time--reveal .lk-reveal.lk-reveal--inline {
-    padding-top: calc(50dvh + 76px);
+    padding-top: calc(50dvh + 120px);
     padding-bottom: max(8px, env(safe-area-inset-bottom));
   }
 }

@@ -1,0 +1,31 @@
+{
+  "archive": {
+    "parts": 13,
+    "sha256": "8742a6159321761501f8c25e6f7b228607ab785d4def6a43c90acfd1230e100a",
+    "size": 3835
+  },
+  "capsule_id": "20260823T005431Z-9679490e09",
+  "created_at_utc": "2026-08-23T00:54:31Z",
+  "parts": [
+    {"chars":400,"index":0,"name":"part-0000.b64","sha256_text":"ce462c967932db3d1e3e733db3c88572f25f8fb059ee443b0ca264f63011ed35"},
+    {"chars":400,"index":1,"name":"part-0001.b64","sha256_text":"e7b03b8347421f955effe62f1030a2472f7f8078bfd4a03466ede56f4db2d557"},
+    {"chars":400,"index":2,"name":"part-0002.b64","sha256_text":"0beb92fa098e10c523929432e3fe53159883028d30ec6e2e27dc98dd4f6d5817"},
+    {"chars":400,"index":3,"name":"part-0003.b64","sha256_text":"a60ce5ec1f6a45278217cd17cb398706483af8999dae52af1dd1818adb742920"},
+    {"chars":400,"index":4,"name":"part-0004.b64","sha256_text":"b8f2b064fadd49b0c2e7d65c9c1284883fc183bc8e8a34aa939740031e9a377e"},
+    {"chars":400,"index":5,"name":"part-0005.b64","sha256_text":"e2e970a26b0dba391f13082cb317b4a2b9e0fb98ab0d2690a7aaa2eb9db1f417"},
+    {"chars":400,"index":6,"name":"part-0006.b64","sha256_text":"25881c838ec1c6e68e38de8145b73eb34cdc5e6896c29e7230c6927adf208dc6"},
+    {"chars":400,"index":7,"name":"part-0007.b64","sha256_text":"236abfba0363d8392d41a0689d4a4f6ad0269cb734fddb5a1b7a3204df3aa3cc"},
+    {"chars":400,"index":8,"name":"part-0008.b64","sha256_text":"91ab1affd63c1920051f51d68f14dfbef4d6120d6521012d567a07cb207a570b"},
+    {"chars":400,"index":9,"name":"part-0009.b64","sha256_text":"2ce31a54a6b964b5323d970744a05881be5b6f0b8b8283340cde064c82118bbd"},
+    {"chars":400,"index":10,"name":"part-0010.b64","sha256_text":"19092d59976faa96418d1e2b48b1418a3c653135a28fdde3460d9de46f333053"},
+    {"chars":400,"index":11,"name":"part-0011.b64","sha256_text":"e3389a1f10782b171a1e81572ca4e0899cc5833225b2e73f066c38369cb788ff"},
+    {"chars":316,"index":12,"name":"part-0012.b64","sha256_text":"54aeabcea8a142b238a4d1b9c24d6bdb5d6a48dab1d4c2c568f58a5a41b495ac"}
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@ee0ae241b3ef19da7d3a69ddeecf6bb5476f91a9",
+  "worker": "NOTION_AGENT",
+  "workspace": {
+    "CHECKPOINT.json": {"mode":"0o644","sha256":"1f2c16a980eb6115186cb6d76d88f88b2605f6ab031dafa2c62a95a1ef2d0531","size":8087,"type":"file"},
+    "README.md": {"mode":"0o644","sha256":"f30666ed996b95567dee0ef9ebd63598f4651eae34d8bab16b8badedf5c1b243","size":625,"type":"file"}
+  }
+}

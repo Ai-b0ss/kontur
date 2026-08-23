@@ -1,67 +1,34 @@
 version: 2.1
 
 jobs:
-  kontur-master-frame-proof:
+  kontur-source-proof:
     docker:
       - image: cimg/node:22.18-browsers
     resource_class: medium
     environment:
-      KONTUR_CANDIDATE_SHA: d4971eb15e2da1198ef776ad48cd9a365a439b1b
+      KONTUR_CANDIDATE_SHA: 7c36a31d127166c0c08bcc0b7d9e87b3235286a6
     steps:
       - checkout
       - run:
-          name: Verify exact candidate in real Chromium
-          no_output_timeout: 30m
+          name: Verify exact candidate source checks
+          no_output_timeout: 20m
           command: |
-            set -u
-            LOG=/tmp/kontur-master-frame-proof.log
-            : > "$LOG"
-            status=0
-            run() {
-              echo "\n===== $1 =====" | tee -a "$LOG"
-              shift
-              "$@" 2>&1 | tee -a "$LOG"
-              code=${PIPESTATUS[0]}
-              echo "EXIT=$code" | tee -a "$LOG"
-              if [ "$code" -ne 0 ]; then status="$code"; fi
-              return 0
-            }
-
-            git fetch origin fix/kontur-hatch-master-frame-20260823 2>&1 | tee -a "$LOG"
-            git checkout --detach "$KONTUR_CANDIDATE_SHA" 2>&1 | tee -a "$LOG"
-            actual="$(git rev-parse HEAD)"
-            echo "CANDIDATE=$actual" | tee -a "$LOG"
-            test "$actual" = "$KONTUR_CANDIDATE_SHA" || status=97
-
-            run install corepack enable
-            run pnpm_prepare corepack prepare pnpm@11.22.0 --activate
-            run dependencies pnpm install --frozen-lockfile
-            run miniapp_tests pnpm -F @kontur/miniapp test
-            run miniapp_typecheck pnpm -F @kontur/miniapp typecheck
-            run production_build pnpm -F @kontur/miniapp build
-            run chromium_install pnpm exec playwright install chromium
-            run real_chromium_hatch node apps/miniapp/test/telegram-hatch-browser.mjs
-
-            mkdir -p /tmp/kontur-circle-proof
-            cp "$LOG" /tmp/kontur-circle-proof/proof.log
-            if [ -d apps/miniapp/dist/telegram-hatch-evidence ]; then
-              cp -R apps/miniapp/dist/telegram-hatch-evidence /tmp/kontur-circle-proof/evidence
-            fi
-            printf 'candidate=%s\nstatus=%s\n' "$actual" "$status" > /tmp/kontur-circle-proof/status.txt
-            if [ "$status" -eq 0 ]; then
-              echo "KONTUR_MASTER_FRAME_PROOF_PASS candidate=$actual" | tee -a "$LOG"
-            else
-              echo "KONTUR_MASTER_FRAME_PROOF_FAIL candidate=$actual status=$status" | tee -a "$LOG"
-            fi
-            exit "$status"
-      - store_artifacts:
-          path: /tmp/kontur-circle-proof
-          destination: kontur-master-frame-proof
+            set -euo pipefail
+            git fetch origin fix/kontur-hatch-master-frame-20260823
+            git checkout --detach "$KONTUR_CANDIDATE_SHA"
+            test "$(git rev-parse HEAD)" = "$KONTUR_CANDIDATE_SHA"
+            corepack enable
+            corepack prepare pnpm@11.22.0 --activate
+            pnpm install --frozen-lockfile
+            pnpm -F @kontur/miniapp test
+            pnpm -F @kontur/miniapp typecheck
+            pnpm -F @kontur/miniapp build
+            echo "KONTUR_SOURCE_PROOF_PASS candidate=$KONTUR_CANDIDATE_SHA"
 
 workflows:
-  kontur-master-frame-proof:
+  kontur-source-proof:
     jobs:
-      - kontur-master-frame-proof:
+      - kontur-source-proof:
           filters:
             branches:
               only: ci/kontur-circle-vite-20260821

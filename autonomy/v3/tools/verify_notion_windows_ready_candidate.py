@@ -8,7 +8,7 @@ from pathlib import Path
 
 SCHEMA = "notion_windows_ready_candidate_v4"
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
-FINAL_GATE_COVERAGE_VERIFIER_BLOB = "76ebba1f3e7cb4e7d2fa49d46868cac24b555535"
+FINAL_GATE_COVERAGE_VERIFIER_BLOB = "42cdae4c422068153f41697f063cf8a1cc28e8f9"
 
 REQUIRED_BLOBS = (
     "conversation_segments.py",
@@ -25,10 +25,8 @@ REQUIRED_GATES = (
     "agent_tombstone_restart",
     "agent_delegated_cancellation",
     "agent_dynamic_reservation",
-    # Startup cleanup is a load-bearing Agent/Core composition boundary. Both
-    # direct failure chaining and repeated-cancellation/shield behavior must be
-    # green on the exact same-byte candidate.
     "agent_startup_status_cleanup",
+    "agent_startup_cleanup_failure_boundary",
     "agent_startup_status_repeated_cancellation",
     "agent_prompt_modes",
     "agent_prompt_policy_identity",

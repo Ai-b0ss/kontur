@@ -22,6 +22,7 @@ REQUIRED_EXACT_MODULES = (
     # the direct failure chain and repeated-cancellation/shield semantics must
     # be executed by the final same-byte suite.
     "tests.test_startup_status_cleanup",
+    "tests.test_startup_cleanup_failure_boundary_candidate",
     "tests.test_startup_status_repeated_cancellation",
     "tests.test_prompt_modes",
     "tests.test_prompt_policy_identity",

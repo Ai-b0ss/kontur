@@ -16,11 +16,15 @@ test('hatch removes split shell DOM and uses the radial gacha handoff', () => {
 
   assert.match(finalFrame, /\.lk-hatch-halves,[\s\S]*display:\s*none\s*!important/);
   assert.match(finalFrame, /@keyframes lk-gacha-shake/);
+  assert.match(finalFrame, /scale\(1\.02\) rotate\(-2deg\)/);
+  assert.match(finalFrame, /scale\(1\.02\) rotate\(2deg\)/);
   assert.match(finalFrame, /radial-gradient\(/);
   assert.match(finalFrame, /@keyframes lk-gacha-flash-burst/);
+  assert.match(finalFrame, /50% \{ opacity: \.9; transform: scale\(1\.1\); \}/);
   assert.match(finalFrame, /@keyframes lk-gacha-bird-spring/);
-  assert.match(finalFrame, /scale\(\.5\)/);
-  assert.match(finalFrame, /scale\(1\.05\)/);
+  assert.match(finalFrame, /animation:\s*lk-gacha-bird-spring 400ms/);
+  assert.match(finalFrame, /scale\(\.6\)/);
+  assert.match(finalFrame, /scale\(1\.06\)/);
 });
 
 test('flash remains covered across the flash to reveal state swap', () => {

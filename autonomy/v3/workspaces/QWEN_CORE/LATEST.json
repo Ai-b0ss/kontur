@@ -1,8 +1,8 @@
 {
-  "archive_sha256": "72602c3feae0ad139e4b17bc4e8b004ecf26e6796d704b45af9145803aa595fb",
-  "capsule_id": "20260822T230801Z-b2fff032a7",
-  "manifest": "20260822T230801Z-b2fff032a7/manifest.json",
+  "archive_sha256": "c03776090372b1407adaf8b9d7f50b5f77c17c08b79b4a3b5de085a4c09ce60d",
+  "capsule_id": "20260823T011225Z-36bfb3c9f8",
+  "manifest": "20260823T011225Z-36bfb3c9f8/manifest.json",
   "schema": "free_fabric_latest_v1",
-  "updated_at_utc": "2026-08-22T23:08:01Z",
+  "updated_at_utc": "2026-08-23T01:12:25Z",
   "worker": "QWEN_CORE"
 }

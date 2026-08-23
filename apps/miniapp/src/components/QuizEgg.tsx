@@ -47,18 +47,51 @@ export function QuizEgg({
       style={hatchStyle}
       aria-label={`Яйцо: этап ${model.stage} из 8`}
     >
-      <span className="lk-quiz-egg__ring" style={{ '--lk-egg-progress': `${model.progressDegrees}deg` } as CSSProperties} aria-hidden="true" />
+      <span
+        className="lk-quiz-egg__ring"
+        style={{ '--lk-egg-progress': `${model.progressDegrees}deg` } as CSSProperties}
+        aria-hidden="true"
+      />
       <span className="lk-quiz-egg__glow" aria-hidden="true" />
-      <img className="lk-quiz-egg__base" src={model.asset} alt="" width="1101" height="1429" draggable={false} />
-      <img className="lk-quiz-egg__cracks" src="/quiz/egg-crack-light.webp" alt="" aria-hidden="true" draggable={false} />
-      <div className="lk-hatch-halves" aria-hidden="true">
-        <img className="lk-hatch-half lk-hatch-half--left" src="/quiz/egg-stage-08.webp" alt="" draggable={false} />
-        <img className="lk-hatch-half lk-hatch-half--right" src="/quiz/egg-stage-08.webp" alt="" draggable={false} />
-      </div>
-      {hatching && resultId && (
-        <div className="lk-quiz-hatch" aria-hidden="true">
-          <span className="lk-quiz-hatch__halo" />
-          <span className="lk-quiz-hatch__flash" onAnimationEnd={handleFlashAnimationEnd} />
+
+      <span className="lk-quiz-egg__inner" aria-hidden="true">
+        <span className="lk-quiz-egg__light-burst" />
+
+        <img
+          className="lk-quiz-egg__base"
+          src={model.asset}
+          alt=""
+          width="1101"
+          height="1429"
+          draggable={false}
+        />
+        <img
+          className="lk-quiz-egg__cracks"
+          src="/quiz/egg-crack-light.webp"
+          alt=""
+          draggable={false}
+        />
+
+        <span className="lk-hatch-halves">
+          <span className="lk-hatch-half lk-hatch-half--left">
+            <img
+              className="lk-hatch-half__image"
+              src="/quiz/egg-stage-08.webp"
+              alt=""
+              draggable={false}
+            />
+          </span>
+          <span className="lk-hatch-half lk-hatch-half--right">
+            <img
+              className="lk-hatch-half__image"
+              src="/quiz/egg-stage-08.webp"
+              alt=""
+              draggable={false}
+            />
+          </span>
+        </span>
+
+        {hatching && resultId && (
           <span className="lk-quiz-hatch__frame">
             <CanonicalBirdVisual
               resultId={resultId}
@@ -67,7 +100,14 @@ export function QuizEgg({
               onReady={onBirdReady}
             />
           </span>
-        </div>
+        )}
+      </span>
+
+      {hatching && resultId && (
+        <span className="lk-quiz-hatch" aria-hidden="true">
+          <span className="lk-quiz-hatch__halo" />
+          <span className="lk-quiz-hatch__flash" onAnimationEnd={handleFlashAnimationEnd} />
+        </span>
       )}
     </div>
   );

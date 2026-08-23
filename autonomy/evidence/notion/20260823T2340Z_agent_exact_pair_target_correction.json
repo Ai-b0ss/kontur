@@ -1,0 +1,42 @@
+{
+  "canonical_materializers": {
+    "account": "80aeb1872c1cab7f51c33039584b5786e441f9f0",
+    "pair": "30fb89286eb4457b25b2145918279fec2d735042",
+    "server": "20c2fb2e550daab52f3d27e791fa500002a73735",
+    "tombstone": "40ab3a448e33fb8a8c3ce045ef31a815d0554823",
+    "wrapper": "859039a5e408bc84e7046372cdb509131eb37a97"
+  },
+  "derived": {
+    "payload/account_pool.py": {
+      "bytes": 48066,
+      "git_blob": "c9ca6f3b4545e469966369a4220a6a2a60bf3697",
+      "sha256": "5d233686d882a2819e9ed19b73d4ed6ce55ef794385db2447c2801000844c38a"
+    },
+    "payload/server.py": {
+      "bytes": 116047,
+      "git_blob": "273db94a8f9b153e95c910df221755e28c0f46a7",
+      "sha256": "d1492ef4a0dc2842c0bdde417945091d3949485283ebf7be729bdbcced0010a1"
+    }
+  },
+  "finding": "Previous handoff incorrectly paired intermediate server git blob 5c04... with post-tombstone byte size 116047. Canonical wrapper applies tombstone after base materializer, producing final server blob 273d... at 116047 bytes.",
+  "intermediate_server_after_apply_startup_before_tombstone": {
+    "bytes": 115901,
+    "git_blob": "5c04b8cce34b29e63bf1839d59476f8081763c2b"
+  },
+  "local_checks": {
+    "compile_both": true,
+    "cross_file_contract": true
+  },
+  "preimages": {
+    "payload/account_pool.py": {
+      "bytes": 43173,
+      "git_blob": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f"
+    },
+    "payload/server.py": {
+      "bytes": 112748,
+      "git_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d"
+    }
+  },
+  "schema": "notion_agent_exact_pair_correction_v1",
+  "source_agent_head": "4b344547d5e95bd4b3c62f5b80186059d849ff08"
+}

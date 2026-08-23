@@ -17,7 +17,11 @@
     "status": "CURRENT_MATERIALIZER_STILL_REPRODUCIBLY_BUGGY_AGENT_OWNS_FIX",
     "reason": "cleanup_task failure can escape asyncio.shield before cleanup_task.result() preserves startup CancelledError as primary",
     "agent_latest_unreferenced_fix_patch_blob": "99831c8058afa36e61b0f16718a4273453ab79f4",
-    "agent_latest_unreferenced_regression_blob": "e3eace2d9872602f77d05db1f073fc836f09503b"
+    "agent_latest_unreferenced_regression_blob": "e3eace2d9872602f77d05db1f073fc836f09503b",
+    "exact_current_repeated_cancellation_test_local_python_3_13": {
+      "before_fix": "FAIL_1_OF_2_cleanup_failure_escapes_as_RuntimeError",
+      "after_minimal_except_BaseException_break": "PASS_2_OF_2"
+    }
   },
   "control_hardening": {
     "final_gate_coverage_verifier": {

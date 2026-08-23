@@ -6,10 +6,6 @@ import json
 import re
 from pathlib import Path
 
-# Existing regressions that encode mandatory Agent/Core safety invariants. The
-# final composed/Windows gate is not allowed to go green unless all of them are
-# explicitly part of the invoked suite. Stage-B-specific tests are added by
-# the composed candidate itself and are checked by prefix below.
 REQUIRED_EXACT_MODULES = (
     "tests.test_subagent_tombstone_post_replace_sync_failure",
     "tests.test_subagent_tombstone_store",
@@ -22,8 +18,11 @@ REQUIRED_EXACT_MODULES = (
     "tests.test_dynamic_reservation_lease_session",
     "tests.test_dynamic_reservation_inlease_reselect",
     "tests.test_real_codex_cli_probe_contract",
-    # Prompt-mode/delegation safety is part of the final same-byte Agent+Core
-    # contract. A generic Stage-B PASS must not be able to omit it.
+    # Startup cleanup is a load-bearing Agent/Core composition boundary. Both
+    # the direct failure chain and repeated-cancellation/shield semantics must
+    # be executed by the final same-byte suite.
+    "tests.test_startup_status_cleanup",
+    "tests.test_startup_status_repeated_cancellation",
     "tests.test_prompt_modes",
     "tests.test_prompt_policy_identity",
     "tests.test_responses_prompt_mode_http_contract",
@@ -32,15 +31,10 @@ REQUIRED_EXACT_MODULES = (
     "tests.test_delegation_dispatcher",
     "tests.test_notion_delegated_model_step",
     "tests.test_subagent_entrypoint",
-    # Current stage-aware routing/wiring regressions promoted on the exact
-    # Agent line are mandatory for the final composed candidate as well.
     "tests.test_foreground_slot_routing",
     "tests.test_server_subagent_wiring_materializer",
 )
 
-# The exact filename can evolve while Stage B is being composed. What matters
-# is that the final gate runs a dedicated regression cluster for the durable
-# replay/intent transaction rather than silently relying on generic tests.
 REQUIRED_STAGE_B_TOKENS = (
     "durable_replay",
     "provider_intent",
@@ -91,10 +85,6 @@ def check(repo: Path, suite_files: list[Path]) -> dict[str, object]:
         for rel in stage_b_files
         if Path(rel).stem in suite_text or rel in suite_text
     ]
-
-    # Before Stage B is materialized, absence is reported explicitly instead of
-    # pretending the final gate is complete. Once such tests exist, every one
-    # of them must be in the suite.
     missing_stage_b_suite = sorted(set(stage_b_files) - set(stage_b_suite_hits))
     stage_b_ready = bool(stage_b_files) and not missing_stage_b_suite
 

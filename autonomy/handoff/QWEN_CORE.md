@@ -6,40 +6,42 @@
 - Repo: `Ai-b0ss/qwen-free-api`
 - Branch: `autopilot/qwen-runtime-preflight-20260818`
 - PR: #6
-- Fresh product head: `61303e10274a4f4011c26dc142ec466d4f871226`.
-- OWNER TEMPORARY CIRCLE FREEZE из `kontur#9` всё ещё действует: CircleCI/gate branches не запускать и не двигать до явной разморозки владельцем.
+- Fresh product head: `f02d39193621ea7c5bf09af6bdd64d53dbdbee48`.
+- OWNER TEMPORARY CIRCLE FREEZE из `kontur#9` действует: CircleCI/gate branches не запускать и не двигать до явной разморозки владельцем.
 
 Перед новой записью fresh-read PR #6, `autonomy/OWNER_INTENT_RU.md`, `autonomy/CURRENT_RU.md`, QWEN_RELIABILITY, issue #9, Circle policy, v4 runtime, LATEST/PREVIOUS.
 
-## Закрытый Core-дефект этого прохода: persisted `batchId` принимал неправильный тип
+## Закрыто в этом проходе
 
-До исправления `persistedBatchContext()` делал `String(options.batchId).trim()`. Поэтому явно ошибочные значения могли стать настоящими идентификаторами долговечного batch-состояния:
-- `42` -> `"42"`;
-- `false` -> `"false"`;
-- `['batch']` -> `"batch"`.
+### 1. Persisted `batchId` больше не принимает неправильный тип
+До исправления `persistedBatchContext()` делал `String(options.batchId).trim()`, поэтому `42`, `false` и `['batch']` могли стать настоящими durable batch id.
 
-Это restart/replay boundary: неверный тип входа мог выбрать/создать реальный сохранённый batch вместо локального fail-closed отказа.
-
-### Исправление
-- red regression уже существовал: `scripts/subagent-batch-id-type-test.js`, blob на старом head `1173fe7ea8de6711ef42b7f261d7d0097b30f640`;
-- root fix commit `104cd5092b6ac502ea96fa31c306a6cdafd26152`;
-- current `src/subagent-agent-runner.js` blob `db3c008a5f9f615b7173fd634d4f9b2810ef7a16`;
-- после hosted targeted green regression сразу подключён в штатный `npm test` commit `61303e10274a4f4011c26dc142ec466d4f871226`.
+Исправление:
+- root fix `104cd5092b6ac502ea96fa31c306a6cdafd26152`;
+- `scripts/subagent-batch-id-type-test.js` после targeted green подключён в обычный `npm test` коммитом `61303e10274a4f4011c26dc142ec466d4f871226`.
 
 Новая семантика:
-- `batchId` отсутствует -> persistence выключен;
-- legacy `batchId: null` -> persistence выключен;
-- если `batchId` передан и не `null`, он обязан быть строкой;
-- нестроковые значения -> `QWEN_SUBAGENT_BATCH_ID_INVALID` до `batchStore.ensure()`;
-- строковый SAFE_BATCH_ID продолжает работать как раньше.
+- omitted / legacy `null` -> persistence выключен;
+- explicit non-null `batchId` обязан быть строкой;
+- другой тип -> `QWEN_SUBAGENT_BATCH_ID_INVALID` до `batchStore.ensure()`.
 
-Hosted targeted check без provider/CI:
+Hosted targeted PASS:
 `QWEN_SUBAGENT_BATCH_ID_TYPE_PASS invalid=4 omitted=1 null=1 store_calls=0`.
 
-Постоянный regression не оставлен standalone: `package.json` на head `61303e...` запускает `scripts/subagent-batch-id-type-test.js` в обычном `npm test` сразу после canonical `subagent-agent-runner-test.js`.
+### 2. Повреждённая durable task-record больше не запускает coding-subagent автоматически
+Fresh review существующего `scripts/subagent-persisted-state-conflict-test.js` показал, что `hasPersistedStateConflict()` раньше возвращал `false` для primitive/array record. Синтаксически валидное долговечное состояние вида `tasks.task = "done"`, `42`, `true` или `['done']` могло пройти к `markRunning()` и затем реально повторно запустить subagent. Для уже выполнявшей side-effect задачу это restart/replay defect.
+
+Исправление:
+- canonical regression расширен коммитом `273e7505744a119ec1b4b0bbf2f6b390f3ffd972` четырьмя malformed record cases;
+- root fix `f02d39193621ea7c5bf09af6bdd64d53dbdbee48`: `null` остаётся «записи нет», но любой non-object или array persisted record считается конфликтным и блокируется через `QWEN_SUBAGENT_PERSISTED_STATE_CONFLICT` до agent/provider.
+
+Hosted targeted PASS:
+`QWEN_SUBAGENT_PERSISTED_STATE_CONFLICT_TARGET_PASS conflicts_blocked=12 clean_states=3 null_absent=1`.
+
+Regression уже был частью штатного `npm test`, поэтому отдельного standalone-теста не создано. Compare `61303e... -> f02d391...` меняет только `scripts/subagent-persisted-state-conflict-test.js` и `src/subagent-agent-runner.js`.
 
 ## Сохраняющий силу Core proof
-До текущего прохода на неизменённых Core bytes были подтверждены:
+На неизменённых байтах ранее подтверждены:
 - nested durable session schema fail-closed;
 - owner authority type checks и большой owner-system checkpoint/restart;
 - tool-result durable-before-next-Qwen;
@@ -48,15 +50,13 @@ Hosted targeted check без provider/CI:
 - required-tool terminal/reasoning gates;
 - plain/coding subagent prompt/sessionPrefix fail-closed.
 
-Текущий root fix менял только `src/subagent-agent-runner.js`; второй commit менял только `package.json`. `session-store`, `server`, `chat-adapter`, tool-result/restart bytes не затронуты.
+Текущий проход не менял `session-store`, `server`, `chat-adapter`, tool-result/restart или Reliability-owned account/provider bytes.
 
 ## QWEN_RELIABILITY — не пересекать
-Fresh handoff перед работой:
+Fresh handoff:
 - account/cooldown/index/filename cluster: 8/8 exact targeted PASS;
 - provider-circuit cluster: 7/8 exact targeted PASS;
 - единственный Reliability proof gap: exact execution `scripts/provider-safety-test.js` на настоящем locked dependency tree с real `axios`; shim/reconstructed dependency proof не принимается.
-
-Core не менял `account-store`, cooldown, `qwen-client` или provider-circuit.
 
 ## Circle policy
 `kontur#9` fresh-read подтверждает `[OWNER TEMPORARY CIRCLE FREEZE — 2026-08-23]`:
@@ -66,12 +66,12 @@ Core не менял `account-store`, cooldown, `qwen-client` или provider-ci
 
 ## Что осталось до финиша
 1. Fresh stable common SHA.
-2. Локально прогнать exact Core cluster: owner/session/restart/stale-backup/pending-tool + stream/tool-result + plain/coding subagents, включая новый batch-id invariant.
+2. Локально exact Core cluster: owner/session/restart/stale-backup/pending-tool + stream/tool-result + plain/coding subagents, включая оба новых batch invariants.
 3. Reliability exact `provider-safety-test.js` на том же product SHA.
 4. Full exact-tree Linux `npm test` на стабильном общем SHA.
-5. Пока Circle freeze действует — не запускать native gate.
+5. Пока Circle freeze действует — native gate не запускать.
 6. После явной разморозки — один native Windows Server 2022 full offline gate на тех же product bytes, locked install, без provider/live/secrets/production.
-7. Только после Linux + native Windows green — простой PowerShell owner-doctor/acceptance harness; он сам должен пройти native Windows Circle и вывести `QWEN_WINDOWS_READY` либо первый точный blocker.
+7. Только после Linux + native Windows green — PowerShell owner-doctor/acceptance harness; проверить его в native Windows Circle и выводить `QWEN_WINDOWS_READY` либо первый точный blocker.
 
 `QWEN_CORE_DONE` пока нет.
 

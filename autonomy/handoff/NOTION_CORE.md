@@ -10,17 +10,17 @@ Agent PR #8: `autonomy/notion-prompt-modes-20260819`, fresh exact head `ee0ae241
 
 `OWNER TEMPORARY CIRCLE FREEZE — 2026-08-23` активен. Не запускать CircleCI/GitHub Actions, не двигать Circle-triggering product refs и не использовать `[ci skip]` как обход. Исторический Windows digest `1cd6d894-1abb-4ec0-91e5-1cab7e6a48b3` не перезапускать и не считать PASS.
 
-Production, секреты и live Notion/Codex не трогать до safety gates. Финальный Windows Server 2022 gate — только после exact-local composed green и отдельной owner-разморозки, через disposable `ci/notion-core-windows-final-gate` с точными logs/artifacts.
+Production, secrets и live Notion/Codex не трогать до safety gates. Финальный Windows Server 2022 gate — только после exact-local composed green и отдельной owner-разморозки, через disposable `ci/notion-core-windows-final-gate` с точными logs/artifacts.
 
 ## Постоянная память v4
 
-Канонический проверенный `LATEST` остаётся:
+Последний доказанно целый канонический `LATEST`, записанный до этого прохода:
 - capsule `20260823T035422Z-2c69292246`;
 - archive SHA-256 `8df2f2078b33304e3ca254d39938ecc415850284eec480be6249fd8f58fa1aa8`;
 - `LATEST.json` blob `d7084892eb86906e8ff3e1270168567def4b0a1e`;
 - `PREVIOUS` = `20260823T030353Z-815af453c1`.
 
-Новый `LATEST` без полного byte-exact `capsule_runtime_v4.py restore -> pack -> readback -> CAS` не публиковать. Последняя попытка восстановления текущей capsule из connector-text была остановлена fail-closed на несовпадении part; unknown bytes не исправлялись вручную.
+Новый `LATEST` без полного byte-exact `capsule_runtime_v4.py restore -> pack -> readback -> CAS` не публиковать. Unknown bytes не реконструировать.
 
 ## Stage A / Stage B
 
@@ -44,38 +44,44 @@ Fresh Agent head `ee0ae241...` содержит no-replay fix `a22c1ff43c6e997a8
 - `tests/test_subagent_tombstone_store.py` `7c383e234cfa8828db753caa89145f11546d0d2f`;
 - `tests/test_server_subagent_tombstone_restart.py` `aba8b3dd4dc181d1f78cb6fdfd3b85fc7ce1c7ee`.
 
-Fresh Agent capsule `20260823T023849Z-863c6be6bb` ранее восстановлена byte-exact, но materialized `payload/account_pool.py + payload/server.py` в ней отсутствуют.
+## Exact Agent materialization — pair independently reproduced by Core
 
-## Exact Agent materialization — новый факт 2026-08-23 06Z
+### `payload/account_pool.py`
+- exact source blob `11cea792a2f5aaa40ee1515faddfd44e76cbb23f`, 43173 bytes;
+- exact transformer `tools/apply_account_pool_dynamic_reservation.py` `80aeb1872c1cab7f51c33039584b5786e441f9f0`;
+- transformed result 48066 bytes, Git blob SHA **`c9ca6f3b4545e469966369a4220a6a2a60bf3697`**;
+- Python compile PASS;
+- matches the independently expected Agent transformed SHA.
 
-Core независимо материализовал **точный `payload/account_pool.py`** без checkout и без догадок:
-- exact source blob из PR #8: `11cea792a2f5aaa40ee1515faddfd44e76cbb23f`, 43173 bytes;
-- exact transformer `tools/apply_account_pool_dynamic_reservation.py`: `80aeb1872c1cab7f51c33039584b5786e441f9f0`;
-- оба локальных preimage readback Git blob SHA совпали с GitHub;
-- transformer применён к точному preimage;
-- результат: 48066 bytes, Git blob SHA **`c9ca6f3b4545e469966369a4220a6a2a60bf3697`**;
-- этот SHA ровно совпал с ранее доказанным Agent expected transformed SHA;
-- Python compile PASS.
+Verdict: `EXACT_ACCOUNT_POOL_TRANSFORM_REPRODUCED_PASS`.
 
-Вердикт: `EXACT_ACCOUNT_POOL_TRANSFORM_REPRODUCED_PASS`.
+### `payload/server.py` — новый факт этого прохода
+- exact source blob `f02cef6a0ffc202c75fbe71c520c72ac19ff876d`, 112748 bytes;
+- source readback SHA-256 `a364cdf0a88ac2f318616b4b633f6f10b6d156b85c8668d4d54b5d884ae28310`;
+- exact startup/dynamic-reservation transformer `2ed85ece7d3323b1619ec0963d3021c1623d0e0a`;
+- exact tombstone wiring transformer `40ab3a448e33fb8a8c3ce045ef31a815d0554823`;
+- transformed result 115707 bytes, Git blob SHA **`ba52edc7a8528d58acd2c5bef2b86c3ca84ca298`**;
+- transformed SHA-256 `5c8f96ac56576c5ffd89eb6292944e053bd7671b8b8cebc6093978006da6227b`;
+- Python compile PASS;
+- result exactly matches the independently expected Agent transformed SHA.
 
-Evidence: `autonomy/evidence/notion/20260823T0605Z_exact_account_pool_materialization.json`.
+Verdict: **`EXACT_AGENT_SERVER_TRANSFORM_REPRODUCED_PASS`**.
 
-Начат content-addressed handoff без движения refs: первые три base64-text chunk blobs точного результата проверены как `ac568fdd...`, `c243825f...`, `3aa80cb4...`. **Это пока неполный набор; из него файл не восстанавливать.** Неудачные пробные blobs остаются unreferenced и игнорируются.
+Evidence: `autonomy/evidence/notion/20260823T0658Z_exact_agent_server_materialization.json`.
 
-Непосредственный byte-level blocker сузился: exact transformed `account_pool.py` теперь независимо доказан Core; всё ещё нужны полные durable bytes пары, прежде всего `payload/server.py` с ожидаемым SHA `ba52edc7a8528d58acd2c5bef2b86c3ca84ca298`, после чего можно запускать V50 на одних composed bytes.
+Следствие: прежний byte-level blocker «нет точных transformed server bytes» снят как вопрос воспроизводимости. Обе половины Agent pair теперь независимо воспроизведены Core до ожидаемых Git blob SHA. Следующий шаг — не новая архитектурная разведка, а V50 same-byte composition.
 
-## V50 / финальный тестовый gate
+## V50 / финальный локальный gate
 
 V50 materializer: `autonomy/evidence/notion/20260822T2043Z_v50_fixed_agent_core_composition_materializer.py`, blob `8c36e9cbca05498c43a48bc2094756ce8c854d4b`.
 
-Agent expected transformed pair:
-- `payload/account_pool.py` -> `c9ca6f3b4545e469966369a4220a6a2a60bf3697` — теперь независимо воспроизведён Core;
-- `payload/server.py` -> `ba52edc7a8528d58acd2c5bef2b86c3ca84ca298` — exact bytes ещё не переданы Core.
+V48 frozen composition materializer: `autonomy/evidence/notion/20260822T1840Z_v48_frozen_agent_toolchain_composition_materializer.py`, blob `dab975abd730481d0986b38cb2b2fb2d816e4244`.
 
-Exporter для full-checkout Agent pulse: `autonomy/evidence/notion/20260823T0345Z_exact_agent_pair_blob_exporter.py`, blob `ad3731fdadc6a440f1c1e67390c7cd9d0f272cc1`. Он сохраняет только unreferenced objects и проверяет отсутствие движения refs.
+Agent expected transformed pair теперь обе независимо воспроизведены:
+- `payload/account_pool.py` -> `c9ca6f3b4545e469966369a4220a6a2a60bf3697`;
+- `payload/server.py` -> `ba52edc7a8528d58acd2c5bef2b86c3ca84ca298`.
 
-Fail-closed coverage verifier: `autonomy/v3/tools/verify_notion_final_gate_coverage.py`, blob `0be4c5f626b92b8291c86590580ae767d6d816f6`. Он требует реальный запуск tombstone/restart/cancellation/materializer/dynamic-reservation/Codex-probe регрессий и Stage-B `durable_replay/provider_intent` cluster. Нынешний обычный Agent Circle suite не включает `test_subagent_tombstone_post_replace_sync_failure.py`, поэтому сам по себе не является финальным экзаменом.
+Fail-closed coverage verifier: `autonomy/v3/tools/verify_notion_final_gate_coverage.py`, blob `0be4c5f626b92b8291c86590580ae767d6d816f6`. Нынешний обычный Agent Circle suite не включает `test_subagent_tombstone_post_replace_sync_failure.py`, поэтому сам по себе не является финальным экзаменом.
 
 ## Codex shell-env safety
 
@@ -97,12 +103,12 @@ Exact patch: `autonomy/evidence/notion/20260821T1510Z_codex_shell_env_exact_cand
 ## Следующий порядок
 
 1. Fresh-read PR #8; при head drift — re-freeze inputs.
-2. Довести exact byte handoff Agent pair: account_pool уже воспроизведён; получить/материализовать exact `server.py` -> `ba52edc7...` без движения product ref.
-3. На byte-identical disposable tree запустить V50 `check`, затем `--apply`, readback/compile.
+2. Собрать byte-identical disposable tree с уже доказанной Agent pair `c9ca6f3b.../ba52edc7...` и frozen Core inputs.
+3. Запустить V50 `check`, затем `--apply`, readback/compile.
 4. На тех же bytes прогнать полный Agent+Core Stage-B cluster; coverage verifier обязан PASS перед composed-green.
 5. Сохранить exact composed bytes долговечно; product ref не двигать во время Circle freeze.
 6. Только после явной owner-разморозки — один disposable native Windows Server 2022 gate с exact logs/artifacts. Windows FAIL = реальный blocker.
 7. После Windows PASS — bounded authorized `codex exec -> bridge -> Notion -> local tool -> verifier FAIL -> correction -> VERIFY_OK` со стабильным conversation id через initial/tool-result/retry/restart.
 8. Затем native-Windows проверенный owner-facing PowerShell doctor.
 
-В текущем проходе PR #7/#8, live Notion/Codex, secrets, production и CircleCI не менялись. Существенный новый факт — exact Agent `account_pool.py` independently reproduced to the expected transformed Git blob; immediate blocker narrowed to full durable pair bytes, especially transformed `server.py`.
+В этом проходе PR #7/#8, live Notion/Codex, secrets, production и CircleCI не менялись. Существенный новый факт — exact transformed Agent `server.py` независимо воспроизведён Core до ожидаемого Git blob; обе половины Agent pair теперь известны и подтверждены.

@@ -57,16 +57,24 @@ Fresh source на `ee0ae241...` всё ещё не переносит explicit `
 ## Gate coverage
 Core fresh audit обнаружил: текущие обычные Circle Agent suites не включают обязательный `tests/test_subagent_tombstone_post_replace_sync_failure.py`. Будущий disposable Agent/composed gate обязан включить его явно вместе с tombstone/restart/cancellation cluster; иначе green не является финальной приёмкой.
 
-## Постоянная память v4 — fresh restore PASS
-Текущий нормативный указатель на старт этого прохода:
+## Постоянная память v4 — завершена штатно
+Стартовый нормативный указатель этого прохода:
 - `LATEST` blob `bdd3c0767305f11d14ac2d64361ce6a6b0557362`;
 - capsule `20260823T023849Z-863c6be6bb`;
 - archive SHA-256 `4291103723b0c01f316bedd3c01e5f0616208cc827e35ead81e6c96b0f33ee56`;
 - manifest v4 = 13 immutable parts.
 
-В этом проходе все 13 parts были перечитаны по exact Git blobs и локально проверены: длина и SHA-256 каждого part совпали с manifest; собранный archive имеет size 9430 и exact SHA-256 `4291103723b0c01f316bedd3c01e5f0616208cc827e35ead81e6c96b0f33ee56`. Канонический `capsule_runtime_v4.py` также восстановлен с exact Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`; `verify` и `restore` этой LATEST capsule дали PASS.
+На старте все 13 parts были перечитаны по exact Git blobs и локально проверены: длина и SHA-256 каждого part совпали с manifest; собранный archive имеет size 9430 и exact SHA-256 `4291103723b0c01f316bedd3c01e5f0616208cc827e35ead81e6c96b0f33ee56`. Канонический `capsule_runtime_v4.py` восстановлен с exact Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`; `verify` и `restore` дали PASS.
 
-Новый `LATEST` пока не публиковался: перед завершением существенной работы нужно сделать новый checkpoint -> pack v4 -> immutable upload/readback -> повторно перечитать LATEST -> CAS update. Unknown bytes не реконструировать.
+После существенной работы создана новая capsule:
+- `20260823T055121Z-d2a954b7b5`;
+- archive SHA-256 `36d1b293f7ca6dfaad57e5c1cc8a7f4c58ca524584bf154605d3385a491fe901`;
+- archive size 9441;
+- 13 immutable parts, все reread Git blob SHA/size совпали с локально рассчитанными;
+- manifest blob `d835513894c31c73204c96ccf7876d7d4da257ba`, reread совпал;
+- immutable capsule upload commit `1abd76f6b4403e5b1d8ab71e4ba240a134ebf91d`.
+
+Старый `LATEST` сохранён как `PREVIOUS` CAS-обновлением. Перед публикацией новый `LATEST` был ещё раз перечитан и оставался на исходном blob `bdd3c076...`; затем опубликован CAS-обновлением без force. Текущий `LATEST` blob `bfcc0ca196d141c1e5309c596e45e47ec9406823` и указывает на `20260823T055121Z-d2a954b7b5`. Unknown bytes не реконструировались.
 
 ## Следующий точный шаг
 1. Fresh-read PR #8; при новом head re-freeze.

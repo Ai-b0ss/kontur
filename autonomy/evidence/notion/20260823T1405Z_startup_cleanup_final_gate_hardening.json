@@ -1,0 +1,61 @@
+{
+  "schema": "notion_core_final_gate_hardening_v1",
+  "timestamp_utc": "2026-08-23T14:05:00Z",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_head": "e2f6b69c910b41423e822f573f489a90eb78d14b",
+  "agent_head_delta_from_4441bbab": {
+    "commits": 1,
+    "changed_files": [
+      "tests/test_live_two_slot_probe_contract.py"
+    ],
+    "product_or_materializer_bytes_changed": false
+  },
+  "startup_cleanup_boundary": {
+    "materializer_blob": "2ed85ece7d3323b1619ec0963d3021c1623d0e0a",
+    "current_test_startup_status_cleanup_blob": "2cf5ad1f351239823172335cac475d34a19447e2",
+    "current_test_repeated_cancellation_blob": "88a7b477ba623f4858760330a52963e8765b8e65",
+    "status": "CURRENT_MATERIALIZER_STILL_REPRODUCIBLY_BUGGY_AGENT_OWNS_FIX",
+    "reason": "cleanup_task failure can escape asyncio.shield before cleanup_task.result() preserves startup CancelledError as primary",
+    "agent_latest_unreferenced_fix_patch_blob": "99831c8058afa36e61b0f16718a4273453ab79f4",
+    "agent_latest_unreferenced_regression_blob": "e3eace2d9872602f77d05db1f073fc836f09503b"
+  },
+  "control_hardening": {
+    "final_gate_coverage_verifier": {
+      "blob": "76ebba1f3e7cb4e7d2fa49d46868cac24b555535",
+      "commit": "4b639fa8c870a4117dd00fa18b57a634409e90d1",
+      "new_required_modules": [
+        "tests.test_startup_status_cleanup",
+        "tests.test_startup_status_repeated_cancellation"
+      ]
+    },
+    "windows_readiness_verifier": {
+      "schema": "notion_windows_ready_candidate_v4",
+      "blob": "76ff15f78f158bbfa1a5c148ed4ee54be6128714",
+      "commit": "dc488f332eb123744d843b0a5094b0ee1aa8a343",
+      "pinned_final_coverage_blob": "76ebba1f3e7cb4e7d2fa49d46868cac24b555535",
+      "new_required_gates": [
+        "agent_startup_status_cleanup",
+        "agent_startup_status_repeated_cancellation"
+      ]
+    }
+  },
+  "offline_self_tests": {
+    "coverage_positive_complete_synthetic_suite": "PASS",
+    "coverage_negative_missing_repeated_cancellation_from_suite": "PASS_EXPECTED_NOT_READY",
+    "coverage_negative_missing_startup_cleanup_file": "PASS_EXPECTED_NOT_READY",
+    "readiness_positive_complete_v4_manifest": "PASS",
+    "readiness_negative_old_v3_schema": "PASS_EXPECTED_NOT_READY",
+    "readiness_negative_missing_repeated_cancellation_gate": "PASS_EXPECTED_NOT_READY",
+    "readiness_negative_wrong_coverage_verifier_blob": "PASS_EXPECTED_NOT_READY",
+    "python_compile_candidates": "PASS"
+  },
+  "coordination": {
+    "notion_core_claim": "NOTION_CORE-20260823T1347Z",
+    "scope": "control-only gate hardening",
+    "notion_agent_active_scope_respected": true,
+    "agent_product_or_materializer_mutation_by_core": false,
+    "circle_or_windows_started": false,
+    "live_notion_or_codex": false
+  },
+  "conclusion": "WINDOWS_REMAINS_FORBIDDEN_UNTIL_CURRENT_AGENT_FIX_IS_MATERIALIZED_AND_SAME_BYTE_STAGE_B_FULL_MATRIX_PASSES"
+}

@@ -6,8 +6,9 @@ import json
 import re
 from pathlib import Path
 
-SCHEMA = "notion_windows_ready_candidate_v2"
+SCHEMA = "notion_windows_ready_candidate_v3"
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
+FINAL_GATE_COVERAGE_VERIFIER_BLOB = "b829c60e073d87cd04d31e30426cdcc8f3de7db0"
 
 REQUIRED_BLOBS = (
     "conversation_segments.py",
@@ -24,6 +25,18 @@ REQUIRED_GATES = (
     "agent_tombstone_restart",
     "agent_delegated_cancellation",
     "agent_dynamic_reservation",
+    # Prompt/delegation safety must be explicit at Windows readiness rather than
+    # being hidden behind one generic coverage PASS bit.
+    "agent_prompt_modes",
+    "agent_prompt_policy_identity",
+    "agent_responses_prompt_mode_http_contract",
+    "agent_responses_prompt_wiring_contract",
+    "agent_delegation_policy",
+    "agent_delegation_dispatcher",
+    "agent_delegated_model_step",
+    "agent_subagent_entrypoint",
+    "agent_foreground_slot_routing",
+    "agent_server_subagent_wiring_materializer",
     "protected_no_failover",
     "strict_provider_intent_finalize",
     "canonical_responses_replay",
@@ -68,6 +81,12 @@ def main() -> int:
         value = doc.get(key)
         if not isinstance(value, str) or not HEX40.fullmatch(value):
             errors.append(key)
+
+    # Pin the exact fail-closed coverage verifier used by this readiness schema.
+    # A manifest produced with an older verifier must not be promoted merely
+    # because it contains a generic final_gate_coverage=PASS flag.
+    if doc.get("final_gate_coverage_verifier_blob") != FINAL_GATE_COVERAGE_VERIFIER_BLOB:
+        errors.append("final_gate_coverage_verifier_blob")
 
     # Current owner policy: the Notion Circle project is already connected and
     # a clean connectivity probe passed. Linux/offline composition work may use

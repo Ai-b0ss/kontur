@@ -1,0 +1,30 @@
+{
+  "schema": "notion_core_exact_agent_server_materialization_v1",
+  "observed_agent_head": "ee0ae241b3ef19da7d3a69ddeecf6bb5476f91a9",
+  "source": {
+    "path": "payload/server.py",
+    "bytes": 112748,
+    "git_blob_sha": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "sha256": "a364cdf0a88ac2f318616b4b633f6f10b6d156b85c8668d4d54b5d884ae28310"
+  },
+  "transformers": {
+    "tools/apply_startup_status_cleanup.py": "2ed85ece7d3323b1619ec0963d3021c1623d0e0a",
+    "tools/apply_subagent_tombstone_wiring.py": "40ab3a448e33fb8a8c3ce045ef31a815d0554823"
+  },
+  "result": {
+    "bytes": 115707,
+    "git_blob_sha": "ba52edc7a8528d58acd2c5bef2b86c3ca84ca298",
+    "sha256": "5c8f96ac56576c5ffd89eb6292944e053bd7671b8b8cebc6093978006da6227b",
+    "python_compile": "PASS",
+    "matches_agent_expected_git_blob": true
+  },
+  "verdict": "EXACT_AGENT_SERVER_TRANSFORM_REPRODUCED_PASS",
+  "constraints": {
+    "circleci_started": false,
+    "github_actions_started": false,
+    "product_ref_moved": false,
+    "live_notion_or_codex_used": false,
+    "secrets_used": false
+  },
+  "next": "Run V50 composition against the independently reproduced exact Agent pair on one disposable byte-identical tree; then execute the mandatory Agent+Core Stage-B matrix and final coverage verifier."
+}

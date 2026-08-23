@@ -1,0 +1,48 @@
+{
+  "schema": "notion_agent_final_gate_coverage_audit_v1",
+  "timestamp_utc": "2026-08-23T09:50:00Z",
+  "agent_head": "ee0ae241b3ef19da7d3a69ddeecf6bb5476f91a9",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "final_gate_coverage_verifier_blob": "0be4c5f626b92b8291c86590580ae767d6d816f6",
+  "windows_readiness_verifier_blob": "531f93d3c0130cf6451da46408e799df3eb8c139",
+  "verdict": "COVERAGE_GAP_REPRODUCED",
+  "counterexample": {
+    "local_result": "PASS",
+    "construction": "Synthetic final suite contains every current REQUIRED_EXACT_MODULES entry plus discovered Stage-B durable_replay/provider_intent tests, but omits all delegated prompt-policy tests.",
+    "omitted_existing_agent_tests": [
+      "tests.test_prompt_modes",
+      "tests.test_prompt_policy_identity",
+      "tests.test_responses_prompt_mode_http_contract",
+      "tests.test_responses_prompt_wiring_contract",
+      "tests.test_delegation_policy",
+      "tests.test_delegation_dispatcher",
+      "tests.test_notion_delegated_model_step",
+      "tests.test_subagent_entrypoint"
+    ],
+    "observed_verifier_result": "PASS",
+    "all_omitted_prompt_tests_mentioned_by_suite": false
+  },
+  "readiness_gap": {
+    "current_required_gates_include_prompt_policy": false,
+    "consequence": "A manifest can satisfy agent_dynamic_reservation/tombstone/cancellation/final_gate_coverage without a distinct delegated engineer/owner prompt propagation proof."
+  },
+  "required_fix_boundary": {
+    "owner": "NOTION_CORE final composed gate / verifier owner",
+    "agent_action": "Do not mutate Core-owned Stage-B/composition surface in parallel. Require exact composed suite to include delegated prompt-policy and launch propagation tests before Agent PASS is handed to Core.",
+    "minimum_tests": [
+      "tests.test_prompt_modes",
+      "tests.test_prompt_policy_identity",
+      "tests.test_responses_prompt_mode_http_contract",
+      "tests.test_responses_prompt_wiring_contract",
+      "tests.test_delegation_policy",
+      "tests.test_delegation_dispatcher",
+      "tests.test_notion_delegated_model_step",
+      "tests.test_subagent_entrypoint"
+    ]
+  },
+  "circle_connectivity": "PASS_PREVIOUSLY_PROVEN",
+  "native_windows_run_started": false,
+  "product_refs_moved": false,
+  "live_provider_used": false,
+  "production_touched": false
+}

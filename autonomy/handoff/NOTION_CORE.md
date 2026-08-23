@@ -15,12 +15,12 @@ Production, секреты и live Notion/Codex не трогать до safety 
 ## Постоянная память v4
 
 Текущий проверенный `LATEST`:
-- capsule `20260823T030353Z-815af453c1`;
-- archive SHA-256 `550934539e546173d5273e452649fe1d645c582f7c3de465e1229885ef6ee783`;
-- `LATEST.json` blob `4135a8419792e7f4de3220f39a141c88b79fde69`;
-- `PREVIOUS` = `20260822T235640Z-a1d972bba4`.
+- capsule `20260823T035422Z-2c69292246`;
+- archive SHA-256 `8df2f2078b33304e3ca254d39938ecc415850284eec480be6249fd8f58fa1aa8`;
+- `LATEST.json` blob `d7084892eb86906e8ff3e1270168567def4b0a1e`;
+- `PREVIOUS` = `20260823T030353Z-815af453c1`.
 
-Перед упаковкой предыдущая capsule `20260822T235640Z-a1d972bba4` была реально восстановлена каноническим `capsule_runtime_v4.py` blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`: manifest/parts/archive/workspace прошли точную проверку. Новая capsule упакована тем же runtime; все три part и manifest после публикации перечитаны и совпали с локально рассчитанными Git blob SHA (`7ee509ea...`, `48dd45bf...`, `77f07c8e...`, manifest `6c901bb2...`). Старый `LATEST` сохранён как `PREVIOUS`, затем новый указатель переключён через CAS от точного parent blob `e6d3da5a3a6aa76537a846e903ee14e3bc2114d1` и повторно прочитан.
+Перед упаковкой предыдущая capsule `20260823T030353Z-815af453c1` была реально восстановлена каноническим `capsule_runtime_v4.py` blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`: manifest/parts/archive/workspace прошли точную проверку. Новая capsule упакована тем же runtime; все четыре part и manifest после публикации перечитаны и совпали с локально рассчитанными Git blob SHA (`9dbcd006...`, `92881cf6...`, `5f9ae1bc...`, `c36de5be...`, manifest `1a3789a2...`). Старый `LATEST` сохранён как `PREVIOUS`, затем новый указатель переключён через CAS от точного parent blob `4135a8419792e7f4de3220f39a141c88b79fde69` и повторно должен читаться как `d7084892eb86906e8ff3e1270168567def4b0a1e`.
 
 LATEST/PREVIOUS/CAS обязательны. Unknown bytes не реконструировать; force-write запрещён.
 
@@ -37,7 +37,7 @@ Stage B store foundation зелёная: `V34_V35_EXACT_CLASS_INTEGRATED_PASS` �
 
 Fresh exact Agent head `ee0ae241...` содержит fix `a22c1ff43c6e997a863a7cd9e022243341388566` и усиленные restart/tombstone regressions. Fresh `NOTION_AGENT.md` сообщает exact local tombstone/restart/cancellation cluster PASS. Без нового воспроизводимого дефекта этот модуль не полировать.
 
-Core в этом проходе независимо восстановил byte-exact свежую Agent capsule `20260823T023849Z-863c6be6bb`: archive SHA-256 `4291103723b0c01f316bedd3c01e5f0616208cc827e35ead81e6c96b0f33ee56`, 13/13 parts и все workspace-файлы совпали с manifest. Capsule содержит текущий `delegated_prompt_policy` candidate и его тесты, но **не содержит materialized `payload/account_pool.py` + `payload/server.py`**. То есть prompt-policy handoff доказан exact bytes, а product-pair byte bridge всё ещё отсутствует.
+Core независимо восстановил byte-exact свежую Agent capsule `20260823T023849Z-863c6be6bb`: archive SHA-256 `4291103723b0c01f316bedd3c01e5f0616208cc827e35ead81e6c96b0f33ee56`, 13/13 parts и все workspace-файлы совпали с manifest. Capsule содержит текущий `delegated_prompt_policy` candidate и его тесты, но **не содержит materialized `payload/account_pool.py` + `payload/server.py`**. То есть prompt-policy handoff доказан exact bytes, а product-pair byte bridge всё ещё отсутствует.
 
 Обязательные exact blobs:
 - `payload/subagent_tombstone_store.py` `c2a3f8e74a94b15325423bfdb8f3437141233996`;
@@ -58,11 +58,11 @@ Agent доказал ожидаемые transformed hashes:
 - `payload/account_pool.py` -> `c9ca6f3b4545e469966369a4220a6a2a60bf3697`;
 - `payload/server.py` -> `ba52edc7a8528d58acd2c5bef2b86c3ca84ca298`.
 
-Fresh Core снова вызвал `fetch_blob` на оба SHA в `Ai-b0ss/notion-agent-bridge` и получил 404. Свежая Agent capsule `20260823T023849Z-863c6be6bb` также не содержит pair bytes. Значит hashes доказаны, но **сами transformed bytes пока не переданы Core долговечно**; это единственный текущий byte-level blocker перед V50 composed-local run.
+Fresh Core в 03:45Z снова вызвал `fetch_blob` на оба SHA в `Ai-b0ss/notion-agent-bridge` и получил 404. Свежая Agent capsule `20260823T023849Z-863c6be6bb` также не содержит pair bytes. Значит hashes доказаны, но **сами transformed bytes пока не переданы Core долговечно**; это единственный текущий byte-level blocker перед V50 composed-local run.
+
+Чтобы следующий exact-checkout-capable Agent pulse не тратил ещё одну смену на ручной handoff, добавлен готовый exporter: `autonomy/evidence/notion/20260823T0345Z_exact_agent_pair_blob_exporter.py`, control commit `3c11195071ef9342dc76b2fb519d779cca81c225`, Git blob `ad3731fdadc6a440f1c1e67390c7cd9d0f272cc1`. Он проверяет exact Agent head, опционально запускает canonical Agent materializer `--check`+apply, требует ровно ожидаемые два Git blob SHA, сохраняет только unreferenced objects через `git hash-object -w`, делает byte-roundtrip через `git cat-file` и проверяет отсутствие движения refs. Synthetic self-test прошёл normal persistence, byte roundtrip, no-ref-movement, negative mismatch rejection; Python compile PASS. Handoff NOTION_AGENT опубликован в issue #9 comment `5384081532`.
 
 Evidence/gate manifest старой точки: `autonomy/evidence/notion/20260822T2350Z_exact_pair_byte_handoff_blocker_and_gate_manifest.json`, commit `f737b9ab159bb73abf2283b365472890d96df8a7`.
-
-В issue #9 обновлён точный запрос NOTION_AGENT (comment `5383908461`): re-materialize exact pair на exact-checkout-capable executor, проверить оба SHA и сохранить **сами байты** без движения PR #8/product refs. Предпочтительный минимальный handoff — два unreferenced content-addressed Git blobs в `Ai-b0ss/notion-agent-bridge`, причём returned SHA обязаны совпасть с `c9ca6f3b...` / `ba52edc7...`; допустима verified v4 capsule с обоими файлами. Circle freeze сохраняется. Тот же будущий combined-local proof должен включить уже exact-restored delegated owner/engineer prompt-policy candidate.
 
 ## V41–V45
 
@@ -108,8 +108,8 @@ Fresh `.circleci/config.yml` PR #8 blob `e6bab5c300b2240cfbc68e30bb9a83c67ecc0cd
 ## Следующий порядок
 
 1. Fresh-read PR #8; при head drift — re-freeze inputs.
-2. Забрать exact transformed pair byte handoff и проверить returned Git blob SHA `c9ca6f3b...` / `ba52edc7...`.
-3. На byte-identical disposable tree: V50 `check`, затем `--apply`, readback/compile.
+2. На exact checkout запустить exporter с materialization; readback обоих unreferenced blobs обязан дать `c9ca6f3b...` / `ba52edc7...` без движения product ref.
+3. Core забирает exact transformed pair bytes и на byte-identical disposable tree запускает V50 `check`, затем `--apply`, readback/compile.
 4. На тех же bytes прогнать полный Agent+Core cluster, включая свежий delegated prompt-policy candidate; при FAIL — минимальный root-cause fix.
 5. Сохранить exact composed bytes долговечно; product ref не двигать во время Circle freeze.
 6. После явной owner-разморозки: fast-forward exact materialization/readback; один disposable native Windows Server 2022 gate с exact logs/artifacts и обязательным post-replace regression.
@@ -117,4 +117,4 @@ Fresh `.circleci/config.yml` PR #8 blob `e6bab5c300b2240cfbc68e30bb9a83c67ecc0cd
 8. После Windows PASS — bounded authorized `codex exec -> bridge -> Notion -> local tool -> verifier FAIL -> correction -> VERIFY_OK`, stable conversation id через initial/tool-result/retry/restart.
 9. Затем native-Windows проверенный owner-facing PowerShell doctor.
 
-В текущем Core-проходе product PR #7/#8, live Notion/Codex, secrets, production и CircleCI не менялись. Fresh Agent capsule восстановлена exact; новый Core v4 checkpoint опубликован через CAS; точный запрос на missing pair bytes передан NOTION_AGENT.
+В текущем Core-проходе product PR #7/#8, live Notion/Codex, secrets, production и CircleCI не менялись. Точный exporter опубликован и передан Agent; новый Core v4 checkpoint опубликован через CAS; transformed pair bytes пока остаются единственным непосредственным byte-level blocker перед V50.

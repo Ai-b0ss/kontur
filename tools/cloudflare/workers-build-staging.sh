@@ -23,6 +23,7 @@ done
 pnpm -F @kontur/miniapp typecheck > /tmp/kontur-typecheck.log 2>&1
 typecheck_code=$?
 set -e
+export TYPECHECK_CODE="$typecheck_code"
 
 pnpm -F @kontur/miniapp build
 

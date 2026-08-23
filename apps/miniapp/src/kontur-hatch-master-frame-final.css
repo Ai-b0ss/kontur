@@ -11,7 +11,7 @@
   right: auto;
   bottom: auto;
   left: 50%;
-  width: min(61vw, 248px);
+  width: min(58vw, 230px);
   margin: 0;
   opacity: 1;
   filter: none;
@@ -185,7 +185,7 @@
   animation: none !important;
 }
 
-/* Result copy stays below the same master frame and no longer overlaps it. */
+/* Result copy stays below the same proven master-frame envelope. */
 .lk-first-time.lk-first-time--reveal .lk-reveal.lk-reveal--inline {
   position: relative;
   z-index: 55;
@@ -195,7 +195,7 @@
   left: auto;
   width: 100%;
   margin: 0 auto;
-  padding: calc(50dvh + 160px) 0 max(18px, env(safe-area-inset-bottom));
+  padding: calc(50dvh + 166px) 0 max(18px, env(safe-area-inset-bottom));
   text-align: center;
   animation: lk-gacha-copy-in 320ms ease-out both !important;
 }
@@ -288,7 +288,7 @@
   }
 
   .lk-first-time.lk-first-time--reveal .lk-reveal.lk-reveal--inline {
-    padding-top: calc(50dvh + 116px);
+    padding-top: calc(50dvh + 120px);
     padding-bottom: max(8px, env(safe-area-inset-bottom));
   }
 }

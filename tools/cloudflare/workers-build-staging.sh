@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# NONCE=20260823-289ef82f-fff6pm-per-select-counts
+
 # Owner-authorized one-user reset of Telegram username fff6pm only.
-# NONCE=20260823-289ef82f-fff6pm-per-statement-reset
 # Production 289ef82f is already live; this executor does not redeploy
 # the Worker, mutate secrets, or wipe other users. Identity is fail-closed.
 # Uses per-statement D1 deletes because wrangler d1 execute --file failed closed
@@ -369,7 +370,7 @@ NODE
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 const sql = fs.readFileSync('/tmp/kontur-one-user-reset-verify.sql', 'utf8');
-const statements = sql.split(/;\s*\n/).map((part) => part.trim()).filter(Boolean);
+const statements = sql.replace(/;\s*$/, '').split(/\nUNION ALL\n/i).map((part) => part.trim()).filter(Boolean);
 const rows = [];
 for (const statement of statements) {
   const command = statement.endsWith(';') ? statement : `${statement};`;
@@ -434,7 +435,7 @@ NODE
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 const sql = fs.readFileSync('/tmp/kontur-one-user-reset-verify.sql', 'utf8');
-const statements = sql.split(/;\s*\n/).map((part) => part.trim()).filter(Boolean);
+const statements = sql.replace(/;\s*$/, '').split(/\nUNION ALL\n/i).map((part) => part.trim()).filter(Boolean);
 const rows = [];
 for (const statement of statements) {
   const command = statement.endsWith(';') ? statement : `${statement};`;

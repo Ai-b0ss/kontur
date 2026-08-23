@@ -1,0 +1,84 @@
+{
+  "archive": {
+    "parts": 3,
+    "sha256": "842e7dbe4f70b7c71144f23a997eba570712a1d79c0f5ddb4eeeb4c440b572ca",
+    "size": 10420
+  },
+  "capsule_id": "20260823T195728Z-63312ff0f1",
+  "created_at_utc": "2026-08-23T19:57:28Z",
+  "parts": [
+    {
+      "chars": 5000,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "d0ac0c1cd4b677965c30dc9b1ba9e70289a68d2f36bd5f5112e71e85373e0a1b"
+    },
+    {
+      "chars": 5000,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "98ef3dc494abbfaf1c7ec476dcff99dda45ec5b02744404241a041e1554893ce"
+    },
+    {
+      "chars": 3896,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "39fbaa36de1332724b8c31afb0adf8142540174039dfa664d03ae2ece466777b"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@4b344547d5e95bd4b3c62f5b80186059d849ff08",
+  "worker": "NOTION_AGENT",
+  "workspace": {
+    "CHECKPOINT.json": {
+      "mode": "0o644",
+      "sha256": "25d0842215c41e3c292e489918518f350e748d564d6d5cd70dc5afaa53ab8709",
+      "size": 11821,
+      "type": "file"
+    },
+    "README.md": {
+      "mode": "0o644",
+      "sha256": "d48791d6904fe08cea2906611d0c23aff4572cd340deed652efc1ff0b28468f5",
+      "size": 580,
+      "type": "file"
+    },
+    "candidates": {
+      "mode": "0o2755",
+      "type": "dir"
+    },
+    "candidates/delegated_prompt_policy": {
+      "mode": "0o2755",
+      "type": "dir"
+    },
+    "candidates/delegated_prompt_policy/delegation_dispatcher.py": {
+      "mode": "0o644",
+      "sha256": "6c0d54c0e3e6316b3eff8559e049c07b023bbbb2b4dbe515774faae5b661e25b",
+      "size": 2865,
+      "type": "file"
+    },
+    "candidates/delegated_prompt_policy/delegation_policy.py": {
+      "mode": "0o644",
+      "sha256": "9d2ea238fb14705a8a063ad2260ae1d0e0360cdda2a4001b0e9bf68fb1cdcd2e",
+      "size": 4273,
+      "type": "file"
+    },
+    "candidates/delegated_prompt_policy/notion_delegated_model_step_candidate.py": {
+      "mode": "0o644",
+      "sha256": "c00e16897372155a4b9e59267ceac6e2d0790e24a025a42cca05f225dfe13911",
+      "size": 9092,
+      "type": "file"
+    },
+    "candidates/delegated_prompt_policy/test_model_prompt_policy.py": {
+      "mode": "0o644",
+      "sha256": "5f53e43488111e0e37b2624d6fcf3fdc45f0fc6920fb3d9b1b84dff14ebec54a",
+      "size": 1652,
+      "type": "file"
+    },
+    "candidates/delegated_prompt_policy/test_prompt_policy.py": {
+      "mode": "0o644",
+      "sha256": "c42060b8de0cdb67b19ef226eb8fefa8cf742869ad522bc2c36e7e03944df750",
+      "size": 2571,
+      "type": "file"
+    }
+  }
+}

@@ -1,0 +1,144 @@
+{
+  "archive": {
+    "parts": 13,
+    "sha256": "4291103723b0c01f316bedd3c01e5f0616208cc827e35ead81e6c96b0f33ee56",
+    "size": 9430
+  },
+  "capsule_id": "20260823T023849Z-863c6be6bb",
+  "created_at_utc": "2026-08-23T02:38:49Z",
+  "parts": [
+    {
+      "chars": 1000,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "16ffe6b218e77e02219258648286b610ca451137f547fa40bdf29db5a4e9fcdc"
+    },
+    {
+      "chars": 1000,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "b96f7de242b35b57b41b353f532fa6ccb3f24736685586b5de9e1ba96626c380"
+    },
+    {
+      "chars": 1000,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "cf6c3653d9efed375463759b2bf93e9fb3dfa19e1b8635afbb22d4f50fee772b"
+    },
+    {
+      "chars": 1000,
+      "index": 3,
+      "name": "part-0003.b64",
+      "sha256_text": "a6b489f477f4e71dabc9b2242a02ef56ac2f1e794cf858ad71e5f70a91c8c7a9"
+    },
+    {
+      "chars": 1000,
+      "index": 4,
+      "name": "part-0004.b64",
+      "sha256_text": "fbdb987b17f5a3f7653876046d30d89b2095435feded504dc63f2350c233f4d2"
+    },
+    {
+      "chars": 1000,
+      "index": 5,
+      "name": "part-0005.b64",
+      "sha256_text": "74e9b0c2040d70a40004afb19d15924ed8945d3deb68a2c36cf711b8a128ce5f"
+    },
+    {
+      "chars": 1000,
+      "index": 6,
+      "name": "part-0006.b64",
+      "sha256_text": "3c1135c8e252a0af004ec8d1a8566a334d231706e8f0c7c6620c2183a483dd3a"
+    },
+    {
+      "chars": 1000,
+      "index": 7,
+      "name": "part-0007.b64",
+      "sha256_text": "0ff04e83ba554f015268d42af2370533dc69b4d8439dae52b3ac0f9fdbb208df"
+    },
+    {
+      "chars": 1000,
+      "index": 8,
+      "name": "part-0008.b64",
+      "sha256_text": "6992dfb4d5bf8b400cefac59b0b99a87372d1615465dba3ffdc25361bba14286"
+    },
+    {
+      "chars": 1000,
+      "index": 9,
+      "name": "part-0009.b64",
+      "sha256_text": "0e4bebf4ae027458b205c4ede718ab42c8f754ea288df1f124e067f571884c05"
+    },
+    {
+      "chars": 1000,
+      "index": 10,
+      "name": "part-0010.b64",
+      "sha256_text": "ec4ad42b92e2843502fcd6c1e5fef75ba3afa824771ef7a6ad4ec7e69a93e763"
+    },
+    {
+      "chars": 1000,
+      "index": 11,
+      "name": "part-0011.b64",
+      "sha256_text": "291e228ef9c264f0b67dd1a39a13a87870c30f814cb2cbddeb11e2a52131053d"
+    },
+    {
+      "chars": 576,
+      "index": 12,
+      "name": "part-0012.b64",
+      "sha256_text": "b3f14c82fec0657ba02a3312c3f6e02e10fb746626f15093e3895a1488d07fa8"
+    }
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@ee0ae241b3ef19da7d3a69ddeecf6bb5476f91a9",
+  "worker": "NOTION_AGENT",
+  "workspace": {
+    "CHECKPOINT.json": {
+      "mode": "0o644",
+      "sha256": "e0b97f21c6ef930f4086d5775d91a0461024702467b7d32f9aa3e40c630c55b0",
+      "size": 9112,
+      "type": "file"
+    },
+    "README.md": {
+      "mode": "0o644",
+      "sha256": "4977e990dc8a921447771619a644c6b78123c748ed27a7315e42d314628a1741",
+      "size": 739,
+      "type": "file"
+    },
+    "candidates": {
+      "mode": "0o2755",
+      "type": "dir"
+    },
+    "candidates/delegated_prompt_policy": {
+      "mode": "0o2755",
+      "type": "dir"
+    },
+    "candidates/delegated_prompt_policy/delegation_dispatcher.py": {
+      "mode": "0o644",
+      "sha256": "6c0d54c0e3e6316b3eff8559e049c07b023bbbb2b4dbe515774faae5b661e25b",
+      "size": 2865,
+      "type": "file"
+    },
+    "candidates/delegated_prompt_policy/delegation_policy.py": {
+      "mode": "0o644",
+      "sha256": "9d2ea238fb14705a8a063ad2260ae1d0e0360cdda2a4001b0e9bf68fb1cdcd2e",
+      "size": 4273,
+      "type": "file"
+    },
+    "candidates/delegated_prompt_policy/notion_delegated_model_step_candidate.py": {
+      "mode": "0o644",
+      "sha256": "c00e16897372155a4b9e59267ceac6e2d0790e24a025a42cca05f225dfe13911",
+      "size": 9092,
+      "type": "file"
+    },
+    "candidates/delegated_prompt_policy/test_model_prompt_policy.py": {
+      "mode": "0o644",
+      "sha256": "5f53e43488111e0e37b2624d6fcf3fdc45f0fc6920fb3d9b1b84dff14ebec54a",
+      "size": 1652,
+      "type": "file"
+    },
+    "candidates/delegated_prompt_policy/test_prompt_policy.py": {
+      "mode": "0o644",
+      "sha256": "c42060b8de0cdb67b19ef226eb8fefa8cf742869ad522bc2c36e7e03944df750",
+      "size": 2571,
+      "type": "file"
+    }
+  }
+}

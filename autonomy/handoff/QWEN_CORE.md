@@ -6,7 +6,7 @@
 - Repo: `Ai-b0ss/qwen-free-api`
 - Branch: `autopilot/qwen-runtime-preflight-20260818`
 - PR: #6
-- Fresh product head: `f02d39193621ea7c5bf09af6bdd64d53dbdbee48`.
+- Fresh product head: `382ff501f0880a112bc1396c82d1e5c4b7c1362c`.
 - OWNER TEMPORARY CIRCLE FREEZE из `kontur#9` действует: CircleCI/gate branches не запускать и не двигать до явной разморозки владельцем.
 
 Перед новой записью fresh-read PR #6, `autonomy/OWNER_INTENT_RU.md`, `autonomy/CURRENT_RU.md`, QWEN_RELIABILITY, issue #9, Circle policy, v4 runtime, LATEST/PREVIOUS.
@@ -38,7 +38,21 @@ Fresh review существующего `scripts/subagent-persisted-state-confli
 Hosted targeted PASS:
 `QWEN_SUBAGENT_PERSISTED_STATE_CONFLICT_TARGET_PASS conflicts_blocked=12 clean_states=3 null_absent=1`.
 
-Regression уже был частью штатного `npm test`, поэтому отдельного standalone-теста не создано. Compare `61303e... -> f02d391...` меняет только `scripts/subagent-persisted-state-conflict-test.js` и `src/subagent-agent-runner.js`.
+Regression уже был частью штатного `npm test`; отдельного standalone-теста нет.
+
+### 3. Внутренний agent больше не выполняет два tool-call с одинаковым id
+Fresh exact `src/agent.js` позволял одному модельному ходу вернуть два разных вызова инструментов с одинаковым `tool_call.id`. После `consumeQwenStream()` оба попадали в `runTurn()` и оба могли реально выполниться, а локальная история получала два результата с одним `tool_call_id`. Для `write/edit/bash` это неоднозначный side-effect/replay boundary.
+
+Исправление:
+- intentional RED regression `scripts/agent-duplicate-tool-call-id-test.js` создан на `91d31dd949defb807a08d3da002ac8ed794faf69`;
+- root fix `d4464975b316661fbcc67c7e4ed9faef27afc541`: после сборки полного набора tool-calls `consumeQwenStream()` проверяет уникальность id до возврата результата; duplicate/collision -> короткая локальная `QWEN_AGENT_TOOL_CALL_ID_INVALID`, до executor;
+- compare `91d31dd... -> d446497...`: только `src/agent.js`, +11/-1;
+- после targeted green regression подключён в ordinary `npm test` коммитом `382ff501f0880a112bc1396c82d1e5c4b7c1362c`.
+
+Hosted targeted PASS:
+`QWEN_AGENT_DUPLICATE_TOOL_CALL_ID_TARGET_PASS duplicate=1 synthetic_collision=1 unique=1 executor_boundary=pre-resolve`.
+
+Permanent regression требует на полном exact-tree: duplicate id -> `QWEN_AGENT_TOOL_CALL_ID_INVALID`, provider request ровно 1, executor calls 0, ни одного `role=tool` в local history.
 
 ## Сохраняющий силу Core proof
 На неизменённых байтах ранее подтверждены:
@@ -50,7 +64,7 @@ Regression уже был частью штатного `npm test`, поэтом�
 - required-tool terminal/reasoning gates;
 - plain/coding subagent prompt/sessionPrefix fail-closed.
 
-Текущий проход не менял `session-store`, `server`, `chat-adapter`, tool-result/restart или Reliability-owned account/provider bytes.
+В этом проходе не менялись `session-store`, `server`, `chat-adapter` и Reliability-owned account/provider bytes.
 
 ## QWEN_RELIABILITY — не пересекать
 Fresh handoff:
@@ -66,7 +80,7 @@ Fresh handoff:
 
 ## Что осталось до финиша
 1. Fresh stable common SHA.
-2. Локально exact Core cluster: owner/session/restart/stale-backup/pending-tool + stream/tool-result + plain/coding subagents, включая оба новых batch invariants.
+2. Локально exact Core cluster: owner/session/restart/stale-backup/pending-tool + stream/tool-result + plain/coding subagents, включая новые durable batch и duplicate-tool-id invariants.
 3. Reliability exact `provider-safety-test.js` на том же product SHA.
 4. Full exact-tree Linux `npm test` на стабильном общем SHA.
 5. Пока Circle freeze действует — native gate не запускать.

@@ -34,6 +34,16 @@ REQUIRED_EXACT_MODULES = (
     "tests.test_subagent_entrypoint",
     "tests.test_foreground_slot_routing",
     "tests.test_server_subagent_wiring_materializer",
+    "tests.test_delegated_tool_loop_runtime_validation",
+    "tests.test_delegated_uncertain_failover_boundary",
+    "tests.test_notion_delegated_synthetic_call_ids",
+    "tests.test_notion_delegated_thread_reentry",
+    "tests.test_notion_delegation_dynamic_reservations",
+    "tests.test_notion_subagent_runtime",
+    "tests.test_notion_subagent_server_reservations",
+    "tests.test_reservation_aware_lease",
+    "tests.test_responses_cooldown_failover",
+    "tests.test_subagent_lifecycle",
 )
 
 REQUIRED_STAGE_B_TOKENS = (

@@ -6,7 +6,7 @@ import json
 import re
 from pathlib import Path
 
-SCHEMA = "notion_windows_ready_candidate_v1"
+SCHEMA = "notion_windows_ready_candidate_v2"
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 
 REQUIRED_BLOBS = (
@@ -69,11 +69,15 @@ def main() -> int:
         if not isinstance(value, str) or not HEX40.fullmatch(value):
             errors.append(key)
 
-    if doc.get("circle_policy") != "FROZEN_DO_NOT_RUN":
-        errors.append("circle_policy")
-    if doc.get("circle_or_windows_run_started") is not False:
-        errors.append("circle_or_windows_run_started")
-    if doc.get("readiness_label") != "READY_FOR_WINDOWS_CIRCLE_AFTER_RECONNECT":
+    # Current owner policy: the Notion Circle project is already connected and
+    # a clean connectivity probe passed. Linux/offline composition work may use
+    # Circle, but native Windows remains forbidden until this exact local
+    # same-byte candidate is fully green.
+    if doc.get("circle_connectivity") != "PASS":
+        errors.append("circle_connectivity")
+    if doc.get("native_windows_run_started") is not False:
+        errors.append("native_windows_run_started")
+    if doc.get("readiness_label") != "READY_FOR_TARGETED_WINDOWS_CIRCLE":
         errors.append("readiness_label")
 
     blobs = doc.get("composed_blobs")
@@ -104,7 +108,7 @@ def main() -> int:
 
     if errors:
         return fail(errors)
-    print("READY_FOR_WINDOWS_CIRCLE_AFTER_RECONNECT")
+    print("READY_FOR_TARGETED_WINDOWS_CIRCLE")
     return 0
 
 

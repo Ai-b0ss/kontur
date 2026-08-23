@@ -1,21 +1,8 @@
-/* Final cascade seal for the hatch master-frame candidate.
-   Imported last on purpose: old historical hatch layers remain in the repo,
-   but cannot re-introduce circular bird geometry, a reveal jump or Home overlap. */
+/* Final cascade seal for the gacha-style hatch.
+   Imported last on purpose so historical hatch CSS cannot re-introduce
+   shell halves, crack overlays, white fog or circular result geometry. */
 
-.lk-quiz-egg__inner > .lk-quiz-hatch__frame {
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  width: auto;
-  height: auto;
-  aspect-ratio: auto;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-/* Exact same master-frame coordinates from shell opening through settled bird.
-   The result copy reserves space below it instead of moving the bird. */
+/* One stable master frame from q8 through the settled bird. */
 .lk-first-time.lk-first-time--hatching .lk-quiz-egg-stage,
 .lk-first-time.lk-first-time--reveal .lk-quiz-egg-stage {
   position: absolute;
@@ -24,13 +11,173 @@
   right: auto;
   bottom: auto;
   left: 50%;
-  width: min(58vw, 230px);
+  width: min(61vw, 248px);
   margin: 0;
   opacity: 1;
   filter: none;
   transform: translate(-50%, -50%);
 }
 
+/* The old split-shell implementation is intentionally dead even if a stale
+   class is ever reintroduced elsewhere. */
+.lk-hatch-halves,
+.lk-hatch-half,
+.lk-hatch-half__image,
+.lk-quiz-egg__cracks,
+.lk-quiz-egg__light-burst,
+.lk-quiz-hatch__halo {
+  display: none !important;
+}
+
+/* Keep the cyan oval fixed and readable throughout the reveal. */
+.lk-quiz-egg__ring {
+  z-index: 40 !important;
+  opacity: 1 !important;
+  filter: none;
+  transition: none !important;
+}
+
+.lk-quiz-egg__glow {
+  z-index: 1;
+  opacity: .52;
+}
+
+.lk-quiz-egg__base,
+.lk-quiz-hatch__flash,
+.lk-quiz-hatch__bird {
+  will-change: transform, opacity;
+}
+
+/* The bird lives in the same oval master frame as the egg. */
+.lk-quiz-egg__inner > .lk-quiz-hatch__frame {
+  position: absolute;
+  z-index: 8;
+  top: 4%;
+  right: 6%;
+  bottom: 4%;
+  left: 6%;
+  width: auto;
+  height: auto;
+  aspect-ratio: auto;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 48% / 50%;
+  isolation: isolate;
+  opacity: 0;
+  visibility: hidden;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(90,200,213,.10), transparent 48%),
+    #151716;
+  box-shadow: inset 0 0 34px rgba(0,0,0,.22);
+}
+
+.lk-quiz-hatch__bird.lk-canonical-bird {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate3d(0,0,0) scale(.5);
+  transform-origin: 50% 58%;
+  animation: none;
+}
+
+.lk-quiz-hatch__bird.lk-canonical-bird > .lk-result-bird {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* 0.0–0.6s: one whole egg, fast tension shake. The existing phase names are
+   retained internally so the network/asset fail-closed gate stays intact. */
+.lk-quiz-egg[data-hatch-phase="pulse"] .lk-quiz-egg__base,
+.lk-quiz-egg[data-hatch-phase="cracks"] .lk-quiz-egg__base {
+  opacity: 1;
+  visibility: visible;
+  animation: lk-gacha-shake 100ms linear infinite !important;
+}
+
+.lk-quiz-egg[data-hatch-phase="pulse"] .lk-quiz-egg__ring,
+.lk-quiz-egg[data-hatch-phase="cracks"] .lk-quiz-egg__ring {
+  animation: lk-gacha-ring-pulse 300ms ease-in-out infinite !important;
+}
+
+/* 0.6–0.8s: egg pops out while a short radial burst covers the handoff. */
+.lk-quiz-egg.is-hatching > .lk-quiz-hatch {
+  position: absolute;
+  z-index: 30;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 1;
+  transform: none;
+  animation: none;
+  pointer-events: none;
+}
+
+.lk-quiz-hatch__flash {
+  position: absolute;
+  z-index: 30;
+  inset: -18%;
+  border-radius: 50%;
+  opacity: 0;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(255,255,255,1) 0%,
+    rgba(255,255,255,.98) 14%,
+    rgba(68,206,246,.66) 40%,
+    rgba(68,206,246,.20) 58%,
+    rgba(68,206,246,0) 72%
+  );
+  filter: none;
+  transform: scale(.72);
+  pointer-events: none;
+}
+
+.lk-quiz-egg[data-hatch-phase="flash"] .lk-quiz-egg__base {
+  animation: lk-gacha-pop-out 150ms cubic-bezier(.2,.72,.28,1) both !important;
+}
+
+.lk-quiz-egg[data-hatch-phase="flash"] .lk-quiz-hatch__flash {
+  opacity: 0;
+  animation: lk-gacha-flash-burst var(--lk-hatch-flash, 200ms) ease-out both !important;
+}
+
+/* 0.8–1.4s: no fog over the final art; only the bird springs into place. */
+.lk-quiz-egg[data-hatch-phase="reveal"] .lk-quiz-egg__base,
+.lk-quiz-egg[data-hatch-phase="settled"] .lk-quiz-egg__base {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  animation: none !important;
+}
+
+.lk-quiz-egg[data-hatch-phase="reveal"] .lk-quiz-hatch__flash,
+.lk-quiz-egg[data-hatch-phase="settled"] .lk-quiz-hatch__flash {
+  opacity: 0 !important;
+  animation: none !important;
+}
+
+.lk-quiz-egg[data-hatch-phase="reveal"] .lk-quiz-hatch__frame,
+.lk-quiz-egg[data-hatch-phase="settled"] .lk-quiz-hatch__frame {
+  opacity: 1;
+  visibility: visible;
+}
+
+.lk-quiz-egg[data-hatch-phase="reveal"] .lk-quiz-hatch__bird.lk-canonical-bird {
+  visibility: visible;
+  animation: lk-gacha-bird-spring var(--lk-hatch-reveal, 600ms) cubic-bezier(.34,1.56,.64,1) both !important;
+}
+
+.lk-quiz-egg[data-hatch-phase="settled"] .lk-quiz-hatch__bird.lk-canonical-bird {
+  visibility: visible;
+  opacity: 1;
+  transform: translate3d(0,0,0) scale(1);
+  animation: none !important;
+}
+
+/* Result copy stays below the same master frame and no longer overlaps it. */
 .lk-first-time.lk-first-time--reveal .lk-reveal.lk-reveal--inline {
   position: relative;
   z-index: 55;
@@ -40,12 +187,26 @@
   left: auto;
   width: 100%;
   margin: 0 auto;
-  /* Egg geometry is 1101/1429, so the full-height master frame is taller
-     than its width. Reserve the real half-height plus a visible text gap. */
-  padding: calc(50dvh + 166px) 0 max(18px, env(safe-area-inset-bottom));
+  padding: calc(50dvh + 160px) 0 max(18px, env(safe-area-inset-bottom));
   text-align: center;
+  animation: lk-gacha-copy-in 320ms ease-out both !important;
 }
 
+.lk-first-time.lk-first-time--reveal .lk-reveal.lk-reveal--inline .lk-kicker,
+.lk-first-time.lk-first-time--reveal .lk-reveal.lk-reveal--inline h1,
+.lk-first-time.lk-first-time--reveal .lk-reveal.lk-reveal--inline .lk-lead,
+.lk-first-time.lk-first-time--reveal .lk-reveal.lk-reveal--inline .lk-button {
+  animation: lk-gacha-copy-item 320ms ease-out both;
+}
+
+.lk-first-time.lk-first-time--reveal .lk-reveal.lk-reveal--inline h1 { animation-delay: 35ms; }
+.lk-first-time.lk-first-time--reveal .lk-reveal.lk-reveal--inline .lk-lead { animation-delay: 70ms; }
+.lk-first-time.lk-first-time--reveal .lk-reveal.lk-reveal--inline .lk-button { animation-delay: 105ms; }
+
+/* No incidental status copy competing with the 1.4s focal animation. */
+.lk-first-time--hatching .lk-hatching-label { visibility: hidden !important; }
+
+/* Home stays bounded after the reveal. */
 .lk-home .lk-bird-stage--home {
   height: 310px;
   margin: 0 -8px 12px;
@@ -58,8 +219,52 @@
   max-height: 100%;
 }
 
-.lk-home .lk-identity {
-  margin-top: 0;
+.lk-home .lk-identity { margin-top: 0; }
+
+@keyframes lk-gacha-shake {
+  0%, 100% { transform: translate3d(0,0,0) rotate(0deg); }
+  20% { transform: translate3d(-3px,1px,0) rotate(-1deg); }
+  40% { transform: translate3d(3px,-1px,0) rotate(1deg); }
+  60% { transform: translate3d(-3px,-1px,0) rotate(-1deg); }
+  80% { transform: translate3d(3px,1px,0) rotate(1deg); }
+}
+
+@keyframes lk-gacha-ring-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 7px rgba(68,206,246,.36));
+    transform: scale(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 16px rgba(68,206,246,.92));
+    transform: scale(1.018);
+  }
+}
+
+@keyframes lk-gacha-pop-out {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.2); }
+}
+
+@keyframes lk-gacha-flash-burst {
+  0% { opacity: 0; transform: scale(.72); }
+  42% { opacity: 1; transform: scale(1.02); }
+  100% { opacity: 0; transform: scale(1.16); }
+}
+
+@keyframes lk-gacha-bird-spring {
+  0% { opacity: 0; transform: translate3d(0,0,0) scale(.5); }
+  72% { opacity: 1; transform: translate3d(0,0,0) scale(1.05); }
+  100% { opacity: 1; transform: translate3d(0,0,0) scale(1); }
+}
+
+@keyframes lk-gacha-copy-in {
+  from { opacity: 0; transform: translate3d(0,20px,0); }
+  to { opacity: 1; transform: translate3d(0,0,0); }
+}
+
+@keyframes lk-gacha-copy-item {
+  from { opacity: 0; transform: translate3d(0,12px,0); }
+  to { opacity: 1; transform: translate3d(0,0,0); }
 }
 
 @media (max-height: 700px), (max-width: 360px) {
@@ -70,7 +275,28 @@
   }
 
   .lk-first-time.lk-first-time--reveal .lk-reveal.lk-reveal--inline {
-    padding-top: calc(50dvh + 120px);
+    padding-top: calc(50dvh + 116px);
     padding-bottom: max(8px, env(safe-area-inset-bottom));
   }
+}
+
+/* Reduced motion preserves the state handoff but removes the vibration and
+   spring overshoot. */
+.lk-reduced-motion .lk-quiz-egg[data-hatch-phase="pulse"] .lk-quiz-egg__base,
+.lk-reduced-motion .lk-quiz-egg[data-hatch-phase="cracks"] .lk-quiz-egg__base {
+  animation: none !important;
+}
+
+.lk-reduced-motion .lk-quiz-egg[data-hatch-phase="pulse"] .lk-quiz-egg__ring,
+.lk-reduced-motion .lk-quiz-egg[data-hatch-phase="cracks"] .lk-quiz-egg__ring {
+  animation: none !important;
+}
+
+.lk-reduced-motion .lk-quiz-egg[data-hatch-phase="reveal"] .lk-quiz-hatch__bird.lk-canonical-bird {
+  animation: lk-gacha-bird-reduced var(--lk-hatch-reveal, 220ms) ease-out both !important;
+}
+
+@keyframes lk-gacha-bird-reduced {
+  from { opacity: 0; transform: scale(.94); }
+  to { opacity: 1; transform: scale(1); }
 }

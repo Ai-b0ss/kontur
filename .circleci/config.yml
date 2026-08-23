@@ -6,7 +6,7 @@ jobs:
       - image: cimg/node:22.18-browsers
     resource_class: medium
     environment:
-      KONTUR_CANDIDATE_SHA: fa5c0f7047eac3380bc8bcb77c05b3cd6fe00de5
+      KONTUR_CANDIDATE_SHA: 5f1e33b1f2b8d20fa51a6a0197cbfa33424d7e48
     steps:
       - checkout
       - run:

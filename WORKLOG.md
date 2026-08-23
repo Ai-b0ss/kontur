@@ -1,5 +1,13 @@
 # Worklog
 
+## 2026-08-23 — production deploy of 289ef82f still blocked
+
+- Exact candidate `289ef82f76536aa05b2efab59400e80bcb94d50a` is unchanged product vs current branch miniapp/worker (docs-only later commits).
+- Live `kontur-igor` still serves `/assets/index-D13ey_3j.js` and `/assets/index-CcHYcZpN.css`, not candidate `/assets/index-BVo4e4i5.js` + `/assets/index-DqWMARjT.css`.
+- Health still `ok / devMode=false / driver=d1`; unauth API 401; webhook 403. startedBot=4 hatched=4. Owner `fff6pm` was not reset.
+- Inlined self-contained Workers Builds harness (proven 67ce body, SHA+fff6pm, no fetch of unreachable template) pushed to `infra/cloudflare-workers-builds-staging` `9f6748cb` and `ops/kontur-prod-auth-probe-20260822` `10008be3`. After 15 minutes live HTML/staging assets unchanged.
+- This VM: no `CLOUDFLARE_API_TOKEN`, wrangler unauthenticated, GitHub Actions still dies on billing in ~4s. Cannot prove production SHA or one-user reset without Cloudflare credentials.
+
 ## 2026-08-22 — independent visual acceptance of hatch candidate 289ef82f
 
 - Product SHA actually reviewed in Chromium: `289ef82f76536aa05b2efab59400e80bcb94d50a`. After owner candidate `b00a2d32` the only later product change is this SHA; `a43af7c7` is harness-only; `055044bd` is GitHub Actions only.

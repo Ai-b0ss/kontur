@@ -82,7 +82,9 @@ verification:
     exact_asset_convergence: false
     live_assets: {js: "/assets/index-D13ey_3j.js", css: "/assets/index-CcHYcZpN.css"}
     visual_candidate_not_deployed: "289ef82f76536aa05b2efab59400e80bcb94d50a"
-    deploy_blockers: ["no_cloudflare_api_token_in_agent_vm", "github_actions_billing_limit", "workers_builds_no_live_asset_change"]
+    deploy_blockers: ["no_cloudflare_api_token_in_agent_vm", "github_actions_billing_limit", "workers_builds_no_live_asset_change_after_inlined_9f6748cb"]
+    expected_candidate_assets: {js: "/assets/index-BVo4e4i5.js", css: "/assets/index-DqWMARjT.css"}
+    owner_reset_fff6pm: "not_attempted_deploy_not_live"
     health: "pass"
     api_boundary: "pass"
     telegram_webhook_boundary: "pass"

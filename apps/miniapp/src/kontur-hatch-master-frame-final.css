@@ -1,0 +1,47 @@
+/* Final cascade seal for the hatch master-frame candidate.
+   This file is imported last on purpose: old historical hatch layers remain in
+   the repository, but these geometry resets make them unable to re-introduce
+   a circular bird frame or negative Home overlap. */
+
+.lk-quiz-egg__inner > .lk-quiz-hatch__frame {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: auto;
+  height: auto;
+  aspect-ratio: auto;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.lk-first-time.lk-first-time--reveal .lk-quiz-egg-stage {
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  transform: none;
+}
+
+.lk-first-time.lk-first-time--reveal .lk-reveal.lk-reveal--inline {
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+}
+
+.lk-home .lk-bird-stage--home {
+  height: 310px;
+  margin: 0 -8px 12px;
+  overflow: hidden;
+}
+
+.lk-home .lk-bird-stage--home .lk-canonical-bird,
+.lk-home .lk-bird-stage--home .lk-result-bird {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.lk-home .lk-identity {
+  margin-top: 0;
+}

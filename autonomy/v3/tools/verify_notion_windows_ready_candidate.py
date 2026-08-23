@@ -2,21 +2,22 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 from pathlib import Path
 
-SCHEMA = "notion_windows_ready_candidate_v4"
+SCHEMA = "notion_windows_ready_candidate_v5"
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 FINAL_GATE_COVERAGE_VERIFIER_BLOB = "42cdae4c422068153f41697f063cf8a1cc28e8f9"
 
-REQUIRED_BLOBS = (
-    "conversation_segments.py",
-    "server.py",
-    "account_pool.py",
-    "reservation_aware_lease.py",
-    "subagent_tombstone_store.py",
-)
+REQUIRED_BLOB_PATHS = {
+    "conversation_segments.py": Path("payload/conversation_segments.py"),
+    "server.py": Path("payload/server.py"),
+    "account_pool.py": Path("payload/account_pool.py"),
+    "reservation_aware_lease.py": Path("payload/reservation_aware_lease.py"),
+    "subagent_tombstone_store.py": Path("payload/subagent_tombstone_store.py"),
+}
 
 REQUIRED_GATES = (
     "stage_a_v32_fail_closed_floor",
@@ -57,6 +58,11 @@ REQUIRED_GATES = (
 )
 
 
+def git_blob_sha(path: Path) -> str:
+    data = path.read_bytes()
+    return hashlib.sha1(f"blob {len(data)}\0".encode("ascii") + data).hexdigest()
+
+
 def fail(errors: list[str]) -> int:
     print("NOTION_WINDOWS_READY_NOT_READY")
     for item in errors:
@@ -67,6 +73,11 @@ def fail(errors: list[str]) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("manifest", type=Path)
+    parser.add_argument(
+        "--candidate-root",
+        type=Path,
+        help="exact composed candidate tree whose Git blob bytes must match the manifest",
+    )
     args = parser.parse_args()
 
     try:
@@ -97,10 +108,27 @@ def main() -> int:
     if not isinstance(blobs, dict):
         errors.append("composed_blobs")
     else:
-        for key in REQUIRED_BLOBS:
+        for key in REQUIRED_BLOB_PATHS:
             value = blobs.get(key)
             if not isinstance(value, str) or not HEX40.fullmatch(value):
                 errors.append(f"composed_blobs.{key}")
+
+    candidate_root = args.candidate_root
+    if candidate_root is None:
+        errors.append("candidate_root")
+    else:
+        root = candidate_root.resolve()
+        for key, rel in REQUIRED_BLOB_PATHS.items():
+            path = root / rel
+            if path.is_symlink() or not path.is_file():
+                errors.append(f"candidate_file.{key}")
+                continue
+            if isinstance(blobs, dict):
+                expected = blobs.get(key)
+                if isinstance(expected, str) and HEX40.fullmatch(expected):
+                    actual = git_blob_sha(path)
+                    if actual != expected:
+                        errors.append(f"candidate_blob_mismatch.{key}")
 
     gates = doc.get("local_gates")
     if not isinstance(gates, dict):

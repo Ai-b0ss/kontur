@@ -23,6 +23,18 @@ test('hatch removes split shell DOM and uses the radial gacha handoff', () => {
   assert.match(finalFrame, /scale\(1\.05\)/);
 });
 
+test('flash remains covered across the flash to reveal state swap', () => {
+  assert.match(
+    finalFrame,
+    /@keyframes lk-gacha-flash-burst\s*\{[\s\S]*100%\s*\{\s*opacity:\s*1;/,
+  );
+  assert.match(
+    finalFrame,
+    /data-hatch-phase="reveal"\]\s+\.lk-quiz-hatch__flash\s*\{[\s\S]*animation:\s*lk-gacha-flash-out/,
+  );
+  assert.match(finalFrame, /@keyframes lk-gacha-flash-out/);
+});
+
 test('stale onboarding copy is cancelled synchronously during hatch and reveal', () => {
   assert.match(hotfix, /lk-first-time--hatching[\s\S]*lk-question--egg[\s\S]*animation:\s*none/);
   assert.match(hotfix, /animation:\s*none;[\s\S]*transition:\s*none;/);

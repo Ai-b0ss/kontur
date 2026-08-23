@@ -8,9 +8,11 @@ Agent PR #8: `autonomy/notion-prompt-modes-20260819`, fresh exact head `ee0ae241
 
 ## Режим
 
-`OWNER TEMPORARY CIRCLE FREEZE — 2026-08-23` активен. Пользовательский Circle Projects сейчас не доказывает подключение `notion-agent-bridge`: видимый `free-fabric-gpt-bridge` нельзя считать Notion-проектом. Не запускать CircleCI/GitHub Actions, не двигать `ci/notion-core-windows-final-gate` и Circle-triggering product refs, не считать исторические Circle-результаты свежими.
+Свежая owner-policy отменяет старую формулировку `Circle frozen / reconnect required`. Notion Circle connectivity уже доказана отдельным чистым `run-ci` probe и считается `PASS`. Повторно доказывать подключение не нужно.
 
-Production, secrets и live Notion/Codex не трогать до safety gates. Финальный Windows Server 2022 gate — только после exact-local unified Stage-B green и отдельной owner-разморозки/reconnect.
+Linux/offline composition и локальные проверки можно выполнять через уже подключённый Circle, если это полезно и не пересекается с активным CLAIM. Тяжёлый native Windows Server 2022 запускать только после exact Agent pair materialization, same-byte Agent/Core composition и полного локального Stage-B/full-matrix PASS на тех же байтах.
+
+Production, secrets и live Notion/Codex не трогать до safety gates. Исторические/pending Circle-результаты не считать доказательством новой композиции.
 
 ## Постоянная память v4
 
@@ -70,21 +72,27 @@ Evidence: `autonomy/evidence/notion/20260823T0758Z_v50_stage_b_scope_gap_and_win
 
 ## Fail-closed Windows readiness guard
 
-Добавлен `autonomy/v3/tools/verify_notion_windows_ready_candidate.py`, blob `97100e7a48d28467555b39947367319f79123f1a`.
+`autonomy/v3/tools/verify_notion_windows_ready_candidate.py` обновлён под свежую owner-policy; current blob `531f93d3c0130cf6451da46408e799df3eb8c139`, schema `notion_windows_ready_candidate_v2`.
 
-Он разрешает метку **`READY_FOR_WINDOWS_CIRCLE_AFTER_RECONNECT`** только если manifest содержит:
+Он разрешает метку **`READY_FOR_TARGETED_WINDOWS_CIRCLE`** только если manifest содержит:
 - exact Core/Agent heads и materializer blob;
 - exact итоговые composed blobs `conversation_segments.py`, `server.py`, `account_pool.py`, `reservation_aware_lease.py`, `subagent_tombstone_store.py`;
 - `stage_b_unified_candidate=PASS` и `v50_only=false`;
 - PASS всей локальной матрицы: Stage A, Agent materialization/tombstone/restart/cancel/dynamic-reservation, protected no-failover, strict intent/finalize, canonical Responses+compaction replay, restart, stream/non-stream/disconnect, ambiguous transport, removed account, TTL/size/oversize/stale retry, rollback, Codex shell-env, final coverage;
-- Circle остаётся frozen и новый Circle/Windows run не запускался.
+- `circle_connectivity=PASS`;
+- `native_windows_run_started=false`.
 
-Self-test:
-- неполный manifest -> exit `1`, `NOTION_WINDOWS_READY_NOT_READY`;
-- полный synthetic manifest -> exit `0`, `READY_FOR_WINDOWS_CIRCLE_AFTER_RECONNECT`;
-- Python compile PASS.
+Linux/offline Circle-запуски сами по себе readiness больше не блокируют. Native Windows остаётся запрещён до exact same-byte local full green.
 
-Это новый обязательный gate перед любым объявлением Windows-ready.
+Self-test V2:
+- старый `FROZEN/AFTER_RECONNECT` manifest -> exit `1`, `NOTION_WINDOWS_READY_NOT_READY`;
+- connectivity PASS, но локальный gate FAIL -> exit `1`;
+- `native_windows_run_started=true` -> exit `1`;
+- полный synthetic same-byte local-green manifest -> exit `0`, `READY_FOR_TARGETED_WINDOWS_CIRCLE`;
+- Python compile PASS;
+- локальный Git blob совпал с GitHub readback: `531f93d3c0130cf6451da46408e799df3eb8c139`.
+
+Commit control-ветки: `e0b0ccfe75ec306bd938c1636f82badd43efdcc2`.
 
 ## Final local coverage
 
@@ -112,9 +120,10 @@ Exact patch: `autonomy/evidence/notion/20260821T1510Z_codex_shell_env_exact_cand
 3. V50 `check/apply` использовать только как composition prerequisite.
 4. На **эти же exact bytes** наложить/собрать единый Stage-B implementation (V34/V35 store + strict server intent/finalize + canonical Responses/compaction + V41/V45 buffered projection/restart safety).
 5. Получить exact итоговые composed blob SHA и прогнать полную локальную Agent+Core Stage-B матрицу; `verify_notion_final_gate_coverage.py` и `verify_notion_windows_ready_candidate.py` обязаны PASS.
-6. Только после этого записать `READY_FOR_WINDOWS_CIRCLE_AFTER_RECONNECT` с exact heads/config/blobs; product ref и Circle не двигать во время freeze.
-7. После явной owner-разморозки/reconnect — один disposable native Windows Server 2022 gate с exact logs/artifacts. Windows FAIL = реальный blocker.
-8. После Windows PASS — bounded authorized `codex exec -> bridge -> Notion -> local tool -> verifier FAIL -> correction -> VERIFY_OK` со стабильным conversation id через initial/tool-result/retry/restart.
-9. Затем native-Windows проверенный owner-facing PowerShell doctor.
+6. Только после этого записать `READY_FOR_TARGETED_WINDOWS_CIRCLE` с exact heads/config/blobs.
+7. Запустить **один** targeted native Windows Server 2022 proof на этих же байтах. Windows FAIL = реальный blocker; не дублировать pending run.
+8. Targeted PASS -> полный promoted Ubuntu+Windows/exact-source/security gate на тех же bytes.
+9. После promoted green — bounded authorized `codex exec -> bridge -> Notion -> local tool -> verifier FAIL -> correction -> VERIFY_OK` со стабильным conversation id через initial/tool-result/retry/restart.
+10. Затем native-Windows проверенный owner-facing PowerShell doctor, rotation/restart/crash и bounded soak до `NOTION_CORE_DONE`.
 
-В этом проходе PR #7/#8, live Notion/Codex, secrets, production и CircleCI не менялись. Существенный новый факт: V50 не является Stage-B materializer; добавлен fail-closed readiness guard, который не даст ошибочно перейти к Windows по одному V50 PASS.
+В этом проходе PR #7/#8, live Notion/Codex, secrets, production и native Windows не менялись. Существенный новый факт: readiness verifier больше не несёт устаревшую политику `Circle frozen / reconnect required`; он теперь допускает Linux/offline Circle, но остаётся fail-closed перед native Windows до полного exact same-byte Stage-B PASS.

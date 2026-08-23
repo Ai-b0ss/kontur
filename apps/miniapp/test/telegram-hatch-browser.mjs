@@ -27,8 +27,8 @@ function state(hatched = false) {
     serverTime: new Date().toISOString(), gameDay: 1, isDoubleDay: false, hatched,
     features: { eggs: true, community: false, passive: false },
     player: {
-      userId: 991760, username: 'telegram_qa', role: hatched ? 'designer' : null,
-      roleTitle: hatched ? 'Дизайнер' : null, roleTagline: hatched ? 'Делает сложное понятным' : null,
+      userId: 991760, username: 'telegram_qa', role: hatched ? 'manager' : null,
+      roleTitle: hatched ? 'Менеджер' : null, roleTagline: hatched ? 'Собирает людей и следующий шаг' : null,
       birdName: null, coloring: 'plain', coloringTitle: 'Обычный', palette,
       hatchedAt: hatched ? new Date().toISOString() : null, wallet: 0, reputation: 0, signalCount: 0,
     },
@@ -82,9 +82,9 @@ async function mockApi(page, hatchDelay) {
       await new Promise((resolve) => setTimeout(resolve, hatchDelay));
       hatched = true;
       value = {
-        role: 'designer', roleTitle: 'Дизайнер', roleTagline: 'Делает сложное понятным',
+        role: 'manager', roleTitle: 'Менеджер', roleTagline: 'Собирает людей и следующий шаг',
         coloring: 'plain', coloringTitle: 'Обычный', palette,
-        shareText: 'Я в «Контуре»: Дизайнер.', state: state(true),
+        shareText: 'Я в «Контуре»: Менеджер.', state: state(true),
       };
     } else { status = 404; value = { error: { code: 'NOT_FOUND', message: path } }; }
     await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) });
@@ -186,6 +186,7 @@ async function prove(reduced) {
       ring: rect('.lk-quiz-egg__ring'), inner: rect('.lk-quiz-egg__inner'), frame: rect('.lk-quiz-hatch__frame'),
       birdImage: rect('.lk-quiz-hatch__bird > .lk-result-bird'),
       kicker: rect('.lk-reveal--inline > .lk-kicker'), name: rect('.lk-reveal--inline h1'), panel: rect('.lk-reveal--inline'),
+      resultId: document.querySelector('.lk-quiz-hatch__bird')?.getAttribute('data-bird-result') ?? null,
       question: document.querySelector('.lk-question--egg')?.textContent?.trim() ?? null,
       flashBackground: flash ? getComputedStyle(flash).backgroundImage : '',
       flashColor: flash ? getComputedStyle(flash).backgroundColor : '',
@@ -195,6 +196,7 @@ async function prove(reduced) {
   });
   ok(layout.viewport.width === 390 && layout.viewport.height === 760, `wrong viewport ${JSON.stringify(layout.viewport)}`);
   ok(layout.ring && layout.inner && layout.frame && layout.birdImage && layout.kicker && layout.panel, `missing reveal geometry ${JSON.stringify(layout)}`);
+  ok(layout.resultId === 'crane', `worst-case tall crane was not rendered: ${layout.resultId}`);
   ok(layout.kicker.top >= layout.ring.bottom + 12, `kicker overlaps ring: ${JSON.stringify(layout)}`);
   ok(layout.panel.bottom <= 761 && layout.panel.left >= -1 && layout.panel.right <= 391, `panel overflow: ${JSON.stringify(layout)}`);
   ok(layout.inner.top >= layout.ring.top + 5 && layout.inner.bottom <= layout.ring.bottom - 5, `inner mask does not match ring: ${JSON.stringify(layout)}`);
@@ -204,10 +206,36 @@ async function prove(reduced) {
   ok(layout.flashColor === 'rgba(0, 0, 0, 0)', `flash has opaque background color: ${layout.flashColor}`);
   ok(layout.leftClip === 'none' && layout.rightClip === 'none', `shell still uses clip-path: ${layout.leftClip} / ${layout.rightClip}`);
   ok(!layout.question, `q8 text still mounted: ${layout.question}`);
-  ok(errors.length === 0, `browser errors: ${JSON.stringify(errors)}`);
+  ok(errors.length === 0, `browser errors before result: ${JSON.stringify(errors)}`);
   await page.screenshot({ path: join(evidence, reduced ? 'telegram-390x760-reduced.png' : 'telegram-390x760-normal.png'), fullPage: false });
+
+  await page.getByRole('button', { name: 'что дальше' }).click();
+  await page.getByRole('button', { name: 'к моей птице' }).waitFor({ timeout: 2000 });
+  await page.getByRole('button', { name: 'к моей птице' }).click();
+  await page.locator('main.lk-home').waitFor({ timeout: 2000 });
+
+  const home = await page.evaluate(() => {
+    const rect = (selector) => {
+      const box = document.querySelector(selector)?.getBoundingClientRect();
+      return box ? { top: box.top, bottom: box.bottom, left: box.left, right: box.right } : null;
+    };
+    const stage = document.querySelector('.lk-bird-stage--home');
+    return {
+      stage: rect('.lk-bird-stage--home'),
+      identity: rect('.lk-identity'),
+      resultId: document.querySelector('.lk-bird-stage--home .lk-canonical-bird')?.getAttribute('data-bird-result') ?? null,
+      overflow: stage ? getComputedStyle(stage).overflow : null,
+    };
+  });
+  ok(home.stage && home.identity, `missing Home crane geometry ${JSON.stringify(home)}`);
+  ok(home.resultId === 'crane', `Home did not preserve crane: ${JSON.stringify(home)}`);
+  ok(home.overflow === 'hidden', `Home bird stage is not clipped: ${JSON.stringify(home)}`);
+  ok(home.identity.top >= home.stage.bottom + 8, `Home identity overlaps bird stage: ${JSON.stringify(home)}`);
+  ok(errors.length === 0, `browser errors after Home: ${JSON.stringify(errors)}`);
+  await page.screenshot({ path: join(evidence, reduced ? 'telegram-390x760-home-reduced.png' : 'telegram-390x760-home-normal.png'), fullPage: false });
+
   await context.close();
-  return { reduced, traceSamples: trace.length, layout };
+  return { reduced, traceSamples: trace.length, layout, home };
 }
 
 const { server, origin } = await startServer();

@@ -1,0 +1,4 @@
+trigger=2026-08-23T09:12Z
+scope=read-only verification
+production_write=0
+d1_write=0

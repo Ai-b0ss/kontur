@@ -6,67 +6,40 @@
 - Repo: `Ai-b0ss/qwen-free-api`
 - Branch: `autopilot/qwen-runtime-preflight-20260818`
 - PR: #6
-- Fresh product head после этого прохода: `484d8cf8b910c9e7333ba9ac4285f9f05ba32fb6`.
+- Fresh product head после этого прохода: `8bd64b18551c1874b7f605908f4c70875250d2d8`.
 - OWNER TEMPORARY CIRCLE FREEZE из `kontur#9` действует: CircleCI/gate branches не запускать и не двигать до явной разморозки владельцем.
 
 Перед новой записью fresh-read PR #6, `autonomy/OWNER_INTENT_RU.md`, `autonomy/CURRENT_RU.md`, QWEN_RELIABILITY, issue #9, Circle policy, v4 runtime, LATEST/PREVIOUS.
 
-## Закрыто: type confusion у skill selectors plain/coding subagents
+## ЗАКРЫТО: incremental tool results больше не стирают durable pending pair
 
-Fresh review `src/subagent-dispatcher.js` + `src/skills.js` показал, что `normalizeTasks()` принимал произвольные `skills`, а нижний skills-слой затем делал `String(value)`. Malformed selector вроде nested `[['debug-repair']]` мог превратиться в настоящее имя `debug-repair` и молча выбрать технические инструкции.
+Предыдущий доказанный RED находился в `src/session-store.js`: при нескольких входящих `role=tool` без повторённого `assistant.tool_calls` старый `restoreCheckpoint()` считал входящую короткую историю authoritative. `checkpointMessages()` отбрасывал standalone tool-results, поэтому после restart можно было потерять и уже принятый assistant tool-call, и его результат.
 
-Исправление:
-- root fix `2ab164e166434c4216b92c913ea18e2938db1795`;
-- regression `scripts/subagent-skill-type-validation-test.js` на `97ed08d18ac428f2e456c5013dbccc2222ef56b7`;
-- regression сразу подключён в ordinary `npm test` на `118a2dcb43790aa36a27c45bb32804751326e4de`.
+Root fix:
+- `ca64b835cd1865c9e6fb3247f3fad4e83da75285` — добавлен узкий `mergeIncrementalToolResults()` и ранняя ветка в `restoreCheckpoint()`;
+- изменён только `src/session-store.js`, +48/-0 относительно RED-head.
 
 Новая семантика:
-- selector обязан быть непустой строкой;
-- `null/false/number/object/nested array/blank` -> `QWEN_SUBAGENT_SKILL_INVALID`;
-- malformed selector останавливается до любого subagent/provider request.
+1. Tool-only incremental ход принимается только если каждый новый `tool_call_id` соответствует реально durable pending call.
+2. Результат с неизвестным id закрывается через `QWEN_TOOL_CHECKPOINT_REJECTED`, не меняя durable историю.
+3. Несколько результатов объединяются с уже durable `assistant.tool_calls`, поэтому пара `assistant -> tool` не разрывается ни в текущем запросе, ни в checkpoint.
+4. Частичный multi-tool результат закрывает только свой pending id; остальные pending остаются.
+5. Точный повтор уже сохранённого tool-result идемпотентен и не дублируется.
+6. Обычный полный transcript не переведён на новую ветку: helper применяется только когда все входящие non-system сообщения являются `role=tool`.
 
-Hosted byte-exact targeted PASS:
-`QWEN_SUBAGENT_SKILL_TYPE_VALIDATION_PASS rejected=7 normalized=2 provider_calls=0`.
+Hosted semantic targeted PASS без provider/CI:
+`QWEN_INCREMENTAL_TOOL_RESULT_TARGET_PASS paired=2 partial=1 idempotent=1 orphan_rejected=1 duplicate_rejected=1`.
 
-Exact blobs:
-- `src/subagent-dispatcher.js` = `21dd74828bd6dfcae27acc6a32c42b6dec12ec2e`;
-- regression = `4f61aa013203b43bb637f7e019dfe13b9f986ab1`.
+Постоянная regression усилена:
+- `scripts/session-orphan-tool-result-restart-test.js` теперь проверяет два pending (`read-1` + `mut-1`), durable pair после restart, pending=0, идемпотентный повтор и fail-closed orphan result;
+- regression commit `8bd64b18551c1874b7f605908f4c70875250d2d8`, blob `df815f23ca70726d61b36d9170c578e4886ade3e`.
 
-## НОВЫЙ ДОКАЗАННЫЙ CORE RED: incremental tool results могут стереть durable pending pair
+Главное правило coverage выполнено: после root-fix regression сразу подключён в обычный `npm test` commit `108a143c7bb2869d25d564ed08a438d3df41c018`.
 
-Fresh exact `src/session-store.js` review локализовал опасный restart/tool-result boundary.
-
-Текущая логика `restoreCheckpoint()` при `countNonSystem(messages) > 1` считает incoming transcript authoritative и передаёт именно его в `persistCompletedToolProgress()`. Если клиент прислал несколько `role=tool` результатов без уже ранее checkpoint-нутого `assistant.tool_calls`, `hasNewToolResult()` видит прогресс, но `checkpointMessages(authoritativeIncoming)` отбрасывает standalone `tool` messages. В итоге durable история может потерять и pending assistant call, и его tool results; наружу при этом возвращается transcript с orphan `role=tool`.
-
-Hosted semantic reproduction на функциях с exact текущей семантикой:
-`QWEN_SESSION_ORPHAN_TOOL_RESULT_BUG_REPRODUCED durable_pair_lost=1 outbound_orphan=1`.
-
-Постоянная RED regression добавлена и усилена до реалистичного multi-tool incremental сценария:
-- durable assistant turn содержит одновременно `read_file` (`read-1`) и `write_file` (`mut-1`);
-- следующий клиентский ход присылает два `role=tool` результата, не повторяя уже durable assistant turn;
-- ожидается, что восстановленная и durable история сохранят assistant tool_calls перед обоими результатами, pending после restart = 0.
-
-Файл:
-- `scripts/session-orphan-tool-result-restart-test.js`;
-- initial RED commit `900499cc3180dde49eb0f2fd56e3e8090052ea5a`;
-- stronger multi-tool RED `484d8cf8b910c9e7333ba9ac4285f9f05ba32fb6`, blob `7feb8ef54759d259e090fcc4aec88d0f7b088d59`.
-
-Regression намеренно НЕ подключён к `npm test`, пока продукт красный. Сразу после targeted green подключение обязательно.
-
-Следующий проход обязан начать с этого RED, не с нового аудита.
-
-### Минимальная root-fix семантика
-1. Tool-result должен считаться новым durable прогрессом только если его `tool_call_id` соответствует ранее durable pending call; произвольный orphan result не должен стирать checkpoint.
-2. Если incoming содержит результаты ранее durable pending calls, использовать merged durable history (`record.history + fresh incoming`), а не authoritative incoming отдельно.
-3. И persist, и возвращаемый в текущий запрос transcript должны сохранять пару `assistant.tool_calls -> tool result` атомарно.
-4. Настоящий full transcript, уже содержащий assistant call + results, должен сохранить текущую семантику без дублирования.
-5. После targeted green сразу подключить `session-orphan-tool-result-restart-test.js` в ordinary `npm test`.
-6. Затем прогнать ближайший cluster: `session-tool-result-progress`, `session-pending-tool-call-restart`, `session-duplicate-tool-call-id`, `session-store-restart`, stale-backup/restart.
-
-Не ослаблять full-history recovery semantics и не принимать произвольные orphan tool results без ранее durable pending call.
+Полный exact-module/full `npm test` на всём приватном дереве в этом проходе НЕ заявляется: GitHub connector даёт точные bytes, но hosted filesystem не получил целиком locked checkout. Circle/GHA не использовались.
 
 ## Сохраняющий силу Core proof
-На неизменённых байтах ранее подтверждены:
+На неизменённых/не затронутых этим root-fix участках ранее подтверждены:
 - nested durable session schema fail-closed;
 - owner authority type checks и большой owner-system checkpoint/restart;
 - tool-result durable-before-next-Qwen;
@@ -74,42 +47,43 @@ Regression намеренно НЕ подключён к `npm test`, пока п
 - stale-backup fail-closed;
 - required-tool terminal/reasoning gates;
 - plain/coding subagent prompt/sessionPrefix fail-closed;
-- durable batch id/type + persisted-state conflict + duplicate internal-agent tool-call ids.
+- durable batch id/type + persisted-state conflict + duplicate internal-agent tool-call ids;
+- strict skills selector boundary.
 
-Skill fix не менял `session-store`, `server.js`, `chat-adapter`, `agent.js`, account/cooldown/provider-circuit bytes. Последний RED commit меняет только regression-файл.
+Этот проход не менял `server.js`, `chat-adapter.js`, `agent.js`, `subagent-*`, `qwen-client.js`, `account-store.js`, `provider-circuit.js` или `package-lock.json`; кроме session-store изменён только `package.json` для включения regression.
 
 ## QWEN_RELIABILITY — не пересекать
-Fresh handoff:
+Fresh handoff на старте этого прохода:
 - account/cooldown/index/filename cluster: 8/8 exact targeted PASS;
 - provider-circuit cluster: 7/8 exact targeted PASS;
 - единственный Reliability proof gap: exact execution `scripts/provider-safety-test.js` на настоящем locked dependency tree с real `axios`; shim/reconstructed dependency proof не принимается.
 
-Controller fresh-sync подтвердил, что Reliability-owned `src/qwen-client.js`, `src/account-store.js`, `src/provider-circuit.js`, `package-lock.json` не менялись последними Core-коммитами.
+Core не трогал Reliability-owned account/cooldown/provider-circuit код.
 
 ## Circle policy
-`kontur#9` fresh-read подтверждает `[OWNER TEMPORARY CIRCLE FREEZE — 2026-08-23]`:
+`kontur#9` fresh-read подтверждает `[OWNER TEMPORARY CIRCLE FREEZE — 2026-08-23]` и более поздней явной разморозки не найдено:
 - Circle runs/jobs/branch triggers = 0;
+- disposable gate branches не двигать;
 - старые Circle результаты только исторические;
 - если все non-Circle gates зелёные и остаётся только native gate, статус максимум `READY_FOR_CIRCLE_AFTER_OWNER_RELEASE`.
 
 ## Что осталось до финиша
-1. Закрыть `session-orphan-tool-result-restart-test.js` root fix + targeted cluster, затем wire regression в `npm test`.
-2. Fresh stable common SHA Core+Reliability.
-3. Reliability exact `provider-safety-test.js` на том же product SHA.
-4. Full exact-tree Linux `npm test` на стабильном общем SHA.
-5. Пока Circle freeze действует — native gate не запускать.
-6. После явной разморозки — один native Windows Server 2022 full offline gate на тех же product bytes, locked install, без provider/live/secrets/production.
-7. Только после Linux + native Windows green — PowerShell owner-doctor/acceptance harness; проверить его в native Windows Circle и выводить `QWEN_WINDOWS_READY` либо первый точный blocker.
+1. На свежем стабильном общем SHA прогнать точный Core cluster: `session-orphan-tool-result-restart`, `session-tool-result-progress`, `session-pending-tool-call-restart`, `session-duplicate-tool-call-id`, `session-store-restart`, stale-backup/restart + ближайший stream/tool-result cluster.
+2. Fresh-sync QWEN_RELIABILITY и получить exact `provider-safety-test.js` на real locked dependency tree.
+3. Core + Reliability targeted green на одном SHA -> полный exact-tree Linux `npm test`.
+4. Пока Circle freeze действует — native gate не запускать; при единственном оставшемся Circle blocker статус `READY_FOR_CIRCLE_AFTER_OWNER_RELEASE`.
+5. После явной разморозки — один native Windows Server 2022 full offline gate на тех же product bytes, locked install, без provider/live/secrets/production.
+6. Только после Linux + native Windows green — PowerShell owner-doctor/acceptance harness; проверить его в native Windows Circle и выводить `QWEN_WINDOWS_READY` либо первый точный blocker.
 
 `QWEN_CORE_DONE` пока нет.
 
 ## Постоянная память / v4 CAS
-Последний нормативно подтверждённый pointer из предыдущего handoff:
+Последний нормативно подтверждённый pointer, который был доступен из входного handoff:
 - capsule `20260823T021610Z-f761e59acb`;
 - archive SHA-256 `78be915380698f3af3b6d4806b54bcbca4dd8ba428cca46165a4d7593517e3d6`;
 - source_ref `04b9f75f62da4d5380e3b5a5dfee76e7d18180cb`;
 - pointer blob `df27abdb99b66f68dc3a68aa8b95c93fc304a717`.
 
-Новый v4 pointer в этом проходе не публиковался: надёжный exact LATEST/PREVIOUS/runtime path через текущую GitHub-поверхность не был разрешён до записи. Force-write/pseudo-v4 запрещены.
+Новый v4 pointer в этом проходе не публиковался: через текущую GitHub-поверхность не удалось надёжно разрешить точные QWEN_CORE LATEST/PREVIOUS/runtime paths для обязательного `restore -> pack -> verify -> restore -> CAS`. Force-write, guessed path и pseudo-v4 запрещены. Product commits + этот handoff сохраняют точное новое состояние до следующего нормативного CAS-прохода.
 
 Provider traffic, реальные аккаунты, секреты, Cloudflare, production, GitHub Actions и CircleCI в этом проходе = 0.

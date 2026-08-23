@@ -1,0 +1,37 @@
+{
+  "schema": "notion_agent_final_coverage_false_pass_v1",
+  "observed_at_msk": "2026-08-24T01:41:00+03:00",
+  "agent_head": "4b344547d5e95bd4b3c62f5b80186059d849ff08",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "current_coverage_verifier_blob": "2df0e51ab385d003b2cbdf9126aad0176d62bed6",
+  "candidate_coverage_verifier_blob": "2c2c25e9e6b46e5a3ed7753ecb6a01587e41f9a1",
+  "windows_readiness_v5_blob": "d6fde58cc908d5cbab553aef887422f86aa82fbb",
+  "finding": "The current final coverage verifier returns PASS for a synthetic suite that contains every module it presently requires and the Stage-B durable_replay/provider_intent coverage, while omitting seven tests that the canonical NOTION_AGENT handoff explicitly marks mandatory on composed exact bytes.",
+  "missing_mandatory_modules": {
+    "tests.test_delegated_tool_loop": "13c9f9a82ea2fd235fd70f452209b6494c5802cb",
+    "tests.test_dynamic_reservation_session_entry_cleanup": "84af232663b0534ca82ec90c43c1fb61a832acbc",
+    "tests.test_server_subagent_durable_tool_guard_v2": "638e685c4fcc8a4df5c151288e10e1188af26c68",
+    "tests.test_server_subagent_uncertain_rebind": "1fad363f3da10efb0ab0a0234ef2de7e2472994a",
+    "tests.test_server_subagent_lifecycle_drain": "b907a93b6ef799095a059aa6574e598a30ac9895",
+    "tests.test_notion_tool_subagent_runtime": "ed0ecc04c1c223363edc7379409ceda1d7db5971",
+    "tests.test_account_pool_parallelism": "d37f47bac6e58c39db30157cdf0e416341b9e633"
+  },
+  "local_counterexample": {
+    "verdict_from_current_verifier_equivalent": "PASS",
+    "omitted_existing_mandatory_modules": 7,
+    "provider_or_live_traffic": false
+  },
+  "candidate_change": "Add exactly the seven missing modules to REQUIRED_EXACT_MODULES. Candidate blob was created without moving any branch/ref and read back successfully.",
+  "readiness_consequence": "Windows readiness v5 pins the old coverage verifier blob 2df0e51a..., so after accepting the fixed coverage verifier the readiness verifier/manifest pin must also be updated before targeted Windows can be authorized.",
+  "coordination": {
+    "pair_materialization_owned_by_core_claim": true,
+    "agent_overlap_aborted": true,
+    "product_refs_moved": false,
+    "circle_started": false,
+    "windows_started": false,
+    "live_notion_codex_started": false
+  },
+  "do_not_consume": [
+    "8534c51fdf008c57962ca93b92bc4908215e1978"
+  ]
+}

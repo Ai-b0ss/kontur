@@ -1,0 +1,54 @@
+{
+  "schema": "notion_windows_readiness_exact_byte_binding_evidence_v1",
+  "created_at_utc": "2026-08-23T17:55:00Z",
+  "scope": "NOTION_CORE readiness verifier only; no Agent pair/materializer/product mutation",
+  "exact_heads": {
+    "core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_pr8": "4b344547d5e95bd4b3c62f5b80186059d849ff08"
+  },
+  "concurrent_owner": {
+    "claim": "NOTION_AGENT-20260823T2043MSK",
+    "expires": "2026-08-23T21:50:00+03:00",
+    "owned_scope": "exact current-head Agent pair rematerialization/readback/compile + local Agent safety matrix + byte-exact Core handoff",
+    "not_overlapped": true
+  },
+  "reproduced_gap": {
+    "old_verifier_blob": "c54866cba891fa81c38a399b0b5741b708c008aa",
+    "old_schema": "notion_windows_ready_candidate_v4",
+    "problem": "composed_blobs were validated only as 40-hex strings; the verifier did not read the composed candidate tree or prove that manifest blob IDs matched the bytes that would enter Windows",
+    "counterexample": "a synthetic manifest with arbitrary valid 40-hex composed_blobs plus PASS labels was accepted",
+    "marker": "V4_SYNTHETIC_UNBOUND_BLOBS_READY_REPRODUCED",
+    "old_return_code": 0
+  },
+  "minimal_fix": {
+    "verifier_path": "autonomy/v3/tools/verify_notion_windows_ready_candidate.py",
+    "new_schema": "notion_windows_ready_candidate_v5",
+    "new_verifier_blob": "ee286280c59d25d2ab634dad8b9c37c7bf072255",
+    "new_verifier_sha256": "fc72e8ff4a5155b5e04cde49375859fdb1605baf7d89bd46a9e5b27181561047",
+    "commit": "a434fb23d24c10bd8d15e1e06750aa02b51ee7b4",
+    "behavior": [
+      "--candidate-root is required for readiness",
+      "each required composed file must exist as a non-symlink regular file",
+      "Git blob SHA is recomputed from exact candidate bytes and must equal composed_blobs manifest entry",
+      "existing coverage/local-gate/Stage-B/readiness checks remain fail-closed"
+    ]
+  },
+  "local_negative_and_positive_checks": {
+    "python_compile": "PASS",
+    "missing_candidate_root": "NOT_READY",
+    "tampered_server_bytes": "NOT_READY candidate_blob_mismatch.server.py",
+    "symlink_account_pool": "NOT_READY candidate_file.account_pool.py",
+    "exact_five_file_candidate_matching_manifest": "READY_FOR_TARGETED_WINDOWS_CIRCLE",
+    "marker": "V5_READINESS_EXACT_BYTE_BINDING_LOCAL_PASS"
+  },
+  "github_readback": {
+    "blob_matches_expected": true,
+    "blob": "ee286280c59d25d2ab634dad8b9c37c7bf072255"
+  },
+  "acceptance_boundary": {
+    "real_same_byte_stage_b_candidate_ready": false,
+    "native_windows_started": false,
+    "circle_connectivity": "PASS_ALREADY_PROVEN_NO_RECONNECT",
+    "next": "consume Agent fresh exact transformed pair, apply canonical Core Stage-B to those bytes, run full same-byte matrix and coverage, then invoke v5 readiness with --candidate-root; only a real PASS may authorize one targeted Windows Server 2022 proof"
+  }
+}

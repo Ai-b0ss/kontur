@@ -1,6 +1,6 @@
 # Notion — ротация / агентность / делегирование — handoff
 
-Обновлено Agent-проходом 2026-08-23 06:xx MSK.
+Обновлено Agent-проходом 2026-08-23 08:xx MSK.
 
 ## Текущая линия
 - Repo: `Ai-b0ss/notion-agent-bridge`
@@ -24,23 +24,22 @@ Frozen preimages неизменны:
 - compile PASS;
 - focused routing semantics 3/3 PASS: A transport fail -> B late-reserved -> 0 provider calls through B -> C fresh recovery; late reservation before first provider attempt; correction failover without replaying completed round1.
 
-Fresh recursive Git tree снова подтвердил frozen source sizes/blobs на `ee0ae241...`. Fresh `tools/materialize_agent_wiring_with_tombstones.py` и дочерние exact-transformers перечитаны. Product pair в этом проходе не публиковалась и PR #8 ref не двигался.
-
-Попытка ручного переноса большого `account_pool.py` в локальный runtime была отброшена: промежуточный файл не совпал с exact size/blob. Эти байты НЕ считаются источником истины и не используются. Никаких unknown bytes по памяти разговора не реконструировано.
+Fresh `fetch_blob` в этом проходе всё ещё дал 404 для `c9ca6f3b...` и `ba52edc7...`: exact transformed pair пока не существует как fetchable immutable Git objects. Product pair не публиковалась и PR #8 ref не двигался.
 
 ## OWNER TEMPORARY CIRCLE FREEZE — активен
 Fresh controller issue #9 содержит прямой owner freeze: до отдельной разморозки запрещено запускать/двигать Circle gates для Notion/Qwen/Kontur. Поэтому **не двигать PR #8 product ref**, если обычный push способен запустить Circle. Low-level Git blob/tree/commit surface решает атомарность, но не отменяет freeze. `[ci skip]` как неподтверждённый обход не использовать.
 
 Безопасный путь до разморозки: exact transformed pair сохранить content-addressed/immutable без обновления product ref; Core может использовать эти байты для V50/composed local proof. После явной разморозки — один fast-forward product ref update с exact readback, затем bounded final gates.
 
-## Delegated prompt policy — exact immutable candidate частично закреплён без движения ref
-Fresh source `payload/delegation_policy.py` / `payload/delegation_dispatcher.py` / `payload/notion_delegated_model_step.py` на `ee0ae241...` всё ещё не переносит explicit `engineer|owner` policy в дочерний envelope и model prompt.
+## Delegated prompt policy — три immutable candidate blobs без движения ref
+Fresh source на `ee0ae241...` всё ещё не переносит explicit `engineer|owner` policy в дочерний envelope/model prompt.
 
-Минимальный контракт был локально проверен ранее до полного child-envelope/provider-prompt уровня. В текущем проходе две первые product-части перенесены в **unreferenced content-addressed Git blobs**, без branch/ref movement и без Circle trigger:
+Минимальный контракт сохранён в трёх **unreferenced content-addressed Git blobs**, без branch/ref movement и без Circle trigger:
 - candidate `payload/delegation_policy.py` blob `fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e`;
-- candidate `payload/delegation_dispatcher.py` blob `a9d15b79b421cd29b094b549be06d2b0319e26d9`.
+- candidate `payload/delegation_dispatcher.py` blob `a9d15b79b421cd29b094b549be06d2b0319e26d9`;
+- candidate `payload/notion_delegated_model_step.py` blob `f36e9c91355dec667173b6265dd550554fb0f05d`.
 
-Оба blob после создания перечитаны через GitHub `fetch_blob`; readback совпадает с ожидаемым контрактом. Они пока **не входят ни в один branch/commit** и не являются product state. `notion_delegated_model_step.py` в этом проходе не публиковался отдельным blob: до его immutable handoff нужно сохранить уже доказанное правило первого owner prompt без инженерной персоны и прогнать тот же локальный контракт на exact candidate bytes.
+Все три blob перечитаны через GitHub `fetch_blob`. Третий blob сохраняет доказанный смысл: первый полный Notion child prompt в owner-mode начинается непосредственно с приватного owner prompt; инженерная персона перед ним отсутствует; runtime/tool facts идут после нейтральной границы; incremental continuation не вставляет owner prompt повторно в уже существующий remote thread. Эти blobs пока **не входят ни в один branch/commit** и не являются product state.
 
 Доказанный контракт:
 - `prompt_mode` только `engineer|owner`;
@@ -53,26 +52,28 @@ Fresh source `payload/delegation_policy.py` / `payload/delegation_dispatcher.py`
 - tool/runtime facts идут только после нейтральной границы;
 - engineer-mode сохраняет текущую subagent persona и не включает dormant owner text.
 
-Не публиковать этот контракт отдельной архитектурной веткой: интегрировать минимально вместе с materialized/composed pair и затем прогнать combined Agent cluster.
+Не публиковать этот контракт отдельной архитектурной веткой: интегрировать минимально вместе с materialized/composed pair и затем прогнать combined Agent cluster. Перед product integration на exact candidate bytes нужен локальный compile/contract readback; unreferenced blob сам по себе не считается product PASS.
 
 ## Gate coverage
 Core fresh audit обнаружил: текущие обычные Circle Agent suites не включают обязательный `tests/test_subagent_tombstone_post_replace_sync_failure.py`. Будущий disposable Agent/composed gate обязан включить его явно вместе с tombstone/restart/cancellation cluster; иначе green не является финальной приёмкой.
 
-## Постоянная память v4
-Текущий нормативный указатель на начало/конец этого прохода:
+## Постоянная память v4 — fresh restore PASS
+Текущий нормативный указатель на старт этого прохода:
 - `LATEST` blob `bdd3c0767305f11d14ac2d64361ce6a6b0557362`;
 - capsule `20260823T023849Z-863c6be6bb`;
 - archive SHA-256 `4291103723b0c01f316bedd3c01e5f0616208cc827e35ead81e6c96b0f33ee56`;
 - manifest v4 = 13 immutable parts.
 
-В этом проходе parts/manifest fresh-read через GitHub, но exact connector-bytes не были смонтированы в локальный runtime для честного нового `pack -> verify -> restore`. Поэтому новый `LATEST` НЕ публиковался и старый CAS pointer не менялся. Это лучше, чем псевдо-v4 или ручная реконструкция неизвестных байтов.
+В этом проходе все 13 parts были перечитаны по exact Git blobs и локально проверены: длина и SHA-256 каждого part совпали с manifest; собранный archive имеет size 9430 и exact SHA-256 `4291103723b0c01f316bedd3c01e5f0616208cc827e35ead81e6c96b0f33ee56`. Канонический `capsule_runtime_v4.py` также восстановлен с exact Git blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`; `verify` и `restore` этой LATEST capsule дали PASS.
+
+Новый `LATEST` пока не публиковался: перед завершением существенной работы нужно сделать новый checkpoint -> pack v4 -> immutable upload/readback -> повторно перечитать LATEST -> CAS update. Unknown bytes не реконструировать.
 
 ## Следующий точный шаг
 1. Fresh-read PR #8; при новом head re-freeze.
 2. Не открывать снова no-replay/tombstone без нового серьёзного reproducer.
-3. На exact-checkout-capable surface повторно materialize pair и подтвердить blobs `c9ca6f3b...` + `ba52edc7...`; canonical `materialize_agent_wiring_with_tombstones.py --check` обязателен.
-4. Сохранить exact transformed pair content-addressed/immutable без product-ref movement, пока Circle freeze активен; сделать readback hashes. Это текущий главный blocker Core V50/Stage-B.
-5. Довести immutable delegated prompt-policy handoff: exact `notion_delegated_model_step.py` candidate + локальный полный owner/engineer contract; затем на тех же bytes combined prompt/routing/reservations/failover/delegation/tool-loop/lifecycle/tombstone cluster.
+3. Текущий главный blocker Core V50: получить exact transformed pair `c9ca6f3b...` + `ba52edc7...` как fetchable immutable Git blobs без product-ref movement. Fresh `fetch_blob` пока 404 для обоих.
+4. Использовать только exact frozen preimages и канонический `materialize_agent_wiring_with_tombstones.py --check/apply`; после materialization сделать readback/compile и combined prompt/routing/reservations/failover/delegation/tool-loop/lifecycle/tombstone cluster.
+5. На тех же composed bytes минимально подключить три immutable delegated prompt-policy candidate blobs и повторить owner/engineer contract; private text не должен попадать в identity/logs.
 6. После materialized Agent green передать Core exact Agent blobs/tests через этот handoff + issue #9 для V50/composed Stage-B local/native-Windows proof.
 7. Пока owner Circle freeze активен: Circle branches/jobs = 0 и PR #8 ref не двигать. После явной разморозки — fast-forward exact product commit/readback, затем один disposable Agent gate; Linux PASS не заменяет Core native-Windows proof.
 8. Live Notion/Codex, secrets, production — только после local composed + Windows gates.

@@ -1,0 +1,38 @@
+{
+  "schema": "notion_agent_delegated_prompt_launch_wiring_v1",
+  "observed_agent_head": "ee0ae241b3ef19da7d3a69ddeecf6bb5476f91a9",
+  "source": {
+    "payload/subagent_entrypoint.py": "ff489004c4ff8f195eea028f6b1e314feb57408d",
+    "payload/server_subagent_lifecycle.py": "96b07cf8e8069586b33b516a1d66e38b6439a4f9"
+  },
+  "existing_prompt_policy_candidates": {
+    "payload/delegation_policy.py": "fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e",
+    "payload/delegation_dispatcher.py": "a9d15b79b421cd29b094b549be06d2b0319e26d9",
+    "payload/notion_delegated_model_step.py": "f36e9c91355dec667173b6265dd550554fb0f05d"
+  },
+  "new_exact_wiring": {
+    "materializer_blob": "53253d43d29b90b0bc925d5321e26b940342e9fc",
+    "static_regression_blob": "1a7603925f9f6d545600eca84f20958b9c9811a3",
+    "runtime_propagation_test_blob": "9a896a78879630c91ab3c87cd03ffca491a19a54",
+    "result_entrypoint_blob": "aebefce4ff3e47efc9813ce4e49e70ca8c44972f",
+    "result_lifecycle_blob": "f47838b338f2bd94163cf466110f939c065ac041"
+  },
+  "local_verification": {
+    "static_materializer_regressions": "PASS_4_OF_4",
+    "runtime_prompt_policy_propagation": "PASS_3_OF_3",
+    "compile_exact_transformed_modules": "PASS",
+    "private_prompt_absent_from_repr": true,
+    "engineer_mode_drops_dormant_owner_prompt": true
+  },
+  "defect": "Server-side SubagentLaunch and ServerSubagentLifecycle validation/rebuild omitted prompt_mode and owner_system_prompt, so owner-mode would silently fall back to engineer before DelegationDispatcher even after the three prompt-policy candidate modules were composed.",
+  "constraints": {
+    "circle_freeze_active": true,
+    "circleci_started": false,
+    "github_actions_started": false,
+    "product_ref_moved": false,
+    "live_notion_or_codex_used": false,
+    "secrets_used": false,
+    "production_touched": false
+  },
+  "next": "Compose exact Agent pair + delegated prompt-policy candidates + this launch/lifecycle wiring on one disposable Core V50 tree, run the full local Agent+Core cluster and final coverage verifier, then mark READY_FOR_CIRCLE_AFTER_RECONNECT if green."
+}

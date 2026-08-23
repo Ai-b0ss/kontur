@@ -6,7 +6,7 @@
 - Repo: `Ai-b0ss/qwen-free-api`
 - Branch: `autopilot/qwen-runtime-preflight-20260818`
 - PR: #6
-- Fresh product head после этого прохода: `900499cc3180dde49eb0f2fd56e3e8090052ea5a`.
+- Fresh product head после этого прохода: `484d8cf8b910c9e7333ba9ac4285f9f05ba32fb6`.
 - OWNER TEMPORARY CIRCLE FREEZE из `kontur#9` действует: CircleCI/gate branches не запускать и не двигать до явной разморозки владельцем.
 
 Перед новой записью fresh-read PR #6, `autonomy/OWNER_INTENT_RU.md`, `autonomy/CURRENT_RU.md`, QWEN_RELIABILITY, issue #9, Circle policy, v4 runtime, LATEST/PREVIOUS.
@@ -32,29 +32,38 @@ Exact blobs:
 - `src/subagent-dispatcher.js` = `21dd74828bd6dfcae27acc6a32c42b6dec12ec2e`;
 - regression = `4f61aa013203b43bb637f7e019dfe13b9f986ab1`.
 
-## НОВЫЙ ДОКАЗАННЫЙ CORE RED: orphan tool-result может стереть durable pending pair
+## НОВЫЙ ДОКАЗАННЫЙ CORE RED: incremental tool results могут стереть durable pending pair
 
 Fresh exact `src/session-store.js` review локализовал опасный restart/tool-result boundary.
 
-Текущая логика `restoreCheckpoint()` при `countNonSystem(messages) > 1` считает incoming transcript authoritative и передаёт именно его в `persistCompletedToolProgress()`. Если клиент прислал несколько `role=tool` результатов без уже ранее checkpoint-нутого `assistant.tool_calls`, `hasNewToolResult()` видит прогресс, но `checkpointMessages(authoritativeIncoming)` отбрасывает standalone `tool` messages. В итоге durable история может потерять и pending assistant call, и его tool result; наружу при этом возвращается transcript с orphan `role=tool`.
+Текущая логика `restoreCheckpoint()` при `countNonSystem(messages) > 1` считает incoming transcript authoritative и передаёт именно его в `persistCompletedToolProgress()`. Если клиент прислал несколько `role=tool` результатов без уже ранее checkpoint-нутого `assistant.tool_calls`, `hasNewToolResult()` видит прогресс, но `checkpointMessages(authoritativeIncoming)` отбрасывает standalone `tool` messages. В итоге durable история может потерять и pending assistant call, и его tool results; наружу при этом возвращается transcript с orphan `role=tool`.
 
 Hosted semantic reproduction на функциях с exact текущей семантикой:
 `QWEN_SESSION_ORPHAN_TOOL_RESULT_BUG_REPRODUCED durable_pair_lost=1 outbound_orphan=1`.
 
-Постоянная RED regression уже добавлена, но намеренно НЕ подключена к `npm test`, пока продукт красный:
+Постоянная RED regression добавлена и усилена до реалистичного multi-tool incremental сценария:
+- durable assistant turn содержит одновременно `read_file` (`read-1`) и `write_file` (`mut-1`);
+- следующий клиентский ход присылает два `role=tool` результата, не повторяя уже durable assistant turn;
+- ожидается, что восстановленная и durable история сохранят assistant tool_calls перед обоими результатами, pending после restart = 0.
+
+Файл:
 - `scripts/session-orphan-tool-result-restart-test.js`;
-- commit `900499cc3180dde49eb0f2fd56e3e8090052ea5a`.
+- initial RED commit `900499cc3180dde49eb0f2fd56e3e8090052ea5a`;
+- stronger multi-tool RED `484d8cf8b910c9e7333ba9ac4285f9f05ba32fb6`, blob `7feb8ef54759d259e090fcc4aec88d0f7b088d59`.
+
+Regression намеренно НЕ подключён к `npm test`, пока продукт красный. Сразу после targeted green подключение обязательно.
 
 Следующий проход обязан начать с этого RED, не с нового аудита.
 
 ### Минимальная root-fix семантика
-1. Отличить настоящий полный transcript от incremental update, где `role=tool` не имеет соответствующего `assistant.tool_calls` внутри самого incoming списка.
-2. Для такого incremental/orphan tool-result использовать durable merged history (`record.history + fresh incoming`), а не authoritative incoming отдельно.
+1. Tool-result должен считаться новым durable прогрессом только если его `tool_call_id` соответствует ранее durable pending call; произвольный orphan result не должен стирать checkpoint.
+2. Если incoming содержит результаты ранее durable pending calls, использовать merged durable history (`record.history + fresh incoming`), а не authoritative incoming отдельно.
 3. И persist, и возвращаемый в текущий запрос transcript должны сохранять пару `assistant.tool_calls -> tool result` атомарно.
-4. После targeted green сразу подключить `session-orphan-tool-result-restart-test.js` в ordinary `npm test`.
-5. Затем прогнать ближайший cluster: `session-tool-result-progress`, `session-pending-tool-call-restart`, `session-duplicate-tool-call-id`, `session-store-restart`, stale-backup/restart.
+4. Настоящий full transcript, уже содержащий assistant call + results, должен сохранить текущую семантику без дублирования.
+5. После targeted green сразу подключить `session-orphan-tool-result-restart-test.js` в ordinary `npm test`.
+6. Затем прогнать ближайший cluster: `session-tool-result-progress`, `session-pending-tool-call-restart`, `session-duplicate-tool-call-id`, `session-store-restart`, stale-backup/restart.
 
-Не ослаблять full-history recovery semantics и не принимать orphan tool results без ранее durable pending call.
+Не ослаблять full-history recovery semantics и не принимать произвольные orphan tool results без ранее durable pending call.
 
 ## Сохраняющий силу Core proof
 На неизменённых байтах ранее подтверждены:
@@ -67,7 +76,7 @@ Hosted semantic reproduction на функциях с exact текущей се�
 - plain/coding subagent prompt/sessionPrefix fail-closed;
 - durable batch id/type + persisted-state conflict + duplicate internal-agent tool-call ids.
 
-Skill fix не менял `session-store`, `server.js`, `chat-adapter`, `agent.js`, account/cooldown/provider-circuit bytes. Новый RED commit добавляет только regression-файл.
+Skill fix не менял `session-store`, `server.js`, `chat-adapter`, `agent.js`, account/cooldown/provider-circuit bytes. Последний RED commit меняет только regression-файл.
 
 ## QWEN_RELIABILITY — не пересекать
 Fresh handoff:

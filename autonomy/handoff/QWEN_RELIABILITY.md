@@ -1,22 +1,22 @@
 # Qwen — надёжность / текущий handoff
 
-Обновлено QWEN_RELIABILITY 2026-08-23 06:49 UTC.
+Обновлено QWEN_RELIABILITY 2026-08-23 09:49 UTC.
 
 ## Текущая линия
 
 - Repo: `Ai-b0ss/qwen-free-api`
 - Branch: `autopilot/qwen-runtime-preflight-20260818`
 - PR: #6
-- Fresh PR head: `484d8cf8b910c9e7333ba9ac4285f9f05ba32fb6`.
-- Compare от предыдущей доказательной Reliability-границы `a56418b862372ef1150a66cf613033677a2545e2` до fresh head = 5 commits; изменены только `package.json`, `src/subagent-dispatcher.js` и Core-owned regressions `scripts/subagent-skill-type-validation-test.js` / `scripts/session-orphan-tool-result-restart-test.js`. Reliability provider/account bytes не менялись.
+- Fresh exact product head: `4551eff038e987062c78e4806734f30de5eebe92`.
+- Latest product commit `4551eff...` is Core-owned test-only RED: `scripts/subagent-capability-option-type-test.js`. QWEN_CORE owns the minimal capability-type fix; Reliability must not write `subagent-agent-runner` or duplicate the stale Linux diagnostic.
+- Current controller/owner policy in `kontur#9` supersedes the old Circle freeze/unconnected wording: Qwen Circle connectivity is PROVEN by reconnect commit `5c7a2aeb1b71ac1d956c691c126457ab0c6fae14`, `ci/circleci: reconnect-probe=success`, workflow `2bd97d07-0bee-46d3-9a61-5081d23d39df`, job `737804cd-6649-4fb6-a889-871123d8499d`.
+- Old `MANUAL-QWEN-FRESH-GATE-20260823T1116MSK` was tied to stale product `d6e843...` and is invalid after head drift. Do not interpret its PR#22 result as current product evidence and do not launch Windows from it.
 
-Fresh `QWEN_CORE.md` синхронизирован по границе ответственности: Core-owned session/subagent/system-prompt/chat-adapter участок Reliability не трогает без прямого пересечения. Fresh Core head совпадает с PR head `484d8cf8...` и содержит новый доказанный RED в session-store boundary: incremental tool results могут потерять durable pending pair. Это отдельный Core blocker для общего full-suite, Reliability его не чинит.
-
-## Уже доказано Reliability
+## Reliability evidence that remains valid
 
 ### Account/cooldown — 8/8 exact targeted PASS
 
-На byte-exact materialized GitHub blobs прошли:
+Previously executed byte-exact targeted cluster remains valid where the owned blobs are unchanged:
 1. `account-store-noncanonical-filename-test.js`;
 2. `account-store-filename-identity-test.js`;
 3. `account-store-persistence-test.js`;
@@ -26,76 +26,69 @@ Fresh `QWEN_CORE.md` синхронизирован по границе отве
 7. `account-cooldown-wall-clock-jump-test.js`;
 8. `account-success-cooldown-race-test.js`.
 
-Noncanonical filename root fix = `e21baa6c29edfc2b592db01106fcd9c32f752a21`; regression подключён в ordinary `npm test` после green.
+Current `src/account-store.js` blob on `4551eff...` = `7f60373a4335a82253ac3bfbc047283079de1d77`, unchanged from the locked-tree Circle product SHA `8bd64b18551c1874b7f605908f4c70875250d2d8` and from the prior Reliability boundary.
 
-### Provider-circuit — 7/8 exact targeted PASS
+### Provider circuit — focused targeted cluster already exact PASS
 
-PASS:
-1. `provider-circuit-monotonic-test.js`;
-2. `provider-circuit-wall-clock-jump-test.js`;
-3. `provider-circuit-trip-wall-clock-jump-test.js`;
-4. `provider-circuit-missing-state-fail-closed-test.js`;
-5. `provider-circuit-missing-state-retrip-restart-test.js`;
-6. `provider-circuit-persistence-test.js`;
-7. `provider-circuit-clear-durability-test.js`.
+Previously executed provider-circuit checks remain applicable because current `src/provider-circuit.js` blob = `014b681c8032c86401801c6f0a6405f0b2149192`, unchanged.
 
-## Единственный текущий Reliability proof gap
+### Exact provider-safety environment gap is closed as an executor/dependency question
 
-Остаётся exact execution `scripts/provider-safety-test.js` на настоящем locked dependency tree.
+The prior disposable Circle run on product SHA `8bd64b18551c1874b7f605908f4c70875250d2d8` proved:
+- locked `npm ci` succeeded with the real dependency tree;
+- exact `node scripts/provider-safety-test.js` returned `PROVIDER_SAFE_ROTATION_PASS`;
+- no provider/live/runtime/account traffic was used.
 
-Fresh exact facts на `484d8cf8...` сохраняются, так как Reliability bytes не менялись от `a56418b...`:
-- `src/qwen-client.js` blob = `04ed2eb19dde860331d2722be9fe91c804d919b4`;
-- `src/account-store.js` blob = `7f60373a4335a82253ac3bfbc047283079de1d77`;
-- `src/provider-circuit.js` blob = `014b681c8032c86401801c6f0a6405f0b2149192`;
-- `package-lock.json` blob = `b38e85ce68a6f2e65e70bfd564c37b1eb82bdd3b`;
-- `scripts/provider-safety-test.js` blob = `b593a77fe73b9041081c2cc6de90195ffe074952`;
-- expected marker = `PROVIDER_SAFE_ROTATION_PASS`;
-- locked tree resolves `axios` exactly to `1.19.0`; manual stub/reconstructed dependency tree не принимаются как exact proof.
+Fresh read on `4551eff...` proves the directly-loaded provider-safety closure used by that test is byte-identical to the executed SHA:
+- `scripts/provider-safety-test.js` = `b593a77fe73b9041081c2cc6de90195ffe074952`;
+- `src/qwen-client.js` = `04ed2eb19dde860331d2722be9fe91c804d919b4`;
+- `src/account-store.js` = `7f60373a4335a82253ac3bfbc047283079de1d77`;
+- `src/provider-circuit.js` = `014b681c8032c86401801c6f0a6405f0b2149192`;
+- `src/config.js` = `e6bfdf206c0ee60bb7faecf398add28500f3993d`;
+- `src/ssxmod-manager.js` = `5b99aa8d027d6ea9d643efc10b975f4ea1691d41`;
+- `src/util.js` = `d2421cf641c22af718227447372106df35cb7a0f`;
+- `src/cookie-generator.js` = `3d1228c4a29e7116c56b536a6a417b79136d9b43`;
+- `package-lock.json` = `b38e85ce68a6f2e65e70bfd564c37b1eb82bdd3b` (real axios 1.19.0 locked tree).
 
-Fresh executor recheck this pulse:
-- hosted container: прежняя установленная граница сохраняется — прямой npm/GitHub transport недоступен, локального locked tree/axios нет; повторять те же DNS/registry probes без изменения среды не нужно;
-- connected Replit `PortlyEdibleMonads`: fresh строго read-only запрос на наличие exact checkout + locked tree и запуск `provider-safety-test.js` снова завершился timeout; app не менялся и не принят как exact executor;
-- GitHub connector даёт exact private source bytes, но не монтирует готовый executable npm tree в hosted filesystem;
-- no stub/reconstructed/manual dependency assembly counted as exact PASS.
+Important boundary: this closes the former “can exact provider-safety execute with real dependencies?” gap. It is NOT a substitute for the required fresh-current-head targeted/full Linux run. Historical full-suite PASS/FAIL on another product SHA is not current-head evidence.
 
-Status remains `EXACT_PROVIDER_SAFETY_EXECUTION_PENDING`, not PASS.
+## Current blocker / ownership
 
-## Circle policy — owner override
+Fresh `kontur#9` controller sync at 12:36 MSK and exact PR read agree: `4551eff...` is intentionally RED in QWEN_CORE. `taskSettings()` still coercively accepts malformed explicit `terminal/files/webSearch/thinking`; the new regression expects `QWEN_SUBAGENT_SETTING_INVALID` and is intentionally not wired into ordinary `npm test` until the Core fix is green.
 
-`kontur#9` fresh-read confirms `[OWNER TEMPORARY CIRCLE FREEZE — 2026-08-23]` still active and no later explicit owner release was found. Until explicit owner release:
-- Circle runs/jobs/branch triggers = 0;
-- do not move disposable gate branches;
-- do not use Circle as execution fallback;
-- old Circle results are historical only.
+Reliability does not modify that Core-owned surface and must not spend a disposable Circle run on a head already expected to drift from a known Core RED.
 
-If all non-Circle prerequisites become green and only native gate remains, report `READY_FOR_CIRCLE_AFTER_OWNER_RELEASE`; do not self-trigger.
+## Current Circle policy
 
-Old gate `246dcfc...` based on stale product bytes is permanently non-final.
+- Connectivity: PROVEN; never re-run reconnect just to prove connection.
+- Offline Linux targeted/full Circle runs are allowed on disposable branches created from the exact current PR#6 product head, changing only `.circleci/config.yml`, with zero provider/live/runtime/account/secrets.
+- Pending/existing diagnostic runs are never duplicated.
+- Native Windows full is allowed only after exact-current-product Linux full `npm test` PASS on the same product bytes.
+- No `RUNTIME_STATE_KEY` or Cloudflare key is needed for these offline gates.
+
+## Next exact order
+
+1. Fresh-read PR #6 and claims.
+2. Let QWEN_CORE close the current capability-type RED, run its targeted regression + adjacent tests, and wire the regression into ordinary `npm test` after green.
+3. On the resulting stable common SHA, re-read Reliability-owned blob identity. If unchanged, do not reopen closed account/circuit debugging; run one current-head Reliability targeted cluster with the real locked dependency tree.
+4. Require QWEN_CORE targeted green on that SAME product SHA.
+5. Then create one disposable config-only Circle proof from that exact SHA and run full Linux `npm test`.
+6. Linux FAIL: classify the first real root cause only; no Windows.
+7. Linux PASS: one native Windows Server 2022 full offline suite on the same product bytes.
+8. Linux + Windows PASS: owner-doctor harness, then later runtime/live soak under the separate live gate.
 
 ## v4 / CAS
 
-Force-write remains forbidden. Last verified Reliability pointers remain:
+Force-write remains forbidden. Last verified Reliability pointers carried from the previous handoff:
 - `LATEST`: `20260822T115554Z-8763a42805`, archive SHA-256 `3ebdba2e34121ab6a368bbde3f3d928c9fcdbfa88fad7fdda74834d13063467d`;
 - `PREVIOUS`: `20260822T105753Z-02993b42b7`, archive SHA-256 `7e5dc59f9ba7bd5672259a811bfc50a24b324df2bd93c2b8770b8196ad607da8`.
 
-No new capsule published this pulse: mandatory exact `restore -> checkpoint -> pack -> verify -> restore -> CAS` was not completed. No pseudo-v4 reconstruction.
-
-## Следующий порядок
-
-1. Fresh-read PR #6 first. If provider/account blobs remain unchanged, do not repeat closed account/provider-circuit work.
-2. Use the first already-authorized exact executor that can materialize the locked npm tree and run `node scripts/provider-safety-test.js`. Expected marker: `PROVIDER_SAFE_ROTATION_PASS`. No provider traffic is needed.
-3. Do not spend more pulses probing the same hosted container DNS/registry or the same timed-out Replit path unless environment evidence changes.
-4. On exact Reliability PASS, run fresh targeted account/failover/replay cluster on one stable SHA plus exactly one bounded Windows/path/rename/file-lock/process/env red-team.
-5. Fresh-read QWEN_CORE and require its targeted set green on the same product SHA. Fresh Core currently has its own RED `session-orphan-tool-result-restart-test.js`; Reliability does not touch that area.
-6. Only after Core + Reliability targeted green on one stable SHA: full exact-tree Linux `npm test` on that SHA.
-7. While Circle freeze remains, stop at `READY_FOR_CIRCLE_AFTER_OWNER_RELEASE` if Circle is the only remaining gate.
-8. After explicit owner release only: one native Windows Server 2022 locked full suite on the same product bytes, no provider/live/secrets/production.
-9. Any FAIL: first reproduced root cause -> minimal fix -> targeted repeat -> full repeat. Do not expand audit without a serious reproducible counterexample.
+No new capsule is claimed in this update: a normative `restore -> checkpoint -> pack -> verify -> restore -> CAS` cycle was not executed. Durable state is this handoff + issue #9 + exact product/control commits.
 
 ## Запреты
 
-- AI Mirrors/Kontur product code не трогать.
-- Не использовать владельца как тестировщика.
-- Не запускать live Qwen/real accounts ради этого доказательства.
-- Не force-write control/product branches.
-- Не заявлять exact PASS по semantic/shim/reconstructed dependency execution.
+- Kontur/AI Mirrors product code не трогать.
+- QWEN_CORE-owned session/subagent/agent surface не писать параллельно.
+- Не запускать live Qwen/real accounts ради offline Reliability proof.
+- Не direct-main/merge/production, не раскрывать secrets, не force-write/CAS bypass.
+- Не заявлять current-head full PASS по историческому SHA, даже когда owned bytes совпадают.

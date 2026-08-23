@@ -1,6 +1,6 @@
 # Notion — ротация / агентность / делегирование — handoff
 
-Обновлено: 2026-08-23 20:55 МСК.
+Обновлено: 2026-08-23 21:55 МСК.
 
 ## Источник истины
 - Product repo: `Ai-b0ss/notion-agent-bridge`.
@@ -84,6 +84,25 @@ Current `apply_startup_status_cleanup.py=20c2fb2...` ловит ошибку cle
 
 No-replay/tombstone boundary на прежней exact Agent линии был локально 22/22 PASS; не полировать без нового воспроизводимого контрпримера. Финальный same-byte suite всё равно обязан повторить load-bearing tombstone post-replace/restart/cancellation tests на текущей композиции.
 
+## Новый блокирующий gap: current final coverage даёт ложный PASS
+Свежий Core final coverage verifier `42cdae4c422068153f41697f063cf8a1cc28e8f9` не требует 10 обязательных существующих Agent-модулей:
+- `tests.test_delegated_tool_loop_runtime_validation`
+- `tests.test_delegated_uncertain_failover_boundary`
+- `tests.test_notion_delegated_synthetic_call_ids`
+- `tests.test_notion_delegated_thread_reentry`
+- `tests.test_notion_delegation_dynamic_reservations`
+- `tests.test_notion_subagent_runtime`
+- `tests.test_notion_subagent_server_reservations`
+- `tests.test_reservation_aware_lease`
+- `tests.test_responses_cooldown_failover`
+- `tests.test_subagent_lifecycle`
+
+Контрпример воспроизведён локально: synthetic final suite содержит всё, что требует текущий verifier, плюс Stage-B `durable_replay`/`provider_intent`, но исключает все 10 модулей выше — текущий verifier всё равно возвращает `PASS`/rc=0. Эти тестовые файлы реально присутствуют на exact Agent PR#8 head.
+
+Fail-closed кандидат без движения refs сохранён как unreferenced Git blob `2df0e51ab385d003b2cbdf9126aad0176d62bed6` в `Ai-b0ss/kontur` и перечитан обратно. Он добавляет ровно эти 10 модулей. На том же контрпримере кандидат возвращает `NOT_READY`/rc=1 и перечисляет все 10 пропусков; на полном synthetic suite возвращает `PASS`/rc=0.
+
+До same-byte Stage-B/Windows Core должен либо принять эквивалентное усиление coverage verifier, либо иным fail-closed способом доказать присутствие всех обязательных Agent-модулей. Windows readiness v5 нельзя считать достаточным, если его `final_gate_coverage=PASS` получен старым неполным verifier.
+
 ## Core boundary
 NOTION_AGENT не меняет PR #7/NCM28/Core Stage-B. Core забирает exact Agent bytes/recipe и строит same-byte composition.
 
@@ -91,7 +110,7 @@ NOTION_AGENT не меняет PR #7/NCM28/Core Stage-B. Core забирает e
 1. fresh pair readback/blob/size/compile;
 2. полный Agent matrix выше;
 3. Core Stage-B/full local matrix;
-4. final coverage verifier PASS, включая startup cleanup failure boundary и prompt/delegation tests;
+4. final coverage verifier PASS с fail-closed обязательностью всех Agent-модулей выше;
 5. Windows readiness verifier PASS.
 
 Только после этого допустим один targeted native Windows run. Live `Codex -> bridge -> Notion`, rotation/restart/soak — только после promoted native gates и восстановления encrypted runtime.
@@ -99,11 +118,12 @@ NOTION_AGENT не меняет PR #7/NCM28/Core Stage-B. Core забирает e
 ## Постоянная память
 Норматив: `autonomy/v3/CAPSULE_RUNTIME_PROTOCOL_V2.json` + `autonomy/v3/tools/capsule_runtime_v4.py`. Unknown capsule bytes не реконструировать из чата. LATEST публиковать только `checkpoint -> pack v4 -> immutable upload -> readback all parts/manifest -> reread LATEST -> CAS update_file`; при конфликте не force-write.
 
-Последний доказанный pointer из свежей линии: capsule `20260823T155545Z-4ef01292f2`, archive SHA-256 `ea3fcafdc26cdad76b0c1c6dc2923d6ea6a8513e4db314e40406f7bb46ca7191`. Перед любым новым publish перечитать фактический `LATEST` из GitHub и использовать его текущий blob как CAS parent.
+Фактический `LATEST` этого прохода перечитан как blob `9bd748cc6c4caab3e23271ec121a8bef77d03609`, capsule `20260823T155545Z-4ef01292f2`, archive SHA-256 `ea3fcafdc26cdad76b0c1c6dc2923d6ea6a8513e4db314e40406f7bb46ca7191`. Новый pointer не публиковался: этот проход не выполнял полный нормативный byte-exact restore/upload/readback всех 14 частей, а protocol v2 запрещает ручную реконструкцию неизвестных bytes. Текущее состояние долговечно закреплено Git handoff + unreferenced verifier candidate + #9/PR evidence.
 
 ## Следующий точный шаг
 1. Core/следующий Agent worker воспроизводит fresh pair `c9ca... / 5c04...` из exact recipe выше и делает durable readback.
 2. На этих exact bytes добавить corrected delegated five-file set с `2d576...`.
 3. Прогнать mandatory Agent matrix локально.
-4. Передать Core reachable exact bytes + manifest; Core делает same-byte Stage-B/full local matrix.
-5. До полного local green НЕ запускать Windows и live Notion/Codex.
+4. Перед Windows усилить final coverage до fail-closed обязательности всех Agent-модулей; candidate blob `2df0e51a...` — минимальная проверенная база.
+5. Передать Core reachable exact bytes + manifest; Core делает same-byte Stage-B/full local matrix и readiness v5.
+6. До полного local green НЕ запускать Windows и live Notion/Codex.

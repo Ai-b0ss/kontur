@@ -1,63 +1,71 @@
 # Notion — ротация / агентность / делегирование — handoff
 
-Обновлено: 2026-08-23 21:55 МСК.
+Обновлено: 2026-08-23 ~22:55 МСК.
 
 ## Источник истины
 - Product repo: `Ai-b0ss/notion-agent-bridge`.
 - Agent PR #8 exact head: `4b344547d5e95bd4b3c62f5b80186059d849ff08`.
-- Core PR #7 exact head на момент передачи: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
-- Свежая owner-policy в `Ai-b0ss/kontur#9` важнее старых freeze/reconnect текстов: Notion Circle connectivity уже доказана; повторный reconnect не нужен.
-- Windows пока ЗАПРЕЩЁН: сначала exact Agent pair -> same-byte Agent/Core local Stage-B/full matrix -> coverage/readiness PASS.
+- Core PR #7 exact head: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
+- Свежая owner-policy из `Ai-b0ss/kontur#9` важнее старых текстов: Notion Circle connectivity уже доказана; reconnect не повторять.
+- Windows пока запрещён: сначала exact Agent pair + corrected delegated composition + полный Agent matrix + Core Stage-B/full matrix на тех же байтах + coverage/readiness PASS.
 
-## Fresh exact Agent pair после startup-cleanup root fix
-Замороженные входные байты PR #8:
+## Exact Agent pair
+Frozen preimages PR #8:
 - `payload/account_pool.py` = Git blob `11cea792a2f5aaa40ee1515faddfd44e76cbb23f`, 43173 bytes;
 - `payload/server.py` = Git blob `f02cef6a0ffc202c75fbe71c520c72ac19ff876d`, 112748 bytes.
 
-Точные materializer blobs на exact Agent head:
+Canonical current materializers:
 - `tools/apply_account_pool_dynamic_reservation.py` = `80aeb1872c1cab7f51c33039584b5786e441f9f0`;
 - `tools/apply_startup_status_cleanup.py` = `20c2fb2e550daab52f3d27e791fa500002a73735`;
 - `tools/apply_subagent_tombstone_wiring.py` = `40ab3a448e33fb8a8c3ce045ef31a815d0554823`;
 - `tools/materialize_agent_wiring.py` = `30fb89286eb4457b25b2145918279fec2d735042`;
 - `tools/materialize_agent_wiring_with_tombstones.py` = `859039a5e408bc84e7046372cdb509131eb37a97`.
 
-Fresh deterministic target pair:
-- `payload/account_pool.py` -> Git blob `c9ca6f3b4545e469966369a4220a6a2a60bf3697`, 48066 bytes;
-- `payload/server.py` -> Git blob `5c04b8cce34b29e63bf1839d59476f8081763c2b`, 116047 bytes.
+Deterministic transformed targets after accepted startup-cleanup fix:
+- `payload/account_pool.py` -> `c9ca6f3b4545e469966369a4220a6a2a60bf3697`, 48066 bytes;
+- `payload/server.py` -> `5c04b8cce34b29e63bf1839d59476f8081763c2b`, 116047 bytes.
 
-Почему это уже не `ba52edc7...`: commit `4b344547...` принял startup-cleanup root fix; historical `ba52edc7a8528d58acd2c5bef2b86c3ca84ca298` = `STALE_DO_NOT_PROMOTE`.
+`ba52edc7...` is stale and forbidden. Target hashes alone are not durable materialization proof until exact bytes are read back from a reachable composition tree/evidence.
 
-Размеры fresh pair независимо выведены из exact current materializer replacements:
-- account_pool delta = +4893 bytes => 43173 + 4893 = 48066;
-- server startup/routing delta = +3153 bytes, tombstone delta = +146 => 112748 + 3299 = 116047.
+Machine-readable recipe: `autonomy/evidence/notion/20260823T2055Z_agent_exact_pair_handoff.json` = blob `bef5fd03dda26945ea33a6f7ddc585756c6de5fd`.
 
-ВАЖНО: target blobs `c9ca...`/`5c04...` сейчас не читаются через Git blob API (404), поэтому один hash НЕ считается durable materialization. Core обязан byte-exact воспроизвести их из перечисленных preimages/materializers, перечитать результаты, проверить именно эти Git blob SHA + sizes и сохранить bytes в reachable same-byte composition tree/immutable evidence.
+## Corrected delegated engineer/owner five-file set
+Use only these exact blobs:
+- `payload/delegation_policy.py` = `fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e`;
+- `payload/delegation_dispatcher.py` = `a9d15b79b421cd29b094b549be06d2b0319e26d9`;
+- `payload/notion_delegated_model_step.py` = `f36e9c91355dec667173b6265dd550554fb0f05d`;
+- `payload/subagent_entrypoint.py` = `2d57651b408ef2e6c75f29855f7cdbaeafa97c2e`;
+- `payload/server_subagent_lifecycle.py` = `f47838b338f2bd94163cf466110f939c065ac041`.
 
-Долговечный machine-readable handoff:
-`autonomy/evidence/notion/20260823T2055Z_agent_exact_pair_handoff.json` = blob `bef5fd03dda26945ea33a6f7ddc585756c6de5fd`.
+Do not use old entrypoint `aebefce4...`: it imports the wrong type name.
 
-## Startup cleanup — принятый root fix
-Current `apply_startup_status_cleanup.py=20c2fb2...` ловит ошибку cleanup внутри shield-loop, не даёт `new_pool.aclose()` замаскировать исходную startup/cancellation причину и переживает repeated cancellation. Старый transformed server, созданный до этого fix, не использовать.
+Fresh local exact-byte verification in NOTION_AGENT pulse `20260823T1937Z`:
+- all five files were reconstructed from GitHub blob readback and independently Git-hashed to the exact SHAs above;
+- `py_compile` of all five = PASS;
+- owner policy propagation smoke = PASS: `SubagentLaunch -> DelegationRequest -> DelegationContext`; private prompt preserved only in owner mode, absent from repr/identity, engineer mode drops dormant owner text;
+- Notion delegated model step = PASS: first new owner thread starts with the exact private owner prompt; same-client continuation reuses thread without repeating the private prompt; A->B failover starts fresh with no old thread id; return to stale A also rebases fresh;
+- `ServerSubagentLifecycle` owner propagation/rebuild/status path = PASS.
 
-Обязательные regressions в same-byte suite:
-- `tests.test_startup_status_cleanup`;
-- `tests.test_startup_status_repeated_cancellation`;
-- `tests.test_startup_cleanup_failure_boundary_candidate`.
+## Disposable exact composition proof branch
+A disposable Linux-only branch/PR was created from exact PR #8 head without moving PR #8/Core refs:
+- branch `ci/notion-agent-exact-matrix-4b344-20260823`;
+- draft PR #23;
+- current head `a78500bee531348221d4bc45acf84246027b6071`;
+- base exact `4b344547d5e95bd4b3c62f5b80186059d849ff08`.
 
-## Delegated engineer/owner — corrected exact 5-file candidate
-Использовать только:
-- `delegation_policy.py` = `fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e`;
-- `delegation_dispatcher.py` = `a9d15b79b421cd29b094b549be06d2b0319e26d9`;
-- `notion_delegated_model_step.py` = `f36e9c91355dec667173b6265dd550554fb0f05d`;
-- `subagent_entrypoint.py` = `2d57651b408ef2e6c75f29855f7cdbaeafa97c2e`;
-- `server_subagent_lifecycle.py` = `f47838b338f2bd94163cf466110f939c065ac041`.
+Its tree contains exactly the corrected five-file set above plus an isolated `.circleci/config.yml`. The job is Linux-only and:
+1. verifies pair preimages;
+2. checks exact five-file blobs and compiles them;
+3. runs canonical pair `--check` then apply;
+4. asserts transformed pair `c9ca6f3b...`/48066 and `5c04b8cc...`/116047;
+5. compiles transformed pair and requires no transaction journal;
+6. runs direct owner/engineer propagation smoke;
+7. runs the mandatory prompt/routing/failover/delegation/tool-loop/lifecycle/tombstone matrix including post-replace sync failure and restart/cancellation safety.
 
-`aebefce4ff3e47efc9813ce4e49e70ca8c44972f` НЕ использовать: старый launch candidate импортировал `PromptMode`, тогда как policy экспортирует `DelegatedPromptMode`.
+Current GitHub combined-status surface for `a78500b...` is empty. This is neither PASS nor FAIL. Do not duplicate the diagnostic or re-prove Circle connectivity; only consume a concrete result if/when it appears.
 
-Исправленный 5-file set уже независимо доказан: compile 5/5, cross-module imports 19/19, owner prompt проходит `SubagentLaunch -> DelegationRequest -> DelegationContext -> ServerSubagentLifecycle`; private text отсутствует в repr/identity; same-client continuation не повторяет owner prompt; account failover создаёт fresh thread вместо переноса чужого thread id.
-
-## Mandatory Agent matrix на composed exact bytes
-Минимум реально включить:
+## Mandatory Agent matrix on composed exact bytes
+Must include at least:
 - `tests.test_prompt_modes`
 - `tests.test_prompt_policy_identity`
 - `tests.test_responses_prompt_mode_http_contract`
@@ -66,9 +74,12 @@ Current `apply_startup_status_cleanup.py=20c2fb2...` ловит ошибку cle
 - `tests.test_delegation_dispatcher`
 - `tests.test_notion_delegated_model_step`
 - `tests.test_subagent_entrypoint`
+- `tests.test_delegated_tool_loop`
 - `tests.test_delegated_tool_loop_runtime_validation`
 - `tests.test_delegated_uncertain_failover_boundary`
 - `tests.test_dynamic_reservation_inlease_reselect`
+- `tests.test_dynamic_reservation_lease_session`
+- `tests.test_dynamic_reservation_session_entry_cleanup`
 - `tests.test_notion_delegated_synthetic_call_ids`
 - `tests.test_notion_delegated_thread_reentry`
 - `tests.test_notion_delegation_dynamic_reservations`
@@ -80,50 +91,44 @@ Current `apply_startup_status_cleanup.py=20c2fb2...` ловит ошибку cle
 - `tests.test_startup_status_repeated_cancellation`
 - `tests.test_startup_cleanup_failure_boundary_candidate`
 - `tests.test_subagent_lifecycle`
+- `tests.test_delegated_cancellation_lifecycle`
+- `tests.test_subagent_tombstone_store`
 - `tests.test_subagent_tombstone_post_replace_sync_failure`
+- `tests.test_server_subagent_tombstone_restart`
+- `tests.test_server_subagent_durable_tool_guard_v2`
+- `tests.test_server_subagent_uncertain_rebind`
+- `tests.test_server_subagent_lifecycle_drain`
+- `tests.test_notion_tool_subagent_runtime`
+- `tests.test_foreground_slot_routing`
+- `tests.test_account_pool_parallelism`.
 
-No-replay/tombstone boundary на прежней exact Agent линии был локально 22/22 PASS; не полировать без нового воспроизводимого контрпримера. Финальный same-byte suite всё равно обязан повторить load-bearing tombstone post-replace/restart/cancellation tests на текущей композиции.
+No-replay/tombstone boundary had prior focused local PASS; do not polish it again absent a newly reproduced failure. Final same-byte suite still must rerun load-bearing post-replace/restart/cancellation tests on the composed bytes.
 
-## Новый блокирующий gap: current final coverage даёт ложный PASS
-Свежий Core final coverage verifier `42cdae4c422068153f41697f063cf8a1cc28e8f9` не требует 10 обязательных существующих Agent-модулей:
-- `tests.test_delegated_tool_loop_runtime_validation`
-- `tests.test_delegated_uncertain_failover_boundary`
-- `tests.test_notion_delegated_synthetic_call_ids`
-- `tests.test_notion_delegated_thread_reentry`
-- `tests.test_notion_delegation_dynamic_reservations`
-- `tests.test_notion_subagent_runtime`
-- `tests.test_notion_subagent_server_reservations`
-- `tests.test_reservation_aware_lease`
-- `tests.test_responses_cooldown_failover`
-- `tests.test_subagent_lifecycle`
-
-Контрпример воспроизведён локально: synthetic final suite содержит всё, что требует текущий verifier, плюс Stage-B `durable_replay`/`provider_intent`, но исключает все 10 модулей выше — текущий verifier всё равно возвращает `PASS`/rc=0. Эти тестовые файлы реально присутствуют на exact Agent PR#8 head.
-
-Fail-closed кандидат без движения refs сохранён как unreferenced Git blob `2df0e51ab385d003b2cbdf9126aad0176d62bed6` в `Ai-b0ss/kontur` и перечитан обратно. Он добавляет ровно эти 10 модулей. На том же контрпримере кандидат возвращает `NOT_READY`/rc=1 и перечисляет все 10 пропусков; на полном synthetic suite возвращает `PASS`/rc=0.
-
-До same-byte Stage-B/Windows Core должен либо принять эквивалентное усиление coverage verifier, либо иным fail-closed способом доказать присутствие всех обязательных Agent-модулей. Windows readiness v5 нельзя считать достаточным, если его `final_gate_coverage=PASS` получен старым неполным verifier.
+## Coverage/readiness — stale-gap correction
+The old handoff claim that final coverage was still incomplete is obsolete and MUST NOT drive work.
+Core already closed it:
+- canonical final coverage verifier blob `2df0e51ab385d003b2cbdf9126aad0176d62bed6`, commit `cc2e81743cda251911617cf5ebe68061a8de68df`;
+- Windows-readiness v5 blob `d6fde58cc908d5cbab553aef887422f86aa82fbb`, commit `147f1442ff12292d2827b333d95cbbca86d7855a`.
+Do not spend another pulse rediscovering/re-fixing coverage unless a new concrete failure appears.
 
 ## Core boundary
-NOTION_AGENT не меняет PR #7/NCM28/Core Stage-B. Core забирает exact Agent bytes/recipe и строит same-byte composition.
-
-До targeted Windows нужны на ОДНИХ байтах:
+NOTION_AGENT does not modify PR #7/NCM28/Core Stage-B. Core consumes exact Agent bytes/recipe.
+Before targeted Windows, on the SAME bytes:
 1. fresh pair readback/blob/size/compile;
-2. полный Agent matrix выше;
+2. corrected five-file set + full Agent matrix;
 3. Core Stage-B/full local matrix;
-4. final coverage verifier PASS с fail-closed обязательностью всех Agent-модулей выше;
-5. Windows readiness verifier PASS.
+4. coverage `2df0e51a...` PASS;
+5. readiness `d6fde58c... --candidate-root` PASS.
+Only after that exactly one targeted Windows Server 2022 run is allowed. Live `Codex -> bridge -> Notion`, rotation/restart/soak comes later after native gates and encrypted runtime restore.
 
-Только после этого допустим один targeted native Windows run. Live `Codex -> bridge -> Notion`, rotation/restart/soak — только после promoted native gates и восстановления encrypted runtime.
+## Persistent memory
+Normative protocol: `autonomy/v3/CAPSULE_RUNTIME_PROTOCOL_V2.json` + `autonomy/v3/tools/capsule_runtime_v4.py`. Unknown capsule bytes must never be reconstructed from conversation memory. Publish LATEST only via full `restore/checkpoint -> pack v4 -> immutable upload -> readback all parts+manifest -> reread LATEST -> CAS update_file`.
 
-## Постоянная память
-Норматив: `autonomy/v3/CAPSULE_RUNTIME_PROTOCOL_V2.json` + `autonomy/v3/tools/capsule_runtime_v4.py`. Unknown capsule bytes не реконструировать из чата. LATEST публиковать только `checkpoint -> pack v4 -> immutable upload -> readback all parts/manifest -> reread LATEST -> CAS update_file`; при конфликте не force-write.
+At this pulse start, `LATEST` was fresh-read as blob `9bd748cca1c80ffcb5409e0c7c16fd3991012aec`, capsule `20260823T155545Z-4ef01292f2`, archive SHA-256 `ea3fcafdc26cdad76b0c1c6dc2923d6ea6a8513e4db314e40406f7bb46ca7191`. A new pointer is not published unless the entire normative v4 cycle completes; durable Git handoff/#9 evidence is not a substitute for pretending a partial capsule is valid.
 
-Фактический `LATEST` этого прохода перечитан как blob `9bd748cc6c4caab3e23271ec121a8bef77d03609`, capsule `20260823T155545Z-4ef01292f2`, archive SHA-256 `ea3fcafdc26cdad76b0c1c6dc2923d6ea6a8513e4db314e40406f7bb46ca7191`. Новый pointer не публиковался: этот проход не выполнял полный нормативный byte-exact restore/upload/readback всех 14 частей, а protocol v2 запрещает ручную реконструкцию неизвестных bytes. Текущее состояние долговечно закреплено Git handoff + unreferenced verifier candidate + #9/PR evidence.
-
-## Следующий точный шаг
-1. Core/следующий Agent worker воспроизводит fresh pair `c9ca... / 5c04...` из exact recipe выше и делает durable readback.
-2. На этих exact bytes добавить corrected delegated five-file set с `2d576...`.
-3. Прогнать mandatory Agent matrix локально.
-4. Перед Windows усилить final coverage до fail-closed обязательности всех Agent-модулей; candidate blob `2df0e51a...` — минимальная проверенная база.
-5. Передать Core reachable exact bytes + manifest; Core делает same-byte Stage-B/full local matrix и readiness v5.
-6. До полного local green НЕ запускать Windows и live Notion/Codex.
+## Next exact step
+1. Prefer an actual concrete result from disposable PR #23 if it becomes visible; do not create another connectivity probe.
+2. Independently finish byte-exact local pair materialization/readback if the exact private source bridge is available.
+3. Hand Core reachable exact transformed pair + corrected five-file blobs + test manifest.
+4. Core composes Stage-B on those SAME bytes and runs coverage/readiness.
+5. No Windows or live Notion/Codex before all local gates above are green.

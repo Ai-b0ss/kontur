@@ -1,0 +1,78 @@
+{
+  "schema": "notion_core_stageb_store_exact_candidate_v1",
+  "created_at_utc": "2026-08-23T21:10:00Z",
+  "scope": "NOTION_CORE store layer only; not full same-byte Stage-B acceptance",
+  "core_pr7_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_pr8_head": "4b344547d5e95bd4b3c62f5b80186059d849ff08",
+  "exact_preimage": {
+    "path": "payload/conversation_segments.py",
+    "git_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "bytes": 10758
+  },
+  "local_candidate": {
+    "bytes": 24664,
+    "git_blob": "96c4bdfbf08b8171833691de32e16d4960b6e7e9",
+    "compile": "PASS",
+    "published_product_ref": false
+  },
+  "agent_pair_correction_consumed": {
+    "account_pool_final_blob": "c9ca6f3b4545e469966369a4220a6a2a60bf3697",
+    "account_pool_bytes": 48066,
+    "server_intermediate_after_startup_cleanup_blob": "5c04b8cce34b29e63bf1839d59476f8081763c2b",
+    "server_intermediate_bytes": 115901,
+    "server_final_after_tombstone_blob": "273db94a8f9b153e95c910df221755e28c0f46a7",
+    "server_final_bytes": 116047,
+    "stale_pairing_forbidden": "5c04b8cce34b29e63bf1839d59476f8081763c2b/116047"
+  },
+  "candidate_invariants": [
+    "state v3 reads legacy v2 and upgrades only on strict write",
+    "provider_intent is durable and separate from ordinary conversation records",
+    "provider intent requires stable conversation key and persistent store path",
+    "finalize atomically publishes progress plus exact rendered payload and clears matching intent",
+    "exact replay retains original response/item/call identifiers",
+    "get returns detached copy",
+    "strict persistence failure is visible to caller and rolls back in-memory mutation",
+    "cleanup persistence failure rolls back cleanup in memory and blocks further provider work",
+    "unresolved intents survive ordinary conversation TTL/eviction and are capped separately",
+    "rendered replay is bounded to 512 KiB/item, 8 MiB total and 6h; stale fingerprint remains fail-closed",
+    "completed request fingerprint ring is bounded to 32",
+    "wrong account/fingerprint cannot clear an unresolved intent"
+  ],
+  "targeted_local_scenarios": {
+    "count": 23,
+    "result": "PASS",
+    "cases": [
+      "candidate compile",
+      "durable path required for provider intent",
+      "detached get",
+      "v2 upgrade on first strict write",
+      "duplicate unresolved intent blocked",
+      "finalize clears intent",
+      "restart preserves exact replay including call_id",
+      "intent write failure visible and leaves no memory intent",
+      "finalize write failure preserves prior durable intent and publishes no result",
+      "oversize rendered payload leaves state unchanged",
+      "replay TTL removes payload but keeps fingerprint",
+      "unresolved intent survives ordinary TTL/max cleanup",
+      "provider-intent capacity fails closed",
+      "account drift finalize fails closed",
+      "future state version blocks provider",
+      "cleanup write failure blocks persistence",
+      "cleanup write failure restores in-memory prior replay",
+      "cleanup write failure leaves disk unchanged",
+      "unresolved intent survives restart with tiny conversation TTL",
+      "wrong request fingerprint cannot clear intent",
+      "completed fingerprint ring stays bounded to 32",
+      "current exact replay remains after more than 32 finalizations",
+      "total replay budget evicts oldest payload but retains request fingerprint"
+    ]
+  },
+  "acceptance_boundary": {
+    "stage_a": "V32_STAGE_A_EXACT_LOCAL_FLOOR_PASS (pre-existing)",
+    "store_layer": "LOCAL_CANDIDATE_PASS",
+    "full_stage_b": "NOT_YET_PROVEN",
+    "windows_allowed": false,
+    "reason": "corrected Agent pair must be reproduced/read back and this store candidate integrated with exact server/account bytes; full same-byte Agent+Core matrix, coverage and readiness must pass first"
+  },
+  "next": "Reproduce/read back corrected Agent pair c9ca6f3b... + 273db94a..., integrate canonical Core server transaction around this store on the same bytes, run full same-byte Agent+Core matrix, then coverage 2df0e51a... and readiness d6fde58c... before any targeted Windows run."
+}

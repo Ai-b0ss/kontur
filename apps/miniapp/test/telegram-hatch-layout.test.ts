@@ -42,11 +42,11 @@ test('stale onboarding copy is cancelled synchronously during hatch and reveal',
 });
 
 test('Telegram reveal reserves the master-frame height before result copy', () => {
-  assert.match(finalFrame, /lk-first-time\.lk-first-time--reveal \.lk-reveal\.lk-reveal--inline\s*\{[\s\S]*padding:\s*calc\(50dvh \+ 160px\)/);
-  assert.match(finalFrame, /lk-first-time\.lk-first-time--reveal \.lk-quiz-egg-stage[\s\S]*width:\s*min\(61vw,\s*248px\)/);
+  assert.match(finalFrame, /lk-first-time\.lk-first-time--reveal \.lk-reveal\.lk-reveal--inline\s*\{[\s\S]*padding:\s*calc\(50dvh \+ 166px\)/);
+  assert.match(finalFrame, /lk-first-time\.lk-first-time--reveal \.lk-quiz-egg-stage[\s\S]*width:\s*min\(58vw,\s*230px\)/);
   assert.match(finalFrame, /\.lk-quiz-egg__inner > \.lk-quiz-hatch__frame\s*\{[\s\S]*overflow:\s*hidden/);
   assert.match(finalFrame, /\.lk-quiz-egg__inner > \.lk-quiz-hatch__frame\s*\{[\s\S]*border-radius:\s*48%\s*\/\s*50%/);
-  assert.match(finalFrame, /@media \(max-height:\s*700px\), \(max-width:\s*360px\)[\s\S]*lk-first-time\.lk-first-time--reveal \.lk-reveal\.lk-reveal--inline[\s\S]*padding-top:\s*calc\(50dvh \+ 116px\)/);
+  assert.match(finalFrame, /@media \(max-height:\s*700px\), \(max-width:\s*360px\)[\s\S]*lk-first-time\.lk-first-time--reveal \.lk-reveal\.lk-reveal--inline[\s\S]*padding-top:\s*calc\(50dvh \+ 120px\)/);
   assert.match(finalFrame, /@media \(max-height:\s*700px\), \(max-width:\s*360px\)[\s\S]*lk-first-time\.lk-first-time--reveal \.lk-quiz-egg-stage[\s\S]*width:\s*min\(58vw,\s*185px\)/);
 });
 

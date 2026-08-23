@@ -1,9 +1,10 @@
 import type { Palette } from '@kontur/contracts';
-import type { AnimationEvent, CSSProperties } from 'react';
+import { useEffect, type AnimationEvent, type CSSProperties } from 'react';
 import { hatchTimings, type HatchPhase, type HatchTimings } from '../q8-hatch-timeline.js';
 import type { BirdResultId } from '../result-taxonomy.js';
 import { quizEggStageModel } from '../quiz-egg-model.js';
 import { CanonicalBirdVisual } from './CanonicalBirdVisual.js';
+import { preloadResultBirdAssets } from './result-bird-assets.js';
 import '../kontur-core-corrections.css';
 
 export function QuizEgg({
@@ -32,6 +33,10 @@ export function QuizEgg({
     '--lk-hatch-flash-out': `${timings.flashOut}ms`,
     '--lk-hatch-reveal': `${timings.reveal}ms`,
   } as CSSProperties;
+
+  useEffect(() => {
+    if (stage >= 6) preloadResultBirdAssets();
+  }, [stage]);
 
   const handleFlashAnimationEnd = (event: AnimationEvent<HTMLSpanElement>) => {
     if (event.target !== event.currentTarget) return;

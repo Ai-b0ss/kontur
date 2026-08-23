@@ -9,7 +9,7 @@ from pathlib import Path
 
 SCHEMA = "notion_windows_ready_candidate_v5"
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
-FINAL_GATE_COVERAGE_VERIFIER_BLOB = "2df0e51ab385d003b2cbdf9126aad0176d62bed6"
+FINAL_GATE_COVERAGE_VERIFIER_BLOB = "be9b721ea61d897889c06aa9f5870d941b5eb876"
 
 REQUIRED_BLOB_PATHS = {
     "conversation_segments.py": Path("payload/conversation_segments.py"),

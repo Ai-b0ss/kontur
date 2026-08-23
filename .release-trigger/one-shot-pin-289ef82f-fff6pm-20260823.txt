@@ -1,0 +1,4 @@
+purpose=pin-existing-one-shot-harness-commit
+release=289ef82f76536aa05b2efab59400e80bcb94d50a
+owner=fff6pm
+harness-blob=474584ca7cf402ab43d996bb3a98c9111ea017a8

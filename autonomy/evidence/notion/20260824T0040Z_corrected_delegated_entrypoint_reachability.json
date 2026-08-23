@@ -1,0 +1,31 @@
+{
+  "schema": "notion_agent_exact_handoff_v1",
+  "created_at_utc": "2026-08-23T21:40:00Z",
+  "agent_pr": 8,
+  "agent_head": "4b344547d5e95bd4b3c62f5b80186059d849ff08",
+  "finding": "The corrected delegated subagent entrypoint SHA recorded in NOTION_AGENT handoff was not fetchable as a standalone Git blob. Core therefore could not byte-exact reconstruct the five-file engineer/owner set from hashes alone.",
+  "source_preimage": {
+    "path": "payload/subagent_entrypoint.py",
+    "blob": "ff489004c4ff8f195eea028f6b1e314feb57408d"
+  },
+  "corrected_candidate": {
+    "path": "autonomy/evidence/notion/20260824T0040Z_corrected_delegated_prompt_candidate/subagent_entrypoint.py",
+    "blob": "2d57651b408ef2e6c75f29855f7cdbaeafa97c2e",
+    "reachable": true,
+    "fix": "Use DelegatedPromptMode; propagate prompt_mode and repr-hidden owner_system_prompt through SubagentLaunch into DelegationRequest."
+  },
+  "five_file_set": {
+    "delegation_policy.py": "fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e",
+    "delegation_dispatcher.py": "a9d15b79b421cd29b094b549be06d2b0319e26d9",
+    "notion_delegated_model_step.py": "f36e9c91355dec667173b6265dd550554fb0f05d",
+    "subagent_entrypoint.py": "2d57651b408ef2e6c75f29855f7cdbaeafa97c2e",
+    "server_subagent_lifecycle.py": "f47838b338f2bd94163cf466110f939c065ac041"
+  },
+  "verification": {
+    "candidate_git_blob_readback": "PASS",
+    "candidate_blob": "2d57651b408ef2e6c75f29855f7cdbaeafa97c2e",
+    "core_exact_pair_surface_touched": false,
+    "circle_or_windows_used": false,
+    "live_provider_used": false
+  }
+}

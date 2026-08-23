@@ -1,66 +1,67 @@
 version: 2.1
 
 jobs:
-  kontur-production-observer:
+  kontur-master-frame-proof:
     docker:
       - image: cimg/node:22.18-browsers
     resource_class: medium
     environment:
-      KONTUR_EXPECTED_SHA: 289ef82f76536aa05b2efab59400e80bcb94d50a
-      PROD_ORIGIN: https://kontur-igor.igorekglukhovskii43.workers.dev
+      KONTUR_CANDIDATE_SHA: d4971eb15e2da1198ef776ad48cd9a365a439b1b
     steps:
       - checkout
       - run:
-          name: Build exact candidate and derive asset hashes
-          no_output_timeout: 25m
+          name: Verify exact candidate in real Chromium
+          no_output_timeout: 30m
           command: |
-            set -euo pipefail
-            git fetch origin cursor/hatch-product-289ef82f-1021
-            git checkout --detach "$KONTUR_EXPECTED_SHA"
-            test "$(git rev-parse HEAD)" = "$KONTUR_EXPECTED_SHA"
-            corepack enable
-            corepack prepare pnpm@11.22.0 --activate
-            pnpm install --frozen-lockfile
-            pnpm -F @kontur/miniapp build
-            node --input-type=module <<'NODE'
-            import fs from 'node:fs';
-            const html=fs.readFileSync('apps/miniapp/dist/index.html','utf8');
-            const js=html.match(/\/assets\/index-[A-Za-z0-9_-]+\.js/)?.[0];
-            const css=html.match(/\/assets\/index-[A-Za-z0-9_-]+\.css/)?.[0];
-            if(!js||!css) throw new Error('candidate hashed assets missing');
-            fs.writeFileSync('/tmp/expected-assets.env', `EXPECTED_JS=${js}\nEXPECTED_CSS=${css}\n`);
-            console.log(`EXPECTED_ASSETS js=${js} css=${css}`);
-            NODE
-      - run:
-          name: Wait for exact production assets and verify boundaries
-          no_output_timeout: 12m
-          command: |
-            set -euo pipefail
-            . /tmp/expected-assets.env
-            matched=0
-            for i in $(seq 1 60); do
-              html="$(curl -fsS -H 'Cache-Control: no-cache, no-store, max-age=0' "$PROD_ORIGIN/?kontur_observer=$KONTUR_EXPECTED_SHA-$i")"
-              if printf '%s' "$html" | grep -Fq "$EXPECTED_JS" && printf '%s' "$html" | grep -Fq "$EXPECTED_CSS"; then
-                matched=1
-                echo "LIVE_ASSET_MATCH_PASS attempt=$i js=$EXPECTED_JS css=$EXPECTED_CSS"
-                break
-              fi
-              echo "waiting_for_live_assets attempt=$i expected_js=$EXPECTED_JS expected_css=$EXPECTED_CSS"
-              sleep 10
-            done
-            test "$matched" = '1'
-            health="$(curl -fsS -H 'Cache-Control: no-cache, no-store, max-age=0' "$PROD_ORIGIN/api/v1/health?kontur_observer=$KONTUR_EXPECTED_SHA")"
-            printf '%s' "$health" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s);if(j.ok!==true||j.devMode!==false||j.driver!=='d1')process.exit(1);console.log('HEALTH_PASS')})"
-            api_code="$(curl -sS -o /tmp/unauth.json -w '%{http_code}' "$PROD_ORIGIN/api/v4/local/state?kontur_observer=$KONTUR_EXPECTED_SHA")"
-            test "$api_code" = '401'
-            webhook_code="$(curl -sS -o /tmp/webhook.txt -w '%{http_code}' -X POST -H 'content-type: application/json' --data '{"update_id":1}' "$PROD_ORIGIN/telegram/webhook")"
-            test "$webhook_code" = '403'
-            echo "PRODUCTION_OBSERVER_PASS sha=$KONTUR_EXPECTED_SHA api=$api_code webhook=$webhook_code"
+            set -u
+            LOG=/tmp/kontur-master-frame-proof.log
+            : > "$LOG"
+            status=0
+            run() {
+              echo "\n===== $1 =====" | tee -a "$LOG"
+              shift
+              "$@" 2>&1 | tee -a "$LOG"
+              code=${PIPESTATUS[0]}
+              echo "EXIT=$code" | tee -a "$LOG"
+              if [ "$code" -ne 0 ]; then status="$code"; fi
+              return 0
+            }
+
+            git fetch origin fix/kontur-hatch-master-frame-20260823 2>&1 | tee -a "$LOG"
+            git checkout --detach "$KONTUR_CANDIDATE_SHA" 2>&1 | tee -a "$LOG"
+            actual="$(git rev-parse HEAD)"
+            echo "CANDIDATE=$actual" | tee -a "$LOG"
+            test "$actual" = "$KONTUR_CANDIDATE_SHA" || status=97
+
+            run install corepack enable
+            run pnpm_prepare corepack prepare pnpm@11.22.0 --activate
+            run dependencies pnpm install --frozen-lockfile
+            run miniapp_tests pnpm -F @kontur/miniapp test
+            run miniapp_typecheck pnpm -F @kontur/miniapp typecheck
+            run production_build pnpm -F @kontur/miniapp build
+            run chromium_install pnpm exec playwright install chromium
+            run real_chromium_hatch node apps/miniapp/test/telegram-hatch-browser.mjs
+
+            mkdir -p /tmp/kontur-circle-proof
+            cp "$LOG" /tmp/kontur-circle-proof/proof.log
+            if [ -d apps/miniapp/dist/telegram-hatch-evidence ]; then
+              cp -R apps/miniapp/dist/telegram-hatch-evidence /tmp/kontur-circle-proof/evidence
+            fi
+            printf 'candidate=%s\nstatus=%s\n' "$actual" "$status" > /tmp/kontur-circle-proof/status.txt
+            if [ "$status" -eq 0 ]; then
+              echo "KONTUR_MASTER_FRAME_PROOF_PASS candidate=$actual" | tee -a "$LOG"
+            else
+              echo "KONTUR_MASTER_FRAME_PROOF_FAIL candidate=$actual status=$status" | tee -a "$LOG"
+            fi
+            exit "$status"
+      - store_artifacts:
+          path: /tmp/kontur-circle-proof
+          destination: kontur-master-frame-proof
 
 workflows:
-  kontur-production-observer:
+  kontur-master-frame-proof:
     jobs:
-      - kontur-production-observer:
+      - kontur-master-frame-proof:
           filters:
             branches:
               only: ci/kontur-circle-vite-20260821

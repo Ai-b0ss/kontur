@@ -6,102 +6,94 @@
 - Repo: `Ai-b0ss/qwen-free-api`
 - Branch: `autopilot/qwen-runtime-preflight-20260818`
 - PR: #6
-- Fresh product head после Core-fix: `2058d2d3ffde3bb8fce56c011402759365beac36`.
-- OWNER TEMPORARY CIRCLE FREEZE из `kontur#9` действует: CircleCI/его gate-ветки не запускать и не двигать до явной разморозки владельцем.
+- Fresh product head в начале этого прохода: `2058d2d3ffde3bb8fce56c011402759365beac36`.
+- После обнаружения нового RED добавлен только regression commit `7fb0fbb1b046c1d365e8c387b16a7571a613d967`; source-fix пока не перенесён в product branch.
+- OWNER TEMPORARY CIRCLE FREEZE из `kontur#9` действует и перекрывает общую Circle policy: CircleCI/gate branches не запускать и не двигать до явной разморозки владельцем.
 
-Перед новой записью снова перечитать PR #6, `autonomy/OWNER_INTENT_RU.md`, `autonomy/CURRENT_RU.md`, `autonomy/handoff/QWEN_RELIABILITY.md`, issue #9, Circle policy и v4 LATEST/PREVIOUS.
+Перед новой записью снова перечитать PR #6, `autonomy/OWNER_INTENT_RU.md`, `autonomy/CURRENT_RU.md`, `autonomy/handoff/QWEN_RELIABILITY.md`, issue #9, Circle policy, v4 runtime и LATEST/PREVIOUS.
 
-## Закрыт серьёзный restart/replay дефект: schema-invalid durable session record
-Исходный exact `src/session-store.js` blob: `44b521bd026c82c8e9cc733af714a3d6b42f4ca9`.
+## Новый серьёзный RED: nested durable session record corruption может снять replay guard
+Fresh exact `src/session-store.js` до нового фикса: blob `5d644421fe8d10aedc571dcbc9ee9652a0422a48`.
 
-До исправления `readSessionsFile()` проверял только верхний `{sessions:{...}}`. Синтаксически корректная, но повреждённая запись вроде `{chatId:"new-thread", history:"not-an-array"}` считалась доверенным primary snapshot. Backup не использовался, recovery uncertainty не выставлялась, и upstream `chatId` мог быть переиспользован при утраченной локальной истории.
+Предыдущий schema-hardening проверял, что history entry — объект с непустым строковым `role`, а `tool_calls` — массив. Этого недостаточно. Exact hosted reproduction на текущих байтах показал три malformed primary record, которые `load()` всё ещё принимал как trusted primary:
+1. `role='assistant-corrupt'` с изменяющим tool-call;
+2. `tool_calls:[null]`;
+3. `tool_calls:[{id:42,...}]`.
 
-Дофиксовое воспроизведение:
-`QWEN_SESSION_RECORD_SCHEMA_BUG_REPRODUCED primary_schema_unchecked=1 stale_thread_reused=1 backup_not_used=1`.
+Во всех трёх случаях до фикса было `source=primary-or-empty`, `uncertain=false`, старый `chatId` оставался доступным. Это опасно для restart/replay: повреждение роли или id может скрыть уже принятый pending tool-call от `findPendingToolCalls()` и позволить продолжить старый Qwen thread при недостоверной локальной истории.
 
-### Исправление
-- `c53ed44f415b3cf65d6356936d9a95ef9379735f` — первоначальная RED-регрессия;
-- `77e29f8fd1f4bfa6f3305925cbe8e4972e308ee0` — первая валидация записи;
-- `debeab0e906e3e1174bb9b3a88da9302a65d98ad` — регрессия подключена в штатный `npm test`;
-- `4654aacf2a2a7b2e978c2a05af84c7bc211f2785` — регрессия расширена повреждёнными элементами history;
-- `2058d2d3ffde3bb8fce56c011402759365beac36` — окончательная минимальная валидация history entries.
+RED proof на exact old blob:
+`accepted=unknown-role,null-tool-call,nonstring-tool-id` и regression падает на первом случае, потому что ожидался backup fail-closed.
 
-Текущий `src/session-store.js` blob: `5d644421fe8d10aedc571dcbc9ee9652a0422a48`.
-Текущий regression blob: `c7985e2cb8c25f12437852ea7f1b491427d4307c`.
+### Постоянный regression
+В PR #6 создан `scripts/session-store-nested-record-schema-test.js`, commit `7fb0fbb1b046c1d365e8c387b16a7571a613d967`, blob `c48f7beb21dad31d3c5fe4b0a60e8329ddd739c1`.
 
-Теперь durable record допускается только как поддерживаемая непустая legacy-строка либо обычный объект; `chatId`, если задан, обязан быть непустой строкой; `history` — массив; каждый history entry — объект с непустым строковым `role`; `tool_calls`, если присутствует, — массив; `tool_call_id`, если присутствует, — непустая строка. Повреждение primary инвалидирует snapshot целиком, поэтому `load()` переходит на валидный backup, выставляет `recoveryUncertain`, а старый backup-thread наружу отдаётся как `chatId:null` до явного reconcile.
+Он намеренно ПОКА НЕ включён в `npm test`, потому что product source ещё красный. Это допустимое временное состояние только до root fix. После targeted green regression обязан сразу войти в штатный `npm test` либо этот handoff должен явно фиксировать новый доказанный blocker.
 
-Targeted hosted proof после фикса, без provider/CI:
-- `QWEN_SESSION_RECORD_SCHEMA_NESTED_TARGET_PASS malformed=5 legacy=1 valid_history=1`;
-- `QWEN_SESSION_RECORD_SCHEMA_RECOVERY_PASS malformed_primary_rejected=5 backup_fail_closed=5 legacy_string=1`.
+### Минимальный root-fix уже проверен локально
+Patch сохранён в control repo:
+`autonomy/patches/qwen_core_session_nested_schema_20260823.patch`.
 
-Новый regression НЕ остался standalone: он уже входит в обычный `npm test`.
+Семантика:
+- durable history role допускает только `system|user|assistant|tool`;
+- каждый элемент `tool_calls`, если массив присутствует, обязан быть обычным объектом с непустым строковым `id`;
+- существующая проверка `tool_call_id` сохраняется.
 
-## Что ещё не доказано на текущем head
-- полный exact-tree Linux `npm test`;
-- совместный exact session/restart cluster на всём свежем дереве после последнего Core-fix;
-- QWEN_RELIABILITY final exact `provider-safety-test.js` на настоящем locked dependency tree;
-- native Windows Server 2022 full suite на тех же product bytes;
-- Windows owner doctor/acceptance harness. Его создавать только после Linux + native Windows green.
+На exact source, полученном с GitHub и проверенном blob SHA, этот patch дал:
+`QWEN_SESSION_NESTED_RECORD_SCHEMA_PASS malformed=3 backup_fail_closed=3 stale_thread_blocked=3`.
 
-## Ранее закрытые Core invariants — без нового контрпримера не открывать заново
-- tool-result continuation/restart + pending-tool replay guard;
-- streaming tool checkpoint до выдачи клиенту;
-- assistant/system/project persistence;
-- duplicate `tool_call.id` semantics;
-- per-session serialization;
-- stale-backup recovery fail-closed;
-- owner/system checkpoint + `QWEN_SYSTEM_CHECKPOINT_REJECTED`;
-- local checkpoint failure не штрафует provider account;
-- строгая ранняя валидация system-prompt mode/owner aliases;
-- direct agent/coding/plain subagents strict owner/engineer validation;
-- local tool `Error:` contract + required-argument validation;
-- capability mode preflight;
-- durable owner authority type validation;
-- required-tool terminal frames/parser reset/reasoning gate.
+Соседние targeted проверки на тех же локальных patched bytes также PASS:
+- `QWEN_SESSION_RECORD_SCHEMA_RECOVERY_PASS malformed_primary_rejected=8 backup_fail_closed=8 legacy_string=1` (расширенная локальная версия существующего regression);
+- exact `SESSION_OWNER_SYSTEM_CHECKPOINT_PASS exact=1 restart=1 bounded_history=1 oversized_fail_closed=1`;
+- exact `QWEN_SESSION_OWNER_AUTHORITY_TYPE_PASS owner_nontext_rejected=2 mode_nontext_rejected=2 exact_string=1 null_owner=1`.
 
-## Координация с QWEN_RELIABILITY
-Последний fresh handoff этого прохода:
+Root fix не перенесён в product branch в этом проходе, потому что доступная GitHub Contents write требует полную замену 25KB `session-store.js`; неизвестные/параллельно изменяемые байты вручную не реконструировались. Следующий проход: fresh head/blob -> применить уже проверенный patch к exact bytes безопасным способом -> targeted regression -> сразу wire regression into `npm test` -> fresh session/restart cluster.
+
+## Ранее закрытый schema fix остаётся важным
+Lineage до нового RED:
+- `77e29f8f...` initial record validation;
+- `debeab0e...` schema regression wired into `npm test`;
+- `4654aacf...` malformed history entries;
+- `2058d2d3...` hardened persisted history entries.
+
+Этот слой закрывает non-array history, null history entry, non-string role, non-array tool_calls и invalid `tool_call_id`, но новый RED доказывает, что nested role/tool-call structure нужно зажать ещё строже.
+
+## QWEN_RELIABILITY — не пересекать зону
+Fresh Reliability handoff этого прохода:
 - account/cooldown/index/filename targeted cluster: 8/8 exact PASS;
 - provider-circuit cluster: 7/8 exact PASS;
-- единственный Reliability proof gap: exact `scripts/provider-safety-test.js` на настоящем locked dependency tree с axios.
+- единственный Reliability proof gap: exact `scripts/provider-safety-test.js` на настоящем locked dependency tree с `axios`.
 
-Core не трогает `account-store/cooldown/provider-circuit`.
+Core не меняет `account-store`, cooldown или provider-circuit.
+
+## Что ещё не доказано
+- новый nested-schema root fix в самом product branch;
+- новый regression wired into штатный `npm test`;
+- полный fresh exact Core session/restart cluster после этого фикса;
+- Reliability `provider-safety-test.js` exact locked-tree proof;
+- полный exact-tree Linux `npm test` на стабильном общем SHA;
+- native Windows Server 2022 full suite на тех же product bytes — только после явной Circle разморозки;
+- Windows owner doctor/acceptance harness — создавать только после Linux + native Windows green.
 
 ## Финальный порядок
 1. Fresh PR head + fresh Reliability.
-2. Exact Core session/restart cluster на текущем стабильном SHA, включая новый schema regression.
-3. Reliability exact provider-safety proof на тех же product bytes.
-4. Full exact-tree Linux `npm test`.
-5. Пока Circle freeze действует — максимум `READY_FOR_CIRCLE_AFTER_OWNER_RELEASE`, freeze не обходить.
-6. После явной разморозки — один native Windows Server 2022 gate на тех же product bytes, locked install + полный offline suite, без provider/live/secrets/production.
-7. Только после Linux + native Windows green создать простой owner Windows doctor/acceptance harness и прогнать его в native Windows Circle.
+2. Перенести уже доказанный nested-schema root patch на exact fresh `session-store.js`.
+3. Targeted RED -> GREEN; сразу включить новый regression в `npm test`.
+4. Fresh exact Core `session/restart/stale-backup/pending-tool/owner/subagent` cluster.
+5. Reliability exact provider-safety proof на тех же product bytes.
+6. Full exact-tree Linux `npm test`.
+7. Пока Circle freeze действует: максимум `READY_FOR_CIRCLE_AFTER_OWNER_RELEASE`, freeze не обходить.
+8. После явной разморозки: один Linux/native Windows final gate по актуальной policy на одном product SHA; никакого provider/live/secrets/production.
+9. Только после Linux + native Windows green подготовить и проверить простой PowerShell owner-doctor, выдающий `QWEN_WINDOWS_READY` либо первый точный blocker.
 
 `QWEN_CORE_DONE` пока нет.
 
 ## Постоянная память / v4 CAS
-В этом проходе exact `capsule_runtime_v4.py` был материализован и проверен по каноническому Git blob:
-`6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`.
+На старте свежо прочитаны:
+- нормативный runtime blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`;
+- `LATEST` capsule `20260823T011225Z-36bfb3c9f8`, archive SHA-256 `c03776090372b1407adaf8b9d7f50b5f77c17c08b79b4a3b5de085a4c09ce60d`, pointer blob `5f9f8af4f7cd4688b434d87b8e0aac196c2ad5de`;
+- `PREVIOUS` capsule `20260822T230801Z-b2fff032a7`.
 
-Входной `LATEST`:
-- capsule `20260822T230801Z-b2fff032a7`;
-- archive SHA-256 `72602c3feae0ad139e4b17bc4e8b004ecf26e6796d704b45af9145803aa595fb`;
-- pointer blob `0fb9c8b2deb1d947c64a40db7e88b5905eb4edde`.
-
-Входная capsule прошла exact `verify + restore`.
-
-Новая нормативная capsule после фикса:
-- `20260823T011225Z-36bfb3c9f8`;
-- archive SHA-256 `c03776090372b1407adaf8b9d7f50b5f77c17c08b79b4a3b5de085a4c09ce60d`;
-- source_ref `2058d2d3ffde3bb8fce56c011402759365beac36`.
-
-Локально прошли `pack -> verify -> restore`; восстановленные `CHECKPOINT.md` и `EVIDENCE.txt` побайтно совпали с исходными. После загрузки manifest и обе части перечитаны из GitHub и их Git blob SHA совпали с локальными:
-- manifest `6437c60393f4b699f35364b7441401f509bef9d6`;
-- part-0000 `fcedaa848840cff74b79c3672079d84e196762cc`;
-- part-0001 `8ee1442392b6571e9da179a50603fe71a2eca948`.
-
-Перед CAS `LATEST` всё ещё имел исходный blob `0fb9c8b2...`, поэтому публикация прошла без конфликта и без force-write. Старый указатель сохранён как `PREVIOUS`. Текущий `LATEST`:
-- capsule `20260823T011225Z-36bfb3c9f8`;
-- pointer blob `5f9f8af4f7cd4688b434d87b8e0aac196c2ad5de`.
+Новая capsule этого прохода ещё не опубликована. Если следующий шаг публикует checkpoint, обязательны exact runtime -> restore current LATEST -> pack -> verify -> restore -> immutable upload/readback -> fresh LATEST parent check -> CAS; force-write запрещён.
 
 Provider traffic, реальные аккаунты, секреты, Cloudflare, production, GitHub Actions и CircleCI в этом проходе = 0.

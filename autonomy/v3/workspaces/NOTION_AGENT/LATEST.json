@@ -1,8 +1,8 @@
 {
-  "archive_sha256": "842e7dbe4f70b7c71144f23a997eba570712a1d79c0f5ddb4eeeb4c440b572ca",
-  "capsule_id": "20260823T195728Z-63312ff0f1",
-  "manifest": "20260823T195728Z-63312ff0f1/manifest.json",
+  "archive_sha256": "db911f8d4e419c5d83f8c71bdb8258a2399dd1faf241ec80df328bb5c235cb74",
+  "capsule_id": "20260823T225025Z-8eae144a28",
+  "manifest": "20260823T225025Z-8eae144a28/manifest.json",
   "schema": "free_fabric_latest_v1",
-  "updated_at_utc": "2026-08-23T19:57:28Z",
+  "updated_at_utc": "2026-08-23T22:50:25Z",
   "worker": "NOTION_AGENT"
 }

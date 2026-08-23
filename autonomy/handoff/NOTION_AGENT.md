@@ -1,6 +1,6 @@
 # Notion — ротация / агентность / делегирование — handoff
 
-Обновлено Agent-проходом 2026-08-23 10:xx MSK.
+Обновлено Agent-проходом 2026-08-23 11:xx MSK.
 
 ## Текущая линия
 - Repo: `Ai-b0ss/notion-agent-bridge`
@@ -67,7 +67,25 @@ Fresh PR #8 source пока не переносит explicit `engineer|owner` po
 - incremental continuation существующего remote thread не вставляет owner prompt повторно;
 - engineer-mode сохраняет текущую subagent persona.
 
-Кандидат всё ещё не является product state. Его нужно включить в тот же disposable V50/composed tree и на тех же bytes повторить owner/engineer contract + общий Agent/Core cluster. Отдельную product-ветку под prompt policy не создавать.
+### Новый найденный стыковой дефект: policy терялась до dispatcher
+Fresh `payload/subagent_entrypoint.py` blob `ff489004c4ff8f195eea028f6b1e314feb57408d` и `payload/server_subagent_lifecycle.py` blob `96b07cf8e8069586b33b516a1d66e38b6439a4f9` всё ещё содержат только `task_id/parent/objective/target/max_model_turns`. Поэтому даже после замены трёх policy/model-step файлов реальный `ServerSubagentLifecycle.launch()` создавал бы `DelegationRequest` с дефолтным `engineer`, а owner prompt до dispatcher вообще не доходил.
+
+Под это подготовлена fail-closed exact wiring-пара без движения refs:
+- materializer Git blob `53253d43d29b90b0bc925d5321e26b940342e9fc`;
+- static regression blob `1a7603925f9f6d545600eca84f20958b9c9811a3`;
+- exact transformed `subagent_entrypoint.py` blob `aebefce4ff3e47efc9813ce4e49e70ca8c44972f`;
+- exact transformed `server_subagent_lifecycle.py` blob `f47838b338f2bd94163cf466110f939c065ac041`;
+- focused runtime propagation test blob `9a896a78879630c91ab3c87cd03ffca491a19a54`.
+
+Локально:
+- materializer regression 4/4 PASS, включая fail-closed drift для обоих frozen preimages;
+- exact preimages вручную/побайтово сверены по Git blob SHA;
+- exact transformed modules компилируются;
+- runtime propagation 3/3 PASS: owner prompt проходит `SubagentLaunch -> SubagentEntryPoint -> DelegationRequest/Context`, затем сохраняется через `ServerSubagentLifecycle` validation/rebuild; private bytes не появляются в `repr`; engineer-mode выбрасывает dormant owner text.
+
+Эти blobs пока unreferenced и не являются product state. Их нужно добавить в тот же disposable composed tree вместе с тремя delegated prompt-policy candidate files; отдельную product-ветку под них не создавать.
+
+Кандидат всё ещё не является product state. Его нужно включить в тот же disposable V50/composed tree и на тех же bytes повторить owner/engineer contract + общий Agent/Core cluster.
 
 ## OWNER TEMPORARY CIRCLE FREEZE — активен
 Controller comment `5384843976` от 2026-08-23 явно сохраняет Notion freeze: проект `notion-agent-bridge` в Circle ещё не подтверждён/подключён; `free-fabric-gpt-bridge` нельзя считать тем же проектом.
@@ -96,8 +114,8 @@ Controller comment `5384843976` от 2026-08-23 явно сохраняет Noti
 
 ## Следующий точный шаг
 1. На disposable V50 tree собрать byte-identical Agent pair `c9ca6f3b.../ba52edc7...` из frozen preimages + exact transformers и frozen Core inputs.
-2. На том же tree запустить `20260823T0750Z_delegated_prompt_policy_composition_materializer.py --check`, затем `--apply`; readback должен дать `fd9a.../a9d.../f36e...`.
-3. Прогнать полный local composed Agent+Core cluster; `verify_notion_final_gate_coverage.py` обязан PASS.
+2. На том же tree применить delegated prompt-policy composition (`fd9a.../a9d.../f36e...`) и новый launch/lifecycle wiring (`aebe.../f478...`); materializer `53253...` должен сначала PASS в `--check` на exact preimages.
+3. Прогнать полный local composed Agent+Core cluster, включая runtime propagation 3/3 и mandatory post-replace tombstone regression; `verify_notion_final_gate_coverage.py` обязан PASS.
 4. Сохранить exact composed bytes/evidence долговечно, не двигая product refs во время Circle freeze. Если всё зелёное — пометить `READY_FOR_CIRCLE_AFTER_RECONNECT` с exact composed SHA/blobs.
 5. После отдельной owner-разморозки — один disposable native Windows Server 2022 gate. Linux PASS не заменяет Windows.
 6. Только после Windows PASS — bounded authorized `Codex -> bridge -> Notion -> local tool -> correction -> VERIFY_OK`, затем restart/replay/rotation/affinity и owner-facing Windows doctor.

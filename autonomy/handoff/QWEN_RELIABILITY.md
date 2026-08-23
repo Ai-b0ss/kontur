@@ -1,16 +1,16 @@
 # Qwen — надёжность / текущий handoff
 
-Обновлено QWEN_RELIABILITY 2026-08-23 06:18 UTC.
+Обновлено QWEN_RELIABILITY 2026-08-23 06:49 UTC.
 
 ## Текущая линия
 
 - Repo: `Ai-b0ss/qwen-free-api`
 - Branch: `autopilot/qwen-runtime-preflight-20260818`
 - PR: #6
-- Fresh PR head: `a56418b862372ef1150a66cf613033677a2545e2`.
-- Fresh tree на exact head подтверждает: Reliability provider/account bytes не изменились относительно предыдущей доказательной границы. Новые изменения принадлежат QWEN_CORE/session/subagent области.
+- Fresh PR head: `484d8cf8b910c9e7333ba9ac4285f9f05ba32fb6`.
+- Compare от предыдущей доказательной Reliability-границы `a56418b862372ef1150a66cf613033677a2545e2` до fresh head = 5 commits; изменены только `package.json`, `src/subagent-dispatcher.js` и Core-owned regressions `scripts/subagent-skill-type-validation-test.js` / `scripts/session-orphan-tool-result-restart-test.js`. Reliability provider/account bytes не менялись.
 
-Fresh `QWEN_CORE.md` синхронизирован по границе ответственности: Core-owned session/subagent/system-prompt/chat-adapter участок Reliability не трогает без прямого пересечения.
+Fresh `QWEN_CORE.md` синхронизирован по границе ответственности: Core-owned session/subagent/system-prompt/chat-adapter участок Reliability не трогает без прямого пересечения. Fresh Core head совпадает с PR head `484d8cf8...` и содержит новый доказанный RED в session-store boundary: incremental tool results могут потерять durable pending pair. Это отдельный Core blocker для общего full-suite, Reliability его не чинит.
 
 ## Уже доказано Reliability
 
@@ -43,23 +43,20 @@ PASS:
 
 Остаётся exact execution `scripts/provider-safety-test.js` на настоящем locked dependency tree.
 
-Fresh exact facts на `a56418b...`:
+Fresh exact facts на `484d8cf8...` сохраняются, так как Reliability bytes не менялись от `a56418b...`:
 - `src/qwen-client.js` blob = `04ed2eb19dde860331d2722be9fe91c804d919b4`;
 - `src/account-store.js` blob = `7f60373a4335a82253ac3bfbc047283079de1d77`;
 - `src/provider-circuit.js` blob = `014b681c8032c86401801c6f0a6405f0b2149192`;
 - `package-lock.json` blob = `b38e85ce68a6f2e65e70bfd564c37b1eb82bdd3b`;
 - `scripts/provider-safety-test.js` blob = `b593a77fe73b9041081c2cc6de90195ffe074952`;
 - expected marker = `PROVIDER_SAFE_ROTATION_PASS`;
-- locked tree resolves `axios` exactly to `1.19.0`; manual stub/reconstructed tree не принимаются как exact proof.
+- locked tree resolves `axios` exactly to `1.19.0`; manual stub/reconstructed dependency tree не принимаются как exact proof.
 
 Fresh executor recheck this pulse:
-- hosted container: Node `v22.16.0`, npm `10.9.2`; DNS до npm не работает;
-- дополнительно проверена гипотеза «только сломан DNS»: `registry.npmjs.org` был временно привязан к свежему публично наблюдаемому Cloudflare IP `104.16.5.34`, после чего HTTPS/TCP 443 всё равно завершился немедленным `Could not connect to server`. `/etc/hosts` после проверки восстановлен. Значит текущая hosted-среда блокирует/не маршрутизирует прямой npm registry transport, а не только DNS;
-- npm cache/local global modules не содержат axios;
-- connected Replit `PortlyEdibleMonads`: fresh строго read-only проверка Node/npm/network/private checkout снова завершилась timeout; app не менялся и не принят как exact executor;
-- File Library search не нашёл архив `node_modules`/locked dependency tree для текущего Qwen, только исторические логи установки/запуска;
-- historical Qwen Actions run с известным PASS не имеет reusable dependency artifact;
-- публичный web подтверждает npm `axios 1.19.0` и tarball integrity, но ручная сборка `node_modules` из отдельных пакетов не заменяет exact `npm ci` и не будет засчитана как PASS.
+- hosted container: прежняя установленная граница сохраняется — прямой npm/GitHub transport недоступен, локального locked tree/axios нет; повторять те же DNS/registry probes без изменения среды не нужно;
+- connected Replit `PortlyEdibleMonads`: fresh строго read-only запрос на наличие exact checkout + locked tree и запуск `provider-safety-test.js` снова завершился timeout; app не менялся и не принят как exact executor;
+- GitHub connector даёт exact private source bytes, но не монтирует готовый executable npm tree в hosted filesystem;
+- no stub/reconstructed/manual dependency assembly counted as exact PASS.
 
 Status remains `EXACT_PROVIDER_SAFETY_EXECUTION_PENDING`, not PASS.
 
@@ -87,10 +84,10 @@ No new capsule published this pulse: mandatory exact `restore -> checkpoint -> p
 
 1. Fresh-read PR #6 first. If provider/account blobs remain unchanged, do not repeat closed account/provider-circuit work.
 2. Use the first already-authorized exact executor that can materialize the locked npm tree and run `node scripts/provider-safety-test.js`. Expected marker: `PROVIDER_SAFE_ROTATION_PASS`. No provider traffic is needed.
-3. Do not spend more pulses probing the same hosted container DNS/registry path unless environment evidence changes; direct registry transport is now disproved, not merely unresolved DNS.
-4. On exact PASS, run fresh targeted account/failover/replay cluster on one stable SHA plus exactly one bounded Windows/path/rename/file-lock/process/env red-team.
-5. Fresh-read QWEN_CORE and require its targeted set green on the same product SHA.
-6. Then full exact-tree Linux `npm test` on that SHA.
+3. Do not spend more pulses probing the same hosted container DNS/registry or the same timed-out Replit path unless environment evidence changes.
+4. On exact Reliability PASS, run fresh targeted account/failover/replay cluster on one stable SHA plus exactly one bounded Windows/path/rename/file-lock/process/env red-team.
+5. Fresh-read QWEN_CORE and require its targeted set green on the same product SHA. Fresh Core currently has its own RED `session-orphan-tool-result-restart-test.js`; Reliability does not touch that area.
+6. Only after Core + Reliability targeted green on one stable SHA: full exact-tree Linux `npm test` on that SHA.
 7. While Circle freeze remains, stop at `READY_FOR_CIRCLE_AFTER_OWNER_RELEASE` if Circle is the only remaining gate.
 8. After explicit owner release only: one native Windows Server 2022 locked full suite on the same product bytes, no provider/live/secrets/production.
 9. Any FAIL: first reproduced root cause -> minimal fix -> targeted repeat -> full repeat. Do not expand audit without a serious reproducible counterexample.

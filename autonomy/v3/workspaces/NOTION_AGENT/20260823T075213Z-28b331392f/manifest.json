@@ -1,0 +1,38 @@
+{
+  "archive": {
+    "parts": 13,
+    "sha256": "dafa5ba3a76b3531f95325c98a91a7a0f89049e09d1474cff333350c05d755a3",
+    "size": 9689
+  },
+  "capsule_id": "20260823T075213Z-28b331392f",
+  "created_at_utc": "2026-08-23T07:52:13Z",
+  "parts": [
+    {"chars":1000,"index":0,"name":"part-0000.b64","sha256_text":"b0e569b89a72d5df171fffa47560eca1593d129209e850e10ac43bef31316446"},
+    {"chars":1000,"index":1,"name":"part-0001.b64","sha256_text":"67a4fbe50160e30d4b2e955a3a0deb1f8fdd840ebbd7fda5e30bb5e1acaa7814"},
+    {"chars":1000,"index":2,"name":"part-0002.b64","sha256_text":"a97c778a95f4a4e40e87d3264abeb53704ee8fa453c6cf68c83b2f07913f6496"},
+    {"chars":1000,"index":3,"name":"part-0003.b64","sha256_text":"e376e01ebbd88db2fc0fff622d179bce8b1547d80c5c308b11bd5124369f5bf5"},
+    {"chars":1000,"index":4,"name":"part-0004.b64","sha256_text":"a640e751c8db197258b3365d0115b32d68ee8bea74fefc9646dfd08db3bab411"},
+    {"chars":1000,"index":5,"name":"part-0005.b64","sha256_text":"e7f795517534fe9e8f1406cc4798c580aa00d327fb52cd6be780702f6f5ddb20"},
+    {"chars":1000,"index":6,"name":"part-0006.b64","sha256_text":"6adaabe09f1e66687edfd6e74f8a03c15ebc906c4b7730af1e76df27a1df2062"},
+    {"chars":1000,"index":7,"name":"part-0007.b64","sha256_text":"869e209c191501d7b3ae18e766ec85cfbb5bd8dc91d00f28c47eb5f9595075d4"},
+    {"chars":1000,"index":8,"name":"part-0008.b64","sha256_text":"852358933f36b0ee11bb6866c0599e12805d1658911a74b823ef877633590e81"},
+    {"chars":1000,"index":9,"name":"part-0009.b64","sha256_text":"2181a9d54f5885942749ea7bbe84aa3e1f63b8f18f81dacb6a054806167c1452"},
+    {"chars":1000,"index":10,"name":"part-0010.b64","sha256_text":"3444f1749302148342dbbf0a2c419dbd6eb9e89c9773cb2d963d0cf9366c5ea7"},
+    {"chars":1000,"index":11,"name":"part-0011.b64","sha256_text":"a1c58369afa42861db5589427b7717251a1fcd0ae307a2bbb8be6044a90f40d2"},
+    {"chars":920,"index":12,"name":"part-0012.b64","sha256_text":"ae41ee1552005e51fb2bb4288098d8ed55f84c0d852966c3de48dd4c92244f9b"}
+  ],
+  "schema": "free_fabric_worker_capsule_v4",
+  "source_ref": "Ai-b0ss/notion-agent-bridge@ee0ae241b3ef19da7d3a69ddeecf6bb5476f91a9",
+  "worker": "NOTION_AGENT",
+  "workspace": {
+    "CHECKPOINT.json": {"mode":"0o644","sha256":"756b7a8c70278242c639f0254bc4d79550b30cabd03646c039a253277fb59236","size":10469,"type":"file"},
+    "README.md": {"mode":"0o644","sha256":"baeb443253ac193803c427cdb0963b650afc109cefc188cfeef3cf1f2c66e9f3","size":678,"type":"file"},
+    "candidates": {"mode":"0o2755","type":"dir"},
+    "candidates/delegated_prompt_policy": {"mode":"0o2755","type":"dir"},
+    "candidates/delegated_prompt_policy/delegation_dispatcher.py": {"mode":"0o644","sha256":"6c0d54c0e3e6316b3eff8559e049c07b023bbbb2b4dbe515774faae5b661e25b","size":2865,"type":"file"},
+    "candidates/delegated_prompt_policy/delegation_policy.py": {"mode":"0o644","sha256":"9d2ea238fb14705a8a063ad2260ae1d0e0360cdda2a4001b0e9bf68fb1cdcd2e","size":4273,"type":"file"},
+    "candidates/delegated_prompt_policy/notion_delegated_model_step_candidate.py": {"mode":"0o644","sha256":"c00e16897372155a4b9e59267ceac6e2d0790e24a025a42cca05f225dfe13911","size":9092,"type":"file"},
+    "candidates/delegated_prompt_policy/test_model_prompt_policy.py": {"mode":"0o644","sha256":"5f53e43488111e0e37b2624d6fcf3fdc45f0fc6920fb3d9b1b84dff14ebec54a","size":1652,"type":"file"},
+    "candidates/delegated_prompt_policy/test_prompt_policy.py": {"mode":"0o644","sha256":"c42060b8de0cdb67b19ef226eb8fefa8cf742869ad522bc2c36e7e03944df750","size":2571,"type":"file"}
+  }
+}

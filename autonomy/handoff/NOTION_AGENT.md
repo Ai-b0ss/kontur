@@ -131,6 +131,25 @@ Agent не должен параллельно реализовывать Core S
 - final coverage verifier `verify_notion_final_gate_coverage.py` PASS;
 - Windows readiness verifier `verify_notion_windows_ready_candidate.py` PASS.
 
+### 2026-08-23 12:50 MSK — найден воспроизводимый пробел final-gate coverage
+Независимый аудит exact verifier `verify_notion_final_gate_coverage.py` blob `0be4c5f626b92b8291c86590580ae767d6d816f6` дал конкретный контрпример: синтетическая final-suite, содержащая ВСЕ текущие `REQUIRED_EXACT_MODULES` + оба Stage-B класса (`durable_replay`, `provider_intent`), получает у verifier `PASS`, даже если из suite полностью убрать существующие Agent prompt/delegation проверки.
+
+Локально воспроизведено: verifier-equivalent result=`PASS`, при этом 0/8 следующих модулей упомянуты suite:
+- `tests.test_prompt_modes`;
+- `tests.test_prompt_policy_identity`;
+- `tests.test_responses_prompt_mode_http_contract`;
+- `tests.test_responses_prompt_wiring_contract`;
+- `tests.test_delegation_policy`;
+- `tests.test_delegation_dispatcher`;
+- `tests.test_notion_delegated_model_step`;
+- `tests.test_subagent_entrypoint`.
+
+Это противоречит этому же handoff-контракту, который требует delegated engineer/owner prompt propagation на финальных composed bytes. Windows readiness verifier blob `531f93d3c0130cf6451da46408e799df3eb8c139` тоже не имеет отдельного gate для prompt-policy/launch propagation: он доверяет `final_gate_coverage=PASS` и отдельным tombstone/cancellation/dynamic-reservation меткам.
+
+Долговечное evidence: `autonomy/evidence/notion/20260823T0950Z_agent_final_gate_prompt_coverage_gap.json` (create commit `cbd2a20d16ac47cf75215cee431c09093f1dcad0`).
+
+ВАЖНО: NOTION_AGENT не меняет сейчас Core-owned verifier/Stage-B surface параллельно активному `NOTION_CORE-20260823T0943Z`. Core должен включить prompt/delegation tests в unified final suite и/или ужесточить coverage/readiness verifier; после этого Agent независимо проверяет exact composed suite. До этого `final_gate_coverage PASS` сам по себе недостаточен для Agent safety.
+
 Только после same-byte composition + unified Stage-B/full local green допустим один targeted native Windows Circle run. Circle connectivity отдельно уже доказана; повторный connectivity probe не нужен.
 
 ## Постоянная память v4
@@ -146,9 +165,10 @@ Agent не должен параллельно реализовывать Core S
 ## Следующий точный шаг
 1. Не дублировать Core unified Stage-B/materializer, пока Core владеет этой поверхностью.
 2. Core может прямо сейчас byte-exact взять Agent pair `c9ca6f3b.../ba52edc7...` и delegated prompt/launch modules `fd9a.../a9d.../f36e.../aebe.../f478...` из указанных frozen inputs/evidence.
-3. Как только Core выдаст exact same-byte unified composed tree/manifest, NOTION_AGENT прогоняет на НЁМ полный Agent/delegation cluster, включая mandatory post-replace tombstone + restart/cancellation + prompt policy + routing/failover.
-4. Agent PASS/FAIL записать с exact composed blobs и test manifest, без пересказа.
-5. Windows не запускать, пока Core local Stage-B/full matrix и оба verifier-а не зелёные.
-6. После native Windows PASS — только тогда bounded authorized `Codex -> bridge -> Notion -> local tool -> correction -> VERIFY_OK`, затем restart/replay/rotation/affinity/soak.
+3. Core должен закрыть воспроизведённый prompt/delegation coverage gap: финальная suite обязана реально запускать перечисленные Agent prompt/delegation tests; verifier не должен разрешать Windows-ready при их отсутствии.
+4. Как только Core выдаст exact same-byte unified composed tree/manifest + исправленную final-suite coverage, NOTION_AGENT прогоняет на НЁМ полный Agent/delegation cluster, включая mandatory post-replace tombstone + restart/cancellation + prompt policy + routing/failover.
+5. Agent PASS/FAIL записать с exact composed blobs и test manifest, без пересказа.
+6. Windows не запускать, пока Core local Stage-B/full matrix и оба verifier-а не зелёные с закрытым prompt coverage gap.
+7. После native Windows PASS — только тогда bounded authorized `Codex -> bridge -> Notion -> local tool -> correction -> VERIFY_OK`, затем restart/replay/rotation/affinity/soak.
 
 В этом Agent-проходе PR #8, PR #7, CircleCI/GitHub Actions, native Windows, live Notion/Codex, secrets и production не менялись.

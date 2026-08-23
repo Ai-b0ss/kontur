@@ -77,6 +77,7 @@ async function mockApi(page, hatchDelay) {
     if (path === '/api/v1/auth/telegram') value = { token: 'telegram-qa', state: state(hatched) };
     else if (path === '/api/v4/local/state') value = { state: state(hatched), colorings: [] };
     else if (path === '/api/v4/local/questions') value = { questions };
+    else if (path === '/api/v4/local/colorings') value = { colorings: [] };
     else if (path === '/api/v4/local/hatch') {
       await new Promise((resolve) => setTimeout(resolve, hatchDelay));
       hatched = true;
@@ -169,24 +170,39 @@ async function prove(reduced) {
     ok(!sample.question.present || sample.question.opacity < .02 || sample.question.visibility === 'hidden', `stale q8 copy ${JSON.stringify(sample)}`);
     ok(Math.max(sample.base.opacity, sample.halves.opacity, sample.cracks.opacity, sample.flash.opacity) > .04, `empty hatch frame ${JSON.stringify(sample)}`);
   }
-  ok(active.some((s) => s.phase === 'flash' && s.flash.opacity > .95), 'flash never fully covered scene');
+  ok(active.some((s) => s.phase === 'flash' && s.flash.opacity > .9), 'soft flash never reached cover peak');
   ok(active.filter((s) => s.phase === 'reveal').every((s) => !s.bird.present || s.flash.opacity > .02 || s.bird.opacity > .02), 'empty reveal handoff');
 
   const layout = await page.evaluate(() => {
     const rect = (selector) => {
       const box = document.querySelector(selector)?.getBoundingClientRect();
-      return box ? { top: box.top, bottom: box.bottom, left: box.left, right: box.right } : null;
+      return box ? { top: box.top, bottom: box.bottom, left: box.left, right: box.right, width: box.width, height: box.height } : null;
     };
+    const flash = document.querySelector('.lk-quiz-hatch__flash');
+    const leftHalf = document.querySelector('.lk-hatch-half--left');
+    const rightHalf = document.querySelector('.lk-hatch-half--right');
     return {
-      viewport: { width: innerWidth, height: innerHeight }, ring: rect('.lk-quiz-egg__ring'),
+      viewport: { width: innerWidth, height: innerHeight },
+      ring: rect('.lk-quiz-egg__ring'), inner: rect('.lk-quiz-egg__inner'), frame: rect('.lk-quiz-hatch__frame'),
+      birdImage: rect('.lk-quiz-hatch__bird > .lk-result-bird'),
       kicker: rect('.lk-reveal--inline > .lk-kicker'), name: rect('.lk-reveal--inline h1'), panel: rect('.lk-reveal--inline'),
       question: document.querySelector('.lk-question--egg')?.textContent?.trim() ?? null,
+      flashBackground: flash ? getComputedStyle(flash).backgroundImage : '',
+      flashColor: flash ? getComputedStyle(flash).backgroundColor : '',
+      leftClip: leftHalf ? getComputedStyle(leftHalf).clipPath : '',
+      rightClip: rightHalf ? getComputedStyle(rightHalf).clipPath : '',
     };
   });
   ok(layout.viewport.width === 390 && layout.viewport.height === 760, `wrong viewport ${JSON.stringify(layout.viewport)}`);
-  ok(layout.ring && layout.kicker && layout.panel, `missing reveal geometry ${JSON.stringify(layout)}`);
+  ok(layout.ring && layout.inner && layout.frame && layout.birdImage && layout.kicker && layout.panel, `missing reveal geometry ${JSON.stringify(layout)}`);
   ok(layout.kicker.top >= layout.ring.bottom + 12, `kicker overlaps ring: ${JSON.stringify(layout)}`);
   ok(layout.panel.bottom <= 761 && layout.panel.left >= -1 && layout.panel.right <= 391, `panel overflow: ${JSON.stringify(layout)}`);
+  ok(layout.inner.top >= layout.ring.top + 5 && layout.inner.bottom <= layout.ring.bottom - 5, `inner mask does not match ring: ${JSON.stringify(layout)}`);
+  ok(layout.frame.top >= layout.inner.top - 1 && layout.frame.bottom <= layout.inner.bottom + 1, `bird frame escaped master mask: ${JSON.stringify(layout)}`);
+  ok(layout.birdImage.top >= layout.inner.top - 1 && layout.birdImage.bottom <= layout.inner.bottom + 1, `bird art escaped master mask: ${JSON.stringify(layout)}`);
+  ok(layout.flashBackground.includes('radial-gradient'), `flash is not radial: ${layout.flashBackground}`);
+  ok(layout.flashColor === 'rgba(0, 0, 0, 0)', `flash has opaque background color: ${layout.flashColor}`);
+  ok(layout.leftClip === 'none' && layout.rightClip === 'none', `shell still uses clip-path: ${layout.leftClip} / ${layout.rightClip}`);
   ok(!layout.question, `q8 text still mounted: ${layout.question}`);
   ok(errors.length === 0, `browser errors: ${JSON.stringify(errors)}`);
   await page.screenshot({ path: join(evidence, reduced ? 'telegram-390x760-reduced.png' : 'telegram-390x760-normal.png'), fullPage: false });

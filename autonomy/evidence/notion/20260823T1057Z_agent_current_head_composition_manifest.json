@@ -1,0 +1,112 @@
+{
+  "schema": "notion_agent_current_head_composition_manifest_v1",
+  "created_at_utc": "2026-08-23T10:57:00Z",
+  "lane": "NOTION_AGENT",
+  "status": "READY_FOR_COMBINED_LOCAL_MATRIX_NOT_WINDOWS",
+  "agent_pr": 8,
+  "agent_head": "6672cc0de99acb648b587612bb900f100f5eff42",
+  "core_pr": 7,
+  "core_head_observed": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "head_delta_from_c9b": {
+    "base": "c9b182654da7d660b4a840cdd0a606da347805a9",
+    "product_files_changed": [],
+    "test_files_changed": [
+      {
+        "path": "tests/test_foreground_slot_routing.py",
+        "blob": "af79068a7b5590e1e17aaf552315f7d075e29944",
+        "stage_contract": "raw_and_materialized"
+      },
+      {
+        "path": "tests/test_server_subagent_wiring_materializer.py",
+        "blob": "3748c1342ae9ef8d77064be832fa0b5152557943",
+        "stage_contract": "raw_and_materialized"
+      }
+    ],
+    "proof": "Circle disposable workflow 65595afb-dbf0-41ee-9fbf-ac5dc9a7cbd2 = raw/materialized 4/4 SUCCESS before exact test-only promotion"
+  },
+  "exact_pair": {
+    "preimage": {
+      "payload/account_pool.py": {
+        "blob": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f",
+        "size": 43173
+      },
+      "payload/server.py": {
+        "blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+        "size": 112748
+      }
+    },
+    "materialized": {
+      "payload/account_pool.py": {
+        "blob": "c9ca6f3b4545e469966369a4220a6a2a60bf3697",
+        "size": 48066
+      },
+      "payload/server.py": {
+        "blob": "ba52edc7a8528d58acd2c5bef2b86c3ca84ca298",
+        "size": 115707,
+        "sha256": "5c8f96ac56576c5ffd89eb6292944e053bd7671b8b8cebc6093978006da6227b"
+      }
+    },
+    "valid_on_agent_head": true,
+    "reason": "6672cc0 changes only two stage-aware test files; account_pool.py and server.py preimages did not move"
+  },
+  "current_head_product_delta_required_in_composition": {
+    "payload/notion_delegation_adapter.py": {
+      "blob": "f89f28759c0667628eacd0333d442063ed73b68c",
+      "size": 4307,
+      "semantic_contract": "one stateful child session survives legitimate A-to-B provider failover; same session.run is explicit retry_operation; stateless runners remain fail-closed"
+    }
+  },
+  "prompt_delegation_overlay_not_yet_product_head": {
+    "payload/delegation_policy.py": "fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e",
+    "payload/delegation_dispatcher.py": "a9d15b79b421cd29b094b549be06d2b0319e26d9",
+    "payload/notion_delegated_model_step.py": "f36e9c91355dec667173b6265dd550554fb0f05d",
+    "payload/subagent_entrypoint.py": "aebefce4ff3e47efc9813ce4e49e70ca8c44972f",
+    "payload/server_subagent_lifecycle.py": "f47838b338f2bd94163cf466110f939c065ac041",
+    "state": "candidate_overlay_requires_same-tree_combined_local_matrix"
+  },
+  "mandatory_agent_tests_for_composed_final_matrix": [
+    "tests/test_prompt_modes.py",
+    "tests/test_prompt_policy_identity.py",
+    "tests/test_responses_prompt_wiring_contract.py",
+    "tests/test_responses_prompt_mode_http_contract.py",
+    "tests/test_delegation_policy.py",
+    "tests/test_delegation_dispatcher.py",
+    "tests/test_notion_delegated_model_step.py",
+    "tests/test_subagent_entrypoint.py",
+    "tests/test_foreground_slot_routing.py",
+    "tests/test_dynamic_reservation_lease_session.py",
+    "tests/test_dynamic_reservation_session_entry_cleanup.py",
+    "tests/test_delegated_failover_session.py",
+    "tests/test_notion_tool_subagent_runtime.py",
+    "tests/test_delegated_tool_loop.py",
+    "tests/test_delegated_cancellation_lifecycle.py",
+    "tests/test_subagent_tombstone_store.py",
+    "tests/test_subagent_tombstone_post_replace_sync_failure.py",
+    "tests/test_server_subagent_tombstone_restart.py",
+    "tests/test_server_subagent_durable_tool_guard_v2.py",
+    "tests/test_server_subagent_lifecycle_drain.py",
+    "tests/test_server_subagent_uncertain_rebind.py",
+    "tests/test_server_subagent_wiring_materializer.py"
+  ],
+  "proofs_reused_without_overclaim": {
+    "failover_current_product_c9b": "workflow 3c743434-1102-4278-8128-67a81b9b257f = 12/12 SUCCESS",
+    "harness_fix": "workflow 65c27fff-53bb-422e-9ce9-0c0bf316910f = 2/2 SUCCESS",
+    "stage_aware_exact_test_blobs": "workflow 65595afb-dbf0-41ee-9fbf-ac5dc9a7cbd2 = 4/4 SUCCESS",
+    "pair_bytes": "pair output blobs unchanged because both pair preimages are unchanged"
+  },
+  "readiness": {
+    "combined_agent_matrix_green_on_one_composed_tree": false,
+    "same_byte_core_stage_b_green": false,
+    "windows_permitted": false,
+    "live_permitted": false,
+    "next": "Core or the current composition owner must build one exact tree from Agent head 6672cc0 + unchanged materialized pair + current adapter + delegated prompt/launch overlays, then run the mandatory Agent matrix and Stage-B/full local matrix on those same bytes."
+  },
+  "writes_performed_by_this_audit": {
+    "product_refs": false,
+    "core_refs": false,
+    "circle": false,
+    "windows": false,
+    "live_provider": false,
+    "production": false
+  }
+}

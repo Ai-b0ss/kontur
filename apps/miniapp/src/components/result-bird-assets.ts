@@ -17,6 +17,21 @@ const MAGPIE_PLUMAGE_ASSETS: Readonly<Record<'amber' | 'northern', BirdAsset>> =
   northern: { src: '/results/magpie-northern.webp', width: 1067, height: 1271, label: 'Сорока, северный окрас' },
 });
 
+const preloadedResultAssets = new Set<string>();
+
+/** Warm the browser cache before q8 without mounting or revealing any bird. */
+export function preloadResultBirdAssets() {
+  if (typeof Image === 'undefined') return;
+  const assets = [...Object.values(RESULT_ASSETS), ...Object.values(MAGPIE_PLUMAGE_ASSETS)];
+  for (const asset of assets) {
+    if (preloadedResultAssets.has(asset.src)) continue;
+    preloadedResultAssets.add(asset.src);
+    const image = new Image();
+    image.decoding = 'async';
+    image.src = asset.src;
+  }
+}
+
 /**
  * Окрасы сороки — отдельные рисунки оперения. Здесь нет общей цветной маски:
  * «Уголёк»/«Золочёный» и «Иней»/«Полярный» выбирают самостоятельный арт.

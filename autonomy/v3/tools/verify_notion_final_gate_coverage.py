@@ -18,9 +18,6 @@ REQUIRED_EXACT_MODULES = (
     "tests.test_dynamic_reservation_lease_session",
     "tests.test_dynamic_reservation_inlease_reselect",
     "tests.test_real_codex_cli_probe_contract",
-    # Startup cleanup is a load-bearing Agent/Core composition boundary. Both
-    # the direct failure chain and repeated-cancellation/shield semantics must
-    # be executed by the final same-byte suite.
     "tests.test_startup_status_cleanup",
     "tests.test_startup_cleanup_failure_boundary_candidate",
     "tests.test_startup_status_repeated_cancellation",
@@ -34,8 +31,10 @@ REQUIRED_EXACT_MODULES = (
     "tests.test_subagent_entrypoint",
     "tests.test_foreground_slot_routing",
     "tests.test_server_subagent_wiring_materializer",
+    "tests.test_delegated_tool_loop",
     "tests.test_delegated_tool_loop_runtime_validation",
     "tests.test_delegated_uncertain_failover_boundary",
+    "tests.test_dynamic_reservation_session_entry_cleanup",
     "tests.test_notion_delegated_synthetic_call_ids",
     "tests.test_notion_delegated_thread_reentry",
     "tests.test_notion_delegation_dynamic_reservations",
@@ -44,6 +43,11 @@ REQUIRED_EXACT_MODULES = (
     "tests.test_reservation_aware_lease",
     "tests.test_responses_cooldown_failover",
     "tests.test_subagent_lifecycle",
+    "tests.test_server_subagent_durable_tool_guard_v2",
+    "tests.test_server_subagent_uncertain_rebind",
+    "tests.test_server_subagent_lifecycle_drain",
+    "tests.test_notion_tool_subagent_runtime",
+    "tests.test_account_pool_parallelism",
 )
 
 REQUIRED_STAGE_B_TOKENS = (
@@ -60,15 +64,12 @@ def _suite_mentions(text: str, module: str) -> bool:
     dotted = module
     slash = _module_token(module)
     basename = module.rsplit(".", 1)[-1]
-    return (
-        dotted in text
-        or slash in text
-        or re.search(
-            rf"(?<![A-Za-z0-9_]){re.escape(basename)}(?![A-Za-z0-9_])",
-            text,
-        )
-        is not None
+    patterns = (
+        rf"(?<![A-Za-z0-9_]){re.escape(dotted)}(?![A-Za-z0-9_])",
+        rf"(?<![A-Za-z0-9_/]){re.escape(slash)}(?![A-Za-z0-9_])",
+        rf"(?<![A-Za-z0-9_]){re.escape(basename)}(?![A-Za-z0-9_])",
     )
+    return any(re.search(pattern, text) is not None for pattern in patterns)
 
 
 def check(repo: Path, suite_files: list[Path]) -> dict[str, object]:
@@ -94,7 +95,7 @@ def check(repo: Path, suite_files: list[Path]) -> dict[str, object]:
     stage_b_suite_hits = [
         rel
         for rel in stage_b_files
-        if Path(rel).stem in suite_text or rel in suite_text
+        if _suite_mentions(suite_text, rel.removesuffix(".py").replace("/", "."))
     ]
     missing_stage_b_suite = sorted(set(stage_b_files) - set(stage_b_suite_hits))
     stage_b_ready = bool(stage_b_files) and not missing_stage_b_suite

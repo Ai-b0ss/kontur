@@ -1,0 +1,54 @@
+{
+  "schema": "notion_core_account_exact_and_gate_hardening_v1",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_head": "4b344547d5e95bd4b3c62f5b80186059d849ff08",
+  "agent_account_pool": {
+    "source_blob": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f",
+    "source_size": 43173,
+    "materializer_blob": "80aeb1872c1cab7f51c33039584b5786e441f9f0",
+    "preimage_check": "PASS",
+    "apply": "PASS",
+    "compile": "PASS",
+    "final_blob": "c9ca6f3b4545e469966369a4220a6a2a60bf3697",
+    "final_size": 48066,
+    "verdict": "EXACT_INDEPENDENT_REMATERIALIZATION_PASS"
+  },
+  "agent_server": {
+    "source_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "source_size": 112748,
+    "expected_startup_intermediate_blob": "5c04b8cce34b29e63bf1839d59476f8081763c2b",
+    "expected_startup_intermediate_size": 115901,
+    "expected_final_blob": "273db94a8f9b153e95c910df221755e28c0f46a7",
+    "expected_final_size": 116047,
+    "status": "NOT_YET_INDEPENDENTLY_REMATERIALIZED_IN_THIS_CONTAINER"
+  },
+  "coverage_hardening": {
+    "old_canonical_blob": "2df0e51ab385d003b2cbdf9126aad0176d62bed6",
+    "agent_candidate_blob": "2c2c25e9e6b46e5a3ed7753ecb6a01587e41f9a1",
+    "agent_candidate_review": "REJECTED_AS_FINAL_BECAUSE_PREFIX_MATCH_FALSE_PASS_REPRODUCED",
+    "reproduced_false_positive": "tests.test_delegated_tool_loop was falsely satisfied by tests.test_delegated_tool_loop_runtime_validation under raw substring matching",
+    "new_canonical_blob": "be9b721ea61d897889c06aa9f5870d941b5eb876",
+    "new_canonical_commit": "9d4ffc992a68f00374a2477cfbcfe3149d18d033",
+    "syntax": "PASS",
+    "full_synthetic_suite": "PASS",
+    "missing_seven_suite": "NOT_READY_WITH_ALL_SEVEN_MISSING",
+    "adversarial_prefix_suite": "NOT_READY",
+    "stage_b_prefix_adversarial": "NOT_READY",
+    "readback": "PASS"
+  },
+  "windows_readiness": {
+    "old_blob": "d6fde58cc908d5cbab553aef887422f86aa82fbb",
+    "new_blob": "062927f71da341c665d5311fc31b8e8a2bdebb65",
+    "new_commit": "c1ecc03418a79deb4b36fd09413421cd41799f36",
+    "coverage_pin": "be9b721ea61d897889c06aa9f5870d941b5eb876",
+    "full_synthetic_candidate": "PASS",
+    "old_coverage_pin": "REJECTED",
+    "tampered_server_bytes": "REJECTED",
+    "readback": "PASS"
+  },
+  "native_windows_run_started": false,
+  "circle_connectivity": "PASS",
+  "product_refs_changed": false,
+  "live_notion_or_codex_used": false,
+  "next": "independently rematerialize exact final server 273db94a.../116047, then build unified same-byte Stage-B and run complete Agent+Core matrix before any native Windows proof"
+}

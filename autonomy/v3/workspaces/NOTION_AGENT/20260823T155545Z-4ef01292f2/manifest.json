@@ -7,33 +7,144 @@
   "capsule_id": "20260823T155545Z-4ef01292f2",
   "created_at_utc": "2026-08-23T15:55:45Z",
   "parts": [
-    {"chars": 1000, "index": 0, "name": "part-0000.b64", "sha256_text": "951fcf0ebc491130e37c1fa894066231f8eebf5e3700bf4fad5f84cd225919c6"},
-    {"chars": 1000, "index": 1, "name": "part-0001.b64", "sha256_text": "7af2c304640a52a46b00a21018be655f961b1d50012d4673d0bab826cc3248b3"},
-    {"chars": 1000, "index": 2, "name": "part-0002.b64", "sha256_text": "8765b64e83451acc2682af296ed0b2958be2870fc6a8480d00d8165cbd13e6f1"},
-    {"chars": 1000, "index": 3, "name": "part-0003.b64", "sha256_text": "92f41ccc741385f4fac908d43ba7ca6da63888ce2cb02d7c33307eff046cbd58"},
-    {"chars": 1000, "index": 4, "name": "part-0004.b64", "sha256_text": "de1bce2ce27c403befd6ff642296996551c92e2e5b4bcf2322ca885532da1abb"},
-    {"chars": 1000, "index": 5, "name": "part-0005.b64", "sha256_text": "e09b7c89e5acfe46f97966ec308cd5eadd91272170bd371906a54844e461bb87"},
-    {"chars": 1000, "index": 6, "name": "part-0006.b64", "sha256_text": "78094e06d4576cbf34b83a86dc9a59293f16a3a9c1688173a73967f935acfa14"},
-    {"chars": 1000, "index": 7, "name": "part-0007.b64", "sha256_text": "6f8832fa20a65a688710832185dcc3525470e8b2efe122a0b1749786edcf84e7"},
-    {"chars": 1000, "index": 8, "name": "part-0008.b64", "sha256_text": "f44e045df1b84ca06d853644cf2208295a58608682bfa3605d1e984d8e69f33e"},
-    {"chars": 1000, "index": 9, "name": "part-0009.b64", "sha256_text": "aecf862c77805253bd104e0d13c6e99c8cf08dba62f3be2e018936ade24ed550"},
-    {"chars": 1000, "index": 10, "name": "part-0010.b64", "sha256_text": "3ed8f9faff6420fea8a329d3b254054e9ab5026e9303da41ea66cb37746a2636"},
-    {"chars": 1000, "index": 11, "name": "part-0011.b64", "sha256_text": "4f4d907a11c5ccc9725afdc2e75186f36053ebc970e8575b5db4ecfe5b2ffd16"},
-    {"chars": 1000, "index": 12, "name": "part-0012.b64", "sha256_text": "d773005825ac4bbc7d692203a63c829ea586635fc79de47e986c723fa7d7029c"},
-    {"chars": 112, "index": 13, "name": "part-0013.b64", "sha256_text": "c71b69fda9f38acf0ae319c309cd48ed38de35530ecd113538971900c055bf1a"}
+    {
+      "chars": 1000,
+      "index": 0,
+      "name": "part-0000.b64",
+      "sha256_text": "951fcf0ebc491130e37c1fa894066231f8eebf5e3700bf4fad5f84cd225919c6"
+    },
+    {
+      "chars": 1000,
+      "index": 1,
+      "name": "part-0001.b64",
+      "sha256_text": "7af2c304640a52a46b00a21018be655f961b1d50012d4673d0bab826cc3248b3"
+    },
+    {
+      "chars": 1000,
+      "index": 2,
+      "name": "part-0002.b64",
+      "sha256_text": "8765b64e83451acc2682af296ed0b2958be2870fc6a8480d00d8165cbd13e6f1"
+    },
+    {
+      "chars": 1000,
+      "index": 3,
+      "name": "part-0003.b64",
+      "sha256_text": "92f41ccc741385f4fac908d43ba7ca6da63888ce2cb02d7c33307eff046cbd58"
+    },
+    {
+      "chars": 1000,
+      "index": 4,
+      "name": "part-0004.b64",
+      "sha256_text": "de1bce2ce27c403befd6ff642296996551c92e2e5b4bcf2322ca885532da1abb"
+    },
+    {
+      "chars": 1000,
+      "index": 5,
+      "name": "part-0005.b64",
+      "sha256_text": "e09b7c89e5acfe46f97966ec308cd5eadd91272170bd371906a54844e461bb87"
+    },
+    {
+      "chars": 1000,
+      "index": 6,
+      "name": "part-0006.b64",
+      "sha256_text": "78094e06d4576cbf34b83a86dc9a59293f16a3a9c1688173a73967f935acfa14"
+    },
+    {
+      "chars": 1000,
+      "index": 7,
+      "name": "part-0007.b64",
+      "sha256_text": "6f8832fa20a65a688710832185dcc3525470e8b2efe122a0b1749786edcf84e7"
+    },
+    {
+      "chars": 1000,
+      "index": 8,
+      "name": "part-0008.b64",
+      "sha256_text": "f44e045df1b84ca06d853644cf2208295a58608682bfa3605d1e984d8e69f33e"
+    },
+    {
+      "chars": 1000,
+      "index": 9,
+      "name": "part-0009.b64",
+      "sha256_text": "aecf862c77805253bd104e0d13c6e99c8cf08dba62f3be2e018936ade24ed550"
+    },
+    {
+      "chars": 1000,
+      "index": 10,
+      "name": "part-0010.b64",
+      "sha256_text": "3ed8f9faff6420fea8a329d3b254054e9ab5026e9303da41ea66cb37746a2636"
+    },
+    {
+      "chars": 1000,
+      "index": 11,
+      "name": "part-0011.b64",
+      "sha256_text": "4f4d907a11c5ccc9725afdc2e75186f36053ebc970e8575b5db4ecfe5b2ffd16"
+    },
+    {
+      "chars": 1000,
+      "index": 12,
+      "name": "part-0012.b64",
+      "sha256_text": "d773005825ac4bbc7d692203a63c829ea586635fc79de47e986c723fa7d7029c"
+    },
+    {
+      "chars": 112,
+      "index": 13,
+      "name": "part-0013.b64",
+      "sha256_text": "c71b69fda9f38acf0ae319c309cd48ed38de35530ecd113538971900c055bf1a"
+    }
   ],
   "schema": "free_fabric_worker_capsule_v4",
   "source_ref": "Ai-b0ss/notion-agent-bridge@4b344547d5e95bd4b3c62f5b80186059d849ff08",
   "worker": "NOTION_AGENT",
   "workspace": {
-    "CHECKPOINT.json": {"mode": "0o644", "sha256": "80c5c7a6235f708344386c09fe5ee654456ce330e338d164ba362cd320d742db", "size": 10327, "type": "file"},
-    "README.md": {"mode": "0o644", "sha256": "c48f6038cfec86d925d8c1ec4c5eb02ed2945723d22ecfc37713f5fd3a31ee13", "size": 499, "type": "file"},
-    "candidates": {"mode": "0o2755", "type": "dir"},
-    "candidates/delegated_prompt_policy": {"mode": "0o2755", "type": "dir"},
-    "candidates/delegated_prompt_policy/delegation_dispatcher.py": {"mode": "0o644", "sha256": "6c0d54c0e3e6316b3eff8559e049c07b023bbbb2b4dbe515774faae5b661e25b", "size": 2865, "type": "file"},
-    "candidates/delegated_prompt_policy/delegation_policy.py": {"mode": "0o644", "sha256": "9d2ea238fb14705a8a063ad2260ae1d0e0360cdda2a4001b0e9bf68fb1cdcd2e", "size": 4273, "type": "file"},
-    "candidates/delegated_prompt_policy/notion_delegated_model_step_candidate.py": {"mode": "0o644", "sha256": "c00e16897372155a4b9e59267ceac6e2d0790e24a025a42cca05f225dfe13911", "size": 9092, "type": "file"},
-    "candidates/delegated_prompt_policy/test_model_prompt_policy.py": {"mode": "0o644", "sha256": "5f53e43488111e0e37b2624d6fcf3fdc45f0fc6920fb3d9b1b84dff14ebec54a", "size": 1652, "type": "file"},
-    "candidates/delegated_prompt_policy/test_prompt_policy.py": {"mode": "0o644", "sha256": "c42060b8de0cdb67b19ef226eb8fefa8cf742869ad522bc2c36e7e03944df750", "size": 2571, "type": "file"}
+    "CHECKPOINT.json": {
+      "mode": "0o644",
+      "sha256": "80c5c7a6235f708344386c09fe5ee654456ce330e338d164ba362cd320d742db",
+      "size": 10327,
+      "type": "file"
+    },
+    "README.md": {
+      "mode": "0o644",
+      "sha256": "c48f6038cfec86d925d8c1ec4c5eb02ed2945723d22ecfc37713f5fd3a31ee13",
+      "size": 499,
+      "type": "file"
+    },
+    "candidates": {
+      "mode": "0o2755",
+      "type": "dir"
+    },
+    "candidates/delegated_prompt_policy": {
+      "mode": "0o2755",
+      "type": "dir"
+    },
+    "candidates/delegated_prompt_policy/delegation_dispatcher.py": {
+      "mode": "0o644",
+      "sha256": "6c0d54c0e3e6316b3eff8559e049c07b023bbbb2b4dbe515774faae5b661e25b",
+      "size": 2865,
+      "type": "file"
+    },
+    "candidates/delegated_prompt_policy/delegation_policy.py": {
+      "mode": "0o644",
+      "sha256": "9d2ea238fb14705a8a063ad2260ae1d0e0360cdda2a4001b0e9bf68fb1cdcd2e",
+      "size": 4273,
+      "type": "file"
+    },
+    "candidates/delegated_prompt_policy/notion_delegated_model_step_candidate.py": {
+      "mode": "0o644",
+      "sha256": "c00e16897372155a4b9e59267ceac6e2d0790e24a025a42cca05f225dfe13911",
+      "size": 9092,
+      "type": "file"
+    },
+    "candidates/delegated_prompt_policy/test_model_prompt_policy.py": {
+      "mode": "0o644",
+      "sha256": "5f53e43488111e0e37b2624d6fcf3fdc45f0fc6920fb3d9b1b84dff14ebec54a",
+      "size": 1652,
+      "type": "file"
+    },
+    "candidates/delegated_prompt_policy/test_prompt_policy.py": {
+      "mode": "0o644",
+      "sha256": "c42060b8de0cdb67b19ef226eb8fefa8cf742869ad522bc2c36e7e03944df750",
+      "size": 2571,
+      "type": "file"
+    }
   }
 }

@@ -1,17 +1,17 @@
 # Qwen — надёжность / текущий handoff
 
-Обновлено QWEN_RELIABILITY 2026-08-23 03:58 UTC.
+Обновлено QWEN_RELIABILITY 2026-08-23 04:50 UTC.
 
 ## Текущая линия
 
 - Repo: `Ai-b0ss/qwen-free-api`
 - Branch: `autopilot/qwen-runtime-preflight-20260818`
 - PR: #6
-- Fresh PR head: `5fdcbb3a10ccfc1413baa3b0a25b155e23b36258`.
-- Fresh compare `b0baa506e94cad0c89ca26c6e2af1c2e5371a019 -> 5fdcbb3...`: 5 Core-коммитов; менялись только `scripts/subagent-agent-runner-test.js` и `src/subagent-agent-runner.js`.
+- Fresh PR head: `b45ddac908e7b5a6926cb04bc58994a177cc0af9`.
+- Fresh compare `5fdcbb3a10ccfc1413baa3b0a25b155e23b36258 -> b45ddac...`: ровно 1 Core-коммит `test: fail closed on non-string coding batch ids`; добавлен только `scripts/subagent-batch-id-type-test.js`.
 - Reliability provider/account source bytes этим продвижением не менялись.
 
-Fresh `QWEN_CORE.md` синхронизирован: Core закрыл coding-subagent sessionPrefix fail-open; current Core/product head = `5fdcbb3...`. Reliability не трогает Core-owned session/subagent/system-prompt/chat-adapter без прямого пересечения.
+Fresh `QWEN_CORE.md` синхронизирован: Core-owned session/subagent/system-prompt/chat-adapter участок Reliability не трогает без прямого пересечения.
 
 ## Уже доказано Reliability
 
@@ -44,24 +44,24 @@ PASS:
 
 Остаётся exact execution `scripts/provider-safety-test.js` на настоящем locked dependency tree.
 
-Fresh exact facts on `5fdcbb3...`:
-- `scripts/provider-safety-test.js` blob = `b593a77fe73b9041081c2cc6de90195ffe074952`;
+Fresh exact facts on `b45ddac...`:
+- `scripts/provider-safety-test.js` остаётся тем же по содержанию, ожидаемый marker `PROVIDER_SAFE_ROTATION_PASS`;
 - `src/qwen-client.js` blob = `04ed2eb19dde860331d2722be9fe91c804d919b4`;
-- compare от предыдущего Reliability boundary подтверждает отсутствие изменений `qwen-client/account-store/provider-circuit`;
-- `package-lock.json` blob = `b38e85ce68a6f2e65e70bfd564c37b1eb82bdd3b`;
-- lock resolves `axios` exactly to `1.19.0`, tarball `https://registry.npmjs.org/axios/-/axios-1.19.0.tgz`, integrity `sha512-ht/iuYZXEjFxLH/Hkezgd7m6JKlHHXEUSneaDz8uZe1Gj5QZtCnpyDsckvAiEnT89OEbCLmnte4R4sn7P0EKFw==`.
+- `src/account-store.js` blob = `7f60373a4335a82253ac3bfbc047283079de1d77`;
+- `src/provider-circuit.js` blob = `014b681c8032c86401801c6f0a6405f0b2149192`;
+- package lock по последнему проверенному Reliability boundary разрешает `axios` ровно `1.19.0`; ручной stub/reconstructed tree не принимаются как exact proof.
 
 Exact executor recheck this pulse:
-- hosted container: Node 22.16.0/npm 10.9.2 present, but DNS still fails for `github.com`, npm registry and jsDelivr; no local real axios tree;
-- connected Replit `PortlyEdibleMonads`: fresh strictly read-only environment question timed out again; app was not modified and is not accepted as exact executor;
-- current product head has no GitHub Actions workflow runs; absence of runs is NOT PASS;
-- no manual axios stub, browser-build substitution, reconstructed dependency tree or semantic model is accepted as exact proof.
+- hosted container: Node/npm есть, но прямой DNS к npm/GitHub всё ещё не работает; реального locked axios tree локально нет;
+- connected Replit `PortlyEdibleMonads`: fresh строго read-only вопрос только о Node/npm/DNS снова завершился timeout; app не менялся и не принят как exact executor;
+- current product head `b45ddac...` имеет GitHub Actions workflow runs = `[]`; отсутствие runs не является PASS;
+- публичный web подтверждает существование npm `axios 1.19.0` и точный tarball/integrity, но без безопасной материализации полного locked tree это не заменяет exact npm execution.
 
 Status remains `EXACT_PROVIDER_SAFETY_EXECUTION_PENDING`, not PASS.
 
 ## Circle policy — owner override
 
-`kontur#9` fresh-read confirms `[OWNER TEMPORARY CIRCLE FREEZE — 2026-08-23]` still active. Until explicit owner release:
+`kontur#9` fresh-read confirms `[OWNER TEMPORARY CIRCLE FREEZE — 2026-08-23]` still active and no later explicit owner release was found. Until explicit owner release:
 - Circle runs/jobs/branch triggers = 0;
 - do not move disposable gate branches;
 - do not use Circle as execution fallback;

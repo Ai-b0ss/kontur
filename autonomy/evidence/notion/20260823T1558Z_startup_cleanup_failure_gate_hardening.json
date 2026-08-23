@@ -1,0 +1,36 @@
+{
+  "schema": "notion_gate_hardening_evidence_v1",
+  "scope": "NOTION_CORE final local coverage and Windows readiness only",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_head": "4b344547d5e95bd4b3c62f5b80186059d849ff08",
+  "triggering_regression": "tests.test_startup_cleanup_failure_boundary_candidate",
+  "triggering_regression_reason": "accepted Agent startup cleanup root fix is load-bearing for transformed server bytes; omission allowed the previous final-gate verifier to PASS without exercising cleanup-task failure masking",
+  "old_final_gate_blob": "76ebba1f3e7cb4e7d2fa49d46868cac24b555535",
+  "new_final_gate_blob": "42cdae4c422068153f41697f063cf8a1cc28e8f9",
+  "old_windows_readiness_blob": "76ff15f78f158bbfa1a5c148ed4ee54be6128714",
+  "new_windows_readiness_blob": "c54866cba891fa81c38a399b0b5741b708c008aa",
+  "local_verification": {
+    "candidate_final_gate_git_blob_matches_agent_handoff": "PASS",
+    "candidate_final_gate_python_compile": "PASS",
+    "old_final_gate_without_new_regression": "PASS_REPRODUCED_UNSAFE",
+    "new_final_gate_without_new_regression": "NOT_READY_EXPECTED",
+    "new_final_gate_with_new_regression": "PASS",
+    "candidate_windows_readiness_git_blob_matches_agent_handoff": "PASS",
+    "candidate_windows_readiness_python_compile": "PASS",
+    "candidate_windows_readiness_complete_manifest": "READY_FOR_TARGETED_WINDOWS_CIRCLE",
+    "candidate_windows_readiness_missing_cleanup_failure_gate": "NOT_READY_EXPECTED",
+    "candidate_windows_readiness_old_coverage_blob": "NOT_READY_EXPECTED"
+  },
+  "github_readback": {
+    "final_gate_blob": "42cdae4c422068153f41697f063cf8a1cc28e8f9",
+    "windows_readiness_blob": "c54866cba891fa81c38a399b0b5741b708c008aa"
+  },
+  "boundary": {
+    "same_byte_stage_b_full_pass": false,
+    "native_windows_authorized": false,
+    "circle_connectivity": "PASS_ALREADY_PROVEN_NO_RECONNECT",
+    "agent_pair_materialization_owned_by": "NOTION_AGENT active claim",
+    "historical_transformed_server": "ba52edc7a8528d58acd2c5bef2b86c3ca84ca298 STALE_DO_NOT_PROMOTE"
+  },
+  "next": "consume fresh exact transformed Agent pair after current-head startup-cleanup materializer; apply canonical Core Stage-B on those bytes; run full same-byte matrix; execute hardened coverage/readiness; only then one targeted Windows Server 2022 proof"
+}

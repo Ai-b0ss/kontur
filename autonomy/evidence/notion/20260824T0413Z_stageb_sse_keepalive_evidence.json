@@ -1,0 +1,64 @@
+{
+  "schema": "notion_core_stageb_sse_keepalive_v1",
+  "created_at_msk": "2026-08-24T04:13:00+03:00",
+  "scope": "NOTION_CORE transaction/SSE projection only; excludes active NOTION_AGENT exact pair rematerialization and mandatory Agent matrix",
+  "heads": {
+    "core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_pr8": "4b344547d5e95bd4b3c62f5b80186059d849ff08"
+  },
+  "coordination": {
+    "active_core_claim": 5389544056,
+    "active_agent_claim": 5389444767,
+    "agent_claim_extended_until_msk": "2026-08-24T05:10:00+03:00",
+    "excluded_agent_surface": "exact transformed account_pool/server rematerialization and mandatory Agent matrix"
+  },
+  "preexisting_helper": {
+    "path": "autonomy/evidence/notion/20260824T0403Z_stageb_transaction_helper.py",
+    "git_blob": "b3fe792b99daad678e3c773db291576bdf179167",
+    "finding": "buffered_sse_projection waits silently for the durable transaction; it emits no bytes until completion"
+  },
+  "reproducer": {
+    "verdict": "CURRENT_HELPER_IDLE_GAP_REPRODUCED",
+    "condition": "slow commit-critical task; first SSE byte awaited for less than task duration",
+    "observed": "no byte before timeout while the server-owned task remains alive",
+    "risk": "long Notion work can hit client/proxy idle timeout even though the durable transaction correctly continues"
+  },
+  "candidate": {
+    "path": "autonomy/evidence/notion/20260824T0413Z_stageb_sse_keepalive_candidate.py",
+    "bytes": 1374,
+    "git_blob": "b4333b830ee62915a747d202174f657b26342d85",
+    "sha256": "53afa5dcc15a73edfc5b3c4a567ddf3f3b9ae593471590a85c4301dbb92ead79",
+    "contract": [
+      "while durable transaction is pending, emit only neutral SSE comments ': stageb-commit-pending'",
+      "neutral comments contain no response/item/call ids and no provider/tool payload",
+      "wait uses asyncio.shield so timeout/client cancellation never owns the server transaction",
+      "after durable completion, project exactly the canonical persisted response",
+      "transaction failure propagates without fabricating a protocol result",
+      "heartbeat interval is lower-bounded to avoid a busy loop"
+    ]
+  },
+  "targeted_test": {
+    "path": "autonomy/evidence/notion/20260824T0413Z_test_stageb_sse_keepalive.py",
+    "bytes": 4229,
+    "git_blob": "9ab064edd9a3dc184d62a0358a21873055409201",
+    "sha256": "c318cd68eeaf918e198d36bd997262a469baa87d178da26c19b2faf5c4a18da5",
+    "py_compile": "PASS",
+    "verdict": "STAGEB_SSE_KEEPALIVE_PASS",
+    "cases": 5,
+    "covered": [
+      "slow transaction emits multiple neutral comments before exact canonical response",
+      "fast transaction does not force a heartbeat",
+      "client closes projection after heartbeat but server-owned task still commits",
+      "transaction exception after heartbeats propagates with no response protocol payload",
+      "non-positive configured interval is bounded and cannot busy-loop"
+    ]
+  },
+  "acceptance_boundary": {
+    "store_plus_transaction_helper": "PASS from prior evidence",
+    "precommit_sse_keepalive_candidate": "PASS",
+    "same_byte_transformed_server_integration": "NOT_YET_PROVEN",
+    "full_stage_b": "NOT_YET_PROVEN",
+    "windows_allowed": false
+  },
+  "next": "After active NOTION_AGENT pair/matrix claim releases, integrate exact c9ca6f3b... + 273db94a... with store 3ca05116..., transaction helper b3fe792b..., and this neutral keepalive projection on the same bytes; rerun full Agent+Core matrix before coverage/readiness/Windows."
+}

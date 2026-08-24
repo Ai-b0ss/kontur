@@ -1,0 +1,51 @@
+{
+  "schema": "notion_agent_late_alias_gate_hardening_v1",
+  "observed_at_msk": "2026-08-24T06:52:00+03:00",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_claim_head": "9c2098feebd186421629f80e62787d0569f8b30c",
+  "agent_observed_drift_heads": [
+    "e3fe041794f34485c5cf5996fe9de07846dae016",
+    "3cc0c0be34bad1b79555d842cd8fc9755dd26b64"
+  ],
+  "drift_scope": [
+    "tools/materialize_agent_wiring_with_tombstones.py",
+    "tests/test_materialize_agent_wiring_late_alias_substitution.py"
+  ],
+  "new_regression": {
+    "module": "tests.test_materialize_agent_wiring_late_alias_substitution",
+    "latest_observed_blob": "4750c57e17055f1e6896382a0f355801492bc82f",
+    "purpose": "fail closed when product target or parent alias changes after earlier validation and before a filesystem boundary"
+  },
+  "old_final_gate": {
+    "coverage_blob": "b51f11f27d7ef2c52bc6fd93d3469caf3d6d4ae3",
+    "readiness_blob": "2da96347877bc3a3845c1c6b7796eea32257752f",
+    "problem": "did not require the newly added late-alias regression"
+  },
+  "new_final_gate": {
+    "coverage_blob": "0d2b9247f7b1ba2383c5ba87ed4731e1d61ca806",
+    "readiness_blob": "e80e119f19847a44b84ebdebcaf1e1391588c00a",
+    "readiness_schema": "notion_windows_ready_candidate_v8",
+    "new_required_local_gate": "agent_materializer_late_alias_substitution"
+  },
+  "local_negative_positive_model": {
+    "verdict": "NOTION_LATE_ALIAS_FINAL_GATE_HARDENING_PASS 7/7",
+    "cases": [
+      "complete suite passes",
+      "suite missing late-alias module fails",
+      "prefix/similar module name cannot satisfy exact module boundary",
+      "complete readiness manifest passes",
+      "readiness missing late-alias gate fails",
+      "old coverage pin fails readiness",
+      "candidate byte drift still fails readiness"
+    ]
+  },
+  "coordination": {
+    "core_claim": 5390478088,
+    "scope_narrow_heartbeat": 5390539378,
+    "agent_claim": 5390461790,
+    "pair_or_agent_matrix_touched": false,
+    "circle_or_windows_started": false,
+    "live_notion_or_codex": false
+  },
+  "boundary": "This hardens only final coverage/readiness. It is not Agent pair PASS, not same-byte Stage-B composition PASS, and not Windows readiness. Agent head is moving under its own active claim; exact pair must be accepted only from a fresh Agent RELEASE."
+}

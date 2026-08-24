@@ -1,0 +1,44 @@
+{
+  "schema": "notion_stageb_transaction_helper_gate_hardening_v1",
+  "timestamp_msk": "2026-08-24T10:35:00+03:00",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_head": "3cc0c0be34bad1b79555d842cd8fc9755dd26b64",
+  "exact_transformed_pair": {
+    "payload/account_pool.py": {
+      "git_blob": "c9ca6f3b4545e469966369a4220a6a2a60bf3697",
+      "bytes": 48066
+    },
+    "payload/server.py": {
+      "git_blob": "273db94a8f9b153e95c910df221755e28c0f46a7",
+      "bytes": 116047
+    }
+  },
+  "defect": {
+    "classification": "FINAL_GATE_COVERAGE_GAP",
+    "description": "The canonical Stage-B transaction coordinator and its executable regression existed, but the final coverage verifier did not require tests.test_stageb_transaction_helper and Stage-B discovery did not include stageb_transaction_helper. A final suite could therefore satisfy the previous coverage/readiness contract without executing the coordinator test that proves route-before-intent, strict intent-before-provider, atomic finalize-before-ephemeral publication, ambiguous single-attempt behavior, post-commit replay, detached commit survival and bounded-shutdown intent retention.",
+    "transaction_helper_blob": "b3fe792b99daad678e3c773db291576bdf179167",
+    "transaction_helper_test_blob": "478fa18a2917861917ade1a444735757e6d75198"
+  },
+  "local_falsification": {
+    "coverage_without_transaction_helper": "NOT_READY_PASS",
+    "coverage_with_transaction_helper": "PASS",
+    "readiness_without_stageb_transaction_helper_gate": "BLOCKED_PASS",
+    "readiness_with_old_coverage_pin": "BLOCKED_PASS",
+    "readiness_complete_synthetic_candidate": "PASS",
+    "postcommit_route_release_retry_model": "PASS_PROVIDER_CALL_COUNT_1"
+  },
+  "new_pins": {
+    "coverage_verifier_blob": "1342ed03e3a2b7eb4013480ba80db1e3d99750d7",
+    "windows_readiness_schema": "notion_windows_ready_candidate_v11",
+    "windows_readiness_blob": "4b90b639b943dd627f27c030efa087e904181560"
+  },
+  "new_requirements": {
+    "coverage_exact_module": "tests.test_stageb_transaction_helper",
+    "stage_b_discovery_token": "stageb_transaction_helper",
+    "readiness_local_gate": "stageb_transaction_helper=PASS"
+  },
+  "windows_started": false,
+  "circle_started": false,
+  "live_notion_or_codex_started": false,
+  "verdict": "STAGEB_TRANSACTION_HELPER_FINAL_GATE_HARDENING_PASS"
+}

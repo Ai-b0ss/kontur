@@ -1,0 +1,81 @@
+{
+  "schema": "notion_promoted_installer_v3_apply_ready_runtime_v1",
+  "created_at_msk": "2026-08-24T18:38:00+03:00",
+  "claim_comment_id": 5397406356,
+  "exact_heads": {
+    "core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_pr8": "12e3c4fe5ccec421281ad856547143f654897cd5"
+  },
+  "agent_exact_offline_safety": {
+    "status": "PASS",
+    "pair": {
+      "account_pool_git_blob": "c9ca6f3b4545e469966369a4220a6a2a60bf3697",
+      "account_pool_size": 48066,
+      "server_git_blob": "273db94a8f9b153e95c910df221755e28c0f46a7",
+      "server_size": 116047
+    },
+    "circle_workflow": "a7ea07cd-ffdf-49cd-ad1f-94e73e3a6965",
+    "precompose": "21 SUCCESS",
+    "composed": "37 SUCCESS"
+  },
+  "core_preimage": {
+    "integrated_upgrade_git_blob": "0f4393e656307e3b17dfab105464de551f12a05d"
+  },
+  "materializer": {
+    "git_blob": "63d8ece12c7a6671f09d8d85b56854de28ed8d6f",
+    "size": 2759,
+    "sha256": "b7c0428c6ab63bb4825e70cf20070a6d14fa046f992bc473ded42718255532d6",
+    "contract": "hard-pin exact integrated_upgrade preimage; preserve legacy run_upgrade; append run_promoted_upgrade entrypoint; deterministic; compile candidate; reject wrong preimage/duplicate/missing anchors",
+    "local_selftest": "PASS cases=4"
+  },
+  "runtime": {
+    "whole_size": 23686,
+    "whole_sha256": "65b4cc0476f793dd390d45cced31e01714075bf4fea628b624ccdb75e3734f65",
+    "whole_git_blob": "2321b7033e49ea82acad1119f2485e76d66fb933",
+    "ordered_exact_git_blobs": [
+      {"sha": "0208bc87a6c47cc4d9f0adf5b771ee13de0884cc", "size": 6000},
+      {"sha": "be8f99112772aacde090138bea76d0210fe50a29", "size": 6000},
+      {"sha": "1be5b50e45f4d25e9db3a7f11dc5a26ab14d93d3", "size": 6000},
+      {"sha": "53d366dc9bf90b0df48ab6df3533ad4db3364c53", "size": 5686}
+    ],
+    "readback": "PASS all 4 immutable blob chunks",
+    "local_compile": "PASS",
+    "local_selftest": "PASS cases=7",
+    "local_targeted": "PASS cases=8"
+  },
+  "implemented_invariants": [
+    "legacy inner v2 run_upgrade remains unchanged and is a bounded inner stage",
+    "outer v3 owns a separate durable journal",
+    "bridge namespace is guarded before payload-directory existence is decided",
+    "durable v3 journal is published before a running bridge is stopped",
+    "nested payload directory is CREATE_NEW under guarded bridge when absent and receives exact transaction owner marker before child writes",
+    "promoted source writes use existing NCM28 ownership snapshots + atomic_write + parent guards",
+    "installed marker records exact promoted payload manifest",
+    "non-verified recovery restores only exact PRE or exact transaction NEW states and fails closed on foreign drift",
+    "verified recovery revalidates exact outputs before cleanup",
+    "owned payload directory deletion requires exact marker and empty exact guarded directory"
+  ],
+  "defects_found_and_fixed_during_targeted_execution": [
+    {
+      "defect": "prewrite/rollback recovery returned success after restoring only Core, before promoted overlay was reinstalled",
+      "fix": "recovery returns RETRY; fresh promoted attempt continues only after releasing operation lock"
+    },
+    {
+      "defect": "payload directory existence was observed path-based before bridge directory identity was frozen",
+      "fix": "presence is now read relative to the held bridge DirectoryGuard"
+    },
+    {
+      "defect": "running bridge was stopped before durable v3 journal publication, leaving a crash window with no recovery ownership record",
+      "fix": "journal publication now precedes lifecycle.stop; stopped phase is persisted afterward"
+    }
+  ],
+  "superseded_unattached_blob": "1f35ff5d6e29608dff25df7f352262abdb10f131",
+  "verdict": "PROMOTED_INSTALLER_V3_APPLY_READY_LOCAL_TARGETED_PASS",
+  "not_proven_yet": [
+    "exact repository-local execution of materialized integrated_upgrade + runtime against the real NCM28 classes",
+    "real NCM28 crash/identity/alias matrix including original STOPPED lifecycle",
+    "same-byte full Agent+Core Stage-B matrix and coverage/readiness",
+    "native Windows"
+  ],
+  "next_gate": "reconstruct exact runtime from ordered blobs; exact-materialize integrated_upgrade@0f4393e; run real repository-local NCM28 promoted-installer matrix; if green, compose same-byte Stage-B on current Agent pair"
+}

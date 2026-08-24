@@ -1,0 +1,40 @@
+{
+  "schema": "notion_agent_execution_manifest_gap_v1",
+  "timestamp_msk": "2026-08-24T14:50:00+03:00",
+  "agent_head": "3cc0c0be34bad1b79555d842cd8fc9755dd26b64",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "finding": "Current coverage verifiers prove that module names are mentioned by suite files, not that the modules were actually executed successfully. A suite consisting only of comments containing required module names satisfies the same _suite_mentions semantics.",
+  "local_falsification": {
+    "fixture": "required test files exist; suite text contains only comment lines with required module names",
+    "result": "COMMENT_ONLY_WOULD_COUNT_AS_COVERED=true",
+    "verdict": "FAIL_OPEN_CONFIRMED"
+  },
+  "root_fix_candidate": {
+    "path": "autonomy/v3/tools/run_notion_agent_exact_matrix.py",
+    "blob": "681e186b73f9dd06b59b098d2c594e19eef16fa1",
+    "purpose": "Verify exact Agent head, exact transformed pair plus owner/engineer overlay, verify every test file is unchanged from the exact Agent head, execute every Agent-owned required module separately, and emit a machine-readable per-module execution manifest.",
+    "self_test": {
+      "result": "PASS",
+      "cases": [
+        "two synthetic unittest modules execute PASS",
+        "test-file byte drift is rejected before execution proof"
+      ]
+    }
+  },
+  "exact_composition": {
+    "payload/account_pool.py": "c9ca6f3b4545e469966369a4220a6a2a60bf3697",
+    "payload/server.py": "273db94a8f9b153e95c910df221755e28c0f46a7",
+    "payload/delegation_policy.py": "fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e",
+    "payload/delegation_dispatcher.py": "a9d15b79b421cd29b094b549be06d2b0319e26d9",
+    "payload/notion_delegated_model_step.py": "f36e9c91355dec667173b6265dd550554fb0f05d",
+    "payload/subagent_entrypoint.py": "2d57651b408ef2e6c75f29855f7cdbaeafa97c2e",
+    "payload/server_subagent_lifecycle.py": "f47838b338f2bd94163cf466110f939c065ac041"
+  },
+  "boundary": {
+    "agent_full_matrix": "NOT_PROVEN",
+    "windows": "FORBIDDEN",
+    "circle_connectivity": "ALREADY_PROVEN_NO_REPROBE",
+    "core_installer_stage_b": "OWNED_BY_NOTION_CORE_NOT_TOUCHED"
+  },
+  "next": "Run the new execution runner against one local exact composed Agent tree; only a PASS execution manifest can be handed to Core as Agent safety-green evidence. Core then composes the same bytes with installer-v3/Stage-B and runs the same-byte full matrix."
+}

@@ -1,0 +1,68 @@
+{
+  "schema": "notion_stageb_stream_failure_projection_evidence_v1",
+  "observed_at": "2026-08-24T05:46:00+03:00",
+  "heads": {
+    "core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_pr8": "4b344547d5e95bd4b3c62f5b80186059d849ff08"
+  },
+  "predecessor": {
+    "keepalive_candidate_blob": "b4333b830ee62915a747d202174f657b26342d85",
+    "exact_test_blob": "4a8b80c160a79cf9c3bc7d5bfdb6fe5740b210e0",
+    "prior_verdict": "STAGEB_SSE_KEEPALIVE_EXACT_PASS_7_OF_7",
+    "newly_reproduced_gap": [
+      "Starlette StreamingResponse commits HTTP 200 before the durable task result is known",
+      "a late durable transaction failure would otherwise end the HTTP-200 SSE body without a protocol-visible terminal failure",
+      "the predecessor wait_for(shield(task)) path can surface the task exception directly before reaching task.result(), so the old comment about later propagation understates the gap"
+    ]
+  },
+  "candidate": {
+    "path": "autonomy/evidence/notion/20260824T0546Z_stageb_stream_failure_projection_candidate.py",
+    "git_blob": "a094a4b5484384037fb02c07d345b73531a46091",
+    "size": 3318,
+    "sha256": "2f0b3658524ef7b9b1d5f0a926ce7cd41a32093a2f6883851a2eb788e1f9f329",
+    "properties": [
+      "neutral stageb-commit-pending SSE comments are the only bytes emitted while the durable transaction is pending",
+      "client cancellation does not cancel the server-owned transaction",
+      "transaction failure is converted to one sanitized response.failed event with no exception text, provider/tool/call id, or successful response payload",
+      "a cancelled server-owned task is also projected as response.failed when the client remains attached",
+      "the complete canonical success projection is buffered before the first protocol event, so a projector exception cannot leak a partial success stream"
+    ]
+  },
+  "exact_regression": {
+    "path": "autonomy/evidence/notion/20260824T0546Z_test_stageb_stream_failure_projection_exact.py",
+    "git_blob": "8d5fadf31aeff034d09e9943b25249402a2207b0",
+    "size": 3957,
+    "sha256": "f356b6147ec67e233c5806592ff859506d2522d400705bf81f5891ef619354f5",
+    "python": "3.13.5",
+    "starlette": "0.50.0",
+    "compile": "PASS",
+    "execution": "STAGEB_STREAM_FAILURE_PROJECTION_EXACT_PASS 10/10",
+    "cases": [
+      "slow success: neutral heartbeat then canonical response",
+      "fast success: no extra heartbeat",
+      "late transaction failure: sanitized response.failed after heartbeat",
+      "immediate transaction failure: response.failed without abrupt stream",
+      "projection failure: no partial response.created leak",
+      "client waiter cancellation: server transaction survives",
+      "ASGI StreamingResponse: HTTP 200 body contains deterministic response.failed terminal event",
+      "failure event contains server_error but no response id",
+      "simulated Codex retry is blocked from a second provider call by unresolved durable intent",
+      "cancelled server task becomes terminal failure for an attached client"
+    ]
+  },
+  "codex_protocol_evidence": {
+    "repository": "openai/codex",
+    "main_sha_at_audit": "76d98a771e6cd44a79a3ab895a9f7c49d27d6deb",
+    "source": "codex-rs/codex-api/src/sse/responses.rs",
+    "finding": "current Codex parses response.failed whenever response.error is present; generic server_error is classified retryable",
+    "implication": "the bridge must not rely on the client to suppress retries. Durable unresolved provider_intent remains the duplicate-provider guard; a real Codex retry/restart proof on the final same-byte candidate is still mandatory."
+  },
+  "boundary": {
+    "full_stageb": "NOT_YET_PROVEN",
+    "windows_ready": false,
+    "product_refs_changed": false,
+    "circle_or_windows_run": false,
+    "live_notion_or_codex": false,
+    "next": "wire this failure projector together with store 3ca05116..., transaction helper b3fe792b..., and neutral keepalive semantics into the exact final Agent server bytes 273db94a...; then run the full same-byte Agent+Core matrix and coverage/readiness gates before Windows"
+  }
+}

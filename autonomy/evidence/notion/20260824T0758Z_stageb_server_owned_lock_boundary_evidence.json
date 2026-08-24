@@ -1,0 +1,46 @@
+{
+  "schema": "notion_stageb_server_owned_lock_boundary_evidence_v1",
+  "observed_at_msk": "2026-08-24T07:58:00+03:00",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_head": "3cc0c0be34bad1b79555d842cd8fc9755dd26b64",
+  "agent_pair_status": "OWNED_BY_ACTIVE_NOTION_AGENT_CLAIM_NOT_CONSUMED",
+  "exact_source": {
+    "server_preimage_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "turn_affinity_blob": "f4bc004ec08cbaf3f1118dec0926015ab41b8bd3",
+    "reservation_aware_lease_blob": "c77b4d5214911def1729243516aec73e43f8d425",
+    "stageb_store_candidate_blob": "3ca05116a1ada8f1c7beb7cbdd838b08154257e5",
+    "stageb_transaction_helper_blob": "b3fe792b99daad678e3c773db291576bdf179167",
+    "stageb_stream_projector_blob": "a094a4b5484384037fb02c07d345b73531a46091"
+  },
+  "finding": {
+    "classification": "MANDATORY_STAGEB_INTEGRATION_INVARIANT",
+    "reason": "After SSE client disconnect, the server-owned provider/finalize task must continue. Therefore the inference slot plus conversation and turn-affinity locks must be owned by that server task, not by the client-facing generator. Releasing those locks while commit-critical work continues permits a second same-key request to overlap the first transaction.",
+    "current_server_reference": "The current stream run_request coroutine itself enters responses_inference_slot -> conversation_segments.lock -> turn_affinities.lock before handle_openai_responses; final Stage-B integration must preserve this ownership shape while replacing pre-commit protocol output with buffered durable projection."
+  },
+  "candidate": {
+    "path": "autonomy/evidence/notion/20260824T0752Z_stageb_server_owned_lock_boundary_candidate.py",
+    "git_blob": "2f92c2abe56e2d4be39c4930a63dd876aca52294",
+    "bytes": 896,
+    "sha256": "57476952b1145605751f6c67d69af0bd55a17ab109f70dd51dba7ed9facfd241"
+  },
+  "regression": {
+    "path": "autonomy/evidence/notion/20260824T0752Z_test_stageb_server_owned_lock_boundary.py",
+    "git_blob": "b280001743064a86b61306c160820d9b88329672",
+    "bytes": 4233,
+    "sha256": "80dc0638036bdace25ff67a918c9aad566ee22f7bff22b3a0494dd38384fe154",
+    "python": "3.13",
+    "compile": "PASS",
+    "verdict": "STAGEB_SERVER_OWNED_LOCK_BOUNDARY_PASS 6/6",
+    "checks": [
+      "client waiter cancellation does not cancel server-owned transaction",
+      "conversation lock remains held while durable transaction is pending",
+      "turn-affinity lock remains held while durable transaction is pending",
+      "second same-key operation cannot enter before first finishes",
+      "same-key critical sections never overlap",
+      "negative control proves client-owned lock can be released while detached task still runs"
+    ]
+  },
+  "integration_rule": "Start one server-owned task whose coroutine itself acquires inference/conversation/affinity ownership and runs StageBTransactionCoordinator.execute. The SSE generator may shield/wait/project that task, but must not own those locks or cancel the task after provider work begins.",
+  "windows_authorized": false,
+  "live_provider_calls": 0
+}

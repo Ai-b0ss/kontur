@@ -7,11 +7,12 @@ import json
 import re
 from pathlib import Path
 
-SCHEMA = "notion_windows_ready_candidate_v11"
+SCHEMA = "notion_windows_ready_candidate_v12"
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
-FINAL_GATE_COVERAGE_VERIFIER_BLOB = "1342ed03e3a2b7eb4013480ba80db1e3d99750d7"
+FINAL_GATE_COVERAGE_VERIFIER_BLOB = "8254f36b14fb240c7d6466c7241d2d735ea310d9"
 
 REQUIRED_BLOB_PATHS = {
+    "integrated_upgrade.py": Path("integrated_upgrade.py"),
     "conversation_segments.py": Path("payload/conversation_segments.py"),
     "server.py": Path("payload/server.py"),
     "account_pool.py": Path("payload/account_pool.py"),
@@ -72,6 +73,7 @@ REQUIRED_GATES = (
     "stale_retry_after_ring_eviction",
     "rollback_floor",
     "codex_shell_env_secret_exclusion",
+    "promoted_install_payload_closure",
     "final_gate_coverage",
 )
 

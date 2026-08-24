@@ -1,16 +1,16 @@
 # NOTION_AGENT — current handoff
 
-Updated: 2026-08-24 ~13:43 MSK
+Updated: 2026-08-24 ~14:53 MSK
 Worker: `NOTION_AGENT`
 
 ## Exact heads / policy
 
 - Agent PR #8: `3cc0c0be34bad1b79555d842cd8fc9755dd26b64`.
 - Core PR #7: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
-- Fresh controller 13:33 MSK authorizes two independent lanes: Agent full exact safety matrix here; Core installer-v3/Stage-B separately.
 - Circle connectivity is already proven; do not re-probe it.
 - Native Windows remains forbidden until exact same-byte Agent+Core composition and full local matrix are green.
 - No live Notion/Codex/accounts/secrets/main/merge/production during the current offline stage.
+- Core owns promoted-installer-v3 / promoted-install closure / Stage-B. Agent owns only exact pair+overlay Agent safety execution and byte-exact handoff.
 
 ## Exact Agent composition
 
@@ -35,40 +35,34 @@ Exact delegated owner/engineer overlay required in the composed Agent matrix:
 
 Obsolete `subagent_entrypoint.py = aebefce4...` must never be composed.
 
-## Core boundary
+## Full Agent matrix — execution evidence boundary
 
-Core owns promoted-installer-v3 / promoted-install closure / Stage-B composition and must not be duplicated by Agent. Fresh Core handoff says installer-v3 transaction model is PASS as a model but not yet apply-ready; Windows remains forbidden.
+Previous coverage candidates (`8254f36b...`, `f521d832...`) are useful discovery/wiring guards but are NOT sufficient proof that tests actually ran: their `_suite_mentions()` logic accepts textual mentions. A synthetic suite containing only comment lines with required module names satisfies the same semantics and can therefore create a false coverage PASS.
 
-## Full Agent matrix coverage — latest result
+New control-only exact execution runner:
 
-Previous strengthened candidate `506e377fd22d44449495398e20768316ba12221d` correctly added 12 negative-path modules but still had two false-PASS omissions among current PR#8 tests:
+- `autonomy/v3/tools/run_notion_agent_exact_matrix.py`
+- Git blob: `681e186b73f9dd06b59b098d2c594e19eef16fa1`.
+- Evidence: `autonomy/evidence/notion/20260824T1450Z_agent_execution_manifest_gap.json`.
 
-- `tests.test_live_two_slot_probe_contract` (`tests/test_live_two_slot_probe_contract.py` blob `7a5437e412c976ca01ef1d0710c9ce1423e0f27c`): offline proof contract for distinct two-slot account/thread ownership, fresh-thread failover, bounded project tools, path/command rejection and exactly-once local write.
-- `tests.test_server_subagent_tool_catalog` (`tests/test_server_subagent_tool_catalog.py` blob `4266fbd61c6a48ee5ee0f0e17c9da1754332c2dc`): exact delegated tool catalog, malformed MCP result fail-closed behavior, tool-level error classification, and child-only transport identity.
+Runner contract:
 
-New no-ref-movement coverage candidate:
+1. require Git `HEAD == 3cc0c0be34bad1b79555d842cd8fc9755dd26b64`;
+2. re-hash exact transformed pair + exact five-file owner/engineer overlay;
+3. for every Agent-owned mandatory test module, require the current test file blob to equal the blob at the exact Agent head (no test weakening/drift in the composed tree);
+4. execute each module separately with `python -m unittest -v` under the normal repo/stub/test-support PYTHONPATH;
+5. emit `notion_agent_exact_matrix_execution_v1` JSON with per-module PASS/FAIL/TIMEOUT, return code, duration and stdout/stderr SHA-256;
+6. overall PASS only when every required Agent module actually returns zero.
 
-- `verify_notion_final_gate_coverage = f521d8324002de16e1dc57b6be4b3ce0a6be21eb` / 6379 bytes.
+Local self-test of the runner: PASS — two synthetic unittest modules execute; a one-byte test-file drift is rejected before execution proof.
 
-Local synthetic falsification on the exact previous candidate bytes:
-
-- old `506e...` with both modules omitted -> `PASS`;
-- new `f521...` with both modules omitted -> `NOT_READY`, reports both missing;
-- new `f521...` with complete fixture -> `PASS`;
-- result: `PASS_3_OF_3`.
-
-Durable evidence:
-
-- `autonomy/evidence/notion/20260824T1340Z_agent_coverage_plus2_gap.json`.
-- evidence commit: `b423e253fbad7e04a813e7fa8e40222f9b97143a`.
-
-This coverage candidate is not itself a safety-green or Windows authorization. Core should take `f521...` or a reviewed superset only after same-byte Agent/Core composition.
+Important: this runner does not itself claim Agent safety-green. Full execution on the real exact composed tree is still pending.
 
 ## Mandatory Agent matrix
 
-The complete local composed suite must execute all modules required by `f521...`, including in particular:
+The execution runner includes the Agent-owned portion of the strengthened matrix, including:
 
-- the 12 negative-path modules previously pinned at 12:50 MSK;
+- the 12 pinned negative-path modules for release-abort/failover/materializer journal/backup/recovery/finalization;
 - tombstone post-replace sync failure, durable restart and cancellation;
 - materializer target-path and late-alias substitution guards;
 - dynamic reservation/reselect/session-entry cleanup;
@@ -77,21 +71,23 @@ The complete local composed suite must execute all modules required by `f521...`
 - delegated tool-loop runtime validation and uncertain-side-effect failover;
 - `tests.test_server_subagent_tool_catalog`;
 - `tests.test_live_two_slot_probe_contract`;
-- Stage-B helper/stream/lock/closure modules supplied by Core composition.
+- durable tool guard, uncertain rebind, lifecycle drain, Notion tool-subagent runtime and account-pool parallelism.
+
+Core-supplied Stage-B transaction/stream/lock/promoted-install tests are deliberately NOT executed by this Agent runner; they belong to the subsequent Core same-byte composition.
 
 ## Current boundary
 
 - Exact Agent pair reproduction: proven locally on current head.
 - Exact five-file owner/engineer overlay identities: proven.
 - Full Agent safety matrix on exact pair + overlay: `NOT_PROVEN`.
-- Strengthened full-matrix coverage: `READY_FOR_CORE_REVIEW`, blob `f521d8324002de16e1dc57b6be4b3ce0a6be21eb`.
-- Core installer-v3 / unified Stage-B: `IN_PROGRESS / NOT_PROVEN` per fresh Core handoff.
-- Windows: `FORBIDDEN` until same-byte Agent+Core full local PASS + strengthened coverage/readiness PASS.
+- Exact execution-manifest mechanism: `READY`, blob `681e186b73f9dd06b59b098d2c594e19eef16fa1`.
+- Core installer-v3 / unified Stage-B: separate Core work, not mutated by Agent.
+- Windows: `FORBIDDEN` until Agent execution manifest PASS + same-byte Core Stage-B/full local PASS + final coverage/readiness PASS.
 
 ## Next exact action
 
-1. Compose locally `c9ca6f3b... + 273db94a... + fd9a.../a9d.../f36e.../2d576.../f478...`.
-2. Run the complete Agent suite required by `f521...` on those exact bytes and emit an exact executed-module manifest.
-3. If green, hand Core exact pair/overlay SHA+size and the executed-module manifest.
-4. Core composes those same bytes with installer-v3 + Stage-B, runs same-byte Agent+Core full matrix, then coverage/readiness against the real candidate root.
-5. Only then one targeted native Windows Server 2022 proof becomes admissible.
+1. Compose locally exactly `c9ca6f3b... + 273db94a... + fd9a.../a9d.../f36e.../2d576.../f478...` on Git HEAD `3cc0c0be...`.
+2. Run `run_notion_agent_exact_matrix.py` and preserve its exact JSON output.
+3. If and only if verdict is PASS, hand Core the exact pair/overlay SHA+size, runner blob, test-file blob map and per-module execution manifest.
+4. Core composes those same bytes with installer-v3 + Stage-B and runs the same-byte Agent+Core full matrix.
+5. Only after final coverage/readiness PASS on that real candidate root may one targeted native Windows Server 2022 proof run.

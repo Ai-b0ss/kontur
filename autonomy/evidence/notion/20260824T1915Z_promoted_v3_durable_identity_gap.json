@@ -1,0 +1,51 @@
+{
+  "schema": "notion_core_promoted_v3_durable_identity_gap_v1",
+  "status": "REPRODUCED_FIX_CANDIDATE_PREPARED_CI_PENDING",
+  "exact_core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "exact_agent_head": "12e3c4fe5ccec421281ad856547143f654897cd5",
+  "legacy_integrated_upgrade_blob": "0f4393e656307e3b17dfab105464de551f12a05d",
+  "promoted_runtime": {
+    "whole_git_blob": "2321b7033e49ea82acad1119f2485e76d66fb933",
+    "size": 23686,
+    "sha256": "65b4cc0476f793dd390d45cced31e01714075bf4fea628b624ccdb75e3734f65",
+    "parts": [
+      "0208bc87a6c47cc4d9f0adf5b771ee13de0884cc",
+      "be8f99112772aacde090138bea76d0210fe50a29",
+      "1be5b50e45f4d25e9db3a7f11dc5a26ab14d93d3",
+      "53d366dc9bf90b0df48ab6df3533ad4db3364c53"
+    ]
+  },
+  "root_cause": {
+    "summary": "outer-v3 journal persists only bytes/hash/size for managed file preimages and not NCM28 parent_identity/file_identity; recovery classifies PRE/NEW ownership by bytes only",
+    "impact": "after process crash a foreign file with byte-identical PRE or transaction-NEW content but a different filesystem identity can be adopted as transaction-owned and overwritten or unlinked during rollback/recovery",
+    "ncm28_contract": "OwnershipSnapshot already carries parent_identity and file_identity; destructive recovery is intended to be identity-bound, not merely content-bound"
+  },
+  "local_reproduction": {
+    "verdict": "PROMOTED_V3_SAME_CONTENT_FOREIGN_IDENTITY_ADOPTION_REPRODUCED",
+    "details": "real filesystem replacement preserved NEW bytes while changing inode identity; current byte-only _restore_one accepted the replacement as transaction NEW and attempted destructive restore"
+  },
+  "minimal_fix_candidate": {
+    "materializer_blob": "c72b82c96eca2175eb449e188cb49602a2ca1c81",
+    "targeted_regression_blob": "43debcae4b2ef1c68d377677373c5ef9ecb2e264",
+    "changes": [
+      "persist PRE parent/file identity",
+      "persist returned NEW identity after each successful atomic_write before proceeding",
+      "require bytes plus identity for PRE no-op, NEW rollback, post-write verification and verified recovery",
+      "fail closed when NEW bytes exist but durable NEW identity was not yet published"
+    ],
+    "boundary": "candidate patch compiles as a transform locally; exact reconstructed-runtime execution is still awaiting disposable Linux proof"
+  },
+  "disposable_linux_proof": {
+    "pr": 35,
+    "branch": "ci/notion-promoted-v3-identity-linux-20260824",
+    "head": "5c52181ecdd0fe251c30768a534e3fb690e38a76",
+    "base": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "run_ci_label": true,
+    "combined_status_at_record": [],
+    "note": "no CI result yet; do not duplicate while status remains absent/pending and do not interpret as PASS or FAIL"
+  },
+  "secondary_unresolved_boundary": "recovery still contains path-based payload_dir/owner-marker/listing checks; investigate only after the first identity fix is exact-targeted green",
+  "windows": "NOT_RUN_NOT_READY",
+  "live_notion_codex": "NOT_RUN",
+  "product_refs_moved": false
+}

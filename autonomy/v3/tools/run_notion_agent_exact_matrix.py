@@ -5,12 +5,13 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import time
 from pathlib import Path
 
-SCHEMA = 'notion_agent_exact_matrix_execution_v1'
+SCHEMA = 'notion_agent_exact_matrix_execution_v2'
 AGENT_HEAD = '3cc0c0be34bad1b79555d842cd8fc9755dd26b64'
 EXACT_PAYLOAD_BLOBS = {
     'payload/account_pool.py': 'c9ca6f3b4545e469966369a4220a6a2a60bf3697',
@@ -83,26 +84,49 @@ AGENT_MODULES = (
     'tests.test_materialize_agent_wiring_safe',
 )
 
+_RAN_RE = re.compile(rb'Ran\s+(\d+)\s+tests?\s+in\s+')
+_SKIP_RE = re.compile(rb'skipped=(\d+)')
+
+
 def git_blob_bytes(data: bytes) -> str:
     return hashlib.sha1(f'blob {len(data)}\0'.encode('ascii') + data).hexdigest()
+
 
 def git_blob_file(path: Path) -> str:
     return git_blob_bytes(path.read_bytes())
 
+
 def module_path(module: str) -> Path:
     return Path(module.replace('.', '/') + '.py')
+
 
 def run_git(repo: Path, *args: str) -> str:
     cp = subprocess.run(['git', *args], cwd=repo, check=True, text=True, capture_output=True)
     return cp.stdout.strip()
 
+
 def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def verify_worktree_shape(repo: Path, expected_changed: set[str]) -> None:
+    changed_text = run_git(repo, 'diff', '--name-only', '--no-renames', 'HEAD', '--')
+    changed = {line for line in changed_text.splitlines() if line}
+    if changed != expected_changed:
+        missing = sorted(expected_changed - changed)
+        extra = sorted(changed - expected_changed)
+        raise RuntimeError(f'WORKTREE_CHANGESET_MISMATCH:missing={missing}:extra={extra}')
+    untracked_text = run_git(repo, 'ls-files', '--others', '--exclude-standard')
+    untracked = sorted(line for line in untracked_text.splitlines() if line)
+    if untracked:
+        raise RuntimeError(f'UNTRACKED_WORKTREE_INPUT:{untracked}')
+
 
 def verify_composition(repo: Path, expected_head: str, payload_blobs: dict[str, str], modules: tuple[str, ...]) -> dict[str, str]:
     actual_head = run_git(repo, 'rev-parse', 'HEAD')
     if actual_head != expected_head:
         raise RuntimeError(f'AGENT_HEAD_MISMATCH expected={expected_head} actual={actual_head}')
+    verify_worktree_shape(repo, set(payload_blobs))
     for rel, expected in payload_blobs.items():
         p = repo / rel
         if p.is_symlink() or not p.is_file():
@@ -123,33 +147,66 @@ def verify_composition(repo: Path, expected_head: str, payload_blobs: dict[str, 
         test_blobs[module] = current_blob
     return test_blobs
 
+
+def parse_unittest_summary(stdout: bytes, stderr: bytes) -> tuple[int | None, int | None]:
+    combined = stdout + b'\n' + stderr
+    ran = _RAN_RE.findall(combined)
+    if not ran:
+        return None, None
+    tests_run = int(ran[-1])
+    skipped_matches = _SKIP_RE.findall(combined)
+    skipped = int(skipped_matches[-1]) if skipped_matches else 0
+    return tests_run, skipped
+
+
 def run_matrix(repo: Path, modules: tuple[str, ...], timeout: float) -> list[dict[str, object]]:
     env = os.environ.copy()
     extra = [str(repo), str(repo / 'regression' / 'test_support'), str(repo / 'regression' / 'stubs')]
     old = env.get('PYTHONPATH')
     env['PYTHONPATH'] = os.pathsep.join(extra + ([old] if old else []))
+    env['PYTHONDONTWRITEBYTECODE'] = '1'
     records: list[dict[str, object]] = []
     for module in modules:
         started = time.monotonic()
-        cmd = [sys.executable, '-m', 'unittest', '-v', module]
+        cmd = [sys.executable, '-B', '-m', 'unittest', '-v', module]
         try:
             cp = subprocess.run(cmd, cwd=repo, env=env, capture_output=True, timeout=timeout)
             rc = cp.returncode
             out = cp.stdout
             err = cp.stderr
-            status = 'PASS' if rc == 0 else 'FAIL'
+            tests_run, skipped = parse_unittest_summary(out, err)
+            if tests_run is None:
+                status = 'FAIL'
+                reason = 'UNITTEST_SUMMARY_MISSING'
+            elif tests_run <= 0:
+                status = 'FAIL'
+                reason = 'ZERO_TESTS_EXECUTED'
+            elif skipped is not None and skipped >= tests_run:
+                status = 'FAIL'
+                reason = 'ALL_TESTS_SKIPPED'
+            elif rc != 0:
+                status = 'FAIL'
+                reason = 'NONZERO_RETURN'
+            else:
+                status = 'PASS'
+                reason = None
             timed_out = False
         except subprocess.TimeoutExpired as exc:
             rc = None
             out = exc.stdout or b''
             err = exc.stderr or b''
+            tests_run, skipped = parse_unittest_summary(out, err)
             status = 'TIMEOUT'
+            reason = 'TIMEOUT'
             timed_out = True
         records.append({
             'module': module,
             'status': status,
+            'reason': reason,
             'returncode': rc,
             'timed_out': timed_out,
+            'tests_run': tests_run,
+            'tests_skipped': skipped,
             'duration_ms': int((time.monotonic() - started) * 1000),
             'stdout_sha256': sha256(out),
             'stderr_sha256': sha256(err),
@@ -157,6 +214,7 @@ def run_matrix(repo: Path, modules: tuple[str, ...], timeout: float) -> list[dic
             'stderr_bytes': len(err),
         })
     return records
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(description='Execute the exact offline NOTION_AGENT safety matrix and emit machine-readable proof.')
@@ -170,6 +228,12 @@ def main() -> int:
     try:
         test_blobs = verify_composition(repo, args.agent_head, EXACT_PAYLOAD_BLOBS, AGENT_MODULES)
         records = run_matrix(repo, AGENT_MODULES, args.timeout_per_module)
+        # Tests must not mutate the exact composed input tree. This second check also
+        # protects the handoff against a test/helper that silently rewrites source.
+        verify_worktree_shape(repo, set(EXACT_PAYLOAD_BLOBS))
+        for rel, expected in EXACT_PAYLOAD_BLOBS.items():
+            if git_blob_file(repo / rel) != expected:
+                raise RuntimeError(f'POST_MATRIX_COMPOSED_BLOB_DRIFT:{rel}')
         verdict = 'PASS' if all(r['status'] == 'PASS' for r in records) else 'FAIL'
         error = None
     except Exception as exc:
@@ -194,6 +258,7 @@ def main() -> int:
     args.output.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + '\n', encoding='utf-8')
     print(json.dumps({'verdict': verdict, 'modules': len(AGENT_MODULES), 'passed': sum(r.get('status') == 'PASS' for r in records), 'output': str(args.output)}, ensure_ascii=False))
     return 0 if verdict == 'PASS' else 1
+
 
 if __name__ == '__main__':
     raise SystemExit(main())

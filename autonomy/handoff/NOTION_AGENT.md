@@ -1,6 +1,6 @@
 # NOTION_AGENT — current handoff
 
-Updated: 2026-08-24 ~14:53 MSK
+Updated: 2026-08-24 ~16:00 MSK
 Worker: `NOTION_AGENT`
 
 ## Exact heads / policy
@@ -37,26 +37,29 @@ Obsolete `subagent_entrypoint.py = aebefce4...` must never be composed.
 
 ## Full Agent matrix — execution evidence boundary
 
-Previous coverage candidates (`8254f36b...`, `f521d832...`) are useful discovery/wiring guards but are NOT sufficient proof that tests actually ran: their `_suite_mentions()` logic accepts textual mentions. A synthetic suite containing only comment lines with required module names satisfies the same semantics and can therefore create a false coverage PASS.
+Historical coverage/name-mention candidates are not execution proof. The first exact execution runner (`681e186b...`, schema v1) was also insufficiently fail-closed: it pinned the seven intended payload/test blobs but did not reject unrelated tracked source drift or untracked importable inputs, accepted an all-skipped unittest module when return code was zero, and did not re-check the composed source after the matrix completed.
 
-New control-only exact execution runner:
+Current canonical control-only exact execution runner:
 
 - `autonomy/v3/tools/run_notion_agent_exact_matrix.py`
-- Git blob: `681e186b73f9dd06b59b098d2c594e19eef16fa1`.
-- Evidence: `autonomy/evidence/notion/20260824T1450Z_agent_execution_manifest_gap.json`.
+- Git blob: `19e3a44464ebd2730e3c1737cdd6d9c60d837092`.
+- Schema: `notion_agent_exact_matrix_execution_v2`.
+- Evidence: `autonomy/evidence/notion/20260824T1558Z_agent_execution_runner_v2_hardening.json`.
 
-Runner contract:
+Runner v2 contract:
 
 1. require Git `HEAD == 3cc0c0be34bad1b79555d842cd8fc9755dd26b64`;
-2. re-hash exact transformed pair + exact five-file owner/engineer overlay;
-3. for every Agent-owned mandatory test module, require the current test file blob to equal the blob at the exact Agent head (no test weakening/drift in the composed tree);
-4. execute each module separately with `python -m unittest -v` under the normal repo/stub/test-support PYTHONPATH;
-5. emit `notion_agent_exact_matrix_execution_v1` JSON with per-module PASS/FAIL/TIMEOUT, return code, duration and stdout/stderr SHA-256;
-6. overall PASS only when every required Agent module actually returns zero.
+2. require the complete tracked worktree diff to equal exactly the seven canonical transformed pair/owner-overlay paths; any extra tracked drift fails closed;
+3. reject any pre-existing untracked worktree input before execution;
+4. re-hash the exact transformed pair + exact five-file owner/engineer overlay;
+5. for every Agent-owned mandatory test module, require the current test file blob to equal the blob at the exact Agent head;
+6. execute each module separately with `python -B -m unittest -v` under the repo/stub/test-support PYTHONPATH and `PYTHONDONTWRITEBYTECODE=1`;
+7. require a parseable unittest summary, at least one executed test, and not-all-skipped for every module; return code zero alone is not PASS;
+8. emit per-module PASS/FAIL/TIMEOUT plus test/skip counts, return code, duration and stdout/stderr SHA-256;
+9. after all modules finish, re-check the exact worktree diff and canonical seven payload blobs so tests/helpers cannot silently rewrite the candidate;
+10. overall PASS only when every mandatory module passes and both pre/post composition checks hold.
 
-Local self-test of the runner: PASS — two synthetic unittest modules execute; a one-byte test-file drift is rejected before execution proof.
-
-Important: this runner does not itself claim Agent safety-green. Full execution on the real exact composed tree is still pending.
+Local synthetic hardening proof: PASS, six cases — expected diff accepted; extra tracked drift rejected; untracked source rejected; normal unittest executes; zero-test module rejected; all-skipped module rejected. `py_compile` PASS. This self-test proves the runner mechanics only; it is not Agent safety-green.
 
 ## Mandatory Agent matrix
 
@@ -80,14 +83,15 @@ Core-supplied Stage-B transaction/stream/lock/promoted-install tests are deliber
 - Exact Agent pair reproduction: proven locally on current head.
 - Exact five-file owner/engineer overlay identities: proven.
 - Full Agent safety matrix on exact pair + overlay: `NOT_PROVEN`.
-- Exact execution-manifest mechanism: `READY`, blob `681e186b73f9dd06b59b098d2c594e19eef16fa1`.
+- Exact execution-manifest mechanism: `READY_V2`, blob `19e3a44464ebd2730e3c1737cdd6d9c60d837092`.
+- Runner v1 blob `681e186b...` is superseded for acceptance evidence.
 - Core installer-v3 / unified Stage-B: separate Core work, not mutated by Agent.
-- Windows: `FORBIDDEN` until Agent execution manifest PASS + same-byte Core Stage-B/full local PASS + final coverage/readiness PASS.
+- Windows: `FORBIDDEN` until Agent v2 execution manifest PASS + same-byte Core Stage-B/full local PASS + final coverage/readiness PASS.
 
 ## Next exact action
 
-1. Compose locally exactly `c9ca6f3b... + 273db94a... + fd9a.../a9d.../f36e.../2d576.../f478...` on Git HEAD `3cc0c0be...`.
-2. Run `run_notion_agent_exact_matrix.py` and preserve its exact JSON output.
-3. If and only if verdict is PASS, hand Core the exact pair/overlay SHA+size, runner blob, test-file blob map and per-module execution manifest.
+1. Compose locally exactly `c9ca6f3b... + 273db94a... + fd9a.../a9d.../f36e.../2d576.../f478...` on Git HEAD `3cc0c0be...`, with no other tracked or untracked inputs.
+2. Run exact runner blob `19e3a44464ebd2730e3c1737cdd6d9c60d837092` and preserve its v2 JSON output.
+3. If and only if verdict is PASS, hand Core the exact pair/overlay SHA+size, runner blob, exact test-file blob map and per-module execution manifest.
 4. Core composes those same bytes with installer-v3 + Stage-B and runs the same-byte Agent+Core full matrix.
 5. Only after final coverage/readiness PASS on that real candidate root may one targeted native Windows Server 2022 proof run.

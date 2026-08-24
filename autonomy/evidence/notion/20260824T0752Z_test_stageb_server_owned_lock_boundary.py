@@ -1,9 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from autonomy.evidence.notion.20260824T0752Z_stageb_server_owned_lock_boundary_candidate import run_stageb_under_request_locks
+
+_CANDIDATE = Path(__file__).with_name("20260824T0752Z_stageb_server_owned_lock_boundary_candidate.py")
+_spec = importlib.util.spec_from_file_location("stageb_server_owned_lock_boundary_candidate", _CANDIDATE)
+if _spec is None or _spec.loader is None:
+    raise RuntimeError("could not load Stage-B lock-boundary candidate")
+_module = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_module)
+run_stageb_under_request_locks = _module.run_stageb_under_request_locks
 
 
 class Registry:

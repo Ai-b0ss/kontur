@@ -1,0 +1,31 @@
+{
+  "schema": "notion_agent_target_path_gate_hardening_v1",
+  "observed_at_msk": "2026-08-24T06:34:00+03:00",
+  "agent_head": "9c2098feebd186421629f80e62787d0569f8b30c",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "mandatory_regression": "tests.test_materialize_agent_wiring_target_path_safety",
+  "coverage": {
+    "previous_blob": "3a07683c5a093730b5dc08ede543f6d95c94f856",
+    "new_blob": "b51f11f27d7ef2c52bc6fd93d3469caf3d6d4ae3",
+    "commit": "020ecfcab63e018d20cd28d60a93ff53edad05b4",
+    "negative": "omitting the new exact module is detected as missing",
+    "positive": "full exact module set recognizes the new module"
+  },
+  "readiness": {
+    "previous_blob": "74533adc1ddee720936fe5c819d93e21c5992394",
+    "new_blob": "2da96347877bc3a3845c1c6b7796eea32257752f",
+    "commit": "933377a1ce93b86b38dfcb6c86a3326c70d865e2",
+    "schema": "notion_windows_ready_candidate_v7",
+    "coverage_pin": "b51f11f27d7ef2c52bc6fd93d3469caf3d6d4ae3",
+    "new_required_gate": "agent_materializer_target_path_safety"
+  },
+  "local_semantic_check": "PASS_4_OF_4",
+  "windows_authorization": "NOT_READY_UNTIL_SAME_BYTE_MATRIX_AND_NEW_GATES_PASS",
+  "effects": {
+    "circle": false,
+    "windows": false,
+    "live_notion_codex": false,
+    "product_core_files": false,
+    "main_merge_production": false
+  }
+}

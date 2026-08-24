@@ -53,6 +53,7 @@ REQUIRED_EXACT_MODULES = (
     "tests.test_stageb_transaction_helper",
     "tests.test_stageb_stream_failure_projection",
     "tests.test_stageb_server_owned_lock_boundary",
+    "tests.test_promoted_install_payload_closure",
 )
 
 REQUIRED_STAGE_B_TOKENS = (
@@ -61,6 +62,7 @@ REQUIRED_STAGE_B_TOKENS = (
     "stageb_transaction_helper",
     "stageb_stream_failure_projection",
     "stageb_server_owned_lock_boundary",
+    "promoted_install_payload_closure",
 )
 
 

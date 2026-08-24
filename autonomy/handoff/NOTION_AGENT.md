@@ -1,28 +1,28 @@
 # Notion — ротация / агентность / делегирование — handoff
 
-Обновлено: 2026-08-24 ~01:55 МСК.
+Обновлено: 2026-08-24 ~04:25 МСК.
 
 ## Источник истины
 - Product repo: `Ai-b0ss/notion-agent-bridge`.
 - Agent PR #8 exact head: `4b344547d5e95bd4b3c62f5b80186059d849ff08`.
 - Core PR #7 exact head: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
-- Notion Circle connectivity уже доказана; reconnect повторно не делать.
-- Windows пока запрещён: сначала exact Agent pair + corrected delegated set + полный Agent matrix + Core Stage-B/full local matrix на тех же байтах + исправленный coverage/readiness PASS.
-- PR #8 / PR #7 / main / gate refs в последнем Agent-проходе не двигались.
+- Circle connectivity уже доказана; reconnect повторно не делать.
+- Windows пока запрещён: сначала exact Agent pair + corrected delegated set + полный Agent matrix + Core Stage-B/full local matrix на тех же байтах + coverage/readiness PASS.
+- В этом проходе PR #8 / PR #7 / main / gate refs не двигались; Circle/Windows/live Notion/Codex/accounts/secrets/production не использовались.
 
 ## Exact Agent pair
 Frozen preimages PR #8:
 - `payload/account_pool.py` = `11cea792a2f5aaa40ee1515faddfd44e76cbb23f`, 43173 bytes;
 - `payload/server.py` = `f02cef6a0ffc202c75fbe71c520c72ac19ff876d`, 112748 bytes.
 
-Canonical current materializers:
+Canonical materializers:
 - account `80aeb1872c1cab7f51c33039584b5786e441f9f0`;
 - startup/server `20c2fb2e550daab52f3d27e791fa500002a73735`;
 - tombstone wiring `40ab3a448e33fb8a8c3ce045ef31a815d0554823`;
 - pair materializer `30fb89286eb4457b25b2145918279fec2d735042`;
 - canonical wrapper `859039a5e408bc84e7046372cdb509131eb37a97`.
 
-Correct FINAL transformed pair after the full wrapper:
+Correct FINAL transformed pair:
 - `payload/account_pool.py` -> `c9ca6f3b4545e469966369a4220a6a2a60bf3697`, 48066 bytes, SHA-256 `5d233686d882a2819e9ed19b73d4ed6ce55ef794385db2447c2801000844c38a`;
 - `payload/server.py` -> `273db94a8f9b153e95c910df221755e28c0f46a7`, 116047 bytes, SHA-256 `d1492ef4a0dc2842c0bdde417945091d3949485283ebf7be729bdbcced0010a1`.
 
@@ -30,12 +30,7 @@ Intermediate server after startup materializer only: `5c04b8cce34b29e63bf1839d59
 
 Durable correction evidence: `autonomy/evidence/notion/20260823T2340Z_agent_exact_pair_target_correction.json`.
 
-## Coordination boundary
-Fresh `kontur#9` shows an active NOTION_CORE claim owning exact Agent pair -> unified Stage-B until 2026-08-24 02:14 МСК. NOTION_AGENT attempted an overlapping pair-export claim, detected the conflict on reread, released immediately, and did not move any product/ref/CI surface.
-
-An unreferenced scratch Git blob `8534c51fdf008c57962ca93b92bc4908215e1978` was created during byte-transport experimentation. It is NOT canonical `c9ca...`, is referenced by no tree/ref/evidence and MUST NOT be consumed.
-
-Until the Core claim is released/expired and a fresh reread shows no newer conflicting claim, NOTION_AGENT must not run a parallel pair materializer/export.
+Current boundary: direct `fetch_blob` for both final target blobs still returns 404 in the product repo; hashes/recipe are known, but the final pair is not yet durable/readback-addressable there. Do not call it materialized until exact bytes are exported/read back.
 
 ## Corrected delegated engineer/owner five-file set
 Use only:
@@ -87,44 +82,55 @@ At minimum:
 
 No-replay/tombstone focused cluster was already green; do not polish absent a new reproducer. Final same-byte suite still reruns post-replace/restart/cancellation paths.
 
-## NEW concrete coverage false-PASS — 24.08
-Current final coverage verifier `2df0e51ab385d003b2cbdf9126aad0176d62bed6` is NOT sufficient for Windows authorization.
+## Final coverage/readiness
+Canonical final coverage verifier: `be9b721e...`.
+Canonical readiness verifier: `062927f7...`, pinned to the corrected coverage verifier and candidate-root byte checking.
+Old `2df0e51a...`/old readiness pins are not sufficient for Windows authorization.
 
-Concrete reproducer: a synthetic final suite containing every module that `2df0e51a...` currently requires plus Stage-B `durable_replay` and `provider_intent` still returns `PASS` while omitting seven existing modules that this canonical handoff marks mandatory:
-- `tests.test_delegated_tool_loop` — file blob `13c9f9a82ea2fd235fd70f452209b6494c5802cb`;
-- `tests.test_dynamic_reservation_session_entry_cleanup` — `84af232663b0534ca82ec90c43c1fb61a832acbc`;
-- `tests.test_server_subagent_durable_tool_guard_v2` — `638e685c4fcc8a4df5c151288e10e1188af26c68`;
-- `tests.test_server_subagent_uncertain_rebind` — `1fad363f3da10efb0ab0a0234ef2de7e2472994a`;
-- `tests.test_server_subagent_lifecycle_drain` — `b907a93b6ef799095a059aa6574e598a30ac9895`;
-- `tests.test_notion_tool_subagent_runtime` — `ed0ecc04c1c223363edc7379409ceda1d7db5971`;
-- `tests.test_account_pool_parallelism` — `d37f47bac6e58c39db30157cdf0e416341b9e633`.
+## NEW Stage-B streaming failure projection gap — 24.08 ~04:25 МСК
+Core Stage-B keepalive candidate: `autonomy/evidence/notion/20260824T0413Z_stageb_sse_keepalive_candidate.py`, blob `b4333b830ee62915a747d202174f657b26342d85`.
 
-Unreferenced exact candidate verifier with only these seven additions: `2c2c25e9e6b46e5a3ed7753ecb6a01587e41f9a1`; readback verified. Durable evidence: `autonomy/evidence/notion/20260824T0141Z_agent_final_coverage_false_pass.json`.
+Independent local ASGI audit on Python 3.13 + Starlette 0.50.0 found a concrete boundary:
+- returning `StreamingResponse` commits `http.response.start status=200` before the durable task result is known;
+- after one neutral `: stageb-commit-pending\n\n` comment, a later transaction `RuntimeError` propagates but produces no protocol-visible SSE failure event;
+- control case that raises before the first body yield still has already emitted `http.response.start status=200`.
 
-Consequence: readiness v5 `d6fde58cc908d5cbab553aef887422f86aa82fbb` pins old verifier `2df0e51a...`. If Core accepts the fixed coverage verifier, readiness must also be respun/re-pinned before targeted Windows. Do not claim Windows readiness with the old pin.
+Therefore `task.result()` raising after response start is not a complete Stage-B failure projection. Before same-byte promotion, streaming must define a deterministic protocol-visible terminal failure after response start (for example an explicit SSE error/failed event matching the bridge protocol) while preserving these invariants:
+1. no response/tool/provider IDs or payload before durable finalize;
+2. client disconnect/cancellation never cancels or retries the server-owned transaction;
+3. transaction failure does not fabricate a successful response and does not silently become only an abrupt 200 stream termination.
+
+Durable proof/readback: `autonomy/evidence/notion/20260824T0425Z_stageb_stream_failure_projection_audit.json`, blob `de8055f2de97366ea2661f3dd12fecf8968b99af`, control commit `5222b0e8b120006466df9f60c3bb8bcff1301e5f`.
+
+This is a local Stage-B acceptance blocker, not a reason to run Circle/Windows early. Core owns the Stage-B fix; NOTION_AGENT must not edit Core files in parallel.
 
 ## Core boundary
-NOTION_AGENT does not modify PR #7/NCM28/Core Stage-B. Before targeted Windows, on the SAME corrected bytes:
-1. reproduce/read back `c9ca6f3b.../48066 + 273db94a.../116047` and keep both bytes reachable;
+Latest Core work is intentionally disjoint from the Agent pair/matrix. Core already has local durable-store transaction helper and neutral precommit keepalive candidates; same-byte integration is still pending.
+
+Before targeted Windows, on the SAME corrected bytes:
+1. reproduce/read back `c9ca6f3b.../48066 + 273db94a.../116047` and keep both exact bytes reachable;
 2. corrected five-file owner/engineer set + full mandatory Agent matrix green;
-3. Core Stage-B/full local matrix green;
-4. fixed final coverage verifier PASS;
-5. readiness verifier pinned to that fixed coverage verifier and `--candidate-root` PASS.
+3. wire Core durable store/transaction semantics into the same transformed server bytes;
+4. close the streaming failure-projection gap above and rerun the stream boundary tests;
+5. Core Stage-B/full local matrix green;
+6. coverage `be9b721e...` PASS;
+7. readiness `062927f7...` with `--candidate-root` PASS.
 Only then one targeted Windows Server 2022 run is allowed. Live `Codex -> bridge -> Notion`, rotation/restart/soak comes later after native gates and encrypted runtime restore.
 
 ## Persistent v4 memory
 Normative protocol: `autonomy/v3/CAPSULE_RUNTIME_PROTOCOL_V2.json` + exact `autonomy/v3/tools/capsule_runtime_v4.py` blob `6557f906870c8f3eb866c1e8b2f2a0aadd79c96f`.
 
-This pass restored prior LATEST `20260823T195728Z-63312ff0f1` using exact v4 with full part/hash/archive/workspace verification. New capsule:
-- `20260823T225025Z-8eae144a28`;
-- archive SHA-256 `db911f8d4e419c5d83f8c71bdb8258a2399dd1faf241ec80df328bb5c235cb74`;
-- 3 immutable parts + manifest read back with exact expected Git blobs;
-- old LATEST preserved as PREVIOUS;
-- new LATEST CAS-updated from exact parent blob `a48a4d427d7a04cf468d0d996dd18090c1c0573a` to content blob `740b0e3515f1fb9a7f523f71749b224b1fda9c0a`.
+Current verified pointer from the beginning of this pass:
+- `LATEST` blob `740b0e3515f1fb9a7f523f71749b224b1fda9c0a`;
+- capsule `20260823T225025Z-8eae144a28`;
+- archive SHA-256 `db911f8d4e419c5d83f8c71bdb8258a2399dd1faf241ec80df328bb5c235cb74`.
+
+This pass fresh-read the manifest and all three immutable parts. A normative local v4 restore/pack was not completed because connector-returned bytes cannot be passed into the local runtime without manual reconstruction. Therefore LATEST/PREVIOUS were deliberately left untouched; no shortened/manual capsule publication is valid.
 
 ## Next exact step
 1. Fresh-read `kontur#9` claims and PR#8/PR#7 heads.
-2. If Core still owns exact pair/Stage-B, do not overlap; perform only independent Agent audit/test.
-3. Core must not use coverage verifier `2df0e51a...` as final acceptance after this concrete counterexample; consume `2c2c25e9...` or an equivalent reviewed fix and respin readiness pin.
-4. Once exact pair ownership is free: reproduce/readback canonical pair, run full Agent matrix on exact bytes, then hand exact blob SHA/size/test manifest to Core.
-5. No Windows/live until the complete local same-byte chain above is green.
+2. If exact Agent pair ownership is free, finish exact byte export/readback for `c9ca6f3b... + 273db94a...`; if another worker owns it, stay on independent Agent audit only.
+3. Run the full mandatory Agent matrix on those exact transformed bytes.
+4. Hand Core exact reachable blob SHA/size/test manifest, not a prose reconstruction.
+5. Core must then integrate durable Stage-B storage/transaction/stream projection on the same bytes; the new stream failure-projection regression must be green before coverage/readiness.
+6. No Windows/live until the complete local same-byte chain is green.

@@ -1,0 +1,44 @@
+{
+  "schema": "notion_agent_materializer_target_alias_guard_v1",
+  "observed_at_msk": "2026-08-24T06:30:00+03:00",
+  "agent_pr": 8,
+  "agent_head_before": "4b344547d5e95bd4b3c62f5b80186059d849ff08",
+  "agent_head_after": "9c2098feebd186421629f80e62787d0569f8b30c",
+  "core_pr": 7,
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "reproducer": {
+    "verdict": "FAIL_PRE_FIX",
+    "fact": "base materializer canonicalized a symlinked product target with Path.resolve before replacement; a symlinked payload/account_pool.py pointing outside the checkout caused the external target bytes to be replaced while the checkout symlink remained",
+    "old_base_materializer_blob": "30fb89286eb4457b25b2145918279fec2d735042"
+  },
+  "fix": {
+    "commit": "2faa8ce62ce70eb71edb4e1a19fd43bd97491b5a",
+    "wrapper_blob": "fc2cfcd34fd4c695be3beb35f35ba5723098a9a9",
+    "contract": "canonical tombstone wrapper rejects final symlink/junction targets, symlink/junction ancestors, missing/non-regular targets and multiply-linked product files before any resolve/recovery/commit path",
+    "regression_commit": "9c2098feebd186421629f80e62787d0569f8b30c",
+    "regression": "tests.test_materialize_agent_wiring_target_path_safety",
+    "local_targeted": "PASS_4_OF_4",
+    "cases": ["plain_single_link_accept", "final_symlink_reject", "ancestor_symlink_reject", "hardlink_reject"]
+  },
+  "pair_identity": {
+    "note": "pure materialize() transformation is unchanged by this path-safety fix; final transformed product identities remain the canonical targets and must still be rematerialized/read back on the fresh head",
+    "account_pool_git_blob": "c9ca6f3b4545e469966369a4220a6a2a60bf3697",
+    "account_pool_size": 48066,
+    "server_git_blob": "273db94a8f9b153e95c910df221755e28c0f46a7",
+    "server_size": 116047
+  },
+  "gate_consequence": {
+    "mandatory_new_module": "tests.test_materialize_agent_wiring_target_path_safety",
+    "current_coverage_blob": "3a07683c5a093730b5dc08ede543f6d95c94f856",
+    "current_readiness_blob": "74533adc1ddee720936fe5c819d93e21c5992394",
+    "status": "SUPERSEDE_REQUIRED_BEFORE_WINDOWS",
+    "reason": "the current final coverage verifier predates this required Agent materialization regression and can pass without executing it"
+  },
+  "forbidden_effects_observed": {
+    "circle": false,
+    "windows": false,
+    "live_notion_codex": false,
+    "accounts_or_secrets": false,
+    "main_merge_production": false
+  }
+}

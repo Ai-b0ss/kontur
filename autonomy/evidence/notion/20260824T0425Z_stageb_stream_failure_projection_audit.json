@@ -1,0 +1,40 @@
+{
+  "schema": "notion_agent_stageb_stream_failure_projection_audit_v1",
+  "agent_head": "4b344547d5e95bd4b3c62f5b80186059d849ff08",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "candidate": {
+    "path": "autonomy/evidence/notion/20260824T0413Z_stageb_sse_keepalive_candidate.py",
+    "blob": "b4333b830ee62915a747d202174f657b26342d85"
+  },
+  "local_runtime": {
+    "python": "3.13",
+    "starlette": "0.50.0"
+  },
+  "finding": "STREAM_FAILURE_AFTER_STREAMING_RESPONSE_START_IS_NOT_PROJECTED_AS_PROTOCOL_ERROR",
+  "proof": {
+    "case": "StreamingResponse body yields one neutral pending SSE comment and then raises RuntimeError(transaction failed)",
+    "asgi_messages_before_exception": [
+      "http.response.start status=200 content-type=text/event-stream",
+      "http.response.body body=: pending\\n\\n more_body=true"
+    ],
+    "exception": "RuntimeError: transaction failed",
+    "structured_error_event_emitted": false
+  },
+  "control_case": {
+    "case": "StreamingResponse body raises before first body yield",
+    "asgi_messages_before_exception": [
+      "http.response.start status=200 content-type=text/event-stream"
+    ],
+    "structured_error_event_emitted": false
+  },
+  "interpretation": "The keepalive itself is not the sole cause: returning StreamingResponse commits HTTP 200 before the async body result is known. Therefore a Stage-B design that starts StreamingResponse while the durable transaction is still pending must explicitly define/project a terminal SSE failure event (or equivalent protocol-visible failure) rather than relying on task.result() raising after response start. The existing pre-Stage-B server waits for provider completion before constructing StreamingResponse, so provider failures can still return JSON 502/503 before response start.",
+  "required_before_same_byte_promotion": [
+    "Specify exact streaming failure projection semantics for durable transaction failure after response start.",
+    "Add an ASGI-level regression asserting no response/tool/provider IDs before durable finalize and a deterministic protocol-visible failure after a pending keepalive when the transaction fails.",
+    "Keep server-owned task cancellation isolation unchanged; do not cancel or retry provider work because the client projection disconnects."
+  ],
+  "windows_allowed": false,
+  "circle_started": false,
+  "live_provider_traffic": false,
+  "product_refs_moved": false
+}

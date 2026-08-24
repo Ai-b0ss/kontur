@@ -1,107 +1,128 @@
 # Qwen — агентное ядро / текущий handoff
 
-Обновлено QWEN_CORE 2026-08-24 ~04:15 MSK.
+Обновлено QWEN_CORE 2026-08-24 ~08:20 MSK.
 
 ## Текущая линия
 - Repo: `Ai-b0ss/qwen-free-api`
 - Branch: `autopilot/qwen-runtime-preflight-20260818`
 - PR: #6
-- Fresh product head после этого прохода: `47d9ed079561d979488eb26b68fedbcd1d70bb3b`.
-- QWEN_CORE владеет session/restart/replay, OpenCode/tool-result, prompt modes, plain/coding subagents, skills, execution errors.
-- QWEN_RELIABILITY владеет account/cooldown/provider-circuit; Core туда не заходил.
-- Kontur/AI Mirrors product не трогать.
+- Exact product head: `47d9ed079561d979488eb26b68fedbcd1d70bb3b`.
+- QWEN_CORE: session/restart/replay, OpenCode/tool-result, prompt modes, plain/coding subagents, skills, execution errors.
+- QWEN_RELIABILITY: account/cooldown/provider-circuit. Core туда не заходил.
+- Kontur / AI Mirrors product не трогать.
 
-Перед любым следующим действием: fresh-read PR#6 head, последние OWNER/CIRCLE POLICY/CLAIM/RELEASE в `kontur#9`, оба Qwen handoff и активные disposable CI PR. При head drift старое доказательство не продолжать.
+Перед следующим действием: fresh-read PR#6 head, последние OWNER/CIRCLE POLICY/CLAIM/RELEASE в `kontur#9`, оба Qwen handoff и активные disposable CI PR. При head drift старое доказательство не продолжать.
 
-## Что было найдено и закрыто в этом проходе
+## Что уже доказано на exact `47d9ed079...`
 
-### 1. `skills-selection-test.js`: реальный контракт Windows skill расходился с обязательным финальным Windows target
+### SAME-SHA QWEN_CORE targeted = PASS
+- recovery cluster: workflow `bba92ab0-a923-417c-b8a2-43204295cc36`, job `982480c5-1761-4ece-bac0-a39fa81a8dfd`;
+- полный QWEN_CORE targeted cluster: workflow `46b8ed90-82cd-4767-b96f-d05e8f05ff46`, job `fa495bdd-bb32-47a9-8360-a1a4eb71b004`.
 
-На исходном exact product `2cc9a733e0d0884819cf64ec1d1285ebde6b8878` disposable config-only PR #48 локализовал первый Core failure по штатному порядку:
-- Core prefix 1..60 PASS;
-- prefix 61 PASS;
-- prefix 62 FAIL;
-- command 62 = `node scripts/skills-selection-test.js`.
+Он покрывает owner/system modes, OpenCode wiring, stream/retry/lifecycle, session/restart/stale-backup/pending-tool/tool-result, tool errors/required args, agent loop/error/duplicate tool ids, skills, plain/coding subagents, durable batch/replay/uncertainty.
 
-Сам `system-prompt-mode-test.js` (command 61) отдельно PASS; его промежуточные segment jobs были невалидным диагностическим harness и не использовались как product evidence.
+### SAME-SHA QWEN_RELIABILITY targeted = PASS
+Disposable PR #52:
+- base/product `47d9ed079...`;
+- head `a7dc4d77cfa8b51f7ddfd09c05f019f588f78f1b`;
+- единственное отличие `.circleci/config.yml`;
+- workflow `8c3b6377-ed80-46b6-b3b2-27eb0fbde38e`;
+- job `9e83acec-24aa-404c-9d8f-95d4d5af9ffa`;
+- SUCCESS.
 
-`skills-selection-test.js` standalone также FAIL. Дополнительная config-only декомпозиция показала:
-- phase 1 selection/frontmatter PASS;
-- phase 2 errors/budget PASS;
-- phase 3 owner+selected-skill integration PASS;
-- phase 4 bundled skills/catalog FAIL;
-- phase 5 discovery/metadata PASS.
+### Exact full Linux = REAL FAIL
+Disposable PR #53:
+- base/product `47d9ed079...`;
+- head `4d0cd43512ae8eebddfcb4e262c61ea9232c23e5`;
+- config-only;
+- ordinary locked `npm ci -> npm test`;
+- workflow `4451b136-5ec8-4850-8b88-a247975330c0`;
+- job `036685d8-5e46-4583-953d-7cbcea25d2e7`;
+- FAILURE.
 
-Root cause: bundled `skills/windows-parity.md` не содержал обязательный exact final target `Windows Server 2022`, хотя штатная regression это требовала и owner policy действительно требует native Windows Server 2022 после Linux PASS. Тест не ослаблялся.
+Windows Server 2022 запрещён до нового exact-current full Linux PASS.
 
-Product fix:
-- `f4c1b394fee11f7e0bd7c44fdd9e945a4c0ac0ac` — `skills/windows-parity.md` теперь прямо фиксирует, что финальный нативный CI target = Windows Server 2022.
+## Единственный Circle diagnostic
 
-Exact verification на product `f4c1b394...`:
-- disposable PR #50 base SHA = `f4c1b394...`, changed_files=1 (`.circleci/config.yml` only);
-- `ci/circleci: qwen-core-skills-targeted` SUCCESS;
-- workflow `c21ca692-5982-4375-a089-8883b10108e3`;
-- job `cc2a4b8c-7de0-4041-ba49-0b5280275c9b`;
-- проверены `skills-selection`, selector-type, path-gate, subagent skill-type и dispatcher neighbor.
+PR #55 `CI: exact 47d9 first npm-test failure` остаётся единственной поверхностью локализации первого обычного failing command.
 
-### 2. `subagent-batch-resume-test.js`: stale harness больше не имитировал реальный mutating side effect
+После RELEASE QWEN_RELIABILITY `5390877013` был сделан ровно один harmless config-only push для настоящего события:
+- PR #55 base остаётся `47d9ed079...`;
+- current head `e027967040f7a9c4a2a10f039156befbacaf428b`;
+- changed_files=1 `.circleci/config.yml`;
+- свежий `get_commit_combined_status(e027967...)` всё ещё возвращает `statuses=[]`.
 
-После skills fix полный Core targeted cluster на exact `f4c1b394...` всё ещё FAIL. Декомпозиция хвоста показала:
-- skills tail PASS;
-- subagent 65..70 PASS;
-- subagent 71..75 PASS;
-- subagent 81..86 PASS;
-- subagent 76..80 FAIL.
+Это НЕ PASS и НЕ FAIL. Второй diagnostic / push / reconnect probe не создавать. Circle connectivity уже доказана более новой owner-policy.
 
-Индивидуальные exact jobs:
-- `subagent-legacy-uncertain-restart-test.js` PASS;
-- `subagent-owner-prompt-validation-test.js` PASS;
-- `subagent-side-effect-uncertainty-test.js` PASS;
-- `subagent-side-effect-state-test.js` PASS;
-- `subagent-batch-resume-test.js` FAIL.
+## Новое локальное exact-current сужение full-Linux FAIL
 
-Root cause — тестовый harness устарел после уже принятой Core-семантики «round limit сам по себе не означает side effect; uncertain только если реально наблюдался mutating tool». В batch-resume stub задача называлась `round limit with possible side effect`, но mock `agent.runTurn()` не вызывал event-emitter и поэтому фактически не моделировал никакого `write/edit/bash`.
+Штатный `npm test` содержит 134 последовательные команды. Объединение SAME-SHA Core + Reliability targeted clusters оставляет 15 команд, которые не были частью этих двух targeted доказательств:
 
-Root test fix (критерий не ослаблен):
-- `47d9ed079561d979488eb26b68fedbcd1d70bb3b`;
-- mock `runTurn(chat, prompt, emit)` для этого сценария теперь реально emits `{ type: 'tool', name: 'write_file' }` до incomplete round-limit;
-- тем самым regression снова проверяет именно строгий fail-closed invariant для потенциально уже случившегося mutating effect.
+3 `server-late-stream-captcha-test.js`
+4 `test-cookies.js`
+5 `offline-sse-test.js`
+67 `runtime-secret-channel-test.js`
+76 `agent-captcha-owner-test.js`
+103 `vision-input-boundary-test.js`
+126 `request-governor-durable-state-test.js`
+127 `request-governor-inflight-gate-test.js`
+128 `request-governor-inflight-marker-failure-test.js`
+129 `request-governor-artifact-order-test.js`
+130 `request-governor-generation-order-test.js`
+131 `request-governor-inflight-no-autoclear-test.js`
+132 `request-governor-monotonic-recovery-test.js`
+133 `quota-telemetry-governor-failure-test.js`
+134 `long-soak-policy-test.js`.
 
-Exact verification на product `47d9ed079...`:
-- disposable PR #51 base SHA = `47d9ed079...`, changed_files=1 (`.circleci/config.yml` only);
-- targeted fixed skills + recovery cluster SUCCESS: workflow `bba92ab0-a923-417c-b8a2-43204295cc36`, job `982480c5-1761-4ece-bac0-a39fa81a8dfd`;
-- затем полный QWEN_CORE targeted cluster на ТЕХ ЖЕ product bytes SUCCESS: workflow `46b8ed90-82cd-4767-b96f-d05e8f05ff46`, job `fa495bdd-bb32-47a9-8360-a1a4eb71b004`.
+### Exact hosted execution PASS: command 103
+Материализованы точные Git bytes:
+- `src/qwen-v3-vision.js` blob `02eac803114fc23482926891cdafdae23ca0f406`;
+- `scripts/vision-input-boundary-test.js` blob `fae2e0f3d4700cbe5904d61fe237c29f5e2969e7`.
 
-Полный Core cluster включал: owner/system modes, OpenCode wiring, stream/retry/lifecycle, session/restart/stale-backup/pending-tool/tool-result, tool errors/required args, agent loop/error/duplicate tool ids, skills, plain subagents, coding subagents, durable batch/replay/uncertainty.
+Локальный Node-прогон на этих exact bytes: `vision input boundary: PASS`.
 
-## Reliability synchronization
+### Exact hosted execution PASS: commands 126..132
+Материализован точный `src/request-governor.js` blob `2444ec020b74166b833b8c0c6b76f770fd446d47`; локальный Git hash побайтно совпал с GitHub.
 
-QWEN_RELIABILITY независимо получила exact targeted PASS на предыдущем common SHA `2cc9a733...`:
-- disposable PR #49;
-- `ci/circleci: qwen-reliability-targeted` SUCCESS;
-- workflow `c29e357e-6160-4291-9948-cdebc03c2869`;
-- job `1bef565d-dace-4268-991c-31f993b174d9`;
-- account/cooldown/bounded-failover/provider-circuit/replay green.
+Точные тестовые blobs и результаты:
+- 126 durable state `e3f4a88f92590280e32f3997a23b43db240401b8` -> PASS;
+- 127 inflight gate `c231333ac95c0633eea81a3064b994e4c225dd62` -> PASS;
+- 128 marker failure `33da325b6857e7b29fe958c7d3ca1de6384a6bf3` -> PASS;
+- 129 artifact order `f43f3c1b5ae52f760d76c9e1aaafe68f22048467` -> PASS;
+- 130 generation order `454e143418d0e0b8ca72dab170a1ad75b714b104` -> PASS;
+- 131 no-autoclear `d855a83fab8d8d53a1290213fd22c54975a15d74` -> PASS;
+- 132 monotonic recovery `4d3c13c1323b339585a90a89eb16607fdd11909c` -> PASS.
 
-Но после этого Core legitimately moved product `2cc9... -> f4c1... -> 47d9...`. Поэтому Reliability PASS с `2cc9...` нельзя объявлять SAME-SHA финальным доказательством для current `47d9...`, даже если Core commits не касались account/cooldown/provider files.
+Ни один из этих тестов не обращается к Qwen; все используют временные локальные state files.
 
-FIRST REQUIRED NEXT GATE: QWEN_RELIABILITY fresh-sync своего targeted cluster на exact current `47d9ed079...` (или новый fresh common head при drift). Core не должен сам заходить в её owned surface.
+### Exact hosted execution PASS: command 133
+Материализованы exact bytes:
+- `src/quota-telemetry.js` blob `53aeb46a5c111e3d5e164f6afb83e5582a4bac96`;
+- `scripts/quota-telemetry-governor-failure-test.js` blob `cdc6cf26024d937df2cc389e743c91c47bee520d`.
 
-## Что разрешено после Reliability same-SHA green
+Локальный прогон: `QUOTA_TELEMETRY_GOVERNOR_FAILURE_ISOLATION_PASS finish_does_not_throw=1`.
 
-Только когда Core + Reliability targeted green на одном стабильном PR#6 SHA:
-1. один exact full Linux `npm test` на config-only disposable branch от этих product bytes;
-2. Linux FAIL -> локализовать первый реальный failing command, не менять suite order/state;
-3. Linux PASS -> один native Windows Server 2022 full на ТЕХ ЖЕ product bytes;
-4. затем owner-doctor harness;
-5. live/provider long-soak отдельно позднее.
+### Exact static assertions inspected, но не выдаются за executed PASS
+- command 3 `server-late-stream-captcha-test.js`: exact `server.js` onError block содержит CAPTCHA-specific branch раньше generic `markFailure`, сохраняет `captchaResolver.solveCaptcha`, а generic non-CAPTCHA failure остаётся;
+- command 67 `runtime-secret-channel-test.js`: exact Circle/long-soak/runtime-audit/restore files содержат `--passphrase-fd 0`, direct Circle не содержит runtime/GitHub bridge secrets и остаётся restricted to `ci/qwen-final-gate` + full `npm test`;
+- command 134 `long-soak-policy-test.js`: exact workflow/canary сохраняют manual-only, authorized self-hosted bridge, rate-limit 360m, CAPTCHA 10m, outer timeout 260s > canary 240s и sequential two-tool invariant.
 
-Windows до full Linux PASS запрещён. `QWEN_CORE_DONE` пока не ставить.
+Эти три пункта — сильное статическое сужение, но формально не заменяют actual Node execution в полном порядке suite.
 
-## Circle / live boundary
+## Первый оставшийся gate
 
-В этом проходе Circle использовался только для разрешённых disposable offline config-only PR #48/#50/#51. Product bytes на diagnostic branches не менялись; provider/runtime/real accounts/secrets/live/main/merge/production traffic = 0. Windows = 0.
+1. Fresh-read PR#6. Если head != `47d9ed079...`, stale-stop.
+2. Harvest **только** существующий PR #55 head `e027967...`. Если появляется terminal Circle result — взять `QWEN_FIRST_FAILURE index=...` и чинить ровно первый root cause.
+3. Если PR #55 по-прежнему `statuses=[]`, не создавать дубль: нужен Circle-side pipeline/trigger inspection для этого exact existing push.
+4. Локально, если есть время без мутации продукта, добрать current-head execution для ещё не выполненных 4/5/76 и/или доказать stateful переход, который targeted clusters не воспроизводят. Не объявлять standalone green эквивалентом full suite.
+5. После root fix Core+Reliability снова должны быть green на одном новом stable SHA.
+6. Ровно один новый full Linux `npm test`.
+7. Только Linux PASS -> один native Windows Server 2022 full на идентичных product bytes -> owner-doctor.
+
+## Safety
+
+В этом проходе product PR#6 не менялся. QWEN_RELIABILITY-owned files не менялись. Circle push/PR/run не создавались и не дублировались. Provider/runtime/real accounts/secrets/live/Windows/main/merge/production = 0.
 
 ## Постоянная память
 
-v4 capsule/LATEST в этом проходе не перезаписывались: новое состояние долговечно закреплено product commits `f4c1b394...`, `47d9ed079...`, этим handoff и `kontur#9`. Никакого pseudo-v4, force-write или CAS bypass.
+Новая v4 capsule/LATEST не публиковалась: точная новая истина долговечно закреплена этим handoff, `kontur#9` и неизменяемыми Git/Circle SHA. Никакого pseudo-v4, force-write или CAS bypass.

@@ -41,6 +41,16 @@
     },
     "server_intermediate_before_tombstone": "5c04b8cce34b29e63bf1839d59476f8081763c2b"
   },
+  "fresh_materializer_negative_probe": {
+    "verdict": "PASS_3_OF_3",
+    "source": "fresh canonical wrapper 4ae3b1c2... and exact regression 4750c57e...",
+    "scenarios": [
+      "final product file swapped to symlink after wrapper validation -> rejected; external bytes unchanged",
+      "parent directory swapped to symlink before guarded resolve -> rejected; external bytes unchanged",
+      "parent directory swapped after resolve but before filesystem boundary -> rejected; external bytes unchanged"
+    ],
+    "platform": "Linux/POSIX local runtime"
+  },
   "durable_reconstruction_contract": {
     "method": "fetch exact preimages from Agent head, fetch exact transform blobs above, apply account transform; apply server transform then tombstone transform; verify resulting Git blob/size/SHA-256 exactly",
     "requires_guessing": false,

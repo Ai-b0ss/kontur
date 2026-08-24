@@ -1,0 +1,21 @@
+{
+  "candidate_bytes": 24882,
+  "candidate_git_blob": "3ca05116a1ada8f1c7beb7cbdd838b08154257e5",
+  "candidate_sha256": "94b75ccbe3244bba25e5357cfef502aacb18cb54ad5b8093b220ae03006e2056",
+  "chunk_chars": 3500,
+  "encoding": "base64-concat",
+  "parts": [
+    {"name":"part-00.b64","chars":3500,"sha256":"c4285b4a9850bc51f57cb927f38b9b14cfb63a10c54125ea55a7c4ed998d967c","git_blob":"0e8a19ff2f9efed637bd61f232a5fca41b8a0560"},
+    {"name":"part-01.b64","chars":3500,"sha256":"315a76bea0c9b127b060f1ec73111d4e25a05090b4bdcba7f05a894e7f61f306","git_blob":"20f0ecfcc8bb54fffd5b972f1a231cf0068f9889"},
+    {"name":"part-02.b64","chars":3500,"sha256":"f843f4621ad5b65729c7c9c7fd118c7926011f250d8e40d1c54b60585ac8fd3d","git_blob":"8ffe4bf4d58cded0d7463c6d08888c0f4a878489"},
+    {"name":"part-03.b64","chars":3500,"sha256":"f0d58547163c36370810f18e19f4cb40e83c850ee8dc6e21748d0d53a969bc8a","git_blob":"1e60a9ce809888a3994a444fca03dd9d3fca4248"},
+    {"name":"part-04.b64","chars":3500,"sha256":"dae22fb1c73caa298bb10b0cb48cd4554b6c29f10db51b9f6a9dca098c6efb5a","git_blob":"bdacdd77a35705d1ea4e1dd01f8e4f7c9f394a3e"},
+    {"name":"part-05.b64","chars":3500,"sha256":"da23aa1c9d49382a0e3a5670f0587da6505f5fc881267abb3ce18b1a9bc8b653","git_blob":"c9422707148c1e36c824467a0061f340d8025d04"},
+    {"name":"part-06.b64","chars":3500,"sha256":"d03cb40ccdd34426b5256050bbd763e48b17a0858cab127742abb35e66416aa7","git_blob":"fd2b7b7927d4a449ea4cea4be8d628bc81dde047"},
+    {"name":"part-07.b64","chars":3500,"sha256":"7c19b0e78ea69ffb08c439557a18f8675caf69484d3d4e0bccbd0f629768f0ad","git_blob":"6de95839b37883fbabbd5a9afd7fdcae0951ef36"},
+    {"name":"part-08.b64","chars":3500,"sha256":"9f1eaf0480031e988893ab9aea83b098afb26406dfd7817f08351314c43cd06d","git_blob":"caf661bc6ef986062860570bb525de32251ddeae"},
+    {"name":"part-09.b64","chars":1676,"sha256":"48a297c7a540c210bc62da76e9a98009d882044415f28101300d4a392da08f34","git_blob":"e07ffeca76c833df78d22cdbe3db1292ae8eae77"}
+  ],
+  "schema": "notion_stageb_store_candidate_parts_v1",
+  "source_preimage_git_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213"
+}

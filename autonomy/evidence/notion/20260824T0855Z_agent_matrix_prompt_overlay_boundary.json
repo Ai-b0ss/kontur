@@ -1,0 +1,36 @@
+{
+  "schema": "notion_agent_matrix_prompt_overlay_boundary_v1",
+  "observed_at_msk": "2026-08-24T08:55:00+03:00",
+  "agent_pr8_head": "3cc0c0be34bad1b79555d842cd8fc9755dd26b64",
+  "core_pr7_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "exact_pair": {
+    "account_pool_blob": "c9ca6f3b4545e469966369a4220a6a2a60bf3697",
+    "account_pool_size": 48066,
+    "server_blob": "273db94a8f9b153e95c910df221755e28c0f46a7",
+    "server_size": 116047
+  },
+  "current_head_delegation_source": {
+    "delegation_policy_blob": "cc50fc7373578262e6051e76716563a98f8f4935",
+    "delegation_dispatcher_blob": "e888c87262d4307a0c5a7de9e315e01601f20a33",
+    "owner_prompt_fields_present": false,
+    "negative_probe": "DelegationRequest(..., prompt_mode='owner', owner_system_prompt='SECRET') raises TypeError: unexpected keyword argument prompt_mode"
+  },
+  "corrected_owner_engineer_overlay": {
+    "policy": "fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e",
+    "dispatcher": "a9d15b79b421cd29b094b549be06d2b0319e26d9",
+    "notion_model_step": "f36e9c91355dec667173b6265dd550554fb0f05d",
+    "entrypoint": "2d57651b408ef2e6c75f29855f7cdbaeafa97c2e",
+    "lifecycle": "f47838b338f2bd94163cf466110f939c065ac041"
+  },
+  "local_targeted_checks": {
+    "delegation_policy_current_head": "PASS_10_OF_10",
+    "delegation_dispatcher_lifecycle_semantics": "PASS_10_OF_10",
+    "dynamic_reservation_session_semantics": "PASS_5_OF_5",
+    "note": "These are local targeted checks reconstructed from exact current-head source slices; they are not a substitute for the pending full exact transformed-pair matrix."
+  },
+  "verdict": "MATRIX_MUST_COMPOSE_CORRECTED_OWNER_ENGINEER_OVERLAY",
+  "reason": "A matrix that runs only the raw PR#8 delegation files can be green while proving no delegated owner-mode behavior, because the raw current-head DelegationRequest/DelegationContext do not carry owner prompt policy. The mandatory Agent matrix must therefore run on the exact transformed pair plus the corrected five-file owner/engineer overlay, or explicitly classify owner-mode as not yet composed and remain NOT_READY.",
+  "windows_allowed": false,
+  "circle_run_started": false,
+  "live_provider_used": false
+}

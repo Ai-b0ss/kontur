@@ -1,0 +1,60 @@
+{
+  "schema": "notion_agent_materializer_late_alias_fix_v1",
+  "recorded_at_msk": "2026-08-24T07:02:00+03:00",
+  "agent_pr": 8,
+  "agent_before": "9c2098feebd186421629f80e62787d0569f8b30c",
+  "agent_after": "3cc0c0be34bad1b79555d842cd8fc9755dd26b64",
+  "core_pr": 7,
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "finding": {
+    "verdict_before": "FAIL",
+    "class": "PRODUCT_TARGET_ALIAS_TOCTOU",
+    "summary": "A product file or its parent could be replaced by a symlink after wrapper validation but before the base transaction's internal resolve/filesystem boundary, allowing the base path logic to follow a late alias.",
+    "reproducer": "plain target passes wrapper validation -> swap final target or parent to symlink -> old Path.resolve follows alias"
+  },
+  "fix": {
+    "wrapper_path": "tools/materialize_agent_wiring_with_tombstones.py",
+    "wrapper_blob": "4ae3b1c2d23bbfa8980bd4a3652ee9d2941b1cd5",
+    "regression_path": "tests/test_materialize_agent_wiring_late_alias_substitution.py",
+    "regression_blob": "4750c57e17055f1e6896382a0f355801492bc82f",
+    "mechanism": "guarded lexical Path revalidates the whole alias-free chain at base resolve() and os.fspath() filesystem boundaries; external targets are not authorized by late alias substitution"
+  },
+  "targeted_local": {
+    "platform": "Linux/POSIX hosted Python",
+    "verdict": "PASS",
+    "cases": 3,
+    "cases_passed": 3,
+    "scenarios": [
+      "final target swapped to symlink after wrapper validation",
+      "parent directory swapped to symlink before base resolve",
+      "parent directory swapped after resolve and before filesystem boundary"
+    ],
+    "external_bytes_unchanged": true
+  },
+  "product_pair": {
+    "preimage_account_pool_blob": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f",
+    "preimage_server_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+    "expected_account_pool_blob": "c9ca6f3b4545e469966369a4220a6a2a60bf3697",
+    "expected_account_pool_size": 48066,
+    "expected_server_blob": "273db94a8f9b153e95c910df221755e28c0f46a7",
+    "expected_server_size": 116047,
+    "pair_materialized_on_fresh_head": false,
+    "reason": "root safety fix landed first; fresh canonical check/apply/readback/compile and full Agent matrix are still required on agent_after"
+  },
+  "final_gate": {
+    "new_required_module": "tests.test_materialize_agent_wiring_late_alias_substitution",
+    "old_coverage_blob": "b51f11f27d7ef2c52bc6fd93d3469caf3d6d4ae3",
+    "old_readiness_blob": "2da96347877bc3a3845c1c6b7796eea32257752f",
+    "status": "OLD_PINS_MUST_NOT_AUTHORIZE_WINDOWS_UNTIL_NEW_REGRESSION_IS_REQUIRED"
+  },
+  "writes_excluded": [
+    "Core PR#7",
+    "CircleCI",
+    "Windows",
+    "live Notion/Codex",
+    "accounts",
+    "secrets",
+    "main/merge",
+    "production"
+  ]
+}

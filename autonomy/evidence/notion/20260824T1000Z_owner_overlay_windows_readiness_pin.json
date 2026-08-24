@@ -1,0 +1,25 @@
+{
+  "schema": "notion_agent_owner_overlay_windows_readiness_pin_v1",
+  "created_at": "2026-08-24T10:00:00+03:00",
+  "agent_head": "3cc0c0be34bad1b79555d842cd8fc9755dd26b64",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "finding": "WINDOWS_READINESS_V9_DID_NOT_PIN_CORRECTED_DELEGATED_OWNER_ENGINEER_BYTES",
+  "superseded_readiness_blob": "349b6005255382bab7284c42da43c2d163a178be",
+  "coverage_verifier_blob": "fafc7eb733da90d306b4fa599e57b6ecd921a357",
+  "replacement_readiness_blob": "2496278f56c67ded32fdc15ae6b116971e8410af",
+  "replacement_schema": "notion_windows_ready_candidate_v10",
+  "required_exact_owner_engineer_overlay": {
+    "payload/delegation_policy.py": "fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e",
+    "payload/delegation_dispatcher.py": "a9d15b79b421cd29b094b549be06d2b0319e26d9",
+    "payload/notion_delegated_model_step.py": "f36e9c91355dec667173b6265dd550554fb0f05d",
+    "payload/subagent_entrypoint.py": "2d57651b408ef2e6c75f29855f7cdbaeafa97c2e",
+    "payload/server_subagent_lifecycle.py": "f47838b338f2bd94163cf466110f939c065ac041"
+  },
+  "local_falsification": {
+    "synthetic_candidate_with_wrong_overlay_but_self_consistent_manifest": "NOT_READY",
+    "same_verifier_logic_with_fixture_exact_overlay_pins": "PASS",
+    "single_overlay_byte_drift": "NOT_READY",
+    "checks": "3/3 PASS"
+  },
+  "boundary": "This hardens the final Windows admission only. It does not claim the mandatory Agent matrix is green and does not authorize Windows. The next Agent gate remains the full local matrix on transformed pair c9ca6f3b... + 273db94a... plus the five exact overlay files."
+}

@@ -1,5 +1,5 @@
 {
-  "schema": "notion_core_stageb_transaction_helper_v1",
+  "schema": "notion_core_stageb_transaction_helper_v2",
   "heads": {
     "core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
     "agent_pr8": "4b344547d5e95bd4b3c62f5b80186059d849ff08"
@@ -28,6 +28,27 @@
     "git_blob": "478fa18a2917861917ade1a444735757e6d75198",
     "note": "Readable distilled regression was published and read back. The 12/12 verdict is tied to the local executed harness identity above, not falsely attributed to this different presentation blob."
   },
+  "store_plus_helper_integration": {
+    "store_git_blob": "3ca05116a1ada8f1c7beb7cbdd838b08154257e5",
+    "helper_git_blob": "b3fe792b99daad678e3c773db291576bdf179167",
+    "local_test_git_blob": "312649f3fb0fdc5e0ab618551353a5befb5559fc",
+    "local_test_sha256": "465d7d4e78badc33bec61210ecbcab415970c3e471f5192fe54f093dae5bc9c4",
+    "durable_readable_test_path": "autonomy/evidence/notion/20260824T0403Z_test_stageb_store_transaction_integration.py",
+    "durable_readable_test_git_blob": "c2c55158b86b978d16d014ecc7f409b9a12347b0",
+    "verdict": "STAGEB_STORE_TRANSACTION_INTEGRATION_PASS",
+    "cases": 9,
+    "covered": [
+      "same-process exact replay keeps call_id and provider count=1",
+      "restart exact replay keeps canonical payload and provider count=0 in new process",
+      "ephemeral publication failure after durable finalize recovers after restart without provider call",
+      "ambiguous provider outcome leaves durable intent; restart refuses second provider call",
+      "intent strict-write failure yields provider count=0",
+      "finalize strict-write failure leaves durable intent, no conversation replay and no ephemeral publication",
+      "client cancellation does not cancel server-owned transaction; restart replays exact call_id without provider",
+      "removed account during replay rehydration fails closed without provider call",
+      "state on disk is v3 and provider_intent is atomically absent only after successful finalize"
+    ]
+  },
   "proved_order_and_failures": [
     "local route acquisition occurs before durable provider intent",
     "intent persistence failure yields zero provider calls",
@@ -43,11 +64,10 @@
     "cross-component global order is acquire -> intent -> provider -> render -> finalize -> ephemeral publish"
   ],
   "integration_boundary": {
-    "store_candidate": "3ca05116a1ada8f1c7beb7cbdd838b08154257e5",
-    "helper_candidate": "b3fe792b99daad678e3c773db291576bdf179167",
+    "same_byte_store_plus_helper": "PASS",
     "same_byte_transformed_server_integration": "NOT_YET_PROVEN",
     "full_stage_b": "NOT_YET_PROVEN",
     "windows_allowed": false
   },
-  "next": "After NOTION_AGENT releases exact c9ca6f3b.../48066 + 273db94a.../116047 bytes, wire this helper contract and durable store 3ca05116... into that exact server surface, then run the complete same-byte Agent+Core matrix before coverage/readiness/Windows."
+  "next": "After NOTION_AGENT releases exact c9ca6f3b.../48066 + 273db94a.../116047 bytes, wire helper b3fe792b... + store 3ca05116... into that exact transformed server surface, then run complete same-byte Agent+Core matrix before coverage/readiness/Windows."
 }

@@ -1,0 +1,67 @@
+{
+  "schema": "notion_promoted_installer_v3_wrapper_candidate_evidence_v1",
+  "status": "LOCAL_EXECUTED_BYTES_ONLY__CONTROL_COPY_NONCANONICAL",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_head": "12e3c4fe5ccec421281ad856547143f654897cd5",
+  "agent_previous_head": "3cc0c0be34bad1b79555d842cd8fc9755dd26b64",
+  "agent_drift_review": {
+    "result": "IRRELEVANT_TO_PROMOTED_RUNTIME_CLOSURE",
+    "changed_scope": [
+      "tools/materialize_agent_wiring_with_tombstones.py",
+      "tests/test_agent_materializer_apply_transaction_boundary.py"
+    ],
+    "promoted_runtime_import_closure_changed": false
+  },
+  "integrated_upgrade_source": {
+    "commit": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "git_blob": "0f4393e656307e3b17dfab105464de551f12a05d"
+  },
+  "local_executed_candidate": {
+    "path": "/mnt/data/promoted_installer_v3_wrapper_candidate.py",
+    "size": 30121,
+    "sha256": "9da1ef7b407c1b0e3ce6e8f336ceaf0fa9270e4bd0d2db65653661269124e4af",
+    "git_blob": "47c44b4d8dc8a98fac0493b51077779250e27155",
+    "py_compile": "PASS",
+    "verdict": "PROMOTED_INSTALLER_V3_WRAPPER_CANDIDATE_PASS",
+    "cases": 18,
+    "repeated_runs": 3
+  },
+  "published_control_copy": {
+    "path": "autonomy/evidence/notion/20260824T1625Z_promoted_installer_v3_two_layer_wrapper_candidate.py",
+    "commit": "67f848ee7790497079744bb092507d58e85f1f79",
+    "git_blob": "098075b69166917174f04c331125b9deec082f8c",
+    "same_byte_verified": false,
+    "reason": "Git blob differs from the exact locally executed candidate. The control copy is therefore evidence-only and MUST NOT be treated as the canonical executable candidate."
+  },
+  "architecture": {
+    "model": "two_layer_promoted_installer_v3_wrapper",
+    "inner_v2": "unchanged historical integrated_upgrade transaction and recovery semantics",
+    "outer_v3": "separate journal for Agent/Core overlay, nested bridge/payload ownership marker, exact backup/readback, rollback and final verification",
+    "bounded_inner_recovery": "up to two legacy run_upgrade calls because the first call may only recover/rollback an interrupted v2 transaction; actual integration is checked after each call",
+    "overlay_failure_policy": "rollback only the v3 overlay to the verified Core preimage; do not reinterpret or rewrite legacy v2 journal/keyset semantics"
+  },
+  "local_negative_coverage": [
+    "crash after outer journal",
+    "crash after inner Core integration",
+    "crash after overlay backups",
+    "crash after nested payload write",
+    "crash after verified marker",
+    "foreign target drift",
+    "payload manifest drift",
+    "preexisting payload directory with unrelated file preserved",
+    "legacy first run recovers only and bounded second run integrates",
+    "original STOPPED lifecycle preserved",
+    "verified lifecycle drift blocks",
+    "owner marker drift blocks",
+    "foreign backup entry blocks",
+    "target map drift blocks",
+    "symlink payload directory blocks"
+  ],
+  "boundary": {
+    "exact_production_patch": false,
+    "windows_ready": false,
+    "circle_or_windows_run": false,
+    "live_notion_or_codex_run": false,
+    "next_required": "Build a deterministic exact materializer against integrated_upgrade.py blob 0f4393e... using its real NCM28 guarded directory/snapshot/atomic primitives while preserving the unchanged legacy v2 transaction, then run the exact crash/rollback matrix on the resulting bytes."
+  }
+}

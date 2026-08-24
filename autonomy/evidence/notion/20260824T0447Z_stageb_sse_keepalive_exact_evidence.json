@@ -1,0 +1,29 @@
+{
+  "schema": "notion_stageb_sse_keepalive_exact_evidence_v1",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_head": "4b344547d5e95bd4b3c62f5b80186059d849ff08",
+  "candidate_path": "autonomy/evidence/notion/20260824T0413Z_stageb_sse_keepalive_candidate.py",
+  "candidate_git_blob": "b4333b830ee62915a747d202174f657b26342d85",
+  "candidate_size": 1374,
+  "candidate_sha256": "53afa5dcc15a73edfc5b3c4a567ddf3f3b9ae593471590a85c4301dbb92ead79",
+  "exact_regression_path": "autonomy/evidence/notion/20260824T0447Z_test_stageb_sse_keepalive_exact.py",
+  "exact_regression_git_blob": "4a8b80c160a79cf9c3bc7d5bfdb6fe5740b210e0",
+  "exact_regression_size": 5505,
+  "exact_regression_sha256": "d0c5768a738fd4e3366bf6cd7963ee6ca9f7251fcade69692ca1ae52c4fdccca",
+  "python": "3.13",
+  "compile": "PASS",
+  "verdict": "STAGEB_SSE_KEEPALIVE_EXACT_PASS",
+  "tests": {
+    "slow_pending_emits_multiple_neutral_comments_then_exact_canonical_response": "PASS",
+    "fast_result_has_no_forced_heartbeat": "PASS",
+    "generator_close_does_not_cancel_commit_task": "PASS",
+    "cancelled_waiter_does_not_cancel_commit_task": "PASS",
+    "transaction_failure_emits_no_protocol_payload_and_propagates": "PASS",
+    "already_failed_task_emits_no_heartbeat_or_payload": "PASS",
+    "nonpositive_interval_is_lower_bounded_not_busy_loop": "PASS"
+  },
+  "provider_or_live_traffic": false,
+  "circle_or_windows_run": false,
+  "product_refs_mutated": false,
+  "boundary": "Core-only SSE projection evidence. Not full Stage-B and not Windows-ready until wired into the exact Agent pair and the same-byte full matrix passes."
+}

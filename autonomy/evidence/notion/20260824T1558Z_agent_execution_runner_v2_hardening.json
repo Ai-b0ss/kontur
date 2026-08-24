@@ -1,0 +1,44 @@
+{
+  "schema": "notion_agent_execution_runner_hardening_v1",
+  "created_at_msk": "2026-08-24T15:58:00+03:00",
+  "agent_head": "3cc0c0be34bad1b79555d842cd8fc9755dd26b64",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "old_runner_blob": "681e186b73f9dd06b59b098d2c594e19eef16fa1",
+  "new_runner_blob": "19e3a44464ebd2730e3c1737cdd6d9c60d837092",
+  "new_runner_sha256": "8260bbb81f1cc402e5e9b12a442c999b8ee42f7c2916df3561a14fa6087ded8b",
+  "new_runner_size": 11450,
+  "finding": [
+    "v1 verified exact candidate/test blobs but did not reject additional tracked source drift elsewhere in the worktree",
+    "v1 did not reject untracked source/input files that could participate in Python imports",
+    "v1 treated unittest returncode=0 as PASS without proving that a module executed at least one non-skipped test",
+    "v1 did not re-check the composed worktree after the matrix completed"
+  ],
+  "v2_guards": [
+    "tracked diff must equal exactly the seven canonical transformed pair/owner-overlay paths",
+    "pre-existing untracked files are rejected",
+    "each unittest module must expose a parseable Ran-N-tests summary with N>0 and not all tests skipped",
+    "PYTHONDONTWRITEBYTECODE and -B keep execution from introducing pycache evidence noise",
+    "the exact worktree shape and canonical payload blobs are re-verified after all modules finish"
+  ],
+  "local_verification": {
+    "py_compile": "PASS",
+    "synthetic_cases": 6,
+    "verdict": "PASS",
+    "cases": [
+      "exact expected two-file tracked change accepted",
+      "extra tracked drift rejected",
+      "untracked source rejected",
+      "one real unittest executes and passes",
+      "zero-test module rejected",
+      "all-skipped module rejected"
+    ]
+  },
+  "boundary": {
+    "full_real_agent_matrix": "NOT_PROVEN",
+    "circle": "NOT_USED",
+    "windows": "NOT_USED",
+    "product_refs_moved": false,
+    "live_notion_codex": "NOT_USED"
+  },
+  "next": "Run runner blob 19e3a44464ebd2730e3c1737cdd6d9c60d837092 on one exact locally composed Agent tree c9ca6f3b... + 273db94a... + fd9a.../a9d.../f36e.../2d576.../f478.... Only a v2 PASS manifest may be handed to Core."
+}

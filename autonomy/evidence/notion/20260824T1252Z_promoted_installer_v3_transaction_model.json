@@ -1,0 +1,33 @@
+{
+  "schema": "notion_promoted_installer_v3_transaction_model_evidence_v1",
+  "generated_at_msk": "2026-08-24T12:52:00+03:00",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_head": "3cc0c0be34bad1b79555d842cd8fc9755dd26b64",
+  "integrated_upgrade_blob": "0f4393e656307e3b17dfab105464de551f12a05d",
+  "integrated_upgrade_observations": {
+    "journal_schema": "ncm25-integrated-outer-transaction-v2",
+    "payload_names_count": 10,
+    "turn_affinity_is_static_r2": true,
+    "recovery_recomputes_current_target_keyset": true,
+    "target_paths_are_flat_bridge_files_plus_installed_json": true
+  },
+  "candidate_model_sha256_local": "bcb56fea77d06bd3d27483b1e7656e7dd1fc2718c626d842c521c3ad599e9e1d",
+  "verdict": "PROMOTED_INSTALLER_V3_TRANSACTION_MODEL_PASS",
+  "cases": [
+    "nested managed target keys map to exact safe bridge-relative paths",
+    "flat backup artifact names contain no slash/backslash and remain collision-resistant",
+    "legacy v2 journal recovery remains frozen to original ten managed payload files plus installed.json",
+    "v3 journal target mapping round-trips exact source-to-installed paths",
+    "v3 tampered relative target mapping fails closed",
+    "v3 parent traversal target fails closed",
+    "managed current turn_affinity is included in v3 target plan",
+    "payload package modules are included in v3 target plan",
+    "absent-before payload directory may be removed only when empty after file rollback",
+    "foreign nested entry blocks directory removal",
+    "installed marker keyset covers every v3 managed file",
+    "python compile succeeds"
+  ],
+  "target_count_excluding_installed_marker": 25,
+  "boundary": "MODEL/TRANSACTION-PLAN PASS ONLY. Not yet an apply-ready integrated_upgrade.py patch, not same-byte Stage-B full green, not Windows-ready.",
+  "next": "Turn the proven model into an exact integrated_upgrade.py v3 patch and targeted crash/rollback/path-safety tests while preserving v2 recovery and NCM28 guarded-directory semantics."
+}

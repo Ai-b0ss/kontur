@@ -1,0 +1,30 @@
+{
+  "schema": "notion_agent_coverage_gap_v1",
+  "created_at_msk": "2026-08-24T13:40:00+03:00",
+  "agent_pr": 8,
+  "agent_head": "3cc0c0be34bad1b79555d842cd8fc9755dd26b64",
+  "core_pr": 7,
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "old_coverage_candidate_blob": "506e377fd22d44449495398e20768316ba12221d",
+  "new_coverage_candidate_blob": "f521d8324002de16e1dc57b6be4b3ce0a6be21eb",
+  "new_coverage_candidate_size": 6379,
+  "new_required_modules": [
+    "tests.test_live_two_slot_probe_contract",
+    "tests.test_server_subagent_tool_catalog"
+  ],
+  "source_test_blobs": {
+    "tests/test_live_two_slot_probe_contract.py": "7a5437e412c976ca01ef1d0710c9ce1423e0f27c",
+    "tests/test_server_subagent_tool_catalog.py": "4266fbd61c6a48ee5ee0f0e17c9da1754332c2dc"
+  },
+  "why_mandatory": {
+    "tests.test_live_two_slot_probe_contract": "offline contract for real project probe, two-slot distinct account/thread ownership, fresh-thread failover, and exactly-once local write",
+    "tests.test_server_subagent_tool_catalog": "runtime delegated tool catalog, malformed tool-result fail-closed behavior, MCP error classification, and child-only transport identity"
+  },
+  "local_falsification": {
+    "old_candidate_without_both_modules": "PASS",
+    "new_candidate_without_both_modules": "NOT_READY",
+    "new_candidate_full_fixture": "PASS",
+    "verdict": "PASS_3_OF_3"
+  },
+  "boundary": "This strengthens coverage only. Full Agent safety matrix on exact transformed pair plus owner/engineer overlay remains NOT_PROVEN. No Windows/Circle/live/provider execution is authorized by this evidence alone."
+}

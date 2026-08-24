@@ -51,12 +51,14 @@ REQUIRED_EXACT_MODULES = (
     "tests.test_notion_tool_subagent_runtime",
     "tests.test_account_pool_parallelism",
     "tests.test_stageb_stream_failure_projection",
+    "tests.test_stageb_server_owned_lock_boundary",
 )
 
 REQUIRED_STAGE_B_TOKENS = (
     "durable_replay",
     "provider_intent",
     "stageb_stream_failure_projection",
+    "stageb_server_owned_lock_boundary",
 )
 
 

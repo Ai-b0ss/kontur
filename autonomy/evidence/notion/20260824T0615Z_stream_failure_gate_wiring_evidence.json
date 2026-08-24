@@ -1,0 +1,45 @@
+{
+  "schema": "notion_stream_failure_gate_wiring_evidence_v1",
+  "heads": {
+    "core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_pr8": "4b344547d5e95bd4b3c62f5b80186059d849ff08"
+  },
+  "coordination": {
+    "agent_claim": "NOTION_AGENT-20260824T0541MSK",
+    "agent_claim_comment": 5390097924,
+    "agent_claim_expires": "2026-08-24T06:35:00+03:00",
+    "agent_scope": "exact pair rematerialization/readback + mandatory Agent matrix",
+    "core_scope": "Stage-B stream failure projection + final gate wiring",
+    "overlap": false,
+    "correction": "the Core claim text missed the newer 05:41 Agent claim; the scopes were nevertheless disjoint. Handoff and release are corrected to name the active Agent owner explicitly."
+  },
+  "stream_candidate": {
+    "candidate_blob": "a094a4b5484384037fb02c07d345b73531a46091",
+    "exact_regression_blob": "8d5fadf31aeff034d09e9943b25249402a2207b0",
+    "verdict": "STAGEB_STREAM_FAILURE_PROJECTION_EXACT_PASS_10_OF_10"
+  },
+  "coverage_guard": {
+    "old_blob": "be9b721ea61d897889c06aa9f5870d941b5eb876",
+    "new_blob": "3a07683c5a093730b5dc08ede543f6d95c94f856",
+    "changes": [
+      "requires exact module tests.test_stageb_stream_failure_projection",
+      "adds stageb_stream_failure_projection to Stage-B discovery tokens"
+    ],
+    "local_negative_positive_check": "NOTION_FINAL_COVERAGE_STREAM_GUARD_PASS 3/3"
+  },
+  "windows_readiness_guard": {
+    "old_blob": "062927f71da341c665d5311fc31b8e8a2bdebb65",
+    "new_blob": "74533adc1ddee720936fe5c819d93e21c5992394",
+    "schema": "notion_windows_ready_candidate_v6",
+    "pins_coverage_blob": "3a07683c5a093730b5dc08ede543f6d95c94f856",
+    "new_required_gate": "stageb_stream_failure_projection",
+    "local_negative_positive_check": "NOTION_WINDOWS_READINESS_STREAM_GUARD_PASS 3/3"
+  },
+  "boundary": {
+    "stageb_unified_candidate": "NOT_YET_PASS",
+    "windows_started": false,
+    "circle_run_started": false,
+    "product_refs_changed": false,
+    "next": "Agent owner finishes exact pair+matrix; Core then wires store/helper/failure-safe stream projection on those same bytes and runs the full combined suite. Coverage 3a07683c... and readiness 74533adc... supersede the previous pins."
+  }
+}

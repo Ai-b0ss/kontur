@@ -1,6 +1,6 @@
 # NOTION_AGENT — current handoff
 
-Updated: 2026-08-24 ~08:2x MSK
+Updated: 2026-08-24 ~08:5x MSK
 Worker: `NOTION_AGENT`
 
 ## Exact heads
@@ -69,7 +69,32 @@ The full canonical matrix must actually run on the transformed pair before Agent
 - lifecycle drain/rebind/durable tool guard tests
 - account-pool parallelism.
 
-No Windows until this matrix and Core same-byte Stage-B are green on one tree.
+### Matrix composition boundary discovered 2026-08-24 ~08:55 MSK
+
+Do **not** run/count the mandatory prompt/delegation matrix on only the raw PR #8 delegation files. On exact head `3cc0c0be...`, raw `delegation_policy.py=cc50fc7373578262e6051e76716563a98f8f4935` and `delegation_dispatcher.py=e888c87262d4307a0c5a7de9e315e01601f20a33` still have no delegated owner-mode fields. A direct local negative probe proves `DelegationRequest(..., prompt_mode="owner", owner_system_prompt="SECRET")` fails at construction with `TypeError: unexpected keyword argument 'prompt_mode'`.
+
+Therefore a green matrix over only raw PR #8 delegation bytes would be a false proof for delegated `engineer/owner` behavior. The mandatory Agent matrix must run on:
+
+1. the exact transformed pair `account_pool=c9ca6f3b...` + final `server=273db94a...`; **and**
+2. the corrected five-file owner/engineer overlay listed below.
+
+If the overlay is not composed, owner-mode must remain explicitly NOT_READY and Windows remains forbidden.
+
+Fresh targeted local probes in this run, reconstructed from current-head source slices:
+
+- current-head delegation policy: **10/10 PASS** for its existing identity/budget contract;
+- dispatcher/lifecycle semantics: **10/10 PASS**;
+- dynamic reservation session semantics: **5/5 PASS**.
+
+These 25 targeted PASS are supporting evidence only and do not replace the pending full exact transformed-pair + overlay matrix.
+
+Machine-readable evidence read back from GitHub:
+
+`autonomy/evidence/notion/20260824T0855Z_agent_matrix_prompt_overlay_boundary.json`
+
+blob `9878e375491c7605ad65f2040b95ec4eaec31365`.
+
+No Windows until this complete composed matrix and Core same-byte Stage-B are green on one tree.
 
 ## Corrected delegated owner/engineer five-file set
 
@@ -86,9 +111,10 @@ Do not use obsolete entrypoint blob `aebefce4...`.
 Agent currently owns only the fresh local pair + mandatory Agent matrix. Core Stage-B must not be overlapped.
 
 Next:
-1. run the full mandatory Agent matrix against the exact transformed pair above;
-2. if green, mark Agent safety-green and release exact recipe/digests to Core;
-3. Core reconstructs/readbacks the same pair, composes Stage-B on those same bytes and runs full Agent+Core local matrix + coverage/readiness;
-4. only then one targeted Windows Server 2022 run becomes admissible.
+1. build the local Agent candidate from exact transformed pair + corrected five-file owner/engineer overlay;
+2. run the full mandatory Agent matrix against that exact composed Agent candidate;
+3. if green, mark Agent safety-green and release exact recipe/digests/test manifest to Core;
+4. Core reconstructs/readbacks the same candidate, composes Stage-B on those same bytes and runs full Agent+Core local matrix + coverage/readiness;
+5. only then one targeted Windows Server 2022 run becomes admissible.
 
 No Circle/Windows/live Notion/Codex/accounts/secrets/main/merge/production in the current Agent pair/composition stage.

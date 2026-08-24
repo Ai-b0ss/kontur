@@ -1,103 +1,96 @@
-# Notion — Windows + Codex ядро
+# NOTION_CORE — current handoff
 
-Обновлено: 2026-08-24 ~10:4x МСК.
+Updated: 2026-08-24 ~11:3x MSK
+Worker: `NOTION_CORE`
 
-## Текущая точка
+## Exact heads / policy
 
 - Core PR #7: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 - Agent PR #8: `3cc0c0be34bad1b79555d842cd8fc9755dd26b64`.
-- Circle connectivity уже доказана; reconnect не повторять.
-- Native Windows закрыт до полного same-byte Agent+Core local PASS. Старые PR #7 Windows/pending результаты новую composition не доказывают.
+- Circle connectivity is already proven; do not re-probe it.
+- Native Windows remains forbidden until exact same-byte Agent+Core candidate and full local matrix are green.
+- No live Notion/Codex/accounts/secrets/main/merge/production before engineering gates.
 
-Agent exact transformed pair на этом head воспроизведена локально и скомпилирована:
-- `payload/account_pool.py = c9ca6f3b4545e469966369a4220a6a2a60bf3697`, 48066 bytes;
-- final `payload/server.py = 273db94a8f9b153e95c910df221755e28c0f46a7`, 116047 bytes.
+## Exact Agent composition input
 
-Полная Agent safety matrix должна идти на exact transformed pair **плюс** corrected owner/engineer five-file overlay:
-- `delegation_policy.py = fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e`
-- `delegation_dispatcher.py = a9d15b79b421cd29b094b549be06d2b0319e26d9`
-- `notion_delegated_model_step.py = f36e9c91355dec667173b6265dd550554fb0f05d`
-- `subagent_entrypoint.py = 2d57651b408ef2e6c75f29855f7cdbaeafa97c2e`
-- `server_subagent_lifecycle.py = f47838b338f2bd94163cf466110f939c065ac041`
+Fresh Agent pair remains:
 
-Raw PR #8 delegation files не доказывают delegated owner-mode; исторические/частичные Agent greens не переносить на итоговый candidate.
+- `payload/account_pool.py` = `c9ca6f3b4545e469966369a4220a6a2a60bf3697` / 48066 bytes;
+- final `payload/server.py` = `273db94a8f9b153e95c910df221755e28c0f46a7` / 116047 bytes.
 
-## Что Core уже доказал локально
+Corrected delegated owner/engineer overlay:
 
-Stage A: `V32_STAGE_A_EXACT_LOCAL_FLOOR_PASS`.
+- `payload/delegation_policy.py` = `fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e`;
+- `payload/delegation_dispatcher.py` = `a9d15b79b421cd29b094b549be06d2b0319e26d9`;
+- `payload/notion_delegated_model_step.py` = `f36e9c91355dec667173b6265dd550554fb0f05d`;
+- `payload/subagent_entrypoint.py` = `2d57651b408ef2e6c75f29855f7cdbaeafa97c2e`;
+- `payload/server_subagent_lifecycle.py` = `f47838b338f2bd94163cf466110f939c065ac041`.
 
-Durable Stage-B store на preimage `conversation_segments.py=553bd3496c21a7949c3a5dfa03f33b9e09293213`:
-- candidate `3ca05116a1ada8f1c7beb7cbdd838b08154257e5`, 24882 bytes;
-- SHA-256 `94b75ccbe3244bba25e5357cfef502aacb18cb54ad5b8093b220ae03006e2056`;
-- compile PASS, targeted recovery/replay 16/16 PASS;
-- manifest `autonomy/evidence/notion/20260824T0345Z_stageb_store_candidate/manifest.json`, blob `b54de4c99f4bf741b3c96e1598a97dec0ed6b0a7`.
+Agent full mandatory matrix on exact pair+overlay is still not transferred as green. Historical Agent PASS is not sufficient.
 
-Transaction helper:
-- `autonomy/evidence/notion/20260824T0403Z_stageb_transaction_helper.py`;
-- blob `b3fe792b99daad678e3c773db291576bdf179167`, 7451 bytes;
-- exact regression `autonomy/evidence/notion/20260824T0403Z_test_stageb_transaction_helper.py`, blob `478fa18a2917861917ade1a444735757e6d75198`;
-- helper 12/12 PASS; exact store+helper integration 11/11 PASS.
+## Stage A / Stage B already proven locally
 
-Обязательный порядок:
-`local route acquisition -> strict provider_intent -> deliberate same-account provider steps without implicit failover/retry -> canonical render -> strict atomic finalize -> ephemeral cache/affinity/reservation -> client`.
+Stage A V32 fail-closed floor is locally green on exact source.
 
-Дополнительная локальная отрицательная проверка этого прохода: если route cleanup падает уже после durable finalize + ephemeral publish, точный retry берёт сохранённый replay и provider call count остаётся `1`. Это подтверждает post-commit replay floor; отдельный новый provider вызов не возникает.
+Current durable Stage-B pieces:
 
-Failure-safe stream projector:
-- `autonomy/evidence/notion/20260824T0546Z_stageb_stream_failure_projection_candidate.py` blob `a094a4b5484384037fb02c07d345b73531a46091`, 3318 bytes;
-- exact regression blob `8d5fadf31aeff034d09e9943b25249402a2207b0`, 3957 bytes;
-- Python 3.13.5 + Starlette 0.50.0: `STAGEB_STREAM_FAILURE_PROJECTION_EXACT_PASS 10/10`.
+- store candidate on `conversation_segments.py` exact preimage `553bd349...`: blob `3ca05116a1ada8f1c7beb7cbdd838b08154257e5`;
+- transaction helper: `autonomy/evidence/notion/20260824T0403Z_stageb_transaction_helper.py`, blob `b3fe792b99daad678e3c773db291576bdf179167`;
+- transaction helper exact regression: blob `478fa18a2917861917ade1a444735757e6d75198`, targeted 12/12 plus store+helper integration 11/11;
+- stream failure projection candidate: `a094a4b5484384037fb02c07d345b73531a46091`, regression `8d5fadf31aeff034d09e9943b25249402a2207b0`, 10/10;
+- server-owned lock boundary candidate: `2f92c2abe56e2d4be39c4930a63dd876aca52294`, regression `b280001743064a86b61306c160820d9b88329672`, 6/6.
 
-Server-owned lock boundary:
-- candidate `autonomy/evidence/notion/20260824T0752Z_stageb_server_owned_lock_boundary_candidate.py` blob `2f92c2abe56e2d4be39c4930a63dd876aca52294`;
-- regression `autonomy/evidence/notion/20260824T0752Z_test_stageb_server_owned_lock_boundary.py` blob `b280001743064a86b61306c160820d9b88329672`;
-- `STAGEB_SERVER_OWNED_LOCK_BOUNDARY_PASS 6/6`.
+These are component proofs, not one unified same-byte Stage-B PASS yet.
 
-Инвариант: detached/server-owned commit task сам держит inference/conversation/affinity locks до durable completion. SSE client disconnect не имеет права освободить эти locks, пока provider/finalize ещё работает.
+## NEW blocking gap — promoted installer payload closure
 
-## Финальные gate pins — актуальны после этого прохода
+Fresh revalidation on exact current heads found that the Core promoted installer cannot yet prove/deploy the local module closure required by the materialized Agent server.
 
-В этом проходе найден реальный coverage gap: canonical Stage-B transaction helper и его executable regression существовали, но прежний final coverage verifier не требовал `tests.test_stageb_transaction_helper`. Значит финальный suite теоретически мог стать зелёным без исполнения проверки самой транзакционной границы `route -> intent -> provider -> finalize -> publish`.
+Exact Core `integrated_upgrade.py` blob `0f4393e656307e3b17dfab105464de551f12a05d` currently writes only `PAYLOAD_NAMES` into `<project_root>/bridge/<name>`:
 
-Gap закрыт fail-closed.
+`server.py, account_pool.py, diagnostics.py, auth_contract.py, migration_contract.py, stable_identity.py, stable_runtime_state.py, thread_state_registry.py, transport_evidence.py, conversation_segments.py`.
 
-Coverage verifier:
-- `autonomy/v3/tools/verify_notion_final_gate_coverage.py`;
-- **blob `1342ed03e3a2b7eb4013480ba80db1e3d99750d7`**;
-- обязательно требует `tests.test_stageb_transaction_helper`;
-- Stage-B discovery включает `stageb_transaction_helper`; наличие теста без wiring в suite даёт `NOT_READY`.
+It separately exact-verifies only `notion_images.py` and `turn_affinity.py` as static bridge dependencies.
 
-Windows readiness:
-- `autonomy/v3/tools/verify_notion_windows_ready_candidate.py`;
-- schema **`notion_windows_ready_candidate_v11`**;
-- **blob `4b90b639b943dd627f27c030efa087e904181560`**;
-- pin coverage `1342ed03...`;
-- обязательно требует `local_gates.stageb_transaction_helper=PASS`;
-- сохраняет exact `--candidate-root` Git-blob readback и отклонение symlink/drift;
-- v10/старый coverage pin больше не являются допустимым Windows readiness proof.
+But exact Agent server preimage `f02cef6a0ffc202c75fbe71c520c72ac19ff876d` directly imports local modules not covered by that installer set:
 
-Локальная falsification-проверка:
-- coverage без transaction helper -> `NOT_READY`;
-- coverage с exact module + suite wiring -> `PASS`;
-- readiness без `stageb_transaction_helper` -> blocked;
-- readiness со старым coverage pin -> blocked;
-- полностью заполненный synthetic candidate -> PASS.
+- `prompt_modes.py`;
+- `server_subagent_lifecycle.py`.
 
-Evidence:
-`autonomy/evidence/notion/20260824T1035Z_stageb_transaction_helper_gate_hardening.json`.
+The exact Agent server materializer also adds top-level `reservation_aware_lease.py`.
 
-## Следующий обязательный маршрут
+Further, current `payload/server_subagent_lifecycle.py` blob `96b07cf8e8069586b33b516a1d66e38b6439a4f9` imports package-local modules such as `payload.delegation_dispatcher`, `payload.delegation_policy`, `payload.notion_delegation_adapter`, `payload.notion_subagent_runtime`, `payload.server_subagent_runtime`, `payload.subagent_entrypoint`, and `payload.subagent_tombstone_store`. Current `PAYLOAD_NAMES` does not install that package graph.
 
-1. Fresh-read #9 и PR #7/#8 перед любой записью. При head drift не переносить pair/gate доказательства автоматически.
-2. Candidate = exact transformed pair `c9ca... + 273db...` + corrected five-file owner/engineer overlay. Полный mandatory Agent/delegation matrix должен быть на этих bytes.
-3. На **тех же bytes** Core встраивает store `3ca05116...`, transaction helper `b3fe792b...`, stream projector `a094a4b5...`, server-owned lock boundary `2f92c2ab...` и соответствующие regressions. `tests.test_stageb_transaction_helper` должен быть реально materialized и wired в suite, иначе новый coverage gate закономерно красный.
-4. Прогнать полный Agent+Core same-byte matrix: materializer/journal/tombstone/dynamic reservation/startup/cancellation/prompt/delegation/tool-loop/subagent/routing/failover + strict intent/finalize + transaction helper + Responses/compaction replay + restart/tool-call + stream/nonstream/disconnect + server-owned lock boundary + ambiguous transport + removed account + TTL/size/oversize/stale retry + rollback + Codex shell-env secret exclusion.
-5. Coverage `1342ed03...` PASS.
-6. Readiness v11 `4b90b639... --candidate-root <exact composed tree>` PASS.
-7. Только затем один targeted native Windows Server 2022 proof.
-8. Targeted PASS -> promoted Ubuntu+Windows/exact-source/security gate на тех же bytes.
-9. После promoted green -> isolated encrypted runtime restore -> real Codex-only bridge/Notion tool loop -> owner-doctor -> discovered tool coverage -> legitimate rotation/restart/crash/bounded soak -> `NOTION_CORE_DONE`.
+Therefore a same-byte source-tree matrix alone is insufficient: the promoted runtime could pass source tests and then fail import/lose Agent functionality after installation. This is a current reproducible acceptance blocker, not a historical NCM issue.
 
-## Persistent memory
+Durable evidence:
 
-`LATEST` не переключать без полного `capsule_runtime_v4.py restore -> pack -> immutable upload -> readback -> CAS`. Не реконструировать неизвестные capsule bytes. Текущие результаты долговечно лежат в Git evidence/handoff/#9.
+- `autonomy/evidence/notion/20260824T1125Z_promoted_install_payload_closure_gate.json`;
+- regression candidate `autonomy/evidence/notion/20260824T1115Z_test_promoted_install_payload_closure.py`, blob `46a9ff0661d8e4d87433614d1fd0bcf351239152`.
+
+Required product-side boundary: before lifecycle/source mutation the installer must know the complete local import closure, deploy or exact-hash-verify it under import-correct target paths, and include every managed target in durable backup/journal/rollback/installed-marker verification. Do not paper over this with ambient `PYTHONPATH` assumptions.
+
+## Final local coverage / Windows admission
+
+The final gate was hardened so this installer gap cannot be forgotten.
+
+- coverage verifier is now blob `8254f36b14fb240c7d6466c7241d2d735ea310d9` and requires `tests.test_promoted_install_payload_closure` to exist and be executed;
+- Windows readiness is now schema `notion_windows_ready_candidate_v12`, blob `0b53153f2ea424d989692bfe0f8a7b6faa36c897`;
+- readiness v12 requires `promoted_install_payload_closure=PASS`;
+- readiness v12 also binds and re-hashes the exact composed `integrated_upgrade.py`, so an installer fix cannot drift independently of the local matrix manifest.
+
+Local negative controls passed: missing closure regression is rejected by coverage; missing closure gate is rejected by readiness; one-byte/manifest drift in `integrated_upgrade.py` is rejected.
+
+No Windows run has been started.
+
+## Next exact order
+
+1. Agent independently finishes full mandatory matrix on exact pair + five-file owner/engineer overlay; Core does not duplicate that owned work.
+2. Core fixes the promoted install payload-closure contract on exact `integrated_upgrade.py`, with targeted regression proving incomplete closure fails before lifecycle/source mutation and complete closure is journaled/backed-up/rolled-back/verified.
+3. Compose the same exact Agent bytes + Stage-B store/transaction/stream/lock + installer closure fix into one candidate.
+4. Run full same-byte Agent+Core matrix including `tests.test_stageb_transaction_helper` and `tests.test_promoted_install_payload_closure`.
+5. Coverage `8254f36b...` PASS -> readiness v12 `0b53153f... --candidate-root` PASS.
+6. Only then run one targeted native Windows Server 2022 proof on those exact bytes.
+7. Targeted Windows PASS -> promoted Ubuntu+Windows/exact-source/security gate -> owner-doctor -> isolated runtime restore -> real Codex-only bridge→Notion/tool/rotation/restart/soak acceptance.
+
+PR #7/#8 refs were not moved in this run; Circle/Windows/live Notion/Codex were not used.

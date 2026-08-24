@@ -1,6 +1,6 @@
 # NOTION_AGENT — current handoff
 
-Updated: 2026-08-24 ~08:5x MSK
+Updated: 2026-08-24 ~10:0x MSK
 Worker: `NOTION_AGENT`
 
 ## Exact heads
@@ -49,10 +49,10 @@ Direct `fetch_blob` of transformed output SHAs `c9ca6f3b...` and `273db94a...` s
 
 ## Mandatory Agent matrix
 
-Final composed coverage currently pinned by controller:
+Final composed coverage/readiness currently pinned by controller + Agent hardening:
 
-- coverage verifier `0d2b9247f7b1ba2383c5ba87ed4731e1d61ca806`
-- Windows readiness `e80e119f19847a44b84ebdebcaf1e1391588c00a`
+- coverage verifier `fafc7eb733da90d306b4fa599e57b6ecd921a357`
+- Windows readiness v10 `2496278f56c67ded32fdc15ae6b116971e8410af`
 
 The full canonical matrix must actually run on the transformed pair before Agent releases it as safety-green. Critical modules include at least:
 
@@ -80,7 +80,7 @@ Therefore a green matrix over only raw PR #8 delegation bytes would be a false p
 
 If the overlay is not composed, owner-mode must remain explicitly NOT_READY and Windows remains forbidden.
 
-Fresh targeted local probes in this run, reconstructed from current-head source slices:
+Fresh targeted local probes in this line, reconstructed from current-head source slices:
 
 - current-head delegation policy: **10/10 PASS** for its existing identity/budget contract;
 - dispatcher/lifecycle semantics: **10/10 PASS**;
@@ -98,23 +98,39 @@ No Windows until this complete composed matrix and Core same-byte Stage-B are gr
 
 ## Corrected delegated owner/engineer five-file set
 
-- `fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e`
-- `a9d15b79b421cd29b094b549be06d2b0319e26d9`
-- `f36e9c91355dec667173b6265dd550554fb0f05d`
-- `2d57651b408ef2e6c75f29855f7cdbaeafa97c2e`
-- `f47838b338f2bd94163cf466110f939c065ac041`
+- `fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e` — `payload/delegation_policy.py`
+- `a9d15b79b421cd29b094b549be06d2b0319e26d9` — `payload/delegation_dispatcher.py`
+- `f36e9c91355dec667173b6265dd550554fb0f05d` — `payload/notion_delegated_model_step.py`
+- `2d57651b408ef2e6c75f29855f7cdbaeafa97c2e` — `payload/subagent_entrypoint.py`
+- `f47838b338f2bd94163cf466110f939c065ac041` — `payload/server_subagent_lifecycle.py`
 
 Do not use obsolete entrypoint blob `aebefce4...`.
 
+### Windows-readiness owner-overlay pin hardening — 2026-08-24 ~10:00 MSK
+
+A fresh falsification found that readiness v9 (`349b6005255382bab7284c42da43c2d163a178be`) rehashed only five product files and did **not** require the corrected five-file delegated owner/engineer overlay. Therefore a composed candidate could theoretically retain the raw PR #8 delegation files while a self-consistent manifest still satisfied all byte checks outside that overlay.
+
+Root fix is now control-only Windows readiness v10 blob `2496278f56c67ded32fdc15ae6b116971e8410af`, schema `notion_windows_ready_candidate_v10`:
+
+- all five delegated owner/engineer files are added to candidate-root byte rehash;
+- manifest `composed_blobs` must contain the five exact blobs listed above, not merely arbitrary 40-hex values;
+- candidate-root bytes must rehash to those manifest values, so raw/current PR #8 delegation files or one-byte drift fail closed.
+
+Local synthetic falsification/positive control: **3/3 PASS** — wrong-but-self-consistent overlay is `NOT_READY`; exact-pin fixture is `PASS`; single overlay byte drift is `NOT_READY`.
+
+Durable evidence: `autonomy/evidence/notion/20260824T1000Z_owner_overlay_windows_readiness_pin.json`, blob `38ace654bfe583b2bad6a83f443aaaec26706e05`.
+
+This closes only the final byte-admission hole. It is **not** full Agent safety-green and does not authorize Windows by itself.
+
 ## Core boundary / next exact step
 
-Agent currently owns only the fresh local pair + mandatory Agent matrix. Core Stage-B must not be overlapped.
+Agent owns the exact pair + mandatory Agent matrix. Core Stage-B must not be overlapped.
 
 Next:
 1. build the local Agent candidate from exact transformed pair + corrected five-file owner/engineer overlay;
 2. run the full mandatory Agent matrix against that exact composed Agent candidate;
 3. if green, mark Agent safety-green and release exact recipe/digests/test manifest to Core;
-4. Core reconstructs/readbacks the same candidate, composes Stage-B on those same bytes and runs full Agent+Core local matrix + coverage/readiness;
+4. Core reconstructs/readbacks the same candidate, composes Stage-B on those same bytes and runs full Agent+Core local matrix + coverage `fafc7eb7...` + readiness v10 `2496278f... --candidate-root`;
 5. only then one targeted Windows Server 2022 run becomes admissible.
 
 No Circle/Windows/live Notion/Codex/accounts/secrets/main/merge/production in the current Agent pair/composition stage.

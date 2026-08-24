@@ -7,9 +7,9 @@ import json
 import re
 from pathlib import Path
 
-SCHEMA = "notion_windows_ready_candidate_v5"
+SCHEMA = "notion_windows_ready_candidate_v6"
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
-FINAL_GATE_COVERAGE_VERIFIER_BLOB = "be9b721ea61d897889c06aa9f5870d941b5eb876"
+FINAL_GATE_COVERAGE_VERIFIER_BLOB = "3a07683c5a093730b5dc08ede543f6d95c94f856"
 
 REQUIRED_BLOB_PATHS = {
     "conversation_segments.py": Path("payload/conversation_segments.py"),
@@ -46,6 +46,7 @@ REQUIRED_GATES = (
     "restart_exact_replay",
     "stream_nonstream_same_canonical_result",
     "stream_disconnect_commit_survives",
+    "stageb_stream_failure_projection",
     "ambiguous_transport_single_attempt",
     "removed_account_fail_closed",
     "ttl_replay_expiry",
@@ -73,78 +74,47 @@ def fail(errors: list[str]) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("manifest", type=Path)
-    parser.add_argument(
-        "--candidate-root",
-        type=Path,
-        help="exact composed candidate tree whose Git blob bytes must match the manifest",
-    )
+    parser.add_argument("--candidate-root", type=Path, help="exact composed candidate tree whose Git blob bytes must match the manifest")
     args = parser.parse_args()
-
     try:
         doc = json.loads(args.manifest.read_text(encoding="utf-8"))
     except Exception as exc:
         return fail([f"manifest:{type(exc).__name__}"])
-
     errors: list[str] = []
-    if doc.get("schema") != SCHEMA:
-        errors.append("schema")
-
+    if doc.get("schema") != SCHEMA: errors.append("schema")
     for key in ("core_head", "agent_head", "composition_materializer_blob"):
         value = doc.get(key)
-        if not isinstance(value, str) or not HEX40.fullmatch(value):
-            errors.append(key)
-
-    if doc.get("final_gate_coverage_verifier_blob") != FINAL_GATE_COVERAGE_VERIFIER_BLOB:
-        errors.append("final_gate_coverage_verifier_blob")
-
-    if doc.get("circle_connectivity") != "PASS":
-        errors.append("circle_connectivity")
-    if doc.get("native_windows_run_started") is not False:
-        errors.append("native_windows_run_started")
-    if doc.get("readiness_label") != "READY_FOR_TARGETED_WINDOWS_CIRCLE":
-        errors.append("readiness_label")
-
+        if not isinstance(value, str) or not HEX40.fullmatch(value): errors.append(key)
+    if doc.get("final_gate_coverage_verifier_blob") != FINAL_GATE_COVERAGE_VERIFIER_BLOB: errors.append("final_gate_coverage_verifier_blob")
+    if doc.get("circle_connectivity") != "PASS": errors.append("circle_connectivity")
+    if doc.get("native_windows_run_started") is not False: errors.append("native_windows_run_started")
+    if doc.get("readiness_label") != "READY_FOR_TARGETED_WINDOWS_CIRCLE": errors.append("readiness_label")
     blobs = doc.get("composed_blobs")
-    if not isinstance(blobs, dict):
-        errors.append("composed_blobs")
+    if not isinstance(blobs, dict): errors.append("composed_blobs")
     else:
         for key in REQUIRED_BLOB_PATHS:
             value = blobs.get(key)
-            if not isinstance(value, str) or not HEX40.fullmatch(value):
-                errors.append(f"composed_blobs.{key}")
-
+            if not isinstance(value, str) or not HEX40.fullmatch(value): errors.append(f"composed_blobs.{key}")
     candidate_root = args.candidate_root
-    if candidate_root is None:
-        errors.append("candidate_root")
+    if candidate_root is None: errors.append("candidate_root")
     else:
         root = candidate_root.resolve()
         for key, rel in REQUIRED_BLOB_PATHS.items():
             path = root / rel
             if path.is_symlink() or not path.is_file():
-                errors.append(f"candidate_file.{key}")
-                continue
+                errors.append(f"candidate_file.{key}"); continue
             if isinstance(blobs, dict):
                 expected = blobs.get(key)
-                if isinstance(expected, str) and HEX40.fullmatch(expected):
-                    actual = git_blob_sha(path)
-                    if actual != expected:
-                        errors.append(f"candidate_blob_mismatch.{key}")
-
+                if isinstance(expected, str) and HEX40.fullmatch(expected) and git_blob_sha(path) != expected:
+                    errors.append(f"candidate_blob_mismatch.{key}")
     gates = doc.get("local_gates")
-    if not isinstance(gates, dict):
-        errors.append("local_gates")
+    if not isinstance(gates, dict): errors.append("local_gates")
     else:
         for key in REQUIRED_GATES:
-            if gates.get(key) != "PASS":
-                errors.append(f"local_gates.{key}")
-
-    if doc.get("stage_b_unified_candidate") != "PASS":
-        errors.append("stage_b_unified_candidate")
-    if doc.get("v50_only") is not False:
-        errors.append("v50_only")
-
-    if errors:
-        return fail(errors)
+            if gates.get(key) != "PASS": errors.append(f"local_gates.{key}")
+    if doc.get("stage_b_unified_candidate") != "PASS": errors.append("stage_b_unified_candidate")
+    if doc.get("v50_only") is not False: errors.append("v50_only")
+    if errors: return fail(errors)
     print("READY_FOR_TARGETED_WINDOWS_CIRCLE")
     return 0
 

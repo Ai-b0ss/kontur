@@ -1,0 +1,58 @@
+{
+  "schema": "notion_agent_exact_pair_local_reproduction_v1",
+  "created_at": "2026-08-24T08:15:00+03:00",
+  "agent_head": "3cc0c0be34bad1b79555d842cd8fc9755dd26b64",
+  "core_head_observed": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "scope": "offline exact Agent pair reproduction only; no Core Stage-B mutation; no Circle/Windows/live/provider/production",
+  "preimages": {
+    "payload/account_pool.py": {
+      "git_blob": "11cea792a2f5aaa40ee1515faddfd44e76cbb23f",
+      "bytes": 43173,
+      "sha256": "7bd7425331261e8f2d00eb83fc551423dc9cc851b3357147554ea725efc211ae"
+    },
+    "payload/server.py": {
+      "git_blob": "f02cef6a0ffc202c75fbe71c520c72ac19ff876d",
+      "bytes": 112748,
+      "sha256": "a364cdf0a88ac2f318616b4b633f6f10b6d156b85c8668d4d54b5d884ae28310"
+    }
+  },
+  "recipe": {
+    "account_transform": "80aeb1872c1cab7f51c33039584b5786e441f9f0",
+    "server_transform": "20c2fb2e550daab52f3d27e791fa500002a73735",
+    "tombstone_transform": "40ab3a448e33fb8a8c3ce045ef31a815d0554823",
+    "base_pair_transaction": "30fb89286eb4457b25b2145918279fec2d735042",
+    "canonical_wrapper": "4ae3b1c2d23bbfa8980bd4a3652ee9d2941b1cd5",
+    "late_alias_regression": "4750c57e17055f1e6896382a0f355801492bc82f"
+  },
+  "local_check_apply_readback_compile": {
+    "verdict": "PASS",
+    "check_did_not_change_preimages": true,
+    "payload/account_pool.py": {
+      "git_blob": "c9ca6f3b4545e469966369a4220a6a2a60bf3697",
+      "bytes": 48066,
+      "sha256": "5d233686d882a2819e9ed19b73d4ed6ce55ef794385db2447c2801000844c38a",
+      "compile": "PASS"
+    },
+    "payload/server.py": {
+      "git_blob": "273db94a8f9b153e95c910df221755e28c0f46a7",
+      "bytes": 116047,
+      "sha256": "d1492ef4a0dc2842c0bdde417945091d3949485283ebf7be729bdbcced0010a1",
+      "compile": "PASS"
+    },
+    "server_intermediate_before_tombstone": "5c04b8cce34b29e63bf1839d59476f8081763c2b"
+  },
+  "durable_reconstruction_contract": {
+    "method": "fetch exact preimages from Agent head, fetch exact transform blobs above, apply account transform; apply server transform then tombstone transform; verify resulting Git blob/size/SHA-256 exactly",
+    "requires_guessing": false,
+    "transformed_output_blobs_present_in_product_repo": false,
+    "note": "Direct fetch_blob of c9ca6f3b... and 273db94a... still returned 404 during this run. The handoff is nevertheless byte-exact reconstructible from immutable preimages + immutable transform blobs + exact output digests. Do not call the product branch pair-materialized until product bytes are actually committed/read back there."
+  },
+  "fresh_matrix": {
+    "verdict": "PENDING",
+    "reason": "Full mandatory Agent/delegation matrix on this exact head has not yet been executed in the ChatGPT local runtime. Historical green is not transferred.",
+    "coverage_verifier": "0d2b9247f7b1ba2383c5ba87ed4731e1d61ca806",
+    "windows_readiness": "e80e119f19847a44b84ebdebcaf1e1391588c00a",
+    "windows_allowed": false
+  },
+  "next": "Run the mandatory Agent matrix against these transformed bytes. If green, release exact pair recipe/digests to Core for same-byte Stage-B composition; only full Agent+Core local green can authorize targeted Windows."
+}

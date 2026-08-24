@@ -1,0 +1,52 @@
+{
+  "schema": "notion_agent_matrix_phase_boundary_v1",
+  "recorded_at_msk": "2026-08-24T17:05:00+03:00",
+  "agent_head": "12e3c4fe5ccec421281ad856547143f654897cd5",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "finding": "single-phase execution of all Agent modules on the transformed pair is structurally invalid because some mandatory tests intentionally assert frozen preimages and apply the transform exactly once",
+  "guaranteed_postcompose_false_red_examples": [
+    {
+      "module": "tests.test_materialize_agent_wiring_with_tombstones",
+      "test_blob": "dce46bac63eac45594bd778ed33b6fba6574700e",
+      "reason": "reads ROOT payload/account_pool.py + payload/server.py and invokes materialize(); composed account_pool is c9ca6f3b... while apply_account_pool requires frozen 11cea792..."
+    },
+    {
+      "module": "tests.test_account_pool_dynamic_reservation_materializer",
+      "test_blob": "00dab76c17a05dc900a37cc5823ec659bd6b9ab8",
+      "reason": "first test explicitly requires module.EXPECTED_ACCOUNT_POOL_BLOB == current ROOT payload/account_pool.py; composed pair intentionally has c9ca6f3b... instead"
+    },
+    {
+      "module": "tests.test_startup_status_cleanup",
+      "test_blob": "cff93d7ae8aa709e8955a304bbc8ee0e2e500391",
+      "reason": "first test explicitly requires EXPECTED_SERVER_BLOB == current ROOT payload/server.py and applies the server patch once; composed server intentionally has 273db94a..."
+    }
+  ],
+  "pr30_observed_circle_singletons": {
+    "head": "df3e5d286376b13571df13814aa3e1cd90106be0",
+    "workflow": "82d4bcaa-c3e7-4cca-879e-71d380569480",
+    "success": [7],
+    "note": "success/failure map is retained in #9 release; current PR30 singleton mode is localization only and cannot be final acceptance because at least the preimage tests above are guaranteed to fail after its common composition setup"
+  },
+  "runner_v2_current_head_blob": "538b88ba79b0eec675c62e656671fd3568737f2a",
+  "runner_v2_status": "SUPERSEDED_FOR_ACCEPTANCE_BY_PHASED_V3",
+  "runner_v3": {
+    "path": "autonomy/v3/tools/run_notion_agent_exact_matrix_v3.py",
+    "git_blob": "117461943d6c2203086103570ff8eb86a9da60fe",
+    "schema": "notion_agent_exact_matrix_execution_v3",
+    "precompose_modules": 20,
+    "composed_modules": 38,
+    "total_modules": 58,
+    "acceptance_requires": [
+      "precompose manifest PASS on exact clean Agent head",
+      "pair check/apply/readback/compile to c9ca6f3b... + 273db94a...",
+      "five exact owner/engineer overlay blobs",
+      "composed manifest PASS on exact seven-path composition",
+      "post-phase worktree/blob recheck"
+    ],
+    "local_mechanics_self_check": "PASS: compile/import + 20/38 partition; negative missing-precompose-module rejected"
+  },
+  "windows_allowed": false,
+  "product_refs_moved": false,
+  "circle_triggered_by_this_worker": false,
+  "live_provider_used": false
+}

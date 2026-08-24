@@ -1,0 +1,18 @@
+{
+  "schema": "notion_stageb_sse_failure_projection_candidate_test_v1",
+  "candidate_blob": "4991304c7f78630ee04a3a1a6359392b076eb61e",
+  "local_runtime": {"python": "3.13", "starlette": "0.50.0"},
+  "result": "PASS_5_OF_5",
+  "cases": [
+    "slow success: neutral keepalive(s), then completed projection",
+    "slow transaction failure: neutral keepalive(s), then protocol-visible failure projection without raw exception",
+    "pending keepalive contains no resp_/call_/fc_ identity or provider payload",
+    "consumer cancellation does not cancel the server-owned durable task",
+    "fast transaction failure is projected as failure without fabricated success"
+  ],
+  "required_integration": "Responses layer supplies project_failure so the generic helper does not invent response IDs or event structure; current stream_openai_responses already emits response.failed and [DONE] for failures, so Stage-B should preserve equivalent protocol-visible semantics.",
+  "circle_started": false,
+  "windows_started": false,
+  "live_provider_traffic": false,
+  "product_refs_moved": false
+}

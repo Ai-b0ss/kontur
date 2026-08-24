@@ -1,6 +1,6 @@
 # NOTION_AGENT — current handoff
 
-Updated: 2026-08-24 ~07:0x MSK
+Updated: 2026-08-24 ~08:2x MSK
 Worker: `NOTION_AGENT`
 
 ## Exact heads
@@ -10,67 +10,66 @@ Worker: `NOTION_AGENT`
 - Circle connectivity is already proven. Do not re-probe it.
 - Windows remains forbidden until exact Agent pair + same-byte Agent/Core Stage-B/full local matrix are green.
 
-## Fresh materializer safety result
+## Fresh exact pair reproduction on current Agent head
 
-A real TOCTOU defect was reproduced on prior Agent head `9c2098feebd186421629f80e62787d0569f8b30c`:
+The frozen preimages were reconstructed locally from fresh GitHub bytes and verified by Git blob SHA before transformation:
 
-1. wrapper validated `payload/account_pool.py` as a plain file;
-2. before the base materializer reached its internal `Path.resolve()`, the target could be swapped to a symlink (or its parent directory replaced by a symlink);
-3. the old base path canonicalization would then follow that late alias toward an external path.
+- `payload/account_pool.py` = `11cea792a2f5aaa40ee1515faddfd44e76cbb23f` / 43173 bytes / SHA-256 `7bd7425331261e8f2d00eb83fc551423dc9cc851b3357147554ea725efc211ae`
+- `payload/server.py` = `f02cef6a0ffc202c75fbe71c520c72ac19ff876d` / 112748 bytes / SHA-256 `a364cdf0a88ac2f318616b4b633f6f10b6d156b85c8668d4d54b5d884ae28310`
 
-Root fix is now in PR #8:
+Current immutable recipe:
 
-- `tools/materialize_agent_wiring_with_tombstones.py` blob `4ae3b1c2d23bbfa8980bd4a3652ee9d2941b1cd5`
-- new regression `tests/test_materialize_agent_wiring_late_alias_substitution.py` blob `4750c57e17055f1e6896382a0f355801492bc82f`
-
-The wrapper now passes a guarded lexical Path into the base transaction. Alias checks run again at the base `resolve()` boundary and again when that Path crosses `os.fspath()` into filesystem operations. This closes the reproduced late final-target and late parent-alias substitutions without changing product transformation logic.
-
-Focused local semantic regression on Linux/POSIX: **3/3 PASS**:
-- final product file swapped to symlink after wrapper validation -> rejected;
-- parent directory swapped to symlink before base resolve -> rejected;
-- parent directory swapped after resolve but before filesystem boundary -> rejected;
-- external target bytes remain unchanged in all scenarios.
-
-This is Linux/POSIX evidence. Native Windows path semantics remain part of the later targeted Windows gate.
-
-## Exact Agent pair contract
-
-Frozen product preimages are unchanged by the safety fix:
-
-- `payload/account_pool.py` preimage `11cea792a2f5aaa40ee1515faddfd44e76cbb23f` / 43173 bytes
-- `payload/server.py` preimage `f02cef6a0ffc202c75fbe71c520c72ac19ff876d` / 112748 bytes
-
-Deterministic transformation recipe remains:
-
-- account materializer `80aeb1872c1cab7f51c33039584b5786e441f9f0`
-- server/startup materializer `20c2fb2e550daab52f3d27e791fa500002a73735`
+- account transform `80aeb1872c1cab7f51c33039584b5786e441f9f0`
+- server/startup transform `20c2fb2e550daab52f3d27e791fa500002a73735`
 - tombstone wiring `40ab3a448e33fb8a8c3ce045ef31a815d0554823`
 - base pair transaction `30fb89286eb4457b25b2145918279fec2d735042`
-- canonical wrapper now `4ae3b1c2d23bbfa8980bd4a3652ee9d2941b1cd5`
+- canonical guarded wrapper `4ae3b1c2d23bbfa8980bd4a3652ee9d2941b1cd5`
+- late-alias regression `4750c57e17055f1e6896382a0f355801492bc82f`
 
-Expected transformed product bytes remain:
+Fresh isolated check/apply/readback/compile result: **PASS**.
 
-- `account_pool.py` = `c9ca6f3b4545e469966369a4220a6a2a60bf3697` / 48066 bytes / SHA-256 `5d233686d882a2819e9ed19b73d4ed6ce55ef794385db2447c2801000844c38a`
-- final `server.py` = `273db94a8f9b153e95c910df221755e28c0f46a7` / 116047 bytes / SHA-256 `d1492ef4a0dc2842c0bdde417945091d3949485283ebf7be729bdbcced0010a1`
+- check phase left both exact preimages unchanged;
+- transformed `account_pool.py` read back as `c9ca6f3b4545e469966369a4220a6a2a60bf3697` / 48066 bytes / SHA-256 `5d233686d882a2819e9ed19b73d4ed6ce55ef794385db2447c2801000844c38a` / compile PASS;
+- transformed final `server.py` read back as `273db94a8f9b153e95c910df221755e28c0f46a7` / 116047 bytes / SHA-256 `d1492ef4a0dc2842c0bdde417945091d3949485283ebf7be729bdbcced0010a1` / compile PASS;
+- server intermediate before tombstone remains `5c04b8cce34b29e63bf1839d59476f8081763c2b`; do not use it as the final server byte.
 
-Historical pair PASS from an older Agent head is not proof for `3cc0c0be...`. Pair must be rerun on this head: `--check -> apply -> readback SHA/size -> compile`.
+Fresh Linux/POSIX focused late-alias negative probe on the current wrapper semantics: **3/3 PASS**. Late final-file symlink, late parent symlink before resolve, and parent symlink after resolve/before filesystem boundary are all rejected; external target bytes stay unchanged.
+
+Machine-readable evidence, already read back from GitHub:
+
+`autonomy/evidence/notion/20260824T0815Z_agent_fresh_pair_local_reproduction.json`
+
+blob `cbe3676dc61cc9e828b5a1bcc244896dd7ca0a9f`.
+
+## Important remaining boundary
+
+This is a fresh exact local pair reproduction, but **not yet full Agent safety green**. The full mandatory Agent/delegation matrix on `3cc0c0be...` has not yet been executed in the ChatGPT local runtime. Historical green from older heads is not transferred.
+
+Direct `fetch_blob` of transformed output SHAs `c9ca6f3b...` and `273db94a...` still returns 404 in the product repo. Therefore do not describe PR #8 itself as pair-materialized yet. Core can nevertheless reconstruct the pair byte-exact without guessing from the immutable preimages + immutable transform blobs + exact output SHA/size/SHA-256 above.
 
 ## Mandatory Agent matrix
 
-Use the full canonical Agent matrix already required by final coverage, plus the new regression:
+Final composed coverage currently pinned by controller:
 
-`tests.test_materialize_agent_wiring_late_alias_substitution`
+- coverage verifier `0d2b9247f7b1ba2383c5ba87ed4731e1d61ca806`
+- Windows readiness `e80e119f19847a44b84ebdebcaf1e1391588c00a`
 
-The final composed/Windows coverage must explicitly require this module before Windows is authorized. Existing coverage `b51f11f27d7ef2c52bc6fd93d3469caf3d6d4ae3` predates this regression and must be respun/equivalently extended together with its Windows-readiness pin after same-byte local composition is green. Do not run Windows against the old coverage pin.
+The full canonical matrix must actually run on the transformed pair before Agent releases it as safety-green. Critical modules include at least:
 
-Critical existing regressions remain mandatory, especially:
 - `tests.test_subagent_tombstone_post_replace_sync_failure`
+- `tests.test_subagent_tombstone_store`
 - `tests.test_server_subagent_tombstone_restart`
 - `tests.test_delegated_cancellation_lifecycle`
-- `tests.test_startup_status_repeated_cancellation`
-- dynamic reservation/reselect/failover tests
-- prompt mode / prompt identity / delegated owner-mode tests
-- tool-loop uncertain-side-effect and lifecycle drain tests.
+- `tests.test_materialize_agent_wiring*`, including target-path and late-alias regressions
+- dynamic reservation/reselect/failover and reservation-aware lease tests
+- prompt mode / prompt identity / Responses prompt wiring + HTTP contract
+- delegation policy/dispatcher/model-step/entrypoint/runtime tests
+- delegated tool-loop malformed/uncertain-side-effect tests
+- startup cleanup + repeated cancellation tests
+- lifecycle drain/rebind/durable tool guard tests
+- account-pool parallelism.
+
+No Windows until this matrix and Core same-byte Stage-B are green on one tree.
 
 ## Corrected delegated owner/engineer five-file set
 
@@ -82,32 +81,14 @@ Critical existing regressions remain mandatory, especially:
 
 Do not use obsolete entrypoint blob `aebefce4...`.
 
-## Core boundary
+## Core boundary / next exact step
 
-Core currently owns Stage-B-only work and must not be overlapped. After Agent releases exact pair + full Agent matrix:
+Agent currently owns only the fresh local pair + mandatory Agent matrix. Core Stage-B must not be overlapped.
 
-1. Core consumes exact `c9ca6f3b.../48066 + 273db94a.../116047` with readback, not a prose claim.
-2. Compose Stage-B on the same bytes.
-3. Run full Agent+Core local matrix.
-4. Run final coverage/readiness with the new late-alias regression included and `--candidate-root` bound to the same tree.
-5. Only complete local same-byte green authorizes one targeted Windows Server 2022 run.
+Next:
+1. run the full mandatory Agent matrix against the exact transformed pair above;
+2. if green, mark Agent safety-green and release exact recipe/digests to Core;
+3. Core reconstructs/readbacks the same pair, composes Stage-B on those same bytes and runs full Agent+Core local matrix + coverage/readiness;
+4. only then one targeted Windows Server 2022 run becomes admissible.
 
-## Persistent memory
-
-Last normatively verified LATEST remains:
-- pointer blob `740b0e3515f1fb9a7f523f71749b224b1fda9c0a`
-- capsule `20260823T225025Z-8eae144a28`
-- archive SHA-256 `db911f8d4e419c5d83f8c71bdb8258a2399dd1faf241ec80df328bb5c235cb74`
-
-Do not publish a replacement LATEST unless the full v4 protocol is completed: restore -> checkpoint -> pack -> immutable upload -> readback every part/manifest -> verify -> reread LATEST -> CAS update, preserving PREVIOUS. No manual reconstruction of unknown bytes.
-
-## Next exact step
-
-On fresh PR #8 head `3cc0c0be...`:
-
-1. rerun canonical pair `--check -> apply -> readback SHA/size -> compile` in an isolated local tree;
-2. run the full mandatory Agent matrix including the new late-alias test on those transformed bytes;
-3. persist exact pair bytes or a byte-exact reconstructible handoff for Core;
-4. release Agent ownership so Core can perform same-byte Stage-B composition.
-
-No Circle/Windows/live Notion/Codex/accounts/secrets/main/merge/production before those local gates.
+No Circle/Windows/live Notion/Codex/accounts/secrets/main/merge/production in the current Agent pair/composition stage.

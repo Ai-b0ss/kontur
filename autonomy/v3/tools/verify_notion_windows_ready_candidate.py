@@ -7,9 +7,9 @@ import json
 import re
 from pathlib import Path
 
-SCHEMA = "notion_windows_ready_candidate_v10"
+SCHEMA = "notion_windows_ready_candidate_v11"
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
-FINAL_GATE_COVERAGE_VERIFIER_BLOB = "fafc7eb733da90d306b4fa599e57b6ecd921a357"
+FINAL_GATE_COVERAGE_VERIFIER_BLOB = "1342ed03e3a2b7eb4013480ba80db1e3d99750d7"
 
 REQUIRED_BLOB_PATHS = {
     "conversation_segments.py": Path("payload/conversation_segments.py"),
@@ -56,6 +56,7 @@ REQUIRED_GATES = (
     "agent_server_subagent_wiring_materializer",
     "protected_no_failover",
     "strict_provider_intent_finalize",
+    "stageb_transaction_helper",
     "canonical_responses_replay",
     "canonical_compaction_replay",
     "restart_exact_replay",

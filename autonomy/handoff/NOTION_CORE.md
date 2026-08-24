@@ -1,81 +1,84 @@
 # Notion — Core и Windows
 
-## Exact heads и граница работы
+## Exact heads и граница
 
-- Core PR #7: `b6f4eef28ea7acdbba5fc32559fa635c28f72144` (`candidate/ncm28-windows-fixed-v1`).
-- Agent PR #8: `3cc0c0be34bad1b79555d842cd8fc9755dd26b64` (`autonomy/notion-prompt-modes-20260819`).
-- Финальная materialized Agent-пара, доказанная ранее: `payload/account_pool.py = c9ca6f3b4545e469966369a4220a6a2a60bf3697 / 48066`, `payload/server.py = 273db94a8f9b153e95c910df221755e28c0f46a7 / 116047`.
-- Agent lane отдельно владеет полной exact Agent-матрицей и 12 свежими negative-path regressions. Core их не дублирует.
-- Circle connectivity уже PASS. Не делать reconnect. Targeted native Windows запускать только после same-byte Agent+Core local FULL PASS.
+- Core PR #7: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
+- Agent PR #8: `3cc0c0be34bad1b79555d842cd8fc9755dd26b64`.
+- Каноническая transformed Agent-пара: `payload/account_pool.py = c9ca6f3b4545e469966369a4220a6a2a60bf3697 / 48066`, `payload/server.py = 273db94a8f9b153e95c910df221755e28c0f46a7 / 116047`.
+- NOTION_AGENT отдельно владеет полной exact Agent-матрицей, включая 12 недавно найденных отрицательных сценариев. Core не дублирует эту работу.
+- Circle connectivity уже PASS. Reconnect не нужен. Native Windows запрещён до same-byte local Agent+Core FULL PASS + coverage/readiness PASS.
 
-## Уже доказанная Core Stage-B база
+## Доказанная Core Stage-B база
 
 - Stage-A fail-closed floor: V32 local exact PASS.
 - Stage-B store на exact `conversation_segments.py` preimage `553bd349...`: candidate `3ca05116a1ada8f1c7beb7cbdd838b08154257e5`.
-- Transaction helper: `autonomy/evidence/notion/20260824T0403Z_stageb_transaction_helper.py`, blob `b3fe792b99daad678e3c773db291576bdf179167`; exact regression blob `478fa18a2917861917ade1a444735757e6d75198`.
-- Stream failure projection candidate `a094a4b5484384037fb02c07d345b73531a46091`, exact regression `8d5fadf31aeff034d09e9943b25249402a2207b0`, local 10/10.
-- Server-owned lock boundary candidate `2f92c2abe56e2d4be39c4930a63dd876aca52294`, regression `b280001743064a86b61306c160820d9b88329672`, local 6/6.
-- Protected no-failover Core boundary remains mandatory after durable provider intent; ordinary Agent rotation remains unchanged outside that protected transaction.
+- Transaction helper: `autonomy/evidence/notion/20260824T0403Z_stageb_transaction_helper.py`, blob `b3fe792b99daad678e3c773db291576bdf179167`; regression `478fa18a2917861917ade1a444735757e6d75198`.
+- Stream failure projection: `a094a4b5484384037fb02c07d345b73531a46091`, regression `8d5fadf31aeff034d09e9943b25249402a2207b0`, local 10/10.
+- Server-owned lock boundary: `2f92c2abe56e2d4be39c4930a63dd876aca52294`, regression `b280001743064a86b61306c160820d9b88329672`, local 6/6.
+- После durable provider intent каждый осознанный внешний шаг идёт без неявного account failover; обычная Agent-ротация вне защищённой транзакции сохраняется.
 
-## Promoted installer — текущий блокер перед composition/Windows
+## Promoted installer — текущий блокер
 
-Current Core `integrated_upgrade.py` = Git blob `0f4393e656307e3b17dfab105464de551f12a05d`.
+Exact Core `integrated_upgrade.py` = Git blob `0f4393e656307e3b17dfab105464de551f12a05d`.
 
-Он всё ещё управляет только десятью плоскими `PAYLOAD_NAMES` под `<project_root>/bridge/<name>` и считает `notion_images.py` + `turn_affinity.py` exact-R2 static dependencies. Это уже недостаточно для текущего Agent+Core runtime.
+Текущая версия имеет старую модель:
+- journal schema `ncm25-integrated-outer-transaction-v2`;
+- 10 плоских `PAYLOAD_NAMES` под `<project_root>/bridge`;
+- `turn_affinity.py` считается exact-R2 static dependency;
+- `_durable_backup_descriptors()` строит backup-имя из ключа через `key.replace('.', '_')`, поэтому вложенный ключ способен превратиться во вложенный backup-path;
+- `_load_durable_backups()` пересчитывает keyset через текущий `target_paths()`, поэтому простое расширение target list ломает восстановление старого v2 journal;
+- outer transaction управляет файлами, но не жизненным циклом нового каталога `bridge/payload/`.
 
-Точная текущая локальная import-closure включает как минимум:
+Для текущего Agent это недостаточно. `turn_affinity.py` уже изменён и участвует в prompt-policy/cache/thread identity, а импорт-граф требует top-level `prompt_modes.py`, `server_subagent_lifecycle.py`, `reservation_aware_lease.py` и пакет `bridge/payload/*`.
 
-- новые top-level runtime modules: `prompt_modes.py`, `server_subagent_lifecycle.py`, materialized `reservation_aware_lease.py`;
-- package modules под `payload.*`: `delegated_tool_loop.py`, `delegation_dispatcher.py`, `delegation_policy.py`, `notion_delegated_model_step.py`, `notion_delegation_adapter.py`, `notion_subagent_runtime.py`, `reservation_aware_lease.py`, `server_subagent_runtime.py`, `subagent_entrypoint.py`, `subagent_lifecycle.py`, `subagent_tombstone_store.py`.
+## Новый результат 24.08 ~12:52 МСК — installer-v3 transaction plan
 
-### Новое доказанное в проходе 24.08 ~12:10 МСК
-
-Обнаружено, что прежний closure-regression был слишком слабым: он считал модуль «установленным», если его имя присутствовало в `R2_STATIC_DEPENDENCY_SHA256`, не сверяя static identity с exact source bytes composed tree.
-
-Это критично для `turn_affinity.py`:
-
-- Core source Git blob: `6abc6572e537eada9cbd2f07224388be6494910f`;
-- Agent source Git blob: `f4bc004ec08cbaf3f1118dec0926015ab41b8bd3`;
-- installer всё ещё требует старый exact-R2 SHA-256 `dfd8f35bd70e6aff5c4881091664f8543dbcebf06fcddb33d807c075cc5132dc`;
-- текущий Agent `turn_affinity.py` уже импортирует `prompt_modes` и включает content-free prompt-policy fingerprint в cache/thread identity.
-
-Следствие: `turn_affinity.py` больше нельзя считать старым статическим non-target для финального Agent+Core candidate. Его нужно продвинуть в managed composed payload либо доказать точную эквивалентную установленную версию. Простого совпадения имени недостаточно.
-
-Closure regression усилен на месте:
-`autonomy/evidence/notion/20260824T1115Z_test_promoted_install_payload_closure.py`
-новый blob `4883bd59b6a4b8c3f2b17d3103882d1b26dea55d`.
-Теперь static dependency засчитывается только если SHA-256 exact source bytes совпадает с объявленным static SHA. Локально: syntax PASS, synthetic static-drift negative PASS, static-exact positive PASS.
+Создан исполняемый fail-closed model-кандидат:
+`autonomy/evidence/notion/20260824T1252Z_promoted_installer_v3_transaction_model.py`
+Git blob `1c47c061a9fe93b216fdb46230c90d281421560b`.
 
 Evidence:
-`autonomy/evidence/notion/20260824T1210Z_promoted_installer_static_identity_and_nested_targets.json`.
+`autonomy/evidence/notion/20260824T1252Z_promoted_installer_v3_transaction_model.json`.
 
-### Почему нельзя просто дописать вложенные имена в PAYLOAD_NAMES
+Локальная логическая проверка кандидата: `PROMOTED_INSTALLER_V3_TRANSACTION_MODEL_PASS cases=12 targets=25`.
 
-Текущий installer имеет ещё три подтверждённых несовместимых предположения:
+Доказанные инварианты модели:
+1. explicit source→installed-target plan допускает безопасные вложенные `payload/...` только как относительные bridge-path;
+2. `..`, absolute/drive-like/backslash пути закрываются до использования;
+3. backup artifact name всегда плоский basename и получает collision-resistant digest исходного ключа;
+4. legacy v2 recovery навсегда использует исходный keyset: старые 10 payload + `installed.json`; рост v3 targets не меняет recovery старого journal;
+5. v3 journal хранит собственный exact managed-target map, а recovery сверяет его с каноническим plan;
+6. current `turn_affinity.py` переводится в managed target;
+7. Agent package closure включена в v3 target plan;
+8. absent-before `bridge/payload/` можно удалить при rollback только после восстановления/удаления managed files и только если каталог доказанно пуст; foreign entry блокирует удаление;
+9. installed marker должен покрывать каждый managed target.
 
-1. `_durable_backup_descriptors()` делает имя backup как `key.replace('.', '_')`. Для ключа `payload/delegation_dispatcher.py` получается `00-payload/delegation_dispatcher_py.before`, то есть не basename, а вложенный путь. Локально воспроизведено: `NESTED_BACKUP_NAME_HAZARD_REPRODUCED`.
-2. `_load_durable_backups()` заново вычисляет current `target_paths()` и требует точного совпадения keyset с journal. Простое расширение PAYLOAD_NAMES сделает прерванный journal старой схемы невосстановимым. Нужен version-aware legacy recovery / новая journal schema.
-3. `bridge/payload/` — новый управляемый каталог. Текущий outer transaction отслеживает только файлы. Нужно долговечно записать preimage каталога, создать его через NCM28 guarded-parent операции и при rollback удалять только если именно эта транзакция создала его и каталог доказанно пуст. Нельзя оставлять мусорный каталог и нельзя удалять чужой.
+Граница доказательства: это transaction-plan MODEL PASS, а не apply-ready patch для `integrated_upgrade.py`. Опубликованные candidate bytes перечитаны из GitHub; точный опубликованный blob ещё не исполнялся из mounted checkout. Windows-ready/full Stage-B не объявлять.
 
-Следовательно, безопасный installer fix — это не список имён, а versioned source→installed-target plan с nested-directory lifecycle, безопасными flat backup artifact names, полным backup/rollback/installed-marker/final-verify покрытием и backward recovery старого journal.
+## Promoted installer v3 — что должно войти в реальный патч
+
+- новая journal schema v3 при сохранении чтения/recovery старого v2;
+- explicit immutable source→target plan;
+- current composed `turn_affinity.py` как managed payload, а не старый static R2;
+- path-safe flat backup names, не зависящие от `/` в target key;
+- v3 journal должен содержать exact target mapping, чтобы recovery не зависел от будущего `PAYLOAD_NAMES`;
+- guarded/journaled directory preimage для `bridge/payload/`: absent-before/create-owned/preexisting distinction;
+- при rollback удалять transaction-created `bridge/payload/` только после exact file rollback и только когда он пуст; unknown child/symlink/junction/inode drift => safe stop;
+- все новые files/directories должны участвовать в backup/rollback/installed-marker/final verify;
+- старый v2 interrupted journal должен восстанавливаться по своей прежней схеме и keyset.
 
 ## Финальные предохранители
 
-- Final coverage verifier должен фактически запускать все обязательные Agent+Core regressions, включая promoted-install closure; наличие файла без wiring не считается PASS.
-- Windows readiness обязан rehash реального candidate-root и exact manifest. Старый historical PASS не переносится.
-- До local composed FULL PASS Windows не запускать.
+- Final coverage обязан фактически запускать все обязательные Agent+Core regressions; наличие файла без wiring не PASS.
+- Windows readiness обязан rehash реальный candidate-root и exact manifest; historical/stale PASS не переносится.
+- Свежий Agent-аудит отдельно нашёл 12 недостающих safety-regressions в старом coverage; strengthened final coverage/readiness ещё предстоит принять после полной same-byte матрицы.
 
 ## Следующий обязательный шаг
 
-1. На exact Core `integrated_upgrade.py@0f4393...` собрать fail-closed installer-v3 candidate:
-   - managed `turn_affinity.py` вместо старой static assumptions для Agent composition;
-   - explicit source→target map;
-   - nested `bridge/payload` directory preimage/lifecycle;
-   - path-safe collision-resistant flat backup names;
-   - outer-journal versioning с recovery старого v2 keyset;
-   - все targets в backup/rollback/installed marker/final verification.
-2. Прогнать targeted local installer regressions: clean install, pre-existing package dir, rollback before/after nested writes, foreign nested entry, symlink/junction/hardlink/path alias, crash old-v2 recovery, marker/hash drift.
-3. Затем объединить installer с exact Agent pair + owner/engineer overlay + Stage-B store/transaction/stream/lock слоями и прогнать одну same-byte Agent+Core FULL matrix.
-4. Только после coverage + readiness PASS — один targeted Windows Server 2022 Circle proof на этих же bytes.
+1. Превратить доказанную installer-v3 модель в exact patch поверх `integrated_upgrade.py@0f4393...`.
+2. Targeted local matrix: clean install; pre-existing `bridge/payload`; crash до/после directory creation; crash/rollback после части nested writes; foreign nested child; symlink/junction/hardlink/path alias/inode swap; old-v2 interrupted journal recovery; v3 target-map drift; backup-name collision; installed-marker/hash drift.
+3. После installer local PASS собрать на одной exact Agent pair + owner/engineer overlay весь Stage-B store/transaction/stream/lock слой и прогнать same-byte Agent+Core FULL matrix.
+4. Coverage + readiness PASS на реальном candidate-root.
+5. Только после этого один targeted native Windows Server 2022 Circle proof на тех же байтах.
 
-Никакой Circle/Windows/live Notion/Codex/account/config/data mutation в последнем Core-проходе не было; PR #7/#8 refs не двигались.
+Последний Core-проход не двигал PR #7/#8, не запускал Circle/Windows и не трогал live Notion/Codex/accounts/secrets/data/main/merge/production.

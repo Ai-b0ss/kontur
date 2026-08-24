@@ -24,8 +24,9 @@
   "pr30_observed_circle_singletons": {
     "head": "df3e5d286376b13571df13814aa3e1cd90106be0",
     "workflow": "82d4bcaa-c3e7-4cca-879e-71d380569480",
-    "success": [7],
-    "note": "success/failure map is retained in #9 release; current PR30 singleton mode is localization only and cannot be final acceptance because at least the preimage tests above are guaranteed to fail after its common composition setup"
+    "success": [8, 9, 14, 18, 27, 29, 37, 48],
+    "failure": [7, 10, 15, 19, 20, 21, 26, 30, 35, 36, 38, 44, 45, 47],
+    "note": "current PR30 singleton mode is localization only and cannot be final acceptance because at least the preimage tests above are guaranteed to fail after its common composition setup; failures outside the known precompose set still require exact localization"
   },
   "runner_v2_current_head_blob": "538b88ba79b0eec675c62e656671fd3568737f2a",
   "runner_v2_status": "SUPERSEDED_FOR_ACCEPTANCE_BY_PHASED_V3",

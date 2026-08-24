@@ -7,7 +7,7 @@ import json
 import re
 from pathlib import Path
 
-SCHEMA = "notion_windows_ready_candidate_v9"
+SCHEMA = "notion_windows_ready_candidate_v10"
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 FINAL_GATE_COVERAGE_VERIFIER_BLOB = "fafc7eb733da90d306b4fa599e57b6ecd921a357"
 
@@ -17,6 +17,19 @@ REQUIRED_BLOB_PATHS = {
     "account_pool.py": Path("payload/account_pool.py"),
     "reservation_aware_lease.py": Path("payload/reservation_aware_lease.py"),
     "subagent_tombstone_store.py": Path("payload/subagent_tombstone_store.py"),
+    "delegation_policy.py": Path("payload/delegation_policy.py"),
+    "delegation_dispatcher.py": Path("payload/delegation_dispatcher.py"),
+    "notion_delegated_model_step.py": Path("payload/notion_delegated_model_step.py"),
+    "subagent_entrypoint.py": Path("payload/subagent_entrypoint.py"),
+    "server_subagent_lifecycle.py": Path("payload/server_subagent_lifecycle.py"),
+}
+
+REQUIRED_EXACT_AGENT_OVERLAY_BLOBS = {
+    "delegation_policy.py": "fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e",
+    "delegation_dispatcher.py": "a9d15b79b421cd29b094b549be06d2b0319e26d9",
+    "notion_delegated_model_step.py": "f36e9c91355dec667173b6265dd550554fb0f05d",
+    "subagent_entrypoint.py": "2d57651b408ef2e6c75f29855f7cdbaeafa97c2e",
+    "server_subagent_lifecycle.py": "f47838b338f2bd94163cf466110f939c065ac041",
 }
 
 REQUIRED_GATES = (
@@ -93,28 +106,37 @@ def main() -> int:
     if doc.get("native_windows_run_started") is not False: errors.append("native_windows_run_started")
     if doc.get("readiness_label") != "READY_FOR_TARGETED_WINDOWS_CIRCLE": errors.append("readiness_label")
     blobs = doc.get("composed_blobs")
-    if not isinstance(blobs, dict): errors.append("composed_blobs")
+    if not isinstance(blobs, dict):
+        errors.append("composed_blobs")
     else:
         for key in REQUIRED_BLOB_PATHS:
             value = blobs.get(key)
-            if not isinstance(value, str) or not HEX40.fullmatch(value): errors.append(f"composed_blobs.{key}")
+            if not isinstance(value, str) or not HEX40.fullmatch(value):
+                errors.append(f"composed_blobs.{key}")
+        for key, expected in REQUIRED_EXACT_AGENT_OVERLAY_BLOBS.items():
+            if blobs.get(key) != expected:
+                errors.append(f"composed_blobs_exact.{key}")
     candidate_root = args.candidate_root
-    if candidate_root is None: errors.append("candidate_root")
+    if candidate_root is None:
+        errors.append("candidate_root")
     else:
         root = candidate_root.resolve()
         for key, rel in REQUIRED_BLOB_PATHS.items():
             path = root / rel
             if path.is_symlink() or not path.is_file():
-                errors.append(f"candidate_file.{key}"); continue
+                errors.append(f"candidate_file.{key}")
+                continue
             if isinstance(blobs, dict):
                 expected = blobs.get(key)
                 if isinstance(expected, str) and HEX40.fullmatch(expected) and git_blob_sha(path) != expected:
                     errors.append(f"candidate_blob_mismatch.{key}")
     gates = doc.get("local_gates")
-    if not isinstance(gates, dict): errors.append("local_gates")
+    if not isinstance(gates, dict):
+        errors.append("local_gates")
     else:
         for key in REQUIRED_GATES:
-            if gates.get(key) != "PASS": errors.append(f"local_gates.{key}")
+            if gates.get(key) != "PASS":
+                errors.append(f"local_gates.{key}")
     if doc.get("stage_b_unified_candidate") != "PASS": errors.append("stage_b_unified_candidate")
     if doc.get("v50_only") is not False: errors.append("v50_only")
     if errors: return fail(errors)

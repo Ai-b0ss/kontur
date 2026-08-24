@@ -1,0 +1,52 @@
+{
+  "schema": "notion_promoted_installer_v3_engine_candidate_evidence_v1",
+  "status": "LOCAL_MODEL_PASS_NOT_INTEGRATED",
+  "observed_at": "2026-08-24T14:50:00+03:00",
+  "exact_heads": {
+    "core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_pr8": "3cc0c0be34bad1b79555d842cd8fc9755dd26b64"
+  },
+  "exact_core_preimage": {
+    "path": "integrated_upgrade.py",
+    "git_blob": "0f4393e656307e3b17dfab105464de551f12a05d"
+  },
+  "candidate": {
+    "path": "autonomy/evidence/notion/20260824T1445Z_promoted_installer_v3_engine_candidate.py",
+    "sha256": "0038dc5e63f7afbe027a659c193ea9121e76b001b115bde05ee6e40c18f5c792",
+    "py_compile": "PASS",
+    "execution": "PROMOTED_INSTALLER_V3_ENGINE_CANDIDATE_PASS cases=17"
+  },
+  "covered_invariants": [
+    "frozen legacy v2 ten-payload target plan",
+    "explicit v3 25-file source-to-target plan plus installed.json",
+    "safe relative paths and path-safe flat backup names",
+    "current turn_affinity is managed in v3",
+    "absent-before bridge/payload children use synthetic absent-parent preimages",
+    "transaction-created bridge/payload receives exact txid owner marker as first child",
+    "nested writes after absent parent require exact owner marker and continued absence",
+    "rollback refuses managed-child residue, foreign child, missing/drifted marker",
+    "transaction-created payload directory deletion is marker-bound and empty-dir-bound",
+    "owner marker cleanup is forbidden before verified",
+    "legacy v2 keyset is distinct from v3 keyset",
+    "v3 journal target map must exactly match canonical plan"
+  ],
+  "negative_cases": [
+    "path traversal",
+    "backslash path",
+    "absolute path",
+    "colon path",
+    "managed child remains during directory rollback",
+    "foreign child in transaction-created payload directory",
+    "owner marker drift",
+    "legacy-v2 journal presented with v3 keyset",
+    "v3 target-map drift"
+  ],
+  "boundary": {
+    "apply_ready_integrated_upgrade_patch": false,
+    "same_byte_stageb_full_green": false,
+    "windows_ready": false,
+    "circle_or_windows_run_started": false,
+    "live_notion_or_codex": false
+  },
+  "next": "Translate this engine into an exact patch/materializer over integrated_upgrade.py@0f4393e..., then run targeted clean/crash/rollback/path-safety/legacy-v2 tests before same-byte Agent+Core Stage-B composition."
+}

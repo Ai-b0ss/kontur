@@ -1,0 +1,46 @@
+{
+  "schema": "notion_agent_full_matrix_coverage_candidate_v1",
+  "created_at_msk": "2026-08-24T12:48:00+03:00",
+  "agent_head": "3cc0c0be34bad1b79555d842cd8fc9755dd26b64",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "current_core_coverage_blob": "8254f36b14fb240c7d6466c7241d2d735ea310d9",
+  "candidate_coverage_blob": "506e377fd22d44449495398e20768316ba12221d",
+  "candidate_behavior": {
+    "synthetic_full_suite": "PASS",
+    "synthetic_suite_missing_new_12": "NOT_READY",
+    "reported_missing_count": 12
+  },
+  "new_required_modules": [
+    "tests.test_account_pool_reselect_release_abort_contract",
+    "tests.test_account_pool_reselect_release_abort_semantics",
+    "tests.test_delegated_failover_session",
+    "tests.test_materialize_agent_wiring_backup_snapshot",
+    "tests.test_materialize_agent_wiring_durability_order",
+    "tests.test_materialize_agent_wiring_entry_recovery",
+    "tests.test_materialize_agent_wiring_finalize_guard",
+    "tests.test_materialize_agent_wiring_hardlink",
+    "tests.test_materialize_agent_wiring_journal_exclusive",
+    "tests.test_materialize_agent_wiring_journal_path_safety",
+    "tests.test_materialize_agent_wiring_late_recovery_guard",
+    "tests.test_materialize_agent_wiring_safe"
+  ],
+  "canonical_agent_pair": {
+    "account_pool_blob": "c9ca6f3b4545e469966369a4220a6a2a60bf3697",
+    "account_pool_size": 48066,
+    "server_blob": "273db94a8f9b153e95c910df221755e28c0f46a7",
+    "server_size": 116047
+  },
+  "owner_overlay": {
+    "delegation_policy.py": "fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e",
+    "delegation_dispatcher.py": "a9d15b79b421cd29b094b549be06d2b0319e26d9",
+    "notion_delegated_model_step.py": "f36e9c91355dec667173b6265dd550554fb0f05d",
+    "subagent_entrypoint.py": "2d57651b408ef2e6c75f29855f7cdbaeafa97c2e",
+    "server_subagent_lifecycle.py": "f47838b338f2bd94163cf466110f939c065ac041"
+  },
+  "claim_comment_id": 5393457036,
+  "windows_started": false,
+  "circle_started": false,
+  "live_provider_started": false,
+  "core_installer_v3_touched": false,
+  "status": "COVERAGE_CANDIDATE_READY_FULL_MATRIX_EXECUTION_STILL_PENDING"
+}

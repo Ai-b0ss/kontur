@@ -1,0 +1,53 @@
+{
+  "schema": "notion_core_stageb_transaction_helper_v1",
+  "heads": {
+    "core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_pr8": "4b344547d5e95bd4b3c62f5b80186059d849ff08"
+  },
+  "coordination": {
+    "claim_comment": 5389544056,
+    "excluded_active_agent_surface": "exact transformed account_pool/server rematerialization and mandatory Agent matrix"
+  },
+  "helper": {
+    "path": "autonomy/evidence/notion/20260824T0403Z_stageb_transaction_helper.py",
+    "bytes": 7451,
+    "git_blob": "b3fe792b99daad678e3c773db291576bdf179167",
+    "sha256": "be3d45b1229c2c38f0131170ef9711f0fc9d5ffc304b7acf9180e6a543ba7863",
+    "readback_git_blob_match": "PASS",
+    "py_compile": "PASS"
+  },
+  "local_executed_harness": {
+    "bytes": 11255,
+    "git_blob": "0a3ad6c493383259b4160f33f5e7f2bf28d3d166",
+    "sha256": "5ec937f22644950af6170e8c68c440d5e445ad6ba07d13a90d65f9b8192ec825",
+    "verdict": "STAGEB_TRANSACTION_HELPER_PASS",
+    "cases": 12
+  },
+  "durable_readable_regression": {
+    "path": "autonomy/evidence/notion/20260824T0403Z_test_stageb_transaction_helper.py",
+    "git_blob": "478fa18a2917861917ade1a444735757e6d75198",
+    "note": "Readable distilled regression was published and read back. The 12/12 verdict is tied to the local executed harness identity above, not falsely attributed to this different presentation blob."
+  },
+  "proved_order_and_failures": [
+    "local route acquisition occurs before durable provider intent",
+    "intent persistence failure yields zero provider calls",
+    "ambiguous provider failure leaves unresolved intent and exact retry makes no second provider call",
+    "finalize persistence failure publishes no ephemeral cache/reservation/client result and retry makes no second provider call",
+    "successful finalize precedes cache/affinity/reservation publication",
+    "ephemeral publication failure after durable finalize is recoverable by exact replay without another provider call",
+    "replay rehydration failure such as removed account fails closed without provider retry",
+    "client cancellation does not cancel an already server-owned commit task",
+    "buffered SSE projection emits no protocol result before durable transaction completion and projects the same canonical response/call identifiers",
+    "bounded shutdown cancellation leaves durable intent unresolved/fail-closed",
+    "deliberate planner correction can run as two explicit steps on the same selected account without coordinator failover/reacquire",
+    "cross-component global order is acquire -> intent -> provider -> render -> finalize -> ephemeral publish"
+  ],
+  "integration_boundary": {
+    "store_candidate": "3ca05116a1ada8f1c7beb7cbdd838b08154257e5",
+    "helper_candidate": "b3fe792b99daad678e3c773db291576bdf179167",
+    "same_byte_transformed_server_integration": "NOT_YET_PROVEN",
+    "full_stage_b": "NOT_YET_PROVEN",
+    "windows_allowed": false
+  },
+  "next": "After NOTION_AGENT releases exact c9ca6f3b.../48066 + 273db94a.../116047 bytes, wire this helper contract and durable store 3ca05116... into that exact server surface, then run the complete same-byte Agent+Core matrix before coverage/readiness/Windows."
+}

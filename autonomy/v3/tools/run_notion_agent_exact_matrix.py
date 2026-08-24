@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 
 SCHEMA = 'notion_agent_exact_matrix_execution_v2'
-AGENT_HEAD = '3cc0c0be34bad1b79555d842cd8fc9755dd26b64'
+AGENT_HEAD = '12e3c4fe5ccec421281ad856547143f654897cd5'
 EXACT_PAYLOAD_BLOBS = {
     'payload/account_pool.py': 'c9ca6f3b4545e469966369a4220a6a2a60bf3697',
     'payload/server.py': '273db94a8f9b153e95c910df221755e28c0f46a7',
@@ -32,6 +32,7 @@ AGENT_MODULES = (
     'tests.test_materialize_agent_wiring',
     'tests.test_materialize_agent_wiring_crash_recovery',
     'tests.test_materialize_agent_wiring_with_tombstones',
+    'tests.test_materialize_agent_wiring_derived_journal_creation',
     'tests.test_materialize_agent_wiring_target_path_safety',
     'tests.test_materialize_agent_wiring_late_alias_substitution',
     'tests.test_account_pool_dynamic_reservation_materializer',

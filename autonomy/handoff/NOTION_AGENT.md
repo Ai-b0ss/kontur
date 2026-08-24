@@ -1,6 +1,6 @@
 # NOTION_AGENT — current handoff
 
-Updated: 2026-08-24 ~16:56 MSK
+Updated: 2026-08-24 ~17:08 MSK
 Worker: `NOTION_AGENT`
 
 ## Exact heads / ownership
@@ -8,20 +8,20 @@ Worker: `NOTION_AGENT`
 - Agent PR #8: `12e3c4fe5ccec421281ad856547143f654897cd5`.
 - Core PR #7: `b6f4eef28ea7acdbba5fc32559fa635c28f72144`.
 - Circle connectivity is already proven through the `run-ci` PR label; do not re-probe it.
-- Native Windows remains forbidden until exact same-byte Agent+Core composition and the full local matrices are green.
+- Native Windows remains forbidden until exact same-byte Agent+Core composition and full local matrices are green.
 - No live Notion/Codex/accounts/secrets/main/merge/production during the current offline stage.
 - Core owns promoted-installer-v3 / promoted-install closure / Stage-B. Agent owns exact pair+overlay safety execution and byte-exact handoff.
-- `MANUAL_ASSIST_NOTION_CORE_INSTALLER_V3` currently owns the Core installer surface and explicitly excludes Agent PR #30 fine-bisect.
+- Current Core manual claim owns installer-v3 only and explicitly excludes Agent PR #30 fine-bisect.
 
 ## Fresh Agent drift
 
-Previous acceptance-runner head was `3cc0c0be34bad1b79555d842cd8fc9755dd26b64`.
+Previous matrix head was `3cc0c0be34bad1b79555d842cd8fc9755dd26b64`.
 Current Agent head is `12e3c4fe...` and the drift is exactly two commits:
 
-1. `614b620fc383504d1065961dc4803db0af64edcc` — materializer derived-child guard so guarded existing product paths can still create/remove the transaction journal and backups without weakening late-alias checks.
-2. `12e3c4fe...` — new focused regression `tests/test_materialize_agent_wiring_derived_journal_creation.py`, blob `5b1370424371eaeb991ac5674f1fbf30f1ee7e26`.
+1. `614b620fc383504d1065961dc4803db0af64edcc` — materializer derived-child guard so guarded existing product paths can still create/remove the transaction journal/backups without weakening late-alias checks.
+2. `12e3c4fe...` — focused regression `tests/test_materialize_agent_wiring_derived_journal_creation.py`, blob `5b1370424371eaeb991ac5674f1fbf30f1ee7e26`.
 
-No product payload file changed in this drift. Historical pair/full-matrix PASS is nevertheless not inherited; current-head materialization + execution proof is required.
+No product payload file changed in this drift. Historical pair/full-matrix PASS is nevertheless not inherited.
 
 ## Exact Agent composition target
 
@@ -34,9 +34,9 @@ Canonical transformed pair expected after fresh current-head materialization:
 
 - `payload/account_pool.py = c9ca6f3b4545e469966369a4220a6a2a60bf3697` / 48066 bytes.
 - `payload/server.py = 273db94a8f9b153e95c910df221755e28c0f46a7` / 116047 bytes.
-- `5c04b8cce34b29e63bf1839d59476f8081763c2b` is an intermediate pre-tombstone server and is forbidden as final Agent server bytes.
+- `5c04b8cce34b29e63bf1839d59476f8081763c2b` is intermediate pre-tombstone server only and is forbidden as final bytes.
 
-Exact delegated owner/engineer overlay required in the composed Agent matrix:
+Exact delegated owner/engineer overlay:
 
 - `payload/delegation_policy.py = fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e`.
 - `payload/delegation_dispatcher.py = a9d15b79b421cd29b094b549be06d2b0319e26d9`.
@@ -46,56 +46,83 @@ Exact delegated owner/engineer overlay required in the composed Agent matrix:
 
 Obsolete `subagent_entrypoint.py = aebefce4...` must never be composed.
 
-## Current exact execution runner
+## Important correction: Agent matrix is two-phase
 
-Canonical control-only runner:
+A single-phase runner over the already transformed pair is invalid. Several mandatory tests intentionally prove the frozen-source/materializer boundary and therefore must run before materialization.
+
+Three exact guaranteed examples:
+
+- `tests.test_materialize_agent_wiring_with_tombstones` reads the real ROOT pair and calls `materialize()` once; after composition `account_pool.py=c9ca6f3b...`, while the underlying apply tool requires frozen `11cea792...`.
+- `tests.test_account_pool_dynamic_reservation_materializer` explicitly asserts current ROOT `account_pool.py == EXPECTED_ACCOUNT_POOL_BLOB(11cea792...)` before applying the transform.
+- `tests.test_startup_status_cleanup` explicitly asserts current ROOT `server.py == EXPECTED_SERVER_BLOB(f02cef6a...)` before applying the server transform.
+
+Therefore these are guaranteed false REDs when executed after the common PR #30 composition setup. This explains why a final acceptance runner cannot simply execute all 58 modules on the transformed worktree.
+
+Evidence: `autonomy/evidence/notion/20260824T1705Z_agent_matrix_phase_boundary.json`, current blob `8e532934352041667d2c44e006818c78a151effa`.
+
+## Current exact execution runners
+
+### Base runner v2
 
 - path: `autonomy/v3/tools/run_notion_agent_exact_matrix.py`
+- Git blob: `538b88ba79b0eec675c62e656671fd3568737f2a`
 - schema: `notion_agent_exact_matrix_execution_v2`
-- current Git blob: `538b88ba79b0eec675c62e656671fd3568737f2a`
-- pinned Agent head: `12e3c4fe5ccec421281ad856547143f654897cd5`
-- new mandatory current-head module: `tests.test_materialize_agent_wiring_derived_journal_creation`
-- evidence: `autonomy/evidence/notion/20260824T1654Z_agent_runner_v2_current_head_refresh.json` blob `316205879adc2e165c9a6e15b7832dae4d1ce651`.
+- pinned head: `12e3c4fe...`
+- contains all 58 current mandatory Agent modules, including `tests.test_materialize_agent_wiring_derived_journal_creation`.
 
-Runner v2 requires all of the following before it can say PASS:
+Its fail-closed execution mechanics remain useful, but using it as one post-compose 58-module acceptance run is superseded because of the phase error above.
 
-1. Git HEAD exactly `12e3c4fe...`.
-2. Complete tracked worktree diff exactly the seven transformed pair/owner-overlay paths; any extra tracked drift fails closed.
-3. No pre-existing untracked input.
-4. Exact transformed pair + exact five-file owner/engineer overlay hashes.
-5. Every mandatory test file must match its exact blob at current Agent head.
-6. Every module is really executed separately with `python -B -m unittest -v`; return code zero alone is not sufficient.
-7. A parseable unittest summary is required with at least one executed test and not-all-skipped.
-8. Per-module PASS/FAIL/TIMEOUT, test/skip counts, return code, duration and output hashes are emitted.
-9. After the matrix, the complete worktree shape and seven composed blobs are verified again.
+### Canonical phased runner v3
 
-The current matrix therefore contains the previous 57 Agent modules plus the new derived-journal regression: 58 mandatory modules.
+- path: `autonomy/v3/tools/run_notion_agent_exact_matrix_v3.py`
+- Git blob: `117461943d6c2203086103570ff8eb86a9da60fe`
+- schema: `notion_agent_exact_matrix_execution_v3`
+- pinned head: `12e3c4fe...`
+- partitions the exact same 58 modules into:
+  - `precompose`: 20 frozen-source/materializer/application modules on a completely clean exact Agent checkout;
+  - `composed`: 38 runtime/routing/failover/prompt/delegation/tool-loop/lifecycle/tombstone modules on the exact seven-path composed worktree.
+- acceptance requires PASS manifests for both phases.
 
-## Disposable PR #30 boundary
+Runner v3 preserves v2 fail-closed mechanics:
 
-PR #30 `ci/manual-assist-notion-agent-full-matrix-12e3-20260824` is based on exact Agent head `12e3c4fe...`; observed disposable head `df3e5d286376b13571df13814aa3e1cd90106be0`; `run-ci` label is present.
+1. exact Agent HEAD and exact test-file blobs;
+2. precompose requires no tracked diff and no untracked input, then re-checks clean worktree after tests;
+3. composed requires exactly the seven canonical transformed/overlay paths and no untracked input;
+4. real per-module `python -B -m unittest -v` execution with parseable `Ran N tests`, `N>0`, and not-all-skipped;
+5. composed phase re-hashes the exact seven files after all tests.
 
-Its current singleton jobs are useful only for fine localization. The embedded full runner in PR #30 is schema v1 and predates both the v2 fail-closed execution protections and the new derived-journal regression. Therefore:
+Local runner mechanics self-check: Python compile/import PASS; partition `20 + 38 = 58` with no overlap; removal of a required precompose module is rejected fail-closed.
 
-- singleton green/red may localize a module;
-- PR #30 embedded v1 full-runner output must not be accepted as final Agent safety evidence;
-- final Agent safety proof must use the current control runner blob `538b88ba...` (or an exact later superseding runner recorded here) on the current exact composed bytes.
+## Disposable PR #30 status / boundary
+
+PR #30 is based on exact Agent head `12e3c4fe...`; observed disposable head `df3e5d286376b13571df13814aa3e1cd90106be0`; `run-ci` label is present.
+
+Fresh Circle singleton status map from workflow `82d4bcaa-c3e7-4cca-879e-71d380569480`:
+
+- SUCCESS: `single-8`, `single-9`, `single-14`, `single-18`, `single-27`, `single-29`, `single-37`, `single-48`.
+- FAILURE: `single-7`, `single-10`, `single-15`, `single-19`, `single-20`, `single-21`, `single-26`, `single-30`, `single-35`, `single-36`, `single-38`, `single-44`, `single-45`, `single-47`.
+
+The first three known failures `single-7`, `single-10`, `single-15` correspond to tests that are structurally precompose-only, so their post-compose RED is not product evidence. Failures outside the known precompose set still require exact localization and must not be waived.
+
+PR #30’s embedded full runner is schema v1 and is not acceptance evidence. Its current singleton layout is fine-bisect/localization only.
 
 ## Current boundary
 
-- Focused derived-child root fix: proven before product move by disposable PR #28 and landed in current Agent head.
-- Exact pair reproduction on current head: `REQUIRES_FRESH_CURRENT_HEAD_PROOF`.
-- Exact five-file owner/engineer overlay identities: proven and pinned.
-- Full Agent safety matrix on exact pair + overlay: `NOT_PROVEN`.
-- Exact current-head execution mechanism: `READY_V2`, blob `538b88ba79b0eec675c62e656671fd3568737f2a`.
+- Derived-child materializer root fix: landed on current head with focused regression.
+- Exact pair reproduction on current head: current PR #30 common setup is demonstrably capable of reaching composition in successful singleton jobs, but a single durable canonical pair readback manifest for acceptance is still required.
+- Exact owner/engineer overlay identities: pinned.
+- Precompose Agent phase PASS: `NOT_PROVEN`.
+- Composed Agent phase PASS: `NOT_PROVEN`.
+- Exact phased execution mechanism: `READY_V3`, blob `117461943d6c2203086103570ff8eb86a9da60fe`.
 - Core installer-v3 / unified Stage-B: separate Core work; do not duplicate.
-- Windows: `FORBIDDEN` until Agent v2 execution manifest PASS + same-byte Core Stage-B/full local PASS + final coverage/readiness PASS.
+- Windows: `FORBIDDEN` until both Agent v3 phase manifests PASS + same-byte Core Stage-B/full local PASS + final coverage/readiness PASS.
 
 ## Next exact action
 
-1. Current Agent matrix owner/fine-bisect should finish current-head localization without treating PR #30 v1 output as final proof.
-2. On a clean tree at `12e3c4fe...`, run `tools/materialize_agent_wiring_with_tombstones.py --check`, then apply, read back/compile and require `c9ca6f3b... + 273db94a...`.
-3. Compose the exact five owner/engineer files and execute canonical runner blob `538b88ba...`; preserve its v2 JSON manifest.
-4. If and only if all 58 modules PASS and post-matrix hashes remain exact, hand Core the pair/overlay SHA+size, runner blob, exact test-file blob map and per-module execution manifest.
-5. Core composes those same bytes with installer-v3 + Stage-B and runs the same-byte full local matrix.
-6. Only after final coverage/readiness PASS on that real candidate root may one targeted native Windows Server 2022 proof run.
+1. Run v3 `--phase precompose` on a clean exact `12e3c4fe...` tree and preserve the manifest.
+2. Run canonical pair `--check -> apply -> readback SHA/size -> compile`, require `c9ca6f3b... + 273db94a...`, then install the exact five owner/engineer overlay files.
+3. Run v3 `--phase composed` on exactly that seven-path composition and preserve the second manifest.
+4. Any composed-phase RED is then a real current-byte failure candidate; localize and fix only the first proven root cause, then repeat exact pair/readback and both relevant phase checks.
+5. Only if both manifests PASS and postchecks preserve exact bytes, hand Core the pair/overlay SHA+size, both runner manifests and exact test-file blob maps.
+6. Core composes those same bytes with installer-v3 + Stage-B and runs the same-byte full local matrix.
+7. Only after final coverage/readiness PASS on that real candidate root may one targeted native Windows Server 2022 proof run.

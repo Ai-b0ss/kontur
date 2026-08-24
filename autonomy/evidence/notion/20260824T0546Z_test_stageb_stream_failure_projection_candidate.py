@@ -3,13 +3,18 @@ from __future__ import annotations
 import asyncio
 import json
 from typing import Any
+import importlib.util
+from pathlib import Path
 
 from starlette.responses import StreamingResponse
 
-from stageb_stream_failure_projection_candidate import (
-    buffered_sse_projection_with_keepalive,
-    stageb_failed_sse,
-)
+_CANDIDATE = Path(__file__).with_name("20260824T0546Z_stageb_stream_failure_projection_candidate.py")
+_spec = importlib.util.spec_from_file_location("stageb_stream_failure_projection_candidate", _CANDIDATE)
+assert _spec is not None and _spec.loader is not None
+_mod = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
+buffered_sse_projection_with_keepalive = _mod.buffered_sse_projection_with_keepalive
+stageb_failed_sse = _mod.stageb_failed_sse
 
 
 async def project_ok(result: dict[str, Any]):

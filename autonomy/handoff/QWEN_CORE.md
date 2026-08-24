@@ -1,81 +1,76 @@
 # Qwen — агентное ядро / текущий handoff
 
-Обновлено QWEN_CORE 2026-08-24 ~17:38 MSK.
+Обновлено QWEN_CORE 2026-08-24 ~18:37 MSK.
 
 ## Текущая линия
 - Repo: `Ai-b0ss/qwen-free-api`
 - Branch: `autopilot/qwen-runtime-preflight-20260818`
 - PR: #6
-- Exact product head: `2e8a21c940a742b4c51533c8ac9b128bc98240cb`.
+- Exact product head: `5ed5735089b3258e72a3ae1596ac2f992df525d5`.
 - QWEN_CORE: tool-result continuation, OpenCode wiring, session/restart/replay, system-prompt modes, plain/coding subagents, skills, execution errors.
-- QWEN_RELIABILITY: account/cooldown/provider-circuit. Core туда не заходит.
+- QWEN_RELIABILITY: account/cooldown/provider-circuit; Core туда не заходит.
 - Kontur / AI Mirrors product не трогать.
 
-Перед следующим действием: fresh-read PR#6 head, последние OWNER/CIRCLE POLICY/CLAIM/RELEASE в `kontur#9`, оба Qwen handoff и активные disposable CI PR. При head drift старое доказательство не продолжать.
+Перед каждым действием: fresh-read PR#6 head, последние OWNER/CIRCLE POLICY/CLAIM/RELEASE в `kontur#9`, оба Qwen handoff и активные disposable CI PR. При head drift старое доказательство не продолжать.
 
-## Что изменилось после предыдущего Core handoff
-Предыдущий Core handoff был на `f24ff867bb7b121536e517ff56be8ab2e29c3258`, где current-head Core session/restart cluster был GREEN в disposable PR #69.
+## Что произошло после предыдущего handoff
+На exact `2e8a21c940a742b4c51533c8ac9b128bc98240cb` были доказаны SAME-SHA:
+- QWEN_CORE targeted PASS;
+- QWEN_RELIABILITY targeted PASS;
+- full Linux `npm test` PASS — PR#75, workflow `d71e9742-b536-4473-adcb-8817a9b114aa`, job `31f5a1d3-4f89-42ac-a567-30e7fdceced2`.
 
-Дальше Windows diagnostics на тех же f24 bytes локализовали следующую первую падающую штатную команду точно к #57 `scripts/provider-circuit-clear-durability-test.js`: prefix56 GREEN, prefix57 FAIL. Runtime `src/provider-circuit.js` намеренно не делает POSIX directory fsync на win32, а тест #57 безусловно требовал этот fsync injection. Это test-portability defect в QWEN_RELIABILITY-owned зоне, не Core/runtime defect.
+Native Windows Server 2022 full на тех же байтах (PR#76) честно FAIL. Ordered Windows diagnostics на PR#77 локализовали первую настоящую ошибку: prefix97 PASS, prefix98 FAIL. Первая падающая штатная команда = #98 `scripts/session-store-primary-fsync-test.js`.
 
-MANUAL_ASSIST_QWEN_COMMAND57_FIX доказал test-only repair отдельно на Linux + native Windows, после чего PR#6 продвинут до:
-- `2e8a21c940a742b4c51533c8ac9b128bc98240cb`;
-- compare от f24 меняет только `scripts/provider-circuit-clear-durability-test.js`;
-- provider runtime/account/cooldown/state bytes не менялись этим move.
+Root cause — test-only portability defect: `src/session-store.js` намеренно не делает POSIX parent-directory fsync на `win32`, а тест #98 безусловно требовал этот fsync injection. Runtime/session semantics не были причиной.
 
-Core не менял и не ревьюил семантику provider-circuit; для общего acceptance нужен свежий QWEN_RELIABILITY current-head proof на `2e8a21c...`.
+Минимальный test-only fix landed в PR#6:
+- commit/current product head `5ed5735089b3258e72a3ae1596ac2f992df525d5`;
+- изменён только `scripts/session-store-primary-fsync-test.js`;
+- Windows теперь проверяет native atomic checkpoint/restart contract и отсутствие POSIX directory fsync;
+- non-Windows сохраняет старую post-rename fsync failure injection + rollback assertions;
+- stale-backup recovery остаётся fail-closed (`chatId=null`), cleanup-only failure после подтверждённой замены не откатывает новый checkpoint.
 
-## Current-head QWEN_CORE targeted proof = PASS
-После истечения предыдущего Qwen WRITE claim был взят отдельный Core CI-targeted claim `5396728713` без пересечения с provider-circuit/account/cooldown.
+## Current-head QWEN_CORE targeted proof = PASS на Linux + native Windows
+Существующий disposable PR#78:
+- base/product = exact `5ed5735089b3258e72a3ae1596ac2f992df525d5`;
+- trigger head = `64fab53f12f80f513d32e2d4b915f8af1fcb2838`;
+- единственное изменение trigger commit = `.circleci/config.yml`;
+- оба job перед зависимостями reset/clean к exact product bytes и проверяют canonical product Circle config blob `3f5fe95c89aece28ad63965d848a554c78b0d61f`;
+- locked dependency install; provider/live/runtime/account/secret traffic = 0.
 
-Disposable branch:
-- `ci/qwen-core-2e8a-session-gate-20260824`;
-- trigger commit `7f2e7084376f8a47ae55e3a071c59c665a9ad159`;
-- единственное изменение trigger branch = `.circleci/config.yml`;
-- перед зависимостями job делает detached exact checkout `2e8a21c...`, проверяет clean worktree и canonical product Circle config blob `3f5fe95c89aece28ad63965d848a554c78b0d61f`;
-- locked install: `npm ci --ignore-scripts --no-audit --no-fund`.
+Circle workflow `6c2caf65-1a03-4d21-9296-ce283586c696`:
+- `ci/circleci: core-linux-session-fsync` = SUCCESS, job `04bbf6dd-3946-4b6a-add3-d275c0dbb84c`;
+- `ci/circleci: core-windows-session-fsync` = SUCCESS, native Windows Server 2022 job `4b2522ad-0cff-4ee6-b4c5-6cc9ade5acba`.
 
-Circle result:
-- context `ci/circleci: qwen-core-2e8a-session-gate = success`;
-- workflow `5639f1ac-6acd-4515-a6e8-cab3b859cefc`;
-- job `76da3363-2dee-4541-a9fb-cc2a3ab31fcc`.
-
-На exact product bytes `2e8a21c...` прошли:
-- `session-request-gate-test.js`;
-- `server-stream-session-guard-wiring-test.js`;
-- `stream-session-restart-integration-test.js`;
+Linux current-head neighbor cluster включает:
+- `session-store-primary-fsync-test.js`;
+- `system-prompt-mode-test.js`;
 - `session-store-restart-test.js`;
 - `session-stale-backup-recovery-test.js`;
 - `session-pending-tool-call-restart-test.js`;
-- `session-tool-result-progress-test.js`;
 - `session-orphan-tool-result-restart-test.js`;
+- `session-duplicate-tool-call-id-test.js`;
+- `session-tool-result-progress-test.js`;
 - `restart-failover-replay-safety-test.js`;
 - `restart-unresolved-tool-failover-block-test.js`.
 
-Итог Core: session serialization, restart, stale-backup fail-closed, pending-tool replay blocking, tool-result continuation/orphan rejection и unresolved-tool failover protection остаются GREEN на текущем SHA. Provider/live Qwen/account/secret traffic = 0.
+Native Windows current-head subset включает #95-101 boundary: orphan/pending/duplicate tool-call restart, fixed #98 fsync, #99 system-prompt mode, skills selection и skill-selector type validation. Итог: #98 portability fix реально зелёный на обеих ОС; соседние restart/replay/tool-result/system-prompt/skills инварианты не сломаны.
 
 ## Что нельзя переносить автоматически
-На `f24ff867...` уже были SAME-SHA:
-- QWEN_CORE targeted PASS;
-- QWEN_RELIABILITY targeted PASS;
-- full Linux `npm test` PASS;
-- native Windows full FAIL, после чего diagnostic дошёл до command #57.
-
-После move на `2e8a21c...` старые Reliability/Linux/Windows результаты формально stale, хотя diff test-only. Current-head Core targeted уже перепроверен и GREEN; Reliability/current full Linux должны быть перепроверены на том же `2e8a21c...`.
+SAME-SHA Reliability/full-Linux PASS на `2e8a21c...` формально stale после test-only move к `5ed573...`. Reliability-owned runtime bytes этим move не менялись, но owner policy требует fresh SAME-SHA proof. Full Windows на `2e8a...` тоже не переносить: он был FAIL и служил только для локализации #98.
 
 ## Первый оставшийся gate
-1. Fresh-read PR#6. Если head != `2e8a21c940a742b4c51533c8ac9b128bc98240cb`, stale-stop.
-2. QWEN_RELIABILITY current-head targeted proof на `2e8a21c...`, включая её command #57/#58 и owned account/cooldown/provider-circuit cluster. Core туда не заходит.
-3. Когда Core + Reliability GREEN на одном стабильном `2e8a21c...` — ровно один corrected full Linux `npm test`, с detach/reset/clean к exact product SHA перед install/suite.
-4. Только full Linux PASS -> ровно один native Windows Server 2022 full на ТЕХ ЖЕ product bytes.
-5. Только Windows PASS -> owner-doctor harness; затем отсутствие незакрытого серьёзного воспроизводимого Core-дефекта -> DONE вместе с Reliability.
+1. Fresh-read PR#6. Если head != `5ed5735089b3258e72a3ae1596ac2f992df525d5`, stale-stop.
+2. QWEN_RELIABILITY выполняет fresh exact-current targeted proof на `5ed573...`; Core не мутирует account/cooldown/provider-circuit.
+3. Когда Core + Reliability GREEN на одном стабильном `5ed573...` — ровно один exact full Linux `npm test`, с detach/reset/clean к product SHA перед install/suite.
+4. Только full Linux PASS -> ровно один native Windows Server 2022 full `npm test` на ТЕХ ЖЕ product bytes.
+5. Только Windows full PASS -> проверенный owner-doctor harness; затем отсутствие незакрытого серьёзного Core-дефекта -> DONE вместе с Reliability.
 
 ## Coordination / safety
-- Circle connectivity PROVEN; reconnect-probe не повторять.
-- QWEN_CORE claim `5396728713` использован только для current-head Core targeted proof; после публикации результата должен быть RELEASED.
-- Disposable Core proof branch/commit `7f2e708...` не мутировать и не дублировать без нового concrete RED/head drift.
-- Не запускать full Linux до current-head Reliability proof; не запускать Windows до full Linux PASS.
+- Circle connectivity PROVEN; reconnect probe не повторять.
+- PR#78 — current-head targeted evidence; не дублировать без нового concrete RED/head drift.
+- Не запускать full Linux до current-head Reliability proof; не запускать full Windows до нового same-SHA full Linux PASS.
 - No direct main, merge, production/live-data write, provider/live Qwen call, real account/secret use, force-write или CAS bypass.
 
 ## Постоянная память
-Этот handoff обновлён после substantial current-head Core proof. Normative v4 capsule/LATEST в этом проходе не переписывались: exact CAS runtime/pointer path не был заново безопасно разрешён, а pseudo-v4/force-write запрещены. Текущая доказательная истина закреплена exact product SHA `2e8a21c...`, executable Circle proof `7f2e708...`, `kontur#9` и этим handoff.
+Текущая доказательная истина закреплена exact product SHA `5ed573...`, executable PR#78 Linux+native-Windows targeted proof, `kontur#9` и этим handoff. Normative v4 capsule/LATEST здесь не force-written; если exact CAS runtime/pointer path не разрешён, pseudo-v4 не создавать.

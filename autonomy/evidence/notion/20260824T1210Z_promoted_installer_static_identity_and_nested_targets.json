@@ -1,0 +1,63 @@
+{
+  "schema": "notion_promoted_installer_static_identity_nested_targets_v1",
+  "created_at": "2026-08-24T12:10:00+03:00",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_head": "3cc0c0be34bad1b79555d842cd8fc9755dd26b64",
+  "core_integrated_upgrade_blob": "0f4393e656307e3b17dfab105464de551f12a05d",
+  "finding_1_static_dependency_drift": {
+    "module": "turn_affinity.py",
+    "core_source_git_blob": "6abc6572e537eada9cbd2f07224388be6494910f",
+    "agent_source_git_blob": "f4bc004ec08cbaf3f1118dec0926015ab41b8bd3",
+    "installer_static_sha256": "dfd8f35bd70e6aff5c4881091664f8543dbcebf06fcddb33d807c075cc5132dc",
+    "agent_change": "current Agent turn_affinity imports prompt_modes and binds prompt-policy fingerprint into response cache/thread identity",
+    "impact": "the promoted installer cannot keep treating turn_affinity.py as an exact-R2 static dependency for the Agent+Core candidate; name-only closure accounting can falsely accept an incompatible static target",
+    "required_fix": "promote turn_affinity.py to a managed composed payload (or exact-prove an equivalent installed byte identity); do not satisfy closure merely because its filename appears in R2_STATIC_DEPENDENCY_SHA256"
+  },
+  "closure_regression_hardening": {
+    "path": "autonomy/evidence/notion/20260824T1115Z_test_promoted_install_payload_closure.py",
+    "old_blob": "46a9ff0661d8e4d87433614d1fd0bcf351239152",
+    "new_blob": "4883bd59b6a4b8c3f2b17d3103882d1b26dea55d",
+    "new_rule": "a required module may count as static only if the exact source bytes in the composed payload tree have the configured static SHA-256; otherwise STATIC_SOURCE_DRIFT is a failure",
+    "local_syntax": "PASS",
+    "synthetic_static_drift_negative": "PASS",
+    "synthetic_static_exact_positive": "PASS"
+  },
+  "exact_current_package_closure_observed": {
+    "top_level_new_runtime_modules": [
+      "prompt_modes.py",
+      "server_subagent_lifecycle.py",
+      "reservation_aware_lease.py"
+    ],
+    "payload_package_modules_reached_from_server_subagent_lifecycle": [
+      "payload/delegated_tool_loop.py",
+      "payload/delegation_dispatcher.py",
+      "payload/delegation_policy.py",
+      "payload/notion_delegated_model_step.py",
+      "payload/notion_delegation_adapter.py",
+      "payload/notion_subagent_runtime.py",
+      "payload/reservation_aware_lease.py",
+      "payload/server_subagent_runtime.py",
+      "payload/subagent_entrypoint.py",
+      "payload/subagent_lifecycle.py",
+      "payload/subagent_tombstone_store.py"
+    ]
+  },
+  "finding_2_naive_nested_PAYLOAD_NAMES_is_unsafe": {
+    "backup_descriptor_issue": "_durable_backup_descriptors currently derives backup name with key.replace('.', '_'); for key payload/delegation_dispatcher.py this produces 00-payload/delegation_dispatcher_py.before, which is not a basename and escapes the flat tx backup naming contract",
+    "local_reproduction": "NESTED_BACKUP_NAME_HAZARD_REPRODUCED",
+    "legacy_recovery_issue": "_load_durable_backups recomputes expected_paths from current target_paths and requires exact keyset equality; extending PAYLOAD_NAMES would make an interrupted old-schema journal unrecoverable unless schema/version-aware legacy target recovery is retained",
+    "local_reproduction_2": "LEGACY_JOURNAL_KEYSET_DRIFT_REPRODUCED",
+    "directory_lifecycle_issue": "nested bridge/payload targets require a transaction-owned directory lifecycle; current backup/write/rollback model tracks files only and cannot safely assume the nested parent already exists",
+    "required_fix": [
+      "introduce an explicit source->installed-target plan instead of a flat-name-only assumption",
+      "use path-safe collision-resistant flat backup artifact names for nested target keys",
+      "version the outer journal or preserve legacy target-key recovery for interrupted v2 transactions",
+      "journal whether bridge/payload existed before mutation; create it through guarded-parent NCM28 operations; on rollback remove it only if this transaction created it and it is proven empty",
+      "include every new managed target in backup, rollback, installed marker and final exact verification"
+    ]
+  },
+  "verdict": "PROMOTED_INSTALLER_CLOSURE_FIX_REQUIRES_STATIC_IDENTITY_PROMOTION_PLUS_VERSIONED_NESTED_TARGET_TRANSACTION;_SIMPLE_PAYLOAD_NAMES_EXTENSION_IS_NOT_SAFE",
+  "windows_run_started": false,
+  "circle_used": false,
+  "live_notion_used": false
+}

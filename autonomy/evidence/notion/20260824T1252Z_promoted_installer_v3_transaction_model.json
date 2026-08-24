@@ -11,7 +11,9 @@
     "recovery_recomputes_current_target_keyset": true,
     "target_paths_are_flat_bridge_files_plus_installed_json": true
   },
-  "candidate_model_sha256_local": "bcb56fea77d06bd3d27483b1e7656e7dd1fc2718c626d842c521c3ad599e9e1d",
+  "candidate_model_git_blob": "1c47c061a9fe93b216fdb46230c90d281421560b",
+  "candidate_model_readback": "PASS",
+  "local_prepublication_logic_verdict": "PROMOTED_INSTALLER_V3_TRANSACTION_MODEL_PASS cases=12 targets=25",
   "verdict": "PROMOTED_INSTALLER_V3_TRANSACTION_MODEL_PASS",
   "cases": [
     "nested managed target keys map to exact safe bridge-relative paths",
@@ -28,6 +30,6 @@
     "python compile succeeds"
   ],
   "target_count_excluding_installed_marker": 25,
-  "boundary": "MODEL/TRANSACTION-PLAN PASS ONLY. Not yet an apply-ready integrated_upgrade.py patch, not same-byte Stage-B full green, not Windows-ready.",
+  "boundary": "MODEL/TRANSACTION-PLAN PASS ONLY. Published candidate bytes were read back from GitHub, but the exact published blob has not yet been executed from a mounted checkout. Not yet an apply-ready integrated_upgrade.py patch, not same-byte Stage-B full green, not Windows-ready.",
   "next": "Turn the proven model into an exact integrated_upgrade.py v3 patch and targeted crash/rollback/path-safety tests while preserving v2 recovery and NCM28 guarded-directory semantics."
 }

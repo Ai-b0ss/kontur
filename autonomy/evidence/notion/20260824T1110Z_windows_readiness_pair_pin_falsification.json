@@ -1,0 +1,42 @@
+{
+  "schema": "notion_agent_windows_readiness_pair_pin_falsification_v1",
+  "observed_at": "2026-08-24T11:10:00+03:00",
+  "agent_head": "3cc0c0be34bad1b79555d842cd8fc9755dd26b64",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "current_coverage_verifier_blob": "1342ed03e3a2b7eb4013480ba80db1e3d99750d7",
+  "current_readiness_v11_blob": "4b90b639b943dd627f27c030efa087e904181560",
+  "canonical_agent_pair": {
+    "payload/account_pool.py": {
+      "git_blob": "c9ca6f3b4545e469966369a4220a6a2a60bf3697",
+      "size": 48066
+    },
+    "payload/server.py": {
+      "git_blob": "273db94a8f9b153e95c910df221755e28c0f46a7",
+      "size": 116047
+    }
+  },
+  "finding": "readiness v11 exact-pins the five delegated owner/engineer overlay blobs but accepts arbitrary 40-hex server.py/account_pool.py identities as long as candidate-root rehash matches the manifest; therefore a self-consistent noncanonical Agent pair is not rejected by the pair-identity portion of v11",
+  "local_falsification": {
+    "status": "PASS",
+    "cases": [
+      "v11-equivalent pair-validation structure accepts a deliberately noncanonical server/account pair when manifest and candidate bytes agree",
+      "pair-pinned v12 candidate rejects the same noncanonical pair",
+      "test-only exact-pin fixture passes and then fails after one-byte-equivalent server drift"
+    ],
+    "count": "3/3"
+  },
+  "proposed_readiness_candidate": {
+    "path": "autonomy/evidence/notion/20260824T1105Z_windows_readiness_pair_pin_candidate.py",
+    "git_blob": "456de734254e5a9e6c17e6d3d5a0249f6c960e9f",
+    "schema": "notion_windows_ready_candidate_v12",
+    "change": "add exact pins for final Agent server.py and account_pool.py in addition to existing five-file owner/engineer overlay pins"
+  },
+  "boundary": {
+    "windows_ready": false,
+    "agent_full_matrix_green": false,
+    "stage_b_same_byte_green": false,
+    "circle_or_windows_run_started": false,
+    "live_provider_used": false
+  },
+  "next": "Core should adopt this exact pair pin or an equivalent fail-closed change, then Agent must still run the full mandatory matrix on c9ca6f3b... + 273db94a... + the five exact owner/engineer overlay blobs before same-byte Stage-B/Windows admission."
+}

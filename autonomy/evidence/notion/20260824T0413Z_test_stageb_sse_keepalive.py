@@ -67,7 +67,7 @@ async def test_client_cancel_does_not_cancel_transaction():
     agen = buffered_sse_projection_with_keepalive(task, project, heartbeat_seconds=0.02)
     first = await anext(agen)
     assert first.startswith(b":")
-    await agen.aclose()
+    await agen.aclose()  # simulate disconnected SSE client
     assert not task.cancelled()
     result = await task
     assert committed.is_set() and result is CANONICAL

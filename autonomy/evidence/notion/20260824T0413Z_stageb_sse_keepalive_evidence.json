@@ -28,6 +28,7 @@
     "bytes": 1374,
     "git_blob": "b4333b830ee62915a747d202174f657b26342d85",
     "sha256": "53afa5dcc15a73edfc5b3c4a567ddf3f3b9ae593471590a85c4301dbb92ead79",
+    "readback": "PASS: GitHub blob equals locally executed candidate blob",
     "contract": [
       "while durable transaction is pending, emit only neutral SSE comments ': stageb-commit-pending'",
       "neutral comments contain no response/item/call ids and no provider/tool payload",
@@ -39,10 +40,12 @@
   },
   "targeted_test": {
     "path": "autonomy/evidence/notion/20260824T0413Z_test_stageb_sse_keepalive.py",
-    "bytes": 4229,
-    "git_blob": "9ab064edd9a3dc184d62a0358a21873055409201",
-    "sha256": "c318cd68eeaf918e198d36bd997262a469baa87d178da26c19b2faf5c4a18da5",
-    "py_compile": "PASS",
+    "locally_executed_bytes": 4229,
+    "locally_executed_git_blob": "9ab064edd9a3dc184d62a0358a21873055409201",
+    "locally_executed_sha256": "c318cd68eeaf918e198d36bd997262a469baa87d178da26c19b2faf5c4a18da5",
+    "published_readback_git_blob": "23270978962be2e8602e2f322739ae55869a10ed",
+    "attribution_note": "The 5/5 execution verdict is tied to the locally executed test identity above. The readable GitHub test was read back separately and is not falsely claimed to have the local test blob identity.",
+    "py_compile": "PASS on locally executed candidate+test",
     "verdict": "STAGEB_SSE_KEEPALIVE_PASS",
     "cases": 5,
     "covered": [

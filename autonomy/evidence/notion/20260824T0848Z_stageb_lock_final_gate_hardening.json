@@ -1,0 +1,51 @@
+{
+  "schema": "notion_stageb_lock_final_gate_hardening_v1",
+  "timestamp_msk": "2026-08-24T08:48:00+03:00",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "agent_head": "3cc0c0be34bad1b79555d842cd8fc9755dd26b64",
+  "scope": "control-only final coverage/readiness hardening; no product refs, pair materialization, Agent matrix, Circle, Windows or live provider traffic",
+  "root_cause": "The final coverage verifier and Windows-readiness verifier did not require the newly mandatory Stage-B server-owned-lock regression. A candidate could therefore be declared Windows-ready without proving that client disconnect cannot release conversation/turn ownership while the detached durable transaction is still running.",
+  "required_test": "tests.test_stageb_server_owned_lock_boundary",
+  "required_gate": "stageb_server_owned_lock_boundary",
+  "prior_coverage_blob": "0d2b9247f7b1ba2383c5ba87ed4731e1d61ca806",
+  "coverage_blob": "fafc7eb733da90d306b4fa599e57b6ecd921a357",
+  "prior_readiness_blob": "e80e119f19847a44b84ebdebcaf1e1391588c00a",
+  "readiness_blob": "349b6005255382bab7284c42da43c2d163a178be",
+  "readiness_schema": "notion_windows_ready_candidate_v9",
+  "coverage_changes": [
+    "require exact tests.test_stageb_server_owned_lock_boundary",
+    "include stageb_server_owned_lock_boundary in Stage-B discovery so an unwired regression is fail-closed"
+  ],
+  "readiness_changes": [
+    "pin exact new coverage verifier blob",
+    "require local_gates.stageb_server_owned_lock_boundary=PASS",
+    "retain exact candidate-root Git-blob readback and symlink rejection"
+  ],
+  "local_verdict": "NOTION_LOCK_FINAL_GATE_HARDENING_PASS 7/7",
+  "local_cases": [
+    "coverage full synthetic suite PASS",
+    "coverage missing exact server-owned-lock module NOT_READY",
+    "coverage prefix/similar-name substitute NOT_READY",
+    "readiness full synthetic candidate PASS",
+    "readiness missing stageb_server_owned_lock_boundary NOT_READY",
+    "readiness old coverage pin NOT_READY",
+    "readiness candidate byte drift NOT_READY"
+  ],
+  "agent_release_boundary": {
+    "comment_id": 5391235865,
+    "exact_pair": {
+      "account_pool": "c9ca6f3b4545e469966369a4220a6a2a60bf3697",
+      "server": "273db94a8f9b153e95c910df221755e28c0f46a7"
+    },
+    "full_agent_matrix": "NOT_READY",
+    "owner_mode_requirement": "The exact pair must be composed with the corrected five-file owner/engineer overlay before the mandatory Agent matrix; raw PR#8 delegation files alone are insufficient.",
+    "owner_engineer_overlay_blobs": [
+      "fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e",
+      "a9d15b79b421cd29b094b549be06d2b0319e26d9",
+      "f36e9c91355dec667173b6265dd550554fb0f05d",
+      "2d57651b408ef2e6c75f29855f7cdbaeafa97c2e",
+      "f47838b338f2bd94163cf466110f939c065ac041"
+    ]
+  },
+  "boundary": "NOT full Stage-B, NOT Agent safety-green, NOT Windows-ready. Windows remains forbidden until exact pair + corrected owner/engineer overlay + full Agent matrix + same-byte Core Stage-B/full matrix + coverage/readiness PASS."
+}

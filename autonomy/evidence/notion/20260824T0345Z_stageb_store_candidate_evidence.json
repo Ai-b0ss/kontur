@@ -1,0 +1,76 @@
+{
+  "schema": "notion_core_stageb_store_durable_candidate_v2",
+  "created_at_msk": "2026-08-24T04:xx:00+03:00",
+  "scope": "NOTION_CORE store layer only; no Agent pair rematerialization, no product ref mutation, no CI/live provider",
+  "heads": {
+    "core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+    "agent_pr8": "4b344547d5e95bd4b3c62f5b80186059d849ff08"
+  },
+  "coordination": {
+    "core_claim_comment": 5389464629,
+    "agent_claim_comment": 5389444767,
+    "agent_owned_surface_excluded": "exact transformed account_pool/server rematerialization + mandatory Agent matrix until its RELEASE/expiry"
+  },
+  "exact_preimage": {
+    "path": "payload/conversation_segments.py",
+    "bytes": 10758,
+    "git_blob": "553bd3496c21a7949c3a5dfa03f33b9e09293213",
+    "local_reconstruction_git_blob_match": "PASS"
+  },
+  "candidate": {
+    "bytes": 24882,
+    "git_blob": "3ca05116a1ada8f1c7beb7cbdd838b08154257e5",
+    "sha256": "94b75ccbe3244bba25e5357cfef502aacb18cb54ad5b8093b220ae03006e2056",
+    "py_compile": "PASS",
+    "published_product_ref": false,
+    "durable_parts_manifest": "autonomy/evidence/notion/20260824T0345Z_stageb_store_candidate/manifest.json",
+    "manifest_git_blob": "b54de4c99f4bf741b3c96e1598a97dec0ed6b0a7",
+    "parts": 10,
+    "readback": "PASS: every uploaded part Git blob equals the locally calculated Git blob; part-04 first upload mismatched and was corrected before manifest publication"
+  },
+  "store_contract": [
+    "state v3 reads legacy v2; first strict write upgrades to v3",
+    "provider_intent is separate durable state and requires stable conversation identity + persistent path",
+    "exact request identity includes stable turn key, request kind, request context and input",
+    "request context fingerprint exists even for input=[]",
+    "exact replay preserves response/item/call identifiers because the rendered payload is stored verbatim",
+    "provider intent must match account/request/request-kind before finalize can clear it",
+    "get returns a detached deepcopy",
+    "strict NCM28 write failure is visible and rolls memory back while persistence remains blocked",
+    "rendered replay is capped at 512 KiB/item, 8 MiB total, 6h TTL",
+    "provider intents survive ordinary conversation TTL/eviction and are separately capped at 128",
+    "completed exact fingerprints are bounded at 32",
+    "stale-prefix helper blocks old truncated ordinary Responses history after exact fingerprint eviction while compaction remains allowed"
+  ],
+  "targeted_local_test": {
+    "verdict": "STAGEB_STORE_DURABLE_CANDIDATE_PASS",
+    "cases": 16,
+    "covered": [
+      "compile + exact preimage hash",
+      "intent persisted before provider boundary",
+      "unresolved intent fail-closed",
+      "atomic finalize clears intent and publishes exact replay",
+      "restart exact replay with unchanged call_id",
+      "detached get",
+      "new turn identity differs from same-text prior turn",
+      "old completed retry fail-closed",
+      "intent write failure visible + memory rollback + store blocked",
+      "finalize write failure preserves durable intent and publishes no replay",
+      "v2 read then v3 upgrade on strict write",
+      "future state version fail-closed",
+      "empty-input context drift identity",
+      "missing stable turn identity fail-before-intent",
+      "oversize replay cannot clear intent",
+      "stale-prefix > bounded exact-history defense + compaction exemption"
+    ]
+  },
+  "acceptance_boundary": {
+    "stage_a": "PASS (pre-existing V32)",
+    "store_candidate": "PASS",
+    "same_byte_server_integration": "NOT_YET_PROVEN",
+    "agent_full_matrix": "OWNED_BY_ACTIVE_NOTION_AGENT_CLAIM_DURING_THIS_PULSE",
+    "full_stage_b": "NOT_YET_PROVEN",
+    "windows_allowed": false
+  },
+  "next": "After Agent RELEASE, consume exact transformed c9ca6f3b... + 273db94a... bytes; integrate this exact store candidate with the same-byte server transaction, run the complete Agent+Core matrix, then exact coverage be9b721e... and readiness 062927f7... before one targeted Windows Server 2022 proof."
+}

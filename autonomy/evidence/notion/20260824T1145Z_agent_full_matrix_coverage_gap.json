@@ -1,0 +1,49 @@
+{
+  "schema": "notion_agent_full_matrix_coverage_gap_v1",
+  "observed_at_msk": "2026-08-24T11:45:00+03:00",
+  "agent_head": "3cc0c0be34bad1b79555d842cd8fc9755dd26b64",
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "current_core_coverage_verifier_blob": "8254f36b14fb240c7d6466c7241d2d735ea310d9",
+  "finding": "CURRENT_COVERAGE_CAN_PASS_WITH_DISTINCT_AGENT_SAFETY_REGRESSIONS_ABSENT",
+  "local_falsification": {
+    "verdict": "PASS",
+    "method": "Reproduced the current verifier module/suite matching logic on a synthetic repository containing every REQUIRED_EXACT_MODULE and Stage-B token required by blob 8254f36b..., while omitting the safety modules listed below. The verifier-equivalent result was PASS.",
+    "omitted_count": 12
+  },
+  "omitted_safety_modules": [
+    "tests.test_account_pool_reselect_release_abort_contract",
+    "tests.test_account_pool_reselect_release_abort_semantics",
+    "tests.test_delegated_failover_session",
+    "tests.test_materialize_agent_wiring_backup_snapshot",
+    "tests.test_materialize_agent_wiring_durability_order",
+    "tests.test_materialize_agent_wiring_entry_recovery",
+    "tests.test_materialize_agent_wiring_finalize_guard",
+    "tests.test_materialize_agent_wiring_hardlink",
+    "tests.test_materialize_agent_wiring_journal_exclusive",
+    "tests.test_materialize_agent_wiring_journal_path_safety",
+    "tests.test_materialize_agent_wiring_late_recovery_guard",
+    "tests.test_materialize_agent_wiring_safe"
+  ],
+  "exact_verified_test_blobs": {
+    "tests/test_account_pool_reselect_release_abort_semantics.py": "97c557719a000a61437cb950796890d18114314e",
+    "tests/test_delegated_failover_session.py": "40d9e7f4d7f3fa09b3a9491910faca260806c828",
+    "tests/test_materialize_agent_wiring_durability_order.py": "15b407596e02e11bc16e196ffc0ccb3115942ad2",
+    "tests/test_materialize_agent_wiring_entry_recovery.py": "25925b6aeb59c8dd4ff1dfdc4f95d5bcce000fa5",
+    "tests/test_materialize_agent_wiring_finalize_guard.py": "3ce97784331ab9c46d5553c5833832186078d49b",
+    "tests/test_materialize_agent_wiring_journal_exclusive.py": "86c2ce4c93bd760605406a2a1cf6f01cb3f2b787",
+    "tests/test_materialize_agent_wiring_journal_path_safety.py": "d2fc13118abf2d67289eb44422991d8953dcf8ac"
+  },
+  "why_blocking": [
+    "release/cancellation during reservation-driven account reselection must close pending transport evidence before propagation",
+    "delegated failover must preserve one local child session and avoid replaying a completed local side effect",
+    "pair materialization must enforce journal-before-product durability ordering",
+    "interrupted mixed-pair recovery must be reachable before exact-preimage transformation and check mode must remain read-only",
+    "finalization must preserve journal/backups on product or journal drift and must not mask a primary rollback exception",
+    "transaction journal publication must be exclusive and must preserve a complete recovery journal on sync failure",
+    "journal symlink/hardlink/permission/swap races must fail closed before recovery consumes durable state"
+  ],
+  "acceptance_update": "Do not call the Agent full matrix green, and do not let coverage/readiness authorize Windows, unless these omitted negative-path modules (or an explicitly reviewed equivalent superset) are executed on the same exact pair+owner-overlay bytes. Core's newer promoted-install-closure coverage/readiness pins remain authoritative for installer closure; this finding is an additional Agent-matrix requirement, not a replacement.",
+  "product_refs_moved": false,
+  "circle_or_windows_used": false,
+  "live_provider_used": false
+}

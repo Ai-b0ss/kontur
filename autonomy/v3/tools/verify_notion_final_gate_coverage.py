@@ -15,6 +15,7 @@ REQUIRED_EXACT_MODULES = (
     "tests.test_materialize_agent_wiring_crash_recovery",
     "tests.test_materialize_agent_wiring_with_tombstones",
     "tests.test_materialize_agent_wiring_target_path_safety",
+    "tests.test_materialize_agent_wiring_late_alias_substitution",
     "tests.test_account_pool_dynamic_reservation_materializer",
     "tests.test_dynamic_reservation_lease_session",
     "tests.test_dynamic_reservation_inlease_reselect",

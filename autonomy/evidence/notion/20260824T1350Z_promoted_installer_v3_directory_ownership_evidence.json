@@ -1,0 +1,37 @@
+{
+  "schema": "notion_promoted_installer_v3_directory_ownership_evidence_v1",
+  "created_at_utc": "2026-08-24T10:50:00Z",
+  "exact_core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "exact_agent_head": "3cc0c0be34bad1b79555d842cd8fc9755dd26b64",
+  "integrated_upgrade_blob": "0f4393e656307e3b17dfab105464de551f12a05d",
+  "prior_transaction_model_blob": "1c47c061a9fe93b216fdb46230c90d281421560b",
+  "candidate_sha256": "6b4f57c5b6b5448636543544581ccc36f059021441eca93af5ac68c8c1797029",
+  "verdict": "PROMOTED_INSTALLER_V3_DIRECTORY_OWNERSHIP_MODEL_PASS",
+  "cases": 20,
+  "targets": 25,
+  "new_root_cause": [
+    "An absent-before bridge/payload directory cannot be safely removed after restart based on emptiness alone; an unrelated writer can replace it with a different empty directory.",
+    "Current backup_files cannot capture NCM28 child snapshots when the nested parent directory is absent, so nested v3 targets require explicit synthetic absent preimages plus parent-guard-bound validation after directory creation.",
+    "Old v2 recovery must load the frozen original ten payloads; otherwise a new v3 payload set changes payload_sha256 and strands an interrupted v2 journal."
+  ],
+  "required_impl_invariants": [
+    "Journal absent/preexisting state of bridge/payload before mutation.",
+    "For absent-before payload dir, create it under NCM28 guard and publish an exact transaction-owner marker as the first durable child; retain marker until phase verified.",
+    "Recovery may delete absent-before payload dir only after exact owner marker verification, exact managed-file rollback, exact marker deletion, and guarded empty-directory deletion; missing/drifted marker or foreign child fails closed.",
+    "Preexisting payload dir is never removed by rollback.",
+    "Nested absent child preimages are synthetic until parent guard exists; child absence/write/delete is then validated under that same guard.",
+    "Journal schema dispatch freezes v2 target/payload set and uses v3 exact managed target mapping for new transactions."
+  ],
+  "negative_cases": [
+    "foreign child",
+    "owner marker drift",
+    "owner marker missing",
+    "empty foreign replacement",
+    "symlink payload dir",
+    "managed file still present",
+    "commit marker cleanup before verified",
+    "traversal/backslash rel path"
+  ],
+  "windows_or_circle_started": false,
+  "live_notion_or_codex_started": false
+}

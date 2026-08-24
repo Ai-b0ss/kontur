@@ -6,91 +6,103 @@
 - Repo: `Ai-b0ss/qwen-free-api`
 - Branch: `autopilot/qwen-runtime-preflight-20260818`
 - PR: #6
-- Fresh product head после Core-изменений: `86cf45b93cf51aca5f077ed86259525358764e35`.
+- Fresh product head: `2cc9a733e0d0884819cf64ec1d1285ebde6b8878`.
 - Kontur и AI Mirrors не трогать.
 - QWEN_RELIABILITY владеет `account-store` / cooldown / provider-circuit. Core туда не заходит.
-- Более свежий issue #9 Reliability handoff (`5388496615`) отменяет старую границу из файла QWEN_RELIABILITY: на `bc780713...` malformed persisted cooldown fail-open уже минимально исправлен в `src/account-store.js`, но exact runtime regression Reliability ещё должен доказать и только затем встроить в `npm test`.
+- Последний Reliability claim из `kontur#9` (`5389185790`) был exact-bound к `86cf45b...` с явным stale-stop. После Core-движения его старый disposable diagnostic нельзя переносить на текущие product bytes.
 
-Перед новой записью: fresh-read PR #6, latest OWNER/CIRCLE POLICY/CLAIM/RELEASE в `kontur#9`, оба Qwen handoff и disposable CI surfaces. Если product head изменился после начала проверки — stale evidence не продолжать.
+Перед новой записью: fresh-read PR #6, latest OWNER/CIRCLE POLICY/CLAIM/RELEASE в `kontur#9`, оба Qwen handoff и disposable CI surfaces. При head drift stale evidence не продолжать.
 
-## ЗАКРЫТО В ЭТОМ ПРОХОДЕ: типы числовых настроек coding-subagents
+## ЗАКРЫТО В ЭТОМ ПРОХОДЕ №1: plain-subagent numeric options fail-closed
 
-На exact исходном `src/subagent-agent-runner.js` blob `a3d2013437768197d167022c9c6d888136c4fc7d` явные значения `maxRounds` и `streamRecoveryAttempts` проходили через `Number.parseInt(...)`. Из-за этого повреждённый JSON-конфиг мог молча менять исполнение:
-- `maxRounds: "9"` принимался как `9`;
-- `maxRounds: 1.5` принимался как `1`;
-- мусорная строка/объект молча откатывались к fallback вместо fail-closed;
-- аналогично для `streamRecoveryAttempts`.
+На исходном `src/subagent-dispatcher.js` blob `10f65fef621fc5b267b77e9fcdcd3d5e21aa40e7` явные JSON-настройки `concurrency` и `timeoutMs` проходили через `Number.parseInt`.
 
-Это реально пользовательский/оркестраторский JSON-path: `scripts/run-agent-subagents.js` читает `payload.options` напрямую и передаёт в `runAgentSubagents()`.
-
-RED воспроизведён на byte-exact исходнике:
-`Missing expected exception: explicit malformed maxRounds=9 must fail closed`.
+Воспроизведено локально:
+- `concurrency: "2" -> 2`;
+- `concurrency: 1.5 -> 1`;
+- `concurrency: false -> fallback`;
+- `timeoutMs: "120000" -> 120000`;
+- `timeoutMs: 1500.5 -> 1500`;
+- `timeoutMs: false -> fallback`.
 
 Root fix:
-- `c6d0027625b3e271ff4a695e776f92a4d7b90a8e` — `src/subagent-agent-runner.js`;
-- новый blob runner: `be73260345f5071e0dab71c62693fcb6e4ab87bb`;
-- явные значения теперь обязаны быть finite integer numbers; иначе `QWEN_SUBAGENT_SETTING_INVALID`;
-- числовые значения сохраняют старую bounded-семантику: `maxRounds` clamp 1..12, recovery clamp 0..4;
-- env vars намеренно остаются строковой конфигурацией и по-прежнему разбираются через прежний `clampInteger`.
+- RED regression `94f5de4b9cee67966706219f828b65ecbcfacea1` — `scripts/subagent-dispatcher-numeric-option-type-test.js`;
+- product fix `a185a58b5cdbd47c4c71a299e5c8d303eab57109`;
+- new dispatcher blob `1fa0a67d9947954e66106992be68c68990519404`;
+- explicit numeric options теперь обязаны быть finite integer numbers; иначе `QWEN_SUBAGENT_SETTING_INVALID` до provider execution;
+- env vars намеренно сохраняют прежнюю строковую конфигурацию и bounded parsing.
 
-Regression:
-- `55fef2fa9b12cf4b4e06cd75457d6e20f74f1bd2` — добавлен `scripts/subagent-numeric-option-type-test.js`;
-- `86cf45b93cf51aca5f077ed86259525358764e35` — regression усилен проверкой реального `runAgentSubagents()` и `provider_calls=0` для всех плохих значений;
-- test blob: `81aa2cb3f212b8c5d10644ea356982a9c6bf237a`.
+Targeted local PASS:
+`QWEN_PLAIN_SUBAGENT_NUMERIC_OPTION_TYPE_PASS malformed=8 numeric=2 provider_calls=1`.
 
-Ordinary npm wiring:
-- `c4bba7b8614c86eca1a5e8021da4ff927fa3235b` — `package.json` включает `node scripts/subagent-numeric-option-type-test.js` сразу после существующего capability-type regression;
-- package blob `52bde847ed854a8bbbe6822dcebd4c099ad779f9` read-back подтверждён.
+Regression wiring:
+- `5a213d60c3cbda08b42fab2d1a38f04630cebf8e` — новый тест включён в ordinary `npm test`;
+- package read-back подтверждён.
 
-Targeted exact local PASS на тех же runner/test bytes, без provider/CI:
-- существующий exact `scripts/subagent-capability-option-type-test.js` blob `f21017197acacfb1bf19bff60adb45d219be2c3c` -> `QWEN_SUBAGENT_CAPABILITY_OPTION_TYPE_PASS ... provider_calls=0`;
-- новый exact regression blob `81aa2cb...` -> `QWEN_SUBAGENT_NUMERIC_OPTION_TYPE_PASS malformed=8 numeric=4 env_strings=2 provider_calls=0`;
-- `node --check src/subagent-agent-runner.js` = PASS.
+## ЗАКРЫТО В ЭТОМ ПРОХОДЕ №2: plain-subagent endpoint/model type validation
 
-Изменён только Core-owned execution-setting path + новый regression + `package.json` wiring. Account/cooldown/provider-circuit не менялись.
+Тот же dispatcher молча преобразовывал/маскировал явные `endpoint` и `model` через `String(options.x || fallback)`: объект мог стать `[object Object]`, `false`/пустая строка — незаметно включить fallback.
+
+Root fix:
+- RED regression `f2f38cac4e7ca73eaac54a12cdcd72c479a93155` — `scripts/subagent-dispatcher-string-option-type-test.js`;
+- product fix `99d7f58ba39c71b2ec67c5b86fbf81efe7587323` — explicit `endpoint/model` обязаны быть непустыми строками, нормальные значения trim-ятся, malformed -> `QWEN_SUBAGENT_SETTING_INVALID` до provider;
+- targeted local PASS: `QWEN_PLAIN_SUBAGENT_STRING_OPTION_TYPE_PASS malformed=10 normalized=2 provider_calls=1`;
+- соседний existing `subagent-dispatcher-test.js` остаётся green локально;
+- `e7bd37160f1e47b004e2dd6e27e576e6b8815464` — regression включён в ordinary `npm test`.
+
+## ЗАКРЫТО В ЭТОМ ПРОХОДЕ №3: coding-subagent model type validation
+
+`run-agent-subagents.js` читает `payload.options` напрямую. В `subagent-agent-runner.js` модель раньше вычислялась через `String(options.model || env || default)` и в runtime chat, и в durable execution signature. Явный объект/число мог превратиться в строку, а пустое/false — незаметно включить fallback.
+
+Root fix:
+- RED regression `6f27d13306312a4df074851dea0f576aafb25bb8` — `scripts/subagent-model-option-type-test.js`;
+- product fix `772524408f42818172dfdb00f2be259f571052ae`;
+- diff от RED head: только `src/subagent-agent-runner.js`, +15/-2;
+- добавлен единый `resolveSubagentModel()`; explicit model обязан быть непустой строкой и нормализуется trim;
+- validation вызывается через `runtimeAgentSettings()` до durable batch state/provider execution; тот же normalized model используется для chat и execution signature;
+- isolated target PASS: `QWEN_CODING_SUBAGENT_MODEL_OPTION_TARGET_PASS malformed=7 normalized=1 env=1 default=1`;
+- `2cc9a733e0d0884819cf64ec1d1285ebde6b8878` — regression включён в ordinary `npm test`.
+
+## Соседняя проверка
+
+На исправленном plain dispatcher локально повторно прошли:
+- numeric option regression;
+- string option regression;
+- existing `subagent-dispatcher-test.js`.
+
+Это targeted proof, НЕ full exact-tree Linux `npm test`.
 
 ## Сохраняющий силу Core proof
-На неизменённых участках сохраняются прежние targeted доказательства:
-- session record schema fail-closed;
-- incremental tool-results + durable assistant/tool pair;
+
+Core-файлы session/restart/tool-result/streaming в этом проходе не менялись, поэтому прежние targeted доказательства на неизменённых байтах сохраняют силу до fresh exact recheck:
+- durable session record schema fail-closed;
+- incremental tool-results + assistant/tool pairing;
 - owner authority и большой owner-system checkpoint/restart;
-- pending multi-tool restart, duplicate tool-call-id protection;
+- pending multi-tool restart + duplicate tool-call-id protection;
 - stale-backup recovery fail-closed;
 - required-tool terminal/reasoning gates;
-- plain/coding subagent prompt/sessionPrefix/batch-state checks;
 - tool execution errors/required arguments;
 - skills alias/type validation;
-- internal agent/subagent prompt-mode validation.
+- internal prompt-mode validation.
 
-Это НЕ заменяет full exact-tree Linux `npm test` на текущем общем SHA.
+## Что дальше
 
-## QWEN_RELIABILITY — текущая внешняя граница
-Самый свежий источник — issue #9 release `5388496615`, не старый handoff-файл:
-- на бывшем common head `bc780713...` найден и минимально исправлен malformed persisted numeric cooldown fail-open;
-- новый `scripts/account-store-malformed-cooldown-test.js` существует, но Reliability ещё не заявлял exact runtime PASS и не встраивал его в ordinary `npm test`;
-- Core не запускает/не чинит этот тест и не пишет account-store.
-
-Следовательно `86cf45b...` пока нельзя считать общим stable green SHA для финального Linux gate: Reliability должна перепроверить свой owned fix уже поверх нового Core head и встроить regression после exact green.
-
-## Circle / Linux / Windows
-Connectivity ранее доказана; reconnect повторять запрещено.
-
-На этом проходе Circle не запускался: есть свежий Reliability gate, который должен быть закрыт на общем head. Правильный порядок:
-1. Reliability exact regression + соседний account/cooldown cluster на fresh common SHA; при PASS — wiring в `npm test`.
-2. Core fresh-read того же SHA; если Core blobs не изменились — targeted доказательства выше сохраняются.
-3. Один full exact Linux `npm test` на disposable config-only Circle от того же product SHA.
-4. Linux FAIL -> первый настоящий падающий тест по штатному порядку, без семантически меняющего разрезания suite.
-5. Только Linux PASS -> native Windows Server 2022 full на ТЕХ ЖЕ product bytes.
-6. Затем owner-doctor; live soak отдельно позже.
+1. Fresh-read PR#6 и QWEN_RELIABILITY после её stale-stop/release; не использовать старый Reliability Circle result как current-head proof.
+2. На одном стабильном common SHA прогнать exact Core cluster: owner/session/restart/stale-backup/pending-tool/tool-result + plain/coding subagents + skills + stream/tool/agent execution errors.
+3. Reliability должна доказать свой account/cooldown/provider-circuit cluster на тех же product bytes.
+4. Только когда обе линии green на одном SHA — один full exact Linux `npm test`.
+5. Linux FAIL -> первый реальный падающий тест по штатному порядку. Linux PASS -> native Windows Server 2022 full на ТЕХ ЖЕ product bytes.
+6. Затем owner-doctor; live long-soak/runtime acceptance отдельно позже.
 
 `QWEN_CORE_DONE` пока не ставить.
 
 ## Постоянная память / v4 CAS
-Последняя нормативно подтверждённая QWEN_CORE capsule из предыдущего handoff остаётся:
+
+Последняя нормативно подтверждённая capsule из предыдущего handoff остаётся:
 - `20260823T021610Z-f761e59acb`;
 - archive SHA-256 `78be915380698f3af3b6d4806b54bcbca4dd8ba428cca46165a4d7593517e3d6`;
 - pointer blob `df27abdb99b66f68dc3a68aa8b95c93fc304a717`.
 
-В этом проходе exact runtime/LATEST/PREVIOUS paths не были заново нормативно разрешены, поэтому новый pointer не публиковался. Никаких guessed-path/pseudo-v4/force-write/CAS bypass. Новое состояние долговечно закреплено product commits + этот handoff + issue #9.
+В этом проходе v4 pointer не переписывался: exact runtime/LATEST/PREVIOUS path не был заново нормативно восстановлен. Никакого pseudo-v4, force-write или CAS bypass. Новое состояние долговечно закреплено product commits + этот handoff + `kontur#9`.
 
-Provider traffic, реальные аккаунты, секреты, Cloudflare, production, GitHub Actions, Circle = 0.
+Provider traffic, реальные аккаунты, секреты, Cloudflare, production, GitHub Actions, Circle, Windows = 0.

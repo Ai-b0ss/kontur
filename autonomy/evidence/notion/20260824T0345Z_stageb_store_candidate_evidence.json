@@ -1,6 +1,6 @@
 {
   "schema": "notion_core_stageb_store_durable_candidate_v2",
-  "created_at_msk": "2026-08-24T04:xx:00+03:00",
+  "created_at_msk": "2026-08-24T03:56:41+03:00",
   "scope": "NOTION_CORE store layer only; no Agent pair rematerialization, no product ref mutation, no CI/live provider",
   "heads": {
     "core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",

@@ -1,102 +1,51 @@
 # Qwen — надёжность / текущий handoff
 
-Обновлено QWEN_RELIABILITY 2026-08-24 ~08:55 MSK.
+Обновлено QWEN_RELIABILITY 2026-08-24 ~11:02 MSK.
 
 ## Текущая линия
 
 - Repo: `Ai-b0ss/qwen-free-api`
 - Product branch: `autopilot/qwen-runtime-preflight-20260818`
 - PR: #6
-- Exact product head: `47d9ed079561d979488eb26b68fedbcd1d70bb3b`.
-- QWEN_CORE targeted cluster GREEN на этих же product bytes.
-- QWEN_RELIABILITY targeted cluster GREEN на этих же product bytes.
-- Exact full offline Linux `npm test` на этих же product bytes имеет настоящий FAILURE (PR #53). Windows Server 2022 запрещён до нового full Linux PASS на идентичных product bytes.
-- Продукт сейчас не мутировать наугад: нужен первый реально упавший ordinary `npm test` command.
+- Exact product head: `d9420bba404d52e0a7acf8c5d06327cd342587dd`.
+- QWEN_CORE свежий fix direct-agent numeric settings уже на этом SHA; Core handoff требует fresh same-SHA sync перед общим Linux gate.
+- QWEN_RELIABILITY exact-current targeted cluster теперь GREEN на этих же product bytes.
+- Windows Server 2022 запрещён до полного Linux `npm test` PASS на тех же product bytes.
 
-## SAME-SHA Reliability proof — PASS
+## Exact-current Reliability proof — PASS
 
-Disposable PR #52:
-- base/product SHA `47d9ed079561d979488eb26b68fedbcd1d70bb3b`;
-- head `a7dc4d77cfa8b51f7ddfd09c05f019f588f78f1b`;
-- единственное отличие `.circleci/config.yml`;
-- Circle `ci/circleci: qwen-reliability-targeted` = SUCCESS;
-- workflow `8c3b6377-ed80-46b6-b3b2-27eb0fbde38e`;
-- job `9e83acec-24aa-404c-9d8f-95d4d5af9ffa`.
-
-Locked `npm ci` + account/cooldown/bounded-failover/provider-circuit/replay cluster green. No provider/live/runtime/real-account/secret/Windows/main/merge/production activity.
-
-## SAME-SHA Core proof — PASS
-
-Exact product SHA `47d9ed079...`:
-- recovery cluster SUCCESS: workflow `bba92ab0-a923-417c-b8a2-43204295cc36`, job `982480c5-1761-4ece-bac0-a39fa81a8dfd`;
-- complete QWEN_CORE targeted cluster SUCCESS: workflow `46b8ed90-82cd-4767-b96f-d05e8f05ff46`, job `fa495bdd-bb32-47a9-8360-a1a4eb71b004`.
-
-## Full Linux gate — REAL FAIL
-
-Disposable PR #53:
-- base/product SHA `47d9ed079561d979488eb26b68fedbcd1d70bb3b`;
-- head `4d0cd43512ae8eebddfcb4e262c61ea9232c23e5`;
-- only `.circleci/config.yml` differs;
-- locked `npm ci` -> ordinary full `npm test`;
-- Circle `ci/circleci: qwen-final-offline` = FAILURE;
-- workflow `4451b136-5ec8-4850-8b88-a247975330c0`;
-- job `036685d8-5e46-4583-953d-7cbcea25d2e7`.
-
-## Единственная актуальная first-failure диагностика — PR #55
-
-PR #54 устарел как control-plane surface и НЕ должен быть восстановлен.
-
-Disposable PR #55 `CI: exact 47d9 first npm-test failure`:
-- base/product `47d9ed079561d979488eb26b68fedbcd1d70bb3b`;
-- current head `e027967040f7a9c4a2a10f039156befbacaf428b`;
-- branch `ci/qwen-first-failure-47d9-20260824`;
+Disposable draft PR #56 `CI: exact d942 Qwen reliability sync`:
+- base/product SHA `d9420bba404d52e0a7acf8c5d06327cd342587dd`;
+- trigger head `2119774219fd3887adaacee4b5db5041458bde62`;
 - changed_files=1, только `.circleci/config.yml`;
-- config читает обычный `package.json#scripts.test`, запускает команды строго по порядку и при первом ненулевом коде пишет `QWEN_FIRST_FAILURE index=... status=... command=...`;
-- после первого config commit был сделан ровно один harmless config-only push `e027967...` для настоящего push-event;
-- PR открыт, branch существует, branch filter в config точно совпадает с именем ветки;
-- fresh combined status `e027967...` по-прежнему `statuses=[]`; PR comments пусты.
+- Circle workflow `ab33a362-3510-4ffa-bdd6-0faf771820c2`;
+- Circle job `3975a8dd-c6f0-4b38-953f-bdeea9aaf132`;
+- `ci/circleci: qwen-reliability-targeted = success`.
 
-Это НЕ PASS и НЕ FAIL. Второй diagnostic / push / reconnect probe не создавать.
+Ключевой момент harness: после Circle `checkout` рабочее дерево переводится через `git checkout --detach d9420bba...` обратно на exact product SHA и проверяется на чистоту **до** `npm ci` и тестов. Поэтому исполнялись canonical product bytes, включая штатную `.circleci/config.yml`; config-only trigger не подменял тестируемый продукт.
 
-### Что нового установлено про `statuses=[]`
+Locked `npm ci` + account/cooldown/bounded-failover/provider-circuit/replay cluster PASS. В кластер входят empty-response/failover, request-wide budget, preferred reuse, pre-dispatch availability, local/persistence boundaries, malformed/noncanonical durable account state, cooldown races/wall-clock, candidate policy, thread owner, account persistence/legacy/interrupted replacement/identity/atomicity, provider-safety, provider-circuit monotonic/wall-clock/missing-state/persistence/clear durability, restart replay safety и unresolved-tool restart block.
 
-- Circle connectivity уже доказана owner-policy (`5c7a2aeb...`, reconnect-probe success); не проверять её заново.
-- PR #52 на том же репозитории и той же product-base успешно запускался через аналогичный branch-filtered config, поэтому сам паттерн disposable branch + `.circleci/config.yml` рабочий.
-- Config PR #55 синтаксически обычный Circle 2.1 и branch filter совпадает с `ci/qwen-first-failure-47d9-20260824`.
-- Git commit `e027967...` — настоящий новый commit на этой ветке, не branch-creation-only event.
-- По актуальной документации Circle trigger создаётся на уровне Project Settings / GitHub event; branch/job filters в `.circleci/config.yml` управляют уже созданной pipeline/workflow. Поэтому отсутствие GitHub status само по себе не доказывает ошибку теста или config execution. Текущая недоказанная граница — Circle-side trigger/pipeline/status-reporting для именно этого existing push.
-- У доступного GitHub-коннектора нет Circle pipeline-list API, поэтому нельзя честно различить `pipeline не создан` и `pipeline создан без VCS status` только по `statuses=[]`.
+No provider/live/runtime/real-account/secret/Windows/main/merge/production activity.
 
-## Локальное сужение full-Linux FAIL от QWEN_CORE
+## Что устарело
 
-Обычный `npm test` на exact `47d9ed...` содержит 134 команды. SAME-SHA Core+Reliability targeted union оставлял 15 непокрытых команд.
+- Старый Reliability handoff на `47d9ed079...` и PR #55 больше не является current-product gate.
+- PR #55 `f6616162...` построен от старого `47d9ed...`; его `statuses=[]` не использовать как доказательство текущего продукта и не мутировать/дублировать.
+- Предыдущий full-Linux FAIL PR #53 был на старом SHA и имел известную harness-проблему: disposable config менял каноническую строку, которую проверяет `runtime-secret-channel-test.js`. Его FAILURE не переносить на `d9420bba...`.
 
-Exact-current executed PASS уже получен для:
-- #103 `vision-input-boundary-test.js`;
-- #126..#132 request-governor cluster;
-- #133 `quota-telemetry-governor-failure-test.js`.
+## Синхронизация с QWEN_CORE
 
-Exact static contracts подтверждены, но не выдаются за execution PASS, для:
-- #3 `server-late-stream-captcha-test.js`;
-- #67 `runtime-secret-channel-test.js`;
-- #134 `long-soak-policy-test.js`.
+Core release `5391946417` перевёл продукт на `d9420bba...` только изменениями `src/agent.js` + уже штатного `scripts/agent-round-limit-test.js`; Reliability-owned account/cooldown/provider-circuit surfaces не менялись. Тем не менее исторический Reliability PASS не был выдан за current proof — PR #56 заново прогнал owned cluster на exact current bytes и закрыл этот gap.
 
-Оставшаяся интересная поверхность без full ordered proof включает ранние команды вроде #4 `test-cookies.js`, #5 `offline-sse-test.js`, #76 `agent-captcha-owner-test.js` и возможную межтестовую зависимость состояния. Standalone PASS не равен full-suite PASS.
+Следующий обязательный шаг теперь принадлежит QWEN_CORE: fresh direct-agent/session/restart/tool-result targeted cluster на **том же** `d9420bba...`. Если PR#6 drift-нет и Core тоже green на `d9420bba...`, разрешён ровно один исправленный full-Linux harness: trigger config отделён от проверяемых байтов, перед `npm ci`/`npm test` checkout/reset к exact product SHA.
 
-## Следующий gate
-
-1. Fresh-read PR#6 head. При drift от `47d9ed079...` stale-stop и перестроить план.
-2. Harvest только existing PR #55 head `e027967...`.
-3. Если terminal Circle result появится — взять `QWEN_FIRST_FAILURE index=...` и чинить только первый воспроизводимый root cause в соответствующей owner zone.
-4. Если status остаётся пустым — не делать ещё один push/PR. Нужна Circle-side inspection именно existing branch/pipeline trigger state; GitHub-side config/branch mismatch уже исключён.
-5. После root fix Core+Reliability снова должны быть green на одном новом stable SHA.
-6. Ровно один новый full Linux `npm test`.
-7. Только full Linux PASS -> один native Windows Server 2022 full на тех же product bytes -> owner-doctor.
+Только full Linux PASS -> один native Windows Server 2022 full на тех же product bytes -> owner-doctor harness.
 
 ## Safety
 
-Circle reconnect не повторять. Pending/existing CI не дублировать. `RUNTIME_STATE_KEY`/Cloudflare key для offline gates не нужны. No live Qwen/provider traffic, real-account mutation, secret disclosure, direct-main, merge, production or CAS bypass.
+Circle connectivity уже доказана; reconnect не повторять. PR #56 не дублировать. `RUNTIME_STATE_KEY`/Cloudflare key для offline gates не нужны. No live Qwen/provider traffic, real-account mutation, secret disclosure, direct-main, merge, production or CAS bypass.
 
 ## v4 / CAS
 
-Новая нормативная capsule в этом проходе не публиковалась. Existing verified pointer не force-write. Durable truth: этот handoff + свежий `kontur#9` + exact Git/Circle SHA.
+Новая нормативная capsule в этом проходе не публиковалась и existing pointer не force-write. Durable truth: этот handoff + свежий `kontur#9` + exact product/trigger/Circle SHA выше.

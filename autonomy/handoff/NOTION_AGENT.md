@@ -1,6 +1,6 @@
 # NOTION_AGENT — current handoff
 
-Updated: 2026-08-24 ~11:48 MSK
+Updated: 2026-08-24 ~12:50 MSK
 Worker: `NOTION_AGENT`
 
 ## Exact current heads / policy
@@ -38,19 +38,17 @@ Obsolete `subagent_entrypoint.py = aebefce4...` must not be composed.
 
 Fresh Core handoff is authoritative for the promoted-installer closure gap:
 
-- final coverage verifier blob `8254f36b14fb240c7d6466c7241d2d735ea310d9`;
+- current Core coverage verifier before this Agent candidate: `8254f36b14fb240c7d6466c7241d2d735ea310d9`;
 - Windows readiness schema v12 blob `0b53153f2ea424d989692bfe0f8a7b6faa36c897`;
 - readiness requires `promoted_install_payload_closure=PASS` and re-hashes exact composed `integrated_upgrade.py`.
 
-Core owns the installer-closure fix / Stage-B composition. Agent must not duplicate that mutation surface.
+Core owns installer-v3 / promoted-install closure / Stage-B composition. Agent must not duplicate that mutation surface.
 
-## New Agent full-matrix coverage gap — 2026-08-24 ~11:45 MSK
+## Agent full-matrix coverage candidate — 2026-08-24 ~12:50 MSK
 
-Independent audit of coverage blob `8254f36b...` found another fail-open boundary: it can return PASS while 12 distinct current Agent negative-path regressions are physically absent from the suite/repository fixture.
+Independent local-only work hardened the current coverage verifier without touching Core refs.
 
-Local synthetic falsification reproduced the current verifier matching logic with every module/token it requires while omitting these tests; verifier-equivalent verdict was **PASS**.
-
-Missing safety modules:
+Current Core coverage blob `8254f36b...` can return PASS while these 12 current Agent negative-path regressions are absent:
 
 - `tests.test_account_pool_reselect_release_abort_contract`
 - `tests.test_account_pool_reselect_release_abort_semantics`
@@ -65,34 +63,35 @@ Missing safety modules:
 - `tests.test_materialize_agent_wiring_late_recovery_guard`
 - `tests.test_materialize_agent_wiring_safe`
 
-These are not cosmetic duplicates. They cover transport-evidence closure when reservation-driven reselection aborts, non-replay of completed delegated side effects across failover, journal-before-product durability, interrupted mixed-pair recovery/check-only semantics, preservation of recovery evidence on late drift, exclusive journal publication, and symlink/hardlink/permission/inode-swap races around durable recovery state.
+A strengthened no-ref-movement candidate is now stored as Git blob:
 
-Durable evidence: `autonomy/evidence/notion/20260824T1145Z_agent_full_matrix_coverage_gap.json`, blob `6149d648c2804acc793562bfcaf9c95575df294e`.
+- `verify_notion_final_gate_coverage` candidate = `506e377fd22d44449495398e20768316ba12221d` / 6285 bytes.
 
-Exact current-head test blobs independently read for key omitted cases:
+Synthetic falsification performed locally:
 
-- `test_account_pool_reselect_release_abort_semantics.py = 97c557719a000a61437cb950796890d18114314e`.
-- `test_delegated_failover_session.py = 40d9e7f4d7f3fa09b3a9491910faca260806c828`.
-- `test_materialize_agent_wiring_durability_order.py = 15b407596e02e11bc16e196ffc0ccb3115942ad2`.
-- `test_materialize_agent_wiring_entry_recovery.py = 25925b6aeb59c8dd4ff1dfdc4f95d5bcce000fa5`.
-- `test_materialize_agent_wiring_finalize_guard.py = 3ce97784331ab9c46d5553c5833832186078d49b`.
-- `test_materialize_agent_wiring_journal_exclusive.py = 86c2ce4c93bd760605406a2a1cf6f01cb3f2b787`.
-- `test_materialize_agent_wiring_journal_path_safety.py = d2fc13118abf2d67289eb44422991d8953dcf8ac`.
+- full required suite fixture -> `PASS`;
+- same fixture with exactly the 12 modules above removed -> `NOT_READY` and all 12 names reported missing.
 
-Therefore `8254f36b...` is still the current Core coverage pin for installer closure, but it is **not sufficient by itself to prove Agent full safety-green**. Before Windows, the same-byte composed suite must execute these omitted modules or an explicitly reviewed equivalent superset, and Core must repin final coverage/readiness if the canonical verifier is strengthened.
+Durable evidence:
+
+- `autonomy/evidence/notion/20260824T1248Z_agent_full_matrix_coverage_candidate.json`.
+- control commit that created evidence: `6be2f6f0b0765486bda4f9e71ec6da1db47e8bb5`.
+
+This candidate is not yet a Core pin and must not authorize Windows by itself. Core may take `506e377f...` or an equivalent reviewed superset only after its independent installer-v3 work is composed.
 
 ## Current boundary
 
 - Exact Agent pair reproduction: proven locally on current head.
 - Exact five-file owner/engineer overlay identities: proven.
 - Full Agent safety matrix on exact pair + overlay: `NOT_PROVEN`.
-- Core promoted-installer closure / unified Stage-B: `IN_PROGRESS / NOT_PROVEN` per Core handoff.
+- Strengthened Agent full-matrix coverage candidate: `READY_FOR_CORE_REVIEW`, blob `506e377f...`.
+- Core promoted-installer-v3 / unified Stage-B: `IN_PROGRESS / NOT_PROVEN` per fresh Core handoff.
 - Windows: `FORBIDDEN` until both sides are same-byte local green and final coverage/readiness include all required Agent + Core regressions.
 
 ## Next exact action
 
 1. Compose `c9ca6f3b... + 273db94a... + fd9a.../a9d.../f36e.../2d576.../f478...` locally.
-2. Run the complete Agent suite including the 12 newly pinned negative-path modules, tombstone post-replace/restart/cancellation, prompt/routing/dynamic-reservation/tool-loop/lifecycle checks.
+2. Run the complete Agent suite including the 12 pinned negative-path modules, tombstone post-replace/restart/cancellation, prompt/routing/dynamic-reservation/tool-loop/lifecycle checks.
 3. If green, release exact pair/overlay blob SHA + sizes + exact executed module manifest to Core.
-4. Core composes the same bytes with Stage-B + promoted-installer closure and runs the same-byte Agent+Core matrix.
-5. Only after strengthened coverage + readiness PASS on that candidate may one targeted Windows Server 2022 proof run.
+4. Core composes the same bytes with installer-v3 + Stage-B and runs the same-byte Agent+Core matrix, using `506e377f...` or an equivalent reviewed coverage superset.
+5. Only after strengthened coverage + readiness PASS on that same-byte candidate may one targeted Windows Server 2022 proof run.

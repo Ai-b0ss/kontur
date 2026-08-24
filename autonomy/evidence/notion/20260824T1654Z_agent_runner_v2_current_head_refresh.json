@@ -1,0 +1,65 @@
+{
+  "schema": "notion_agent_runner_refresh_v1",
+  "recorded_at_msk": "2026-08-24T16:54:00+03:00",
+  "agent_pr": 8,
+  "agent_head": "12e3c4fe5ccec421281ad856547143f654897cd5",
+  "core_pr": 7,
+  "core_head": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
+  "head_drift_from_previous_runner": {
+    "from": "3cc0c0be34bad1b79555d842cd8fc9755dd26b64",
+    "to": "12e3c4fe5ccec421281ad856547143f654897cd5",
+    "product_payload_changed": false,
+    "changes": [
+      "tools/materialize_agent_wiring_with_tombstones.py derived-child guard",
+      "tests/test_materialize_agent_wiring_derived_journal_creation.py"
+    ]
+  },
+  "canonical_pair_expected": {
+    "payload/account_pool.py": {
+      "git_blob": "c9ca6f3b4545e469966369a4220a6a2a60bf3697",
+      "bytes": 48066
+    },
+    "payload/server.py": {
+      "git_blob": "273db94a8f9b153e95c910df221755e28c0f46a7",
+      "bytes": 116047
+    }
+  },
+  "canonical_overlay": {
+    "payload/delegation_policy.py": "fd9a5d7022524d1e4c2a5c79c82fe189f7277a6e",
+    "payload/delegation_dispatcher.py": "a9d15b79b421cd29b094b549be06d2b0319e26d9",
+    "payload/notion_delegated_model_step.py": "f36e9c91355dec667173b6265dd550554fb0f05d",
+    "payload/subagent_entrypoint.py": "2d57651b408ef2e6c75f29855f7cdbaeafa97c2e",
+    "payload/server_subagent_lifecycle.py": "f47838b338f2bd94163cf466110f939c065ac041"
+  },
+  "exact_execution_runner": {
+    "path": "autonomy/v3/tools/run_notion_agent_exact_matrix.py",
+    "schema": "notion_agent_exact_matrix_execution_v2",
+    "git_blob": "538b88ba79b0eec675c62e656671fd3568737f2a",
+    "agent_head_pin": "12e3c4fe5ccec421281ad856547143f654897cd5",
+    "new_mandatory_module": "tests.test_materialize_agent_wiring_derived_journal_creation",
+    "new_mandatory_test_blob_at_agent_head": "5b1370424371eaeb991ac5674f1fbf30f1ee7e26",
+    "acceptance_semantics": [
+      "exact seven-path composed worktree diff",
+      "no pre-existing untracked input",
+      "exact pair and five-file owner/engineer overlay",
+      "exact test blobs from current Agent head",
+      "real per-module unittest execution",
+      "parseable non-zero non-all-skipped unittest summaries",
+      "post-matrix worktree and composed-blob recheck"
+    ]
+  },
+  "disposable_pr30_boundary": {
+    "pr": 30,
+    "base_agent_head": "12e3c4fe5ccec421281ad856547143f654897cd5",
+    "observed_head": "df3e5d286376b13571df13814aa3e1cd90106be0",
+    "run_ci_label_present": true,
+    "current_singleton_jobs_are_localization_only": true,
+    "embedded_full_runner_schema": "notion_agent_exact_matrix_execution_v1",
+    "embedded_full_runner_is_acceptance_proof": false,
+    "reason": "embedded runner lacks v2 fail-closed worktree/test-execution protections and predates the derived-journal regression"
+  },
+  "verdict": "RUNNER_CURRENT_HEAD_READY__FULL_AGENT_MATRIX_NOT_YET_PROVEN",
+  "windows_allowed": false,
+  "live_provider_used": false,
+  "product_refs_moved": false
+}

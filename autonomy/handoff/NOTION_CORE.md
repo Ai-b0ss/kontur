@@ -8,6 +8,10 @@
 - Native Windows Server 2022 запрещён до exact same-byte Agent+Core composition и полного локального Stage-B/full-matrix PASS на тех же байтах.
 - PR #7/#8 product refs, main/merge, live Notion/Codex, аккаунты, секреты и production до соответствующего acceptance gate не менять.
 
+## Координация
+
+Активный NOTION_AGENT claim `5389444767` после heartbeat действует до `2026-08-24 05:10 MSK` и владеет только exact transformed pair rematerialization/readback + mandatory Agent matrix. NOTION_CORE эту поверхность не дублирует. Текущий Core claim `5389643234` ограничен Stage-B SSE/transaction projection evidence.
+
 ## Exact Agent pair
 
 Frozen preimages текущего Agent head:
@@ -20,7 +24,7 @@ Frozen preimages текущего Agent head:
 - `payload/server.py` after startup cleanup -> INTERMEDIATE `5c04b8cce34b29e63bf1839d59476f8081763c2b`, 115901 bytes;
 - `payload/server.py` after tombstone wrapper -> FINAL `273db94a8f9b153e95c910df221755e28c0f46a7`, 116047 bytes.
 
-`5c04.../116047` и исторический `ba52edc7a8528d58acd2c5bef2b86c3ca84ca298` запрещены как final server identity.
+`5c04.../116047` и исторический `ba52edc7...` не использовать как final server identity.
 
 Exact recipe blobs:
 - account materializer `80aeb1872c1cab7f51c33039584b5786e441f9f0`;
@@ -29,21 +33,7 @@ Exact recipe blobs:
 - pair materializer `30fb89286eb4457b25b2145918279fec2d735042`;
 - canonical wrapper `859039a5e408bc84e7046372cdb509131eb37a97`.
 
-### Fresh Core rematerialization in current container
-
-Core independently reconstructed exact `account_pool.py` source and exact materializer, then ran the real check/apply path:
-- source blob/size = `11cea792a2f5aaa40ee1515faddfd44e76cbb23f` / 43173;
-- materializer blob = `80aeb1872c1cab7f51c33039584b5786e441f9f0`;
-- preimage check PASS;
-- apply PASS;
-- compile PASS;
-- resulting blob/size = **`c9ca6f3b4545e469966369a4220a6a2a60bf3697` / 48066**.
-
-Verdict: `EXACT_ACCOUNT_POOL_INDEPENDENT_REMATERIALIZATION_PASS`.
-
-Final transformed `server.py=273db94a.../116047` currently belongs to the active NOTION_AGENT materialization claim; Core must not duplicate that work while the claim is live.
-
-Durable prior evidence: `autonomy/evidence/notion/20260823T2315Z_core_account_exact_and_gate_hardening.json`.
+Core уже независимо доказал `account_pool.py -> c9ca6f3b.../48066` через exact materializer + compile. Final `server.py=273db94a.../116047` сейчас остаётся Agent-owned до RELEASE/expiry.
 
 ## Corrected delegated five-file set
 
@@ -54,117 +44,80 @@ Durable prior evidence: `autonomy/evidence/notion/20260823T2315Z_core_account_ex
 - `subagent_entrypoint.py` `2d57651b408ef2e6c75f29855f7cdbaeafa97c2e`;
 - `server_subagent_lifecycle.py` `f47838b338f2bd94163cf466110f939c065ac041`.
 
-Scratch blob `8534c51fdf008c57962ca93b92bc4908215e1978` не использовать.
+Scratch blob `8534c51f...` не использовать.
 
-## Stage A / Stage B
+## Stage A / durable Stage-B store
 
 Stage A локально закрыт: `V32_STAGE_A_EXACT_LOCAL_FLOOR_PASS`.
 
-### Durable exact store candidate — 24.08
-
-Старый store-only candidate `96c4bdfbf08b8171833691de32e16d4960b6e7e9` имел PASS-сводку, но его exact source bytes не были доступны как долговечный Git object/handoff. Поэтому он больше не является единственным входом для композиции.
-
-На exact preimage `payload/conversation_segments.py=553bd3496c21a7949c3a5dfa03f33b9e09293213` Core собрал новый byte-exact durable candidate:
-- candidate Git blob identity: **`3ca05116a1ada8f1c7beb7cbdd838b08154257e5`**;
-- bytes: **24882**;
-- SHA-256: `94b75ccbe3244bba25e5357cfef502aacb18cb54ad5b8093b220ae03006e2056`;
+На exact `conversation_segments.py=553bd349.../10758` собран durable Stage-B store candidate:
+- Git identity `3ca05116a1ada8f1c7beb7cbdd838b08154257e5`;
+- 24882 bytes;
+- SHA-256 `94b75ccbe3244bba25e5357cfef502aacb18cb54ad5b8093b220ae03006e2056`;
 - `py_compile` PASS;
-- targeted local recovery/replay matrix: **16/16 PASS**.
+- targeted recovery/replay matrix 16/16 PASS.
 
-Exact bytes опубликованы content-addressed частями и перечитаны:
-- manifest: `autonomy/evidence/notion/20260824T0345Z_stageb_store_candidate/manifest.json`, blob `b54de4c99f4bf741b3c96e1598a97dec0ed6b0a7`;
-- 10 частей; каждая часть после загрузки имеет точно ожидаемый Git blob;
-- при первой загрузке `part-04` readback не совпал, поэтому он был заменён точными байтами до публикации manifest; финальный blob `bdacdd77a35705d1ea4e1dd01f8e4f7c9f394a3e`.
+Exact bytes опубликованы как 10 content-addressed base64 parts + manifest:
+`autonomy/evidence/notion/20260824T0345Z_stageb_store_candidate/manifest.json`, blob `b54de4c99f4bf741b3c96e1598a97dec0ed6b0a7`.
 
-Store contract этого кандидата:
-- state v3 читает legacy v2 и повышает формат только при строгой записи;
-- `provider_intent` хранится отдельно, долговечно и требует стабильного conversation id + persistent path;
-- exact request identity включает стабильный `turn_key`, `request_kind`, context и input;
-- context fingerprint существует даже при `input=[]`;
-- finalize одной строгой записью публикует точный rendered payload и очищает совпадающий intent;
-- exact replay сохраняет исходные `response_id/item_id/call_id`;
-- `get()` возвращает detached deepcopy;
-- strict NCM28 write failure видим вызывающему коду, откатывает memory и переводит store в fail-closed blocked state;
-- replay: 512 KiB/item, 8 MiB total, 6h TTL; после удаления payload fingerprint остаётся fail-closed;
-- unresolved intents не удаляются обычным conversation TTL/eviction и отдельно ограничены 128;
-- completed fingerprint ring ограничен 32;
-- stale-prefix helper блокирует старый усечённый ordinary Responses retry после выпадения exact fingerprint из ring, но не мешает законной compaction.
+Store contract: state v3 reads legacy v2; strict writes are fail-closed; durable `provider_intent`; exact request/context identity including empty input; atomic finalize stores canonical rendered payload and clears matching intent; exact replay keeps `response_id/item_id/call_id`; detached `get()`; rollback on NCM28 write failure; replay 512 KiB/item, 8 MiB total, 6h TTL; unresolved intents survive ordinary TTL/eviction and are capped at 128; completed fingerprint ring 32 + stale-prefix protection.
 
-Targeted local verdict: **`STAGEB_STORE_DURABLE_CANDIDATE_PASS`**. Это всё ещё **не** full Stage-B PASS: серверная транзакция на exact transformed `server.py` ещё не интегрирована.
+Evidence: `autonomy/evidence/notion/20260824T0345Z_stageb_store_candidate_evidence.json`, blob `2e04fee1db340ea3d8c279e35d1f4b260d5d170b`.
 
-Evidence: `autonomy/evidence/notion/20260824T0345Z_stageb_store_candidate_evidence.json`.
+## Stage-B transaction helper
 
-Целевой серверный порядок:
-`local route/account acquisition -> strict provider_intent -> deliberate provider steps without implicit failover/retry -> one canonical Responses/compaction payload -> strict atomic finalize(progress + exact payload + clear intent) -> memory cache/affinity -> validated reservation rehydrate/clear -> JSON/SSE projection`.
+Exact helper:
+`autonomy/evidence/notion/20260824T0403Z_stageb_transaction_helper.py`, blob `b3fe792b99daad678e3c773db291576bdf179167`, 7451 bytes, readback + `py_compile` PASS.
 
-Обязательные границы full Stage-B:
-- unresolved `provider_intent` записан до первого возможного remote side effect и не теряется TTL/eviction;
-- после intent implicit account failover/network retry запрещён; deliberate correction допустима отдельным шагом на том же аккаунте;
-- exact Responses/compaction replay сохраняет исходные `response_id/item_id/call_id`; restart/retry не вызывает provider второй раз;
-- stream/non-stream — проекции одного durable canonical result; до finalize клиенту не выдаются provider data/IDs;
-- disconnect после provider-entered не отменяет commit-critical transaction; hard crash fail-closed через durable intent;
-- removed account after restart -> fail-closed без ghost reservation/тихого переноса старого Notion thread;
-- persistence failure видим caller и откатывает memory;
-- TTL/size/oversize/stale retry >32/context drift/empty-input/rollback floor входят в matrix;
-- Codex child shell не получает `NOTION_BRIDGE_API_KEY`/`RUNTIME_STATE_KEY`.
+Local helper matrix 12/12 PASS and exact store+helper integration 11/11 PASS. Proved order:
+`local route acquisition -> strict provider_intent -> deliberate provider steps without implicit failover/retry -> canonical render -> strict atomic finalize -> ephemeral cache/affinity/reservation -> client`.
 
-## Final coverage hardening — 24.08
+Covered: intent/finalize write failure, ambiguous provider outcome, restart exact replay, post-finalize ephemeral failure recovery, removed account fail-closed, disconnect/shutdown ownership, compaction replay, intent capacity and deliberate same-account correction. Evidence blob `77d21871ccf4c4d194828f9e02b8d6a823a92321`.
 
-Canonical verifier:
-- `autonomy/v3/tools/verify_notion_final_gate_coverage.py` = **`be9b721ea61d897889c06aa9f5870d941b5eb876`**;
-- commit `9d4ffc992a68f00374a2477cfbcfe3149d18d033`;
-- mandatory module/path matching использует token boundaries, а не substring;
-- Stage-B test discovery проверяется той же exact-token логикой.
+## NEW — precommit SSE idle-gap / neutral keepalive
 
-Локальные негативные проверки:
-- полный synthetic suite -> PASS;
-- suite без обязательных tests -> NOT_READY;
-- длинное имя `test_delegated_tool_loop_runtime_validation` не удовлетворяет отдельный `test_delegated_tool_loop`;
-- `test_durable_replay_extra`/`test_provider_intent_extra` не удовлетворяют Stage-B coverage.
+Current helper `b3fe792b...` waits silently for commit completion before `buffered_sse_projection` yields anything. Local reproducer: a slow commit produced no first SSE byte within the probe window while the server-owned task stayed alive (`CURRENT_HELPER_IDLE_GAP_REPRODUCED`). This is safe for idempotency but can trigger client/proxy idle timeouts on long Notion work.
 
-Readback из GitHub подтвердил exact blob `be9b721e...`.
+Prepared Core-only keepalive candidate:
+- `autonomy/evidence/notion/20260824T0413Z_stageb_sse_keepalive_candidate.py`;
+- exact Git blob/readback `b4333b830ee62915a747d202174f657b26342d85`;
+- 1374 bytes;
+- SHA-256 `53afa5dcc15a73edfc5b3c4a567ddf3f3b9ae593471590a85c4301dbb92ead79`.
 
-## Windows readiness
+Contract: while durable commit is pending, emit only neutral SSE comment `: stageb-commit-pending\n\n`; never emit `resp_`, `call_`, `fc_`, tool/provider payload or protocol result before finalize; `asyncio.shield` keeps client cancellation from owning the transaction; after finalize project the exact canonical stored response; failures propagate without fabricated protocol response; heartbeat interval is lower-bounded to avoid busy loop.
 
-Readiness verifier:
-- `autonomy/v3/tools/verify_notion_windows_ready_candidate.py` = **`062927f71da341c665d5311fc31b8e8a2bdebb65`**;
-- commit `c1ecc03418a79deb4b36fd09413421cd41799f36`;
-- exact coverage pin = `be9b721ea61d897889c06aa9f5870d941b5eb876`;
-- `--candidate-root` сам сверяет manifest с реальными candidate bytes и отвергает missing/symlink/tampered files.
+Locally executed candidate+test: `STAGEB_SSE_KEEPALIVE_PASS` 5/5 — slow heartbeat, fast path, client disconnect without transaction cancellation, transaction failure with comments only, non-positive interval bounded. Readable regression is published at `autonomy/evidence/notion/20260824T0413Z_test_stageb_sse_keepalive.py`; its GitHub readback blob is `23270978962be2e8602e2f322739ae55869a10ed`. Execution attribution is kept separately in evidence because the locally executed test blob and published presentation blob differ.
 
-Это **не** real Windows readiness: unified same-byte Stage-B candidate ещё не собран.
+Evidence: `autonomy/evidence/notion/20260824T0413Z_stageb_sse_keepalive_evidence.json`, current content blob `bba5481324c55c7b7bd4df1d0f6effc40b49d6fd`.
 
-## Финальный same-byte suite
+This is not full Stage-B PASS until it is wired into the exact transformed server and same-byte matrix.
 
-На одних composed bytes обязательны:
-- Agent materializer/journal/tombstone/dynamic reservation;
-- startup cleanup + cleanup-failure boundary + repeated cancellation;
-- post-replace tombstone sync failure + tombstone restart + delegated cancellation;
-- prompt engineer/owner identity/wiring;
-- весь mandatory delegation/tool-loop/subagent/routing/failover Agent набор;
-- Core strict intent/finalize;
-- canonical Responses + compaction replay;
-- retry/restart/tool-call;
-- stream/non-stream/disconnect;
-- ambiguous transport single attempt;
-- removed account;
-- TTL/size/oversize/stale retry >32;
-- rollback floor;
-- Codex shell-env secret exclusion.
+## Final coverage / Windows readiness
+
+Canonical final coverage verifier:
+`autonomy/v3/tools/verify_notion_final_gate_coverage.py` = `be9b721ea61d897889c06aa9f5870d941b5eb876`.
+
+Canonical readiness verifier:
+`autonomy/v3/tools/verify_notion_windows_ready_candidate.py` = `062927f71da341c665d5311fc31b8e8a2bdebb65`, pinned to coverage `be9b721e...`; `--candidate-root` must independently verify actual candidate bytes and reject missing/symlink/tampered files.
+
+These pins supersede stale Agent handoff references to `2df0e51a.../d6fde58c...`.
+
+## Same-byte full matrix before Windows
+
+On one composed tree run all mandatory Agent materializer/journal/tombstone/dynamic-reservation/startup-cleanup/cancellation/prompt/delegation/tool-loop/subagent/routing/failover tests plus Core strict intent/finalize, Responses+compaction exact replay, retry/restart/tool-call, stream/non-stream/neutral precommit keepalive/disconnect, ambiguous transport single attempt, removed account, TTL/size/oversize/stale retry >32, rollback floor and Codex shell-env secret exclusion.
 
 ## Следующий обязательный порядок
 
-1. Fresh-read PR #8/#9; при head/materializer drift заморозить inputs заново.
-2. Пока активен NOTION_AGENT claim на pair rematerialization + Agent matrix — не дублировать его поверхность; продолжать только независимый Core Stage-B server/store integration.
-3. После Agent RELEASE принять только byte-exact FINAL `account_pool=c9ca6f3b.../48066` + `server=273db94a.../116047` с readback+compile evidence.
-4. На этой exact pair и durable store candidate `3ca05116.../24882` собрать единый server transaction candidate.
-5. Прогнать полный mandatory Agent+Core matrix на **этих же** байтах.
+1. Fresh-read #9 and exact PR heads; abort stale composition on head/materializer drift.
+2. Пока active NOTION_AGENT claim владеет pair/matrix, не дублировать его работу.
+3. После Agent RELEASE принять только exact `account_pool=c9ca6f3b.../48066 + server=273db94a.../116047` with readback+compile evidence.
+4. На тех же байтах встроить store `3ca05116...`, transaction helper `b3fe792b...` и neutral SSE keepalive `b4333b83...`.
+5. Прогнать полный mandatory Agent+Core same-byte matrix.
 6. Coverage `be9b721e...` PASS на exact suite.
 7. Readiness `062927f7... --candidate-root <exact composed tree>` PASS.
-8. Только затем ровно один targeted native Windows Server 2022 proof. Historical PR #7 Windows/pending digest не доказательство новой composition.
+8. Только затем один targeted native Windows Server 2022 proof; historical PR #7/pending digest не является доказательством новой composition.
 9. Targeted PASS -> full promoted Ubuntu+Windows/exact-source/security gate на тех же bytes.
-10. После promoted green -> isolated encrypted runtime restore -> real Codex-only `codex exec -> bridge -> Notion -> local tool -> verifier FAIL -> correction -> VERIFY_OK` со стабильным conversation id initial/tool-result/retry/restart.
-11. Затем owner-doctor, discovered/supported tool coverage, legitimate account rotation/restart/crash и bounded soak -> `NOTION_CORE_DONE`.
+10. После promoted green -> isolated encrypted runtime restore -> real Codex-only `codex exec -> bridge -> Notion -> local tool -> verifier FAIL -> correction -> VERIFY_OK`, затем owner-doctor, discovered/supported tool coverage, legitimate account rotation/restart/crash and bounded soak -> `NOTION_CORE_DONE`.
 
 ## Persistent v4 memory
 

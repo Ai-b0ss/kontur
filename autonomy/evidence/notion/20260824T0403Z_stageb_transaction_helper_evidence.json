@@ -1,5 +1,5 @@
 {
-  "schema": "notion_core_stageb_transaction_helper_v2",
+  "schema": "notion_core_stageb_transaction_helper_v3",
   "heads": {
     "core_pr7": "b6f4eef28ea7acdbba5fc32559fa635c28f72144",
     "agent_pr8": "4b344547d5e95bd4b3c62f5b80186059d849ff08"
@@ -31,12 +31,10 @@
   "store_plus_helper_integration": {
     "store_git_blob": "3ca05116a1ada8f1c7beb7cbdd838b08154257e5",
     "helper_git_blob": "b3fe792b99daad678e3c773db291576bdf179167",
-    "local_test_git_blob": "312649f3fb0fdc5e0ab618551353a5befb5559fc",
-    "local_test_sha256": "465d7d4e78badc33bec61210ecbcab415970c3e471f5192fe54f093dae5bc9c4",
-    "durable_readable_test_path": "autonomy/evidence/notion/20260824T0403Z_test_stageb_store_transaction_integration.py",
-    "durable_readable_test_git_blob": "c2c55158b86b978d16d014ecc7f409b9a12347b0",
+    "local_test_git_blob": "d3bb1704b0160aa3d6bf106502ff9b61e2856c1f",
+    "local_test_sha256": "4c36d04a6cd7c9835cc73e87019cb489b06510baef1b1e5f95b91f6495692473",
     "verdict": "STAGEB_STORE_TRANSACTION_INTEGRATION_PASS",
-    "cases": 9,
+    "cases": 11,
     "covered": [
       "same-process exact replay keeps call_id and provider count=1",
       "restart exact replay keeps canonical payload and provider count=0 in new process",
@@ -46,8 +44,11 @@
       "finalize strict-write failure leaves durable intent, no conversation replay and no ephemeral publication",
       "client cancellation does not cancel server-owned transaction; restart replays exact call_id without provider",
       "removed account during replay rehydration fails closed without provider call",
-      "state on disk is v3 and provider_intent is atomically absent only after successful finalize"
-    ]
+      "state on disk is v3 and provider_intent is atomically absent only after successful finalize",
+      "compaction exact result uses the same durable transaction/restart replay machinery and makes no provider call after restart",
+      "provider-intent capacity rejection happens before provider entry"
+    ],
+    "note": "An earlier capacity-test harness typo set max_provider_intents instead of the real maximum_provider_intents field; that test correctly failed, the harness was fixed, and the 11-case matrix was rerun green. No product code was changed for this harness error."
   },
   "proved_order_and_failures": [
     "local route acquisition occurs before durable provider intent",

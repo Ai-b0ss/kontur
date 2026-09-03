@@ -82,7 +82,7 @@
     },
     "BACKLOG-INVENTORY": {
       "state": "RUNNING", "owner_slot": "C", "lease_epoch": 1, "depends_on": [], "phase": "READ_ONLY", "blocker_class": null,
-      "evidence": ["KONTUR current-head executable staging/WebView/motion/responsive proof remains later NEEDS-PROOF", "AI_MIRRORS runtime/binding largely DONE; provenance/release hygiene separate", "false infra backlog items already collapsed"]
+      "evidence": ["KONTUR current-head executable staging/WebView/motion/responsive proof remains later NEEDS-PROOF", "KONTUR historical isolated preview/release infrastructure is DONE: v84 read-back preserved byte-identical backend + D1 binding with no traffic switch; safe wrangler versions upload/read-back packaging path proven; old v77 packaging/recovery must not be reopened. This does not waive current-head UI/WebView proof.", "AI_MIRRORS runtime/binding largely DONE; provenance/release hygiene separate", "false infra backlog items already collapsed"]
     },
     "BACKLOG-SWEEP": {
       "state": "BLOCKED", "owner_slot": null, "lease_epoch": 0, "depends_on": ["DESKTOP-FINAL"], "phase": "READ_ONLY", "blocker_class": "DEPENDENCY_BLOCKED", "evidence": []

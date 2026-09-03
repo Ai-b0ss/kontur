@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generation": 2,
+  "generation": 3,
   "state_machine_revision": "v4.1-control-plane",
   "authority": {
     "acceptance_issue": "Ai-b0ss/kontur#30",
@@ -8,7 +8,7 @@
     "state_branch": "autopilot/v4-control-plane",
     "state_path": "autopilot/control/state.json",
     "write_protocol": "github-contents-blob-sha-cas",
-    "cas_self_check": "stale blob SHA update rejected with HTTP 409; canonical state remained unchanged"
+    "cas_self_check": "stale blob SHA write returned HTTP 409 and did not alter state"
   },
   "release": {
     "phase": "RC",
@@ -17,60 +17,84 @@
     "candidate_sha": "defc3c8ab730dfe056b6a56d0b56c13109ee6ebb",
     "frozen": true,
     "known_open_product_blockers": 0,
-    "critical_path": [
-      "PROVIDER-SESSION-PREFLIGHT",
-      "F51-RC",
-      "F42-F48-TRACEABILITY",
-      "F52-RC",
-      "DESKTOP-FINAL",
-      "BACKLOG-SWEEP"
-    ]
+    "critical_path": ["PROVIDER-SESSION-PREFLIGHT", "F51-RC", "F42-F48-TRACEABILITY", "F52-RC", "DESKTOP-FINAL", "BACKLOG-SWEEP"]
   },
   "workers": {
     "DIRECTOR": {"automation_id": "6a82a793d008819192b4d384c122b33f", "enabled": true, "packet": null},
-    "A": {"automation_id": "6a82a80f5f608191a5ae619692364290", "enabled": true, "packet": "F51-RC"},
+    "A": {"automation_id": "6a82a80f5f608191a5ae619692364290", "enabled": true, "packet": "PUBLIC-STATE-LINTER"},
     "B": {"automation_id": "6a82a7a8067481918d2f1a31e0f02960", "enabled": true, "packet": "PROVIDER-SESSION-PREFLIGHT"},
     "C": {"automation_id": "6a82badc95408191a0aa8084990e8cf6", "enabled": true, "packet": "BACKLOG-INVENTORY"},
     "D": {"automation_id": "6a82b4a045288191ad4a3107d5309cb9", "enabled": true, "packet": "F42-F48-TRACEABILITY"}
   },
   "packets": {
-    "Q-STANDALONE": {"state": "DONE", "owner_slot": null, "lease_epoch": 0, "depends_on": [], "phase": "RC", "blocker_class": null, "evidence": ["qwen standalone accepted lineage", "actual-upstream session preflight 7ad56bac97036147962c4c0ea797617984eb248a / Circle dced93d1-3e91-4b48-9f47-2bf324094a86 GREEN"]},
-    "N-STANDALONE": {"state": "DONE", "owner_slot": null, "lease_epoch": 0, "depends_on": [], "phase": "RC", "blocker_class": null, "evidence": ["PR#88 exact 87de63b0238c8710ed2d59f0da0cbb3ee1114820", "managed Windows v32 crash-recovery 27/27 + integrated 19/19 GREEN"]},
-    "NEW_RC_FREEZE": {"state": "DONE", "owner_slot": null, "lease_epoch": 0, "depends_on": ["Q-STANDALONE", "N-STANDALONE"], "phase": "RC", "blocker_class": null, "evidence": ["Desktop PR#86 frozen defc3c8ab730dfe056b6a56d0b56c13109ee6ebb", "state-shape native Windows replacement 69760d2b39a4901ec2040a4ac53e51bbb9b73bd1 / workflow 793a9b5f-60e4-4752-b884-9fb76e645015 GREEN", "untouched local-http/F51-v2/loopback/release-verifier proof domains retained from 67fb5e6e"]},
+    "Q-STANDALONE": {
+      "state": "DONE", "owner_slot": null, "lease_epoch": 0, "depends_on": [], "phase": "RC", "blocker_class": null,
+      "evidence": ["actual-upstream Qwen preflight GREEN: 7ad56bac97036147962c4c0ea797617984eb248a / Circle dced93d1-3e91-4b48-9f47-2bf324094a86"]
+    },
+    "N-STANDALONE": {
+      "state": "DONE", "owner_slot": null, "lease_epoch": 0, "depends_on": [], "phase": "RC", "blocker_class": null,
+      "evidence": ["PR#88 87de63b0238c8710ed2d59f0da0cbb3ee1114820; managed Windows v32 crash-recovery 27/27 + integrated 19/19 GREEN"]
+    },
+    "NEW_RC_FREEZE": {
+      "state": "DONE", "owner_slot": null, "lease_epoch": 0, "depends_on": ["Q-STANDALONE", "N-STANDALONE"], "phase": "RC", "blocker_class": null,
+      "evidence": ["Desktop PR#86 frozen defc3c8ab730dfe056b6a56d0b56c13109ee6ebb", "state-shape native Windows proof 69760d2b39a4901ec2040a4ac53e51bbb9b73bd1 / 793a9b5f-60e4-4752-b884-9fb76e645015 GREEN", "untouched 67fb5e6e proof domains retained"]
+    },
     "PROVIDER-SESSION-PREFLIGHT": {
-      "state": "BLOCKED",
-      "owner_slot": "B",
-      "lease_epoch": 1,
-      "depends_on": ["NEW_RC_FREEZE"],
-      "phase": "RC",
-      "blocker_class": "EXECUTOR_CONTROL_BLOCKED",
-      "blocker": "Prepared actual-provider Notion preflight cannot currently be triggered on a legitimate private executor that holds RUNTIME_STATE_KEY. GitHub push/PR trigger retries are exhausted as a useful method.",
+      "state": "BLOCKED", "owner_slot": "B", "lease_epoch": 1, "depends_on": ["NEW_RC_FREEZE"], "phase": "RC", "blocker_class": "EXECUTOR_CONTROL_BLOCKED",
+      "blocker": "Actual-provider Notion probe is prepared, but no current legitimate private executor trigger/control path has started it.",
       "provider_state": {
         "qwen": {"status": "GREEN", "evidence": "7ad56bac97036147962c4c0ea797617984eb248a / dced93d1-3e91-4b48-9f47-2bf324094a86"},
         "notion": {
           "status": "UNKNOWN",
-          "account_outcome_policy": {
-            "AUTH_EXPIRED": "refresh credential/session; provider prerequisite remains blocked",
-            "ACCOUNT_CAPABILITY_RESTRICTED": "mark only that account ineligible/cooldown and test next legitimately available eligible account; do not classify Desktop/F51/system blocked",
-            "PROVIDER_TRUST_DENIAL": "do not rotate accounts to evade denial; classify external trust blocker",
-            "RATE_LIMIT": "apply existing cooldown/failover policy",
-            "GREEN": "close provider preflight and unblock F51"
+          "probe_commit": "ae27e4d00b70a5db9fefdeb19e66519c44e4d2c2",
+          "probe_status": "NO_COMMIT_STATUS_AT_LAST_CHECK",
+          "pool_policy": {
+            "GREEN": "provider prerequisite DONE if any legitimately configured eligible account passes",
+            "ACCOUNT_CAPABILITY_RESTRICTED": "account health only; mark account ineligible/cooldown and continue normal eligible-account failover",
+            "AUTH_EXPIRED": "account/session health; mark account unhealthy and continue to another legitimately configured eligible account; refresh stale credential later",
+            "RATE_LIMIT": "normal cooldown/failover",
+            "PROVIDER_TRUST_DENIAL": "stop rotation; do not evade explicit trust/safety/abuse denial",
+            "ALL_ACCOUNTS_UNAVAILABLE": "pool-level external/account blocker, not Desktop/F51 product defect"
           }
         }
       },
-      "evidence": ["bounded Notion actual-provider probe prepared on private qwen-free-api", "latest diagnosis: missing direct Circle/private-executor trigger capability, not provider verdict"]
+      "evidence": ["private qwen-free-api preflight config classifies up to three configured accounts with bounded normal failover; secrets remain private"]
     },
-    "F51-RC": {"state": "BLOCKED", "owner_slot": "A", "lease_epoch": 1, "depends_on": ["PROVIDER-SESSION-PREFLIGHT"], "phase": "RC", "blocker_class": "DEPENDENCY_BLOCKED", "evidence": ["actual-local Qwen required-tool roundtrip GREEN on managed Windows carrier 693de4384e2998b64854ff2da76acedc720fd6be / workflow 4fb35b19-13b5-48af-a878-79b56f34e3bf", "final F51 still requires long two-actual-local-service Qwen+Notion --require-tools on frozen defc3c8a"]},
-    "F42-F48-TRACEABILITY": {"state": "READY", "owner_slot": "D", "lease_epoch": 1, "depends_on": ["NEW_RC_FREEZE"], "phase": "READ_ONLY", "blocker_class": null, "evidence": ["direct F51 does not automatically prove every legacy generic FREE FABRIC row; map each F42-F48 row to exact current evidence or minimum remaining acceptance"]},
-    "F52-RC": {"state": "BLOCKED", "owner_slot": "D", "lease_epoch": 1, "depends_on": ["F51-RC", "F42-F48-TRACEABILITY"], "phase": "READ_ONLY", "blocker_class": "DEPENDENCY_BLOCKED", "evidence": []},
-    "DESKTOP-FINAL": {"state": "BLOCKED", "owner_slot": null, "lease_epoch": 0, "depends_on": ["F52-RC"], "phase": "RC", "blocker_class": "DEPENDENCY_BLOCKED", "evidence": []},
-    "BACKLOG-INVENTORY": {"state": "RUNNING", "owner_slot": "C", "lease_epoch": 1, "depends_on": [], "phase": "READ_ONLY", "blocker_class": null, "evidence": ["KONTUR current-head executable motion/responsive/WebView proof remains later acceptance work", "AI_MIRRORS current runtime/binding evidence largely DONE; provenance/release-hygiene items classified separately", "automatic Notion->Circle checkout, self-hosted ff-win, private hosted Actions quota and legacy four-audit rerun are not release features"]},
-    "BACKLOG-SWEEP": {"state": "BLOCKED", "owner_slot": null, "lease_epoch": 0, "depends_on": ["DESKTOP-FINAL"], "phase": "READ_ONLY", "blocker_class": "DEPENDENCY_BLOCKED", "evidence": []}
+    "F51-RC": {
+      "state": "BLOCKED", "owner_slot": null, "lease_epoch": 2, "depends_on": ["PROVIDER-SESSION-PREFLIGHT"], "phase": "RC", "blocker_class": "DEPENDENCY_BLOCKED",
+      "evidence": ["actual-local Qwen required-tool roundtrip GREEN: 693de4384e2998b64854ff2da76acedc720fd6be / 4fb35b19-13b5-48af-a878-79b56f34e3bf", "final long actual Qwen+Notion --require-tools remains"]
+    },
+    "PUBLIC-STATE-LINTER": {
+      "state": "RUNNING", "owner_slot": "A", "lease_epoch": 1, "depends_on": [], "phase": "BUILD", "blocker_class": null,
+      "repo": "Ai-b0ss/free-fabric-ci", "branch": "autopilot-control-plane", "pr": 2,
+      "definition_of_done": "add public CLI/fixture validation for scheduler snapshots and transition invariants; public matrix GREEN; no private state/source/secrets",
+      "evidence": ["PR#2 head 0f71ea05df9053c08a7616341a5acb21ad4e48df Actions run 33788236642 SUCCESS across public compatibility matrix"]
+    },
+    "F42-F48-TRACEABILITY": {
+      "state": "READY", "owner_slot": "D", "lease_epoch": 1, "depends_on": ["NEW_RC_FREEZE"], "phase": "READ_ONLY", "blocker_class": null,
+      "evidence": ["map F42..F48 individually; direct F51 does not automatically waive generic Fabric semantics"]
+    },
+    "F52-RC": {
+      "state": "BLOCKED", "owner_slot": "D", "lease_epoch": 1, "depends_on": ["F51-RC", "F42-F48-TRACEABILITY"], "phase": "READ_ONLY", "blocker_class": "DEPENDENCY_BLOCKED", "evidence": []
+    },
+    "DESKTOP-FINAL": {
+      "state": "BLOCKED", "owner_slot": null, "lease_epoch": 0, "depends_on": ["F52-RC"], "phase": "RC", "blocker_class": "DEPENDENCY_BLOCKED", "evidence": []
+    },
+    "BACKLOG-INVENTORY": {
+      "state": "RUNNING", "owner_slot": "C", "lease_epoch": 1, "depends_on": [], "phase": "READ_ONLY", "blocker_class": null,
+      "evidence": ["KONTUR current-head executable staging/WebView/motion/responsive proof remains later NEEDS-PROOF", "AI_MIRRORS runtime/binding largely DONE; provenance/release hygiene separate", "false infra backlog items already collapsed"]
+    },
+    "BACKLOG-SWEEP": {
+      "state": "BLOCKED", "owner_slot": null, "lease_epoch": 0, "depends_on": ["DESKTOP-FINAL"], "phase": "READ_ONLY", "blocker_class": "DEPENDENCY_BLOCKED", "evidence": []
+    }
   },
   "execution": {
-    "cursor": {"available": false, "unavailable_until": "2026-09-18", "policy": "do not plan critical execution around Cursor before this date"},
-    "public_github_actions": {"repo": "Ai-b0ss/free-fabric-ci", "role": "primary execution for genuinely public reusable scheduler/protocol/release/transport tooling", "status": "ACTIVE", "control_plane_pr": 2, "current_head": "0f71ea05df9053c08a7616341a5acb21ad4e48df", "matrix": "ubuntu/windows/macos x Python 3.11/3.12/3.13 plus scheduler-contract", "private_source_or_secrets": false},
-    "private_circle": {"carrier_repo": "Ai-b0ss/qwen-free-api", "role": "private product/provider-native evidence and encrypted runtime", "managed_windows": "circleci/windows@5.0 win/server-2022", "trigger_control": "BLOCKED", "trigger_blocker": "no direct Circle API/private-executor control capability in current agent runtime"},
+    "cursor": {"available": false, "unavailable_until": "2026-09-18"},
+    "public_github_actions": {
+      "repo": "Ai-b0ss/free-fabric-ci", "status": "GREEN", "pr": 2, "head": "0f71ea05df9053c08a7616341a5acb21ad4e48df", "run": 33788236642,
+      "matrix": "ubuntu/windows/macos x Python 3.11/3.12/3.13 + scheduler-contract", "role": "primary for genuinely public reusable project tooling"
+    },
+    "private_circle": {"carrier_repo": "Ai-b0ss/qwen-free-api", "managed_windows": "circleci/windows@5.0 win/server-2022", "trigger_control": "BLOCKED"},
     "private_github_actions": {"available": false, "reason": "quota unavailable"}
   },
   "scheduler_policy": {

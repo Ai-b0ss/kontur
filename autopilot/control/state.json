@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generation": 10,
+  "generation": 11,
   "state_machine_revision": "v4.1-control-plane",
   "authority": {
     "acceptance_issue": "Ai-b0ss/kontur#30",
@@ -70,6 +70,12 @@
       "definition_of_done": "add public CLI/fixture validation for scheduler snapshots and transition invariants; public matrix GREEN; no private state/source/secrets",
       "evidence": ["PR#2 head 0f71ea05df9053c08a7616341a5acb21ad4e48df Actions run 33788236642 SUCCESS across public compatibility matrix", "changed autopilot/cli.py, autopilot/__main__.py, tests/fixtures/scheduler_snapshot.json, tests/test_autopilot_cli.py, .github/workflows/ci.yml -> prior branch-head matrix proof superseded -> replacement PR#2 head 0cb9da8f2a8146178dc5ae9b0a5a9744d082502c / public Actions 33789432439 SUCCESS across ubuntu/windows/macos x Python 3.11/3.12/3.13 + scheduler-contract; CLI validates synthetic snapshot and bounded invalid JSON/state cases; no private state/source/secrets"]
     },
+    "PUBLIC-CONTROL-PLANE-HARDENING": {
+      "state": "DONE", "owner_slot": null, "lease_epoch": 0, "depends_on": ["PUBLIC-STATE-LINTER"], "phase": "BUILD", "blocker_class": null,
+      "repo": "Ai-b0ss/free-fabric-ci", "branch": "autopilot-control-plane", "integration_target": "autopilot-control-plane",
+      "definition_of_done": "unify provider outcome semantics and enforce scheduler invariants for ownership, transitions, blocked retry behavior, dependency cycles, frozen RC and mutable WIP; public matrix GREEN on integrated exact head",
+      "evidence": ["audit branch f7fd282557daf824449c65d3288cd99b002227bd run 33801919059 SUCCESS", "clean three-commit descendant of integrated 34cea21d55796bfcdcebe401e8b5d4bb3ec664cb; non-force fast-forward integrated into autopilot-control-plane", "replacement PR#2 run 33802337347 SUCCESS on exact integrated head f7fd282557daf824449c65d3288cd99b002227bd", "state_machine now imports the single provider_outcomes contract; blocked packets are not directly claimable; worker/packet ownership, dependency cycles, terminal leases, frozen RC and WIP invariants fail closed"]
+    },
     "F42-F48-TRACEABILITY": {
       "state": "DONE", "owner_slot": null, "lease_epoch": 1, "depends_on": ["NEW_RC_FREEZE"], "phase": "READ_ONLY", "blocker_class": null,
       "evidence": [
@@ -99,15 +105,15 @@
     },
     "PUBLIC-F52-PROOF-HARNESS": {
       "state": "RUNNING", "owner_slot": "D", "lease_epoch": 1, "depends_on": ["F42-F48-TRACEABILITY"], "phase": "BUILD", "blocker_class": null,
-      "repo": "Ai-b0ss/free-fabric-ci", "branch": "worker-d/f52-proof-harness",
-      "definition_of_done": "build public synthetic/reusable verification for provider-independent portions of F42/F43/F46/F47/F48 (routing, checkpoint identity, fail-closed selection, requeue/fence/no-duplicate invariants); public matrix GREEN; no private product bytes, provider credentials, or claim that synthetic evidence replaces actual-provider proofs",
-      "evidence": []
+      "repo": "Ai-b0ss/free-fabric-ci", "branch": "worker-d/f52-proof-harness", "base_ref": "autopilot-control-plane", "base_sha": "f7fd282557daf824449c65d3288cd99b002227bd", "integration_target": "autopilot-control-plane",
+      "definition_of_done": "build public synthetic/reusable verification for provider-independent portions of F42/F43/F46/F47/F48 (routing, checkpoint identity, fail-closed selection, requeue/fence/no-duplicate invariants); public matrix GREEN on worker branch; integrate non-force into autopilot-control-plane and obtain replacement GREEN CI on the integrated exact head; no private product bytes, provider credentials, or claim that synthetic evidence replaces actual-provider proofs",
+      "evidence": ["assigned branch was initially absent; audit created it and fast-forwarded it to deterministic integrated base f7fd282557daf824449c65d3288cd99b002227bd before D adds work"]
     },
     "PUBLIC-PROVIDER-OUTCOME-CONTRACT": {
       "state": "DONE", "owner_slot": null, "lease_epoch": 1, "depends_on": [], "phase": "BUILD", "blocker_class": null,
-      "repo": "Ai-b0ss/free-fabric-ci", "branch": "worker-a/provider-outcome-contract",
-      "definition_of_done": "add public reusable provider-preflight outcome classification contract and synthetic tests covering GREEN, ACCOUNT_CAPABILITY_RESTRICTED, AUTH_EXPIRED, RATE_LIMIT, PROVIDER_TRUST_DENIAL, ALL_ACCOUNTS_UNAVAILABLE and scheduler failover/stop semantics; public matrix GREEN; no private product bytes, provider credentials, cookies, account identifiers or runtime state; evidence must not claim actual-provider health",
-      "evidence": ["changed autopilot/provider_outcomes.py + tests/test_provider_outcomes.py -> new public provider-outcome contract; exact head 34cea21d55796bfcdcebe401e8b5d4bb3ec664cb / public Actions run 33801200436 SUCCESS across ubuntu/windows/macos x Python 3.11/3.12/3.13 + scheduler-contract; synthetic contract covers GREEN, ACCOUNT_CAPABILITY_RESTRICTED, AUTH_EXPIRED, RATE_LIMIT, PROVIDER_TRUST_DENIAL, ALL_ACCOUNTS_UNAVAILABLE, legitimate failover/cooldown, trust-denial stop, and fail-closed unknown outcome; no private product bytes, credentials, cookies, account identifiers, runtime state, or actual-provider-health claim"]
+      "repo": "Ai-b0ss/free-fabric-ci", "branch": "worker-a/provider-outcome-contract", "base_ref": "autopilot-control-plane", "integration_target": "autopilot-control-plane",
+      "definition_of_done": "add public reusable provider-preflight outcome classification contract and synthetic tests covering GREEN, ACCOUNT_CAPABILITY_RESTRICTED, AUTH_EXPIRED, RATE_LIMIT, PROVIDER_TRUST_DENIAL, ALL_ACCOUNTS_UNAVAILABLE and scheduler failover/stop semantics; public matrix GREEN; integrate into shared public control-plane; no private product bytes, provider credentials, cookies, account identifiers or runtime state; evidence must not claim actual-provider health",
+      "evidence": ["changed autopilot/provider_outcomes.py + tests/test_provider_outcomes.py -> new public provider-outcome contract; exact head 34cea21d55796bfcdcebe401e8b5d4bb3ec664cb / public Actions run 33801200436 SUCCESS across ubuntu/windows/macos x Python 3.11/3.12/3.13 + scheduler-contract; synthetic contract covers GREEN, ACCOUNT_CAPABILITY_RESTRICTED, AUTH_EXPIRED, RATE_LIMIT, PROVIDER_TRUST_DENIAL, ALL_ACCOUNTS_UNAVAILABLE, legitimate failover/cooldown, trust-denial stop, and fail-closed unknown outcome; no private product bytes, credentials, cookies, account identifiers, runtime state, or actual-provider-health claim", "worker branch was a clean two-commit descendant of autopilot-control-plane, fast-forward integrated non-force; replacement PR#2 run 33801690366 SUCCESS on exact integrated head 34cea21d55796bfcdcebe401e8b5d4bb3ec664cb"]
     },
     "F52-RC": {
       "state": "BLOCKED", "owner_slot": null, "lease_epoch": 1, "depends_on": ["F51-RC", "F42-F48-TRACEABILITY"], "phase": "READ_ONLY", "blocker_class": "DEPENDENCY_BLOCKED",
@@ -134,7 +140,7 @@
   "execution": {
     "cursor": {"available": false, "unavailable_until": "2026-09-18"},
     "public_github_actions": {
-      "repo": "Ai-b0ss/free-fabric-ci", "status": "GREEN", "pr": 2, "head": "0cb9da8f2a8146178dc5ae9b0a5a9744d082502c", "run": 33789432439,
+      "repo": "Ai-b0ss/free-fabric-ci", "status": "GREEN", "pr": 2, "head": "f7fd282557daf824449c65d3288cd99b002227bd", "run": 33802337347,
       "matrix": "ubuntu/windows/macos x Python 3.11/3.12/3.13 + scheduler-contract", "role": "primary for genuinely public reusable project tooling"
     },
     "private_circle": {"carrier_repo": "Ai-b0ss/qwen-free-api", "managed_windows": "circleci/windows@5.0 win/server-2022", "trigger_control": "BLOCKED"},
@@ -146,9 +152,13 @@
     "comments_are_state": false,
     "stale_issue_body_is_state": false,
     "cas_required_for_state_mutation": true,
+    "state_validation_before_cas": true,
+    "post_cas_refetch_required": true,
     "blocked_packet_retry_budget": 1,
     "frozen_rc_no_speculative_hardening": true,
-    "account_capability_restriction_is_system_blocker": false
+    "account_capability_restriction_is_system_blocker": false,
+    "mutable_packet_requires_base_ref": true,
+    "public_packet_done_requires_integration": true
   },
   "liveness": {"user_only_may_disable_slots": true, "required_enabled_slots": ["DIRECTOR", "A", "B", "C", "D"]}
 }

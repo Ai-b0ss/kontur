@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generation": 13,
+  "generation": 14,
   "state_machine_revision": "v4.1-control-plane",
   "authority": {
     "acceptance_issue": "Ai-b0ss/kontur#30",
@@ -133,6 +133,7 @@
       "evidence": [
         "KONTUR current-head executable staging/WebView/motion/responsive proof remains later NEEDS-PROOF",
         "KONTUR historical isolated preview/release infrastructure is DONE: v84 read-back preserved byte-identical backend + D1 binding with no traffic switch; safe wrangler versions upload/read-back packaging path proven; old v77 packaging/recovery must not be reopened. This does not waive current-head UI/WebView proof.",
+        "KONTUR legacy BACKLOG.md disposition=REJECTED_AS_AUTHORITY: exact blob 6fdc0e2ce03be276eafbb9dfb0a4164dc453c212 explicitly says it stores V1-V4/V3 history, does not define the next product move, and forbids automatic implementation from its items; therefore its historical P0/P1/P2 entries must not be promoted into current work without newer canonical evidence or owner decision.",
         "AI_MIRRORS runtime health remains separate from release hygiene and is not downgraded by the following release/provenance classifications",
         "AI_MIRRORS release hygiene disposition=DEFERRED: main DEPLOYMENT_PROVENANCE.json blob 2f607a5c720e06d184005e244f203663bc7309bd explicitly has deployable=false and deployment_authorized=false for release 2026-07-24-beta0-rc20-r0.1.2-qh1.4-master-completion-reopened29-canary-prepared-r10.5-disabled; no deploy/prod mutation is implied",
         "AI_MIRRORS current Telegram binding disposition=DONE: PR#4 head aa3c5b04aa9dc6875f2414e00d3cbc26e1efcc48 remains open draft/read-only; Actions run 32106785966 SUCCESS on exact head, job current-binding completed getMe/getWebhookInfo binding proof, expected HF /health,/ready revalidation, and sensitive transient-state cleanup; companion AI Mirrors CI run 32106785996 also SUCCESS. This closes current-binding proof without deployment or state mutation.",

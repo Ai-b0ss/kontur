@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generation": 3,
+  "generation": 4,
   "state_machine_revision": "v4.1-control-plane",
   "authority": {
     "acceptance_issue": "Ai-b0ss/kontur#30",
@@ -21,7 +21,7 @@
   },
   "workers": {
     "DIRECTOR": {"automation_id": "6a82a793d008819192b4d384c122b33f", "enabled": true, "packet": null},
-    "A": {"automation_id": "6a82a80f5f608191a5ae619692364290", "enabled": true, "packet": "PUBLIC-STATE-LINTER"},
+    "A": {"automation_id": "6a82a80f5f608191a5ae619692364290", "enabled": true, "packet": null},
     "B": {"automation_id": "6a82a7a8067481918d2f1a31e0f02960", "enabled": true, "packet": "PROVIDER-SESSION-PREFLIGHT"},
     "C": {"automation_id": "6a82badc95408191a0aa8084990e8cf6", "enabled": true, "packet": "BACKLOG-INVENTORY"},
     "D": {"automation_id": "6a82b4a045288191ad4a3107d5309cb9", "enabled": true, "packet": "F42-F48-TRACEABILITY"}
@@ -65,10 +65,10 @@
       "evidence": ["actual-local Qwen required-tool roundtrip GREEN: 693de4384e2998b64854ff2da76acedc720fd6be / 4fb35b19-13b5-48af-a878-79b56f34e3bf", "final long actual Qwen+Notion --require-tools remains"]
     },
     "PUBLIC-STATE-LINTER": {
-      "state": "RUNNING", "owner_slot": "A", "lease_epoch": 1, "depends_on": [], "phase": "BUILD", "blocker_class": null,
+      "state": "DONE", "owner_slot": null, "lease_epoch": 1, "depends_on": [], "phase": "BUILD", "blocker_class": null,
       "repo": "Ai-b0ss/free-fabric-ci", "branch": "autopilot-control-plane", "pr": 2,
       "definition_of_done": "add public CLI/fixture validation for scheduler snapshots and transition invariants; public matrix GREEN; no private state/source/secrets",
-      "evidence": ["PR#2 head 0f71ea05df9053c08a7616341a5acb21ad4e48df Actions run 33788236642 SUCCESS across public compatibility matrix"]
+      "evidence": ["PR#2 head 0f71ea05df9053c08a7616341a5acb21ad4e48df Actions run 33788236642 SUCCESS across public compatibility matrix", "changed autopilot/cli.py, autopilot/__main__.py, tests/fixtures/scheduler_snapshot.json, tests/test_autopilot_cli.py, .github/workflows/ci.yml -> prior branch-head matrix proof superseded -> replacement PR#2 head 0cb9da8f2a8146178dc5ae9b0a5a9744d082502c / public Actions 33789432439 SUCCESS across ubuntu/windows/macos x Python 3.11/3.12/3.13 + scheduler-contract; CLI validates synthetic snapshot and bounded invalid JSON/state cases; no private state/source/secrets"]
     },
     "F42-F48-TRACEABILITY": {
       "state": "READY", "owner_slot": "D", "lease_epoch": 1, "depends_on": ["NEW_RC_FREEZE"], "phase": "READ_ONLY", "blocker_class": null,
@@ -91,7 +91,7 @@
   "execution": {
     "cursor": {"available": false, "unavailable_until": "2026-09-18"},
     "public_github_actions": {
-      "repo": "Ai-b0ss/free-fabric-ci", "status": "GREEN", "pr": 2, "head": "0f71ea05df9053c08a7616341a5acb21ad4e48df", "run": 33788236642,
+      "repo": "Ai-b0ss/free-fabric-ci", "status": "GREEN", "pr": 2, "head": "0cb9da8f2a8146178dc5ae9b0a5a9744d082502c", "run": 33789432439,
       "matrix": "ubuntu/windows/macos x Python 3.11/3.12/3.13 + scheduler-contract", "role": "primary for genuinely public reusable project tooling"
     },
     "private_circle": {"carrier_repo": "Ai-b0ss/qwen-free-api", "managed_windows": "circleci/windows@5.0 win/server-2022", "trigger_control": "BLOCKED"},

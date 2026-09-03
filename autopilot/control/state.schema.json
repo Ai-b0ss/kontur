@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AUTOPILOT v4.1 scheduler state",
+  "type": "object",
+  "required": ["schema_version", "generation", "release", "workers", "packets", "execution", "liveness"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "generation": {"type": "integer", "minimum": 1},
+    "release": {
+      "type": "object",
+      "required": ["phase", "candidate_sha", "frozen"],
+      "properties": {
+        "phase": {"enum": ["BUILD", "STABILIZE", "RC"]},
+        "candidate_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "frozen": {"type": "boolean"}
+      },
+      "additionalProperties": true
+    },
+    "workers": {
+      "type": "object",
+      "required": ["DIRECTOR", "A", "B", "C", "D"],
+      "additionalProperties": {
+        "type": "object",
+        "required": ["automation_id", "enabled", "packet"],
+        "properties": {
+          "automation_id": {"type": "string", "minLength": 1},
+          "enabled": {"type": "boolean"},
+          "packet": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "packets": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["state", "owner_slot", "lease_epoch", "depends_on", "phase", "blocker_class", "evidence"],
+        "properties": {
+          "state": {"enum": ["READY", "RUNNING", "BLOCKED", "DONE", "DEFERRED"]},
+          "owner_slot": {"type": ["string", "null"]},
+          "lease_epoch": {"type": "integer", "minimum": 0},
+          "depends_on": {"type": "array", "items": {"type": "string"}},
+          "phase": {"enum": ["BUILD", "STABILIZE", "RC", "READ_ONLY"]},
+          "blocker_class": {"type": ["string", "null"]},
+          "evidence": {"type": "array", "items": {"type": "string"}}
+        },
+        "additionalProperties": true
+      }
+    },
+    "execution": {"type": "object"},
+    "liveness": {"type": "object"}
+  },
+  "additionalProperties": true
+}

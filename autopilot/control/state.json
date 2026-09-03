@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generation": 11,
+  "generation": 12,
   "state_machine_revision": "v4.1-control-plane",
   "authority": {
     "acceptance_issue": "Ai-b0ss/kontur#30",
@@ -24,7 +24,7 @@
     "A": {"automation_id": "6a82a80f5f608191a5ae619692364290", "enabled": true, "packet": null},
     "B": {"automation_id": "6a82a7a8067481918d2f1a31e0f02960", "enabled": true, "packet": "PROVIDER-SESSION-PREFLIGHT"},
     "C": {"automation_id": "6a82badc95408191a0aa8084990e8cf6", "enabled": true, "packet": "BACKLOG-INVENTORY"},
-    "D": {"automation_id": "6a82b4a045288191ad4a3107d5309cb9", "enabled": true, "packet": "PUBLIC-F52-PROOF-HARNESS"}
+    "D": {"automation_id": "6a82b4a045288191ad4a3107d5309cb9", "enabled": true, "packet": null}
   },
   "packets": {
     "Q-STANDALONE": {
@@ -104,10 +104,16 @@
       ]
     },
     "PUBLIC-F52-PROOF-HARNESS": {
-      "state": "RUNNING", "owner_slot": "D", "lease_epoch": 1, "depends_on": ["F42-F48-TRACEABILITY"], "phase": "BUILD", "blocker_class": null,
+      "state": "DONE", "owner_slot": null, "lease_epoch": 1, "depends_on": ["F42-F48-TRACEABILITY"], "phase": "BUILD", "blocker_class": null,
       "repo": "Ai-b0ss/free-fabric-ci", "branch": "worker-d/f52-proof-harness", "base_ref": "autopilot-control-plane", "base_sha": "f7fd282557daf824449c65d3288cd99b002227bd", "integration_target": "autopilot-control-plane",
       "definition_of_done": "build public synthetic/reusable verification for provider-independent portions of F42/F43/F46/F47/F48 (routing, checkpoint identity, fail-closed selection, requeue/fence/no-duplicate invariants); public matrix GREEN on worker branch; integrate non-force into autopilot-control-plane and obtain replacement GREEN CI on the integrated exact head; no private product bytes, provider credentials, or claim that synthetic evidence replaces actual-provider proofs",
-      "evidence": ["assigned branch was initially absent; audit created it and fast-forwarded it to deterministic integrated base f7fd282557daf824449c65d3288cd99b002227bd before D adds work"]
+      "evidence": [
+        "assigned branch was initially absent; audit created it and fast-forwarded it to deterministic integrated base f7fd282557daf824449c65d3288cd99b002227bd before D adds work",
+        "changed autopilot/f52_semantics.py + tests/test_f52_semantics.py + .github/workflows/ci.yml; synthetic provider-independent proof covers routing/result identity, checkpoint identity, health/capability fail-closed selection, durable requeue/fencing and no conflicting duplicate completion; it does not replace actual-provider F42/F43/F45/F46/F47/F48 obligations",
+        "branch proof superseded after CI concurrency fix: exact worker head 0ff3a463baac2323dd7eccc1a886c92a34b81fb9 / public Actions 33804474238 SUCCESS across ubuntu/windows/macos x Python 3.11/3.12/3.13 + scheduler-contract",
+        "PR#3 integrated synthetic harness non-force, then PR#4 fixed reproduced push-vs-PR concurrency cancellation; prior integrated 8af0985b166859d1fa7e53b5fc652e2bf553e875 CI-control proof superseded",
+        "replacement integrated proof: autopilot-control-plane exact abfe64cddc44b6e6aef7bdb9d401fe91bd6b0d9a / public Actions 33804618180 SUCCESS across ubuntu/windows/macos x Python 3.11/3.12/3.13 + scheduler-contract"
+      ]
     },
     "PUBLIC-PROVIDER-OUTCOME-CONTRACT": {
       "state": "DONE", "owner_slot": null, "lease_epoch": 1, "depends_on": [], "phase": "BUILD", "blocker_class": null,

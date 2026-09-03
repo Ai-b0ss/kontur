@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generation": 5,
+  "generation": 6,
   "state_machine_revision": "v4.1-control-plane",
   "authority": {
     "acceptance_issue": "Ai-b0ss/kontur#30",
@@ -21,7 +21,7 @@
   },
   "workers": {
     "DIRECTOR": {"automation_id": "6a82a793d008819192b4d384c122b33f", "enabled": true, "packet": null},
-    "A": {"automation_id": "6a82a80f5f608191a5ae619692364290", "enabled": true, "packet": "DESKTOP-FINAL-PROOF-MAP"},
+    "A": {"automation_id": "6a82a80f5f608191a5ae619692364290", "enabled": true, "packet": null},
     "B": {"automation_id": "6a82a7a8067481918d2f1a31e0f02960", "enabled": true, "packet": "PROVIDER-SESSION-PREFLIGHT"},
     "C": {"automation_id": "6a82badc95408191a0aa8084990e8cf6", "enabled": true, "packet": "BACKLOG-INVENTORY"},
     "D": {"automation_id": "6a82b4a045288191ad4a3107d5309cb9", "enabled": true, "packet": "PUBLIC-F52-PROOF-HARNESS"}
@@ -85,9 +85,17 @@
       ]
     },
     "DESKTOP-FINAL-PROOF-MAP": {
-      "state": "RUNNING", "owner_slot": "A", "lease_epoch": 1, "depends_on": ["NEW_RC_FREEZE"], "phase": "READ_ONLY", "blocker_class": null,
+      "state": "DONE", "owner_slot": null, "lease_epoch": 1, "depends_on": ["NEW_RC_FREEZE"], "phase": "READ_ONLY", "blocker_class": null,
       "definition_of_done": "produce an exact retained-vs-stale Desktop RC proof map and minimum DESKTOP-FINAL acceptance checklist for frozen defc3c8ab without changing release code or claiming blocked downstream gates",
-      "evidence": []
+      "evidence": [
+        "scope=frozen Desktop PR#86 exact defc3c8ab730dfe056b6a56d0b56c13109ee6ebb; PR remains open/draft/mergeable at this head",
+        "RETAINED: managed-Windows carrier 67fb5e6ef37c32699e9d2673bd767ce65271ee93 / workflow eb86595a-e9e6-4bde-ae3d-d3de8625a530 domains unaffected by later typed-state fix: local-HTTP connection+URL guards, F51-v2 contract tests, loopback policy, release verifier; do not rerun absent byte/domain invalidation",
+        "RETAINED+REPLACEMENT: typed stored host/port state/recovery domain is proven on exact new candidate by 69760d2b39a4901ec2040a4ac53e51bbb9b73bd1 / workflow 793a9b5f-60e4-4752-b884-9fb76e645015 GREEN; this replaces pre-defc launcher/state-recovery evidence",
+        "RETAINED COMPONENT PROOFS: actual-local Qwen required-tool roundtrip 693de4384e2998b64854ff2da76acedc720fd6be / 4fb35b19-13b5-48af-a878-79b56f34e3bf GREEN; Notion standalone PR#88 87de63b0238c8710ed2d59f0da0cbb3ee1114820 managed-Windows crash-recovery 27/27 + integrated 19/19 GREEN; neither substitutes for final two-service F51/F52",
+        "STALE/SUPERSEDED: any launcher/state-recovery proof against f3f5c56bcff21ed3e0fb27b5ae6c3200d10a259c or earlier for malformed typed stored endpoint behavior; replacement is exact defc3c8 state-shape Windows proof above",
+        "INSUFFICIENT-NOT-STALE: synthetic/local-provider F51 carriers and the Qwen-only actual-local subproof remain useful component evidence but cannot close F51; long two-actual-local-service Qwen+Notion --require-tools is still mandatory after PROVIDER-SESSION-PREFLIGHT=DONE",
+        "MIN DESKTOP-FINAL CHECKLIST: (1) preserve exact frozen defc3c8 candidate and retained proof domains; (2) PROVIDER-SESSION-PREFLIGHT DONE with actual Qwen+Notion eligibility; (3) F51-RC DONE via long two-actual-local-service --require-tools on this exact candidate; (4) F52-RC DONE including unsuperseded F42/F43/F45/F46/F47/F48 actual/generic-Fabric obligations; (5) one final native-Windows DESKTOP_READY combined round-trip on exact defc3c8 consuming retained proofs, covering release package verify + launcher start/status + both local service health/combined acceptance + owned stop/cleanup/recovery without rerunning isolated local-http/loopback/release-verifier domains unless invalidated; (6) zero known blocking/high product defects and exact evidence/SHA recorded before DESKTOP-FINAL=DONE"
+      ]
     },
     "PUBLIC-F52-PROOF-HARNESS": {
       "state": "RUNNING", "owner_slot": "D", "lease_epoch": 1, "depends_on": ["F42-F48-TRACEABILITY"], "phase": "BUILD", "blocker_class": null,

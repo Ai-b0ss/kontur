@@ -17,14 +17,14 @@
     "candidate_sha": "defc3c8ab730dfe056b6a56d0b56c13109ee6ebb",
     "frozen": true,
     "known_open_product_blockers": 0,
-    "critical_path": ["PROVIDER-SESSION-PREFLIGHT", "F51-RC", "F42-F48-TRACEABILITY", "F52-RC", "DESKTOP-FINAL", "BACKLOG-SWEEP"]
+    "critical_path": ["PROVIDER-SESSION-PREFLIGHT", "F51-RC", "F52-RC", "DESKTOP-FINAL", "BACKLOG-SWEEP"]
   },
   "workers": {
     "DIRECTOR": {"automation_id": "6a82a793d008819192b4d384c122b33f", "enabled": true, "packet": null},
     "A": {"automation_id": "6a82a80f5f608191a5ae619692364290", "enabled": true, "packet": null},
     "B": {"automation_id": "6a82a7a8067481918d2f1a31e0f02960", "enabled": true, "packet": "PROVIDER-SESSION-PREFLIGHT"},
     "C": {"automation_id": "6a82badc95408191a0aa8084990e8cf6", "enabled": true, "packet": "BACKLOG-INVENTORY"},
-    "D": {"automation_id": "6a82b4a045288191ad4a3107d5309cb9", "enabled": true, "packet": "F42-F48-TRACEABILITY"}
+    "D": {"automation_id": "6a82b4a045288191ad4a3107d5309cb9", "enabled": true, "packet": null}
   },
   "packets": {
     "Q-STANDALONE": {
@@ -71,11 +71,22 @@
       "evidence": ["PR#2 head 0f71ea05df9053c08a7616341a5acb21ad4e48df Actions run 33788236642 SUCCESS across public compatibility matrix", "changed autopilot/cli.py, autopilot/__main__.py, tests/fixtures/scheduler_snapshot.json, tests/test_autopilot_cli.py, .github/workflows/ci.yml -> prior branch-head matrix proof superseded -> replacement PR#2 head 0cb9da8f2a8146178dc5ae9b0a5a9744d082502c / public Actions 33789432439 SUCCESS across ubuntu/windows/macos x Python 3.11/3.12/3.13 + scheduler-contract; CLI validates synthetic snapshot and bounded invalid JSON/state cases; no private state/source/secrets"]
     },
     "F42-F48-TRACEABILITY": {
-      "state": "READY", "owner_slot": "D", "lease_epoch": 1, "depends_on": ["NEW_RC_FREEZE"], "phase": "READ_ONLY", "blocker_class": null,
-      "evidence": ["map F42..F48 individually; direct F51 does not automatically waive generic Fabric semantics"]
+      "state": "DONE", "owner_slot": null, "lease_epoch": 1, "depends_on": ["NEW_RC_FREEZE"], "phase": "READ_ONLY", "blocker_class": null,
+      "evidence": [
+        "legacy authority: COMPLETENESS_MATRIX v1 comment 5451064103 defines F42..F48; generic Fabric F01-F41 frozen/live-proven at qwen-workspace main d0440c8ba916a43937e3bdfb3adf71aa7acb4fa1",
+        "F42 disposition=MIN_PROOF_REMAINS: direct actual-local Qwen required-tool proof 693de4384e2998b64854ff2da76acedc720fd6be / Circle 4fb35b19-13b5-48af-a878-79b56f34e3bf plus frozen Qwen c1c63d5d27771696214c18fe03d745cdfda6fbc4 multi-round/checkpoint primitives do not prove generic Fabric; minimum closure is one d0440 generic Task -> actual Qwen multi-round tool/result -> ProviderExecutionResult -> integrity -> DONE",
+        "F43 disposition=MIN_PROOF_REMAINS: frozen Qwen c1c63d5d27771696214c18fe03d745cdfda6fbc4 has offline completed-tool durability/restart/checkpoint primitives, while d0440 live proof covers no-tools result only; minimum closure is actual Qwen checkpoint/handoff ProviderExecutionResult accepted by generic Fabric with durable checkpoint identity preserved",
+        "F44 disposition=IMPLEMENTATION_EVIDENCED: Notion Provider Ticket adapter offline proof PR#44 head a1dbb8b6a1a693514ff746bfe6f050e90cf2024a and full runtime composition PR#46 head 79e95f037190a160f9cf287eb83123c26e3af9c3; do not infer live/current generic binding from this, which is F45",
+        "F45 disposition=MIN_PROOF_REMAINS: current Notion standalone is DONE at PR#88 87de63b0238c8710ed2d59f0da0cbb3ee1114820, but live generic Fabric adapter E2E is not superseded; after provider preflight GREEN, minimum closure is d0440 generic Task -> actual Notion adapter -> fenced ProviderExecutionResult/checkpoint -> integrity -> DONE",
+        "F46 disposition=MIN_PROOF_REMAINS: generic d0440 target registry is live-proven provider-independent, but combined capability selection is not; minimum closure is one Fabric with Qwen+Notion registered where required capabilities/current health select the eligible provider and fail closed when no target qualifies",
+        "F47 disposition=MIN_PROOF_REMAINS: d0440 generic durability/requeue infrastructure is live-proven, but provider-combined failure semantics are not; minimum closure is an actual combined scenario with selected executor unavailable/failing before fenced completion, proving durable task retention/requeue and no task loss or duplicate completion",
+        "F48 disposition=MIN_PROOF_REMAINS: no newer proof supersedes durable cross-provider continuation; minimum closure is checkpoint from an actual provider result surviving restart/requeue and subsequent eligible Qwen/Notion continuation with generation/fence integrity and no duplicate side effect",
+        "traceability packet closes mapping only, not the remaining mandatory semantics; F52 must not become DONE until the F42/F43/F45/F46/F47/F48 minimum proofs above are supplied or superseded by exact stronger evidence"
+      ]
     },
     "F52-RC": {
-      "state": "BLOCKED", "owner_slot": "D", "lease_epoch": 1, "depends_on": ["F51-RC", "F42-F48-TRACEABILITY"], "phase": "READ_ONLY", "blocker_class": "DEPENDENCY_BLOCKED", "evidence": []
+      "state": "BLOCKED", "owner_slot": null, "lease_epoch": 1, "depends_on": ["F51-RC", "F42-F48-TRACEABILITY"], "phase": "READ_ONLY", "blocker_class": "DEPENDENCY_BLOCKED",
+      "evidence": ["F42-F48 traceability mapping is DONE; before F52 DONE, consume/supersede the remaining generic-Fabric proof obligations recorded in F42-F48-TRACEABILITY evidence"]
     },
     "DESKTOP-FINAL": {
       "state": "BLOCKED", "owner_slot": null, "lease_epoch": 0, "depends_on": ["F52-RC"], "phase": "RC", "blocker_class": "DEPENDENCY_BLOCKED", "evidence": []

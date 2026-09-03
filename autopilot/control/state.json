@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generation": 9,
+  "generation": 10,
   "state_machine_revision": "v4.1-control-plane",
   "authority": {
     "acceptance_issue": "Ai-b0ss/kontur#30",
@@ -41,13 +41,13 @@
     },
     "PROVIDER-SESSION-PREFLIGHT": {
       "state": "BLOCKED", "owner_slot": "B", "lease_epoch": 1, "depends_on": ["NEW_RC_FREEZE"], "phase": "RC", "blocker_class": "EXECUTOR_CONTROL_BLOCKED",
-      "blocker": "Actual-provider Notion probe is prepared, but no current legitimate private executor trigger/control path has started it.",
+      "blocker": "A legitimate private self-hosted GitHub Actions trigger now exists, but run 33801997605 is queued and its qwen-secret-bridge runner has not picked up the job; the actual Notion provider call has not started.",
       "provider_state": {
         "qwen": {"status": "GREEN", "evidence": "7ad56bac97036147962c4c0ea797617984eb248a / dced93d1-3e91-4b48-9f47-2bf324094a86"},
         "notion": {
           "status": "UNKNOWN",
-          "probe_commit": "ae27e4d00b70a5db9fefdeb19e66519c44e4d2c2",
-          "probe_status": "NO_COMMIT_STATUS_AT_LAST_CHECK",
+          "probe_commit": "fdd23ca5cc18d1ec858b86d2ae09570f76229dbd",
+          "probe_status": "SELF_HOSTED_RUN_33801997605_QUEUED",
           "pool_policy": {
             "GREEN": "provider prerequisite DONE if any legitimately configured eligible account passes",
             "ACCOUNT_CAPABILITY_RESTRICTED": "account health only; mark account ineligible/cooldown and continue normal eligible-account failover",
@@ -58,7 +58,7 @@
           }
         }
       },
-      "evidence": ["private qwen-free-api preflight config classifies up to three configured accounts with bounded normal failover; secrets remain private"]
+      "evidence": ["private qwen-free-api preflight config classifies up to three configured accounts with bounded normal failover; secrets remain private", "new private self-hosted proof surface: qwen-free-api worker-b/state-shape-native-proof commit fdd23ca5cc18d1ec858b86d2ae09570f76229dbd, workflow .github/workflows/notion-selfhosted-preflight.yml, run 33801997605 queued on [self-hosted, Linux, X64, qwen-secret-bridge]", "draft PR#135 was closed before final fdd23ca trigger; final commit has no PR-triggered hosted workflow run, so no further private hosted quota was intentionally consumed"]
     },
     "F51-RC": {
       "state": "BLOCKED", "owner_slot": null, "lease_epoch": 2, "depends_on": ["PROVIDER-SESSION-PREFLIGHT"], "phase": "RC", "blocker_class": "DEPENDENCY_BLOCKED",
@@ -138,7 +138,8 @@
       "matrix": "ubuntu/windows/macos x Python 3.11/3.12/3.13 + scheduler-contract", "role": "primary for genuinely public reusable project tooling"
     },
     "private_circle": {"carrier_repo": "Ai-b0ss/qwen-free-api", "managed_windows": "circleci/windows@5.0 win/server-2022", "trigger_control": "BLOCKED"},
-    "private_github_actions": {"available": false, "reason": "quota unavailable"}
+    "private_self_hosted_github": {"carrier_repo": "Ai-b0ss/qwen-free-api", "runner_labels": ["self-hosted", "Linux", "X64", "qwen-secret-bridge"], "status": "QUEUED", "run": 33801997605, "head": "fdd23ca5cc18d1ec858b86d2ae09570f76229dbd"},
+    "private_github_actions": {"available": false, "reason": "hosted quota unavailable; self-hosted runner tracked separately"}
   },
   "scheduler_policy": {
     "max_mutable_product_wip": 3,

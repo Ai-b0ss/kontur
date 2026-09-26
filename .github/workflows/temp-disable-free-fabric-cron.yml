@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   disable-cron:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64, ff-win]
     timeout-minutes: 5
     env:
       CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -24,56 +24,20 @@ jobs:
       CF_SCRIPT_NAME: free-fabric-control-staging
 
     steps:
-      - name: Verify credentials are available
-        shell: bash
+      - name: Disable Free Fabric staging cron and verify
+        shell: powershell
         run: |
-          set -euo pipefail
-          test -n "$CF_ACCOUNT_ID" || { echo "Missing CLOUDFLARE_ACCOUNT_ID"; exit 2; }
-          test -n "$CF_API_TOKEN" || { echo "Missing CLOUDFLARE_API_TOKEN"; exit 2; }
-
-      - name: Read current cron triggers
-        shell: bash
-        run: |
-          set -euo pipefail
-          url="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/workers/scripts/$CF_SCRIPT_NAME/schedules"
-          curl --fail-with-body --silent --show-error "$url"             -H "Authorization: Bearer $CF_API_TOKEN"             > "$RUNNER_TEMP/before.json"
-          node - <<'NODE'
-          const fs = require('fs');
-          const p = process.env.RUNNER_TEMP + '/before.json';
-          const j = JSON.parse(fs.readFileSync(p, 'utf8'));
-          if (!j.success) throw new Error('Cloudflare GET schedules failed');
-          const crons = (j.result?.schedules ?? []).map(x => x.cron);
-          console.log('BEFORE_CRONS=' + JSON.stringify(crons));
-          NODE
-
-      - name: Disable all cron triggers on Free Fabric staging
-        shell: bash
-        run: |
-          set -euo pipefail
-          url="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/workers/scripts/$CF_SCRIPT_NAME/schedules"
-          curl --fail-with-body --silent --show-error             -X PUT "$url"             -H "Authorization: Bearer $CF_API_TOKEN"             -H "Content-Type: application/json"             --data '[]'             > "$RUNNER_TEMP/update.json"
-          node - <<'NODE'
-          const fs = require('fs');
-          const p = process.env.RUNNER_TEMP + '/update.json';
-          const j = JSON.parse(fs.readFileSync(p, 'utf8'));
-          if (!j.success) throw new Error('Cloudflare PUT schedules failed');
-          const crons = j.result?.schedules ?? [];
-          if (crons.length !== 0) throw new Error('Cloudflare still reports schedules after update');
-          console.log('UPDATE_CRONS=[]');
-          NODE
-
-      - name: Verify cron triggers are gone
-        shell: bash
-        run: |
-          set -euo pipefail
-          url="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/workers/scripts/$CF_SCRIPT_NAME/schedules"
-          curl --fail-with-body --silent --show-error "$url"             -H "Authorization: Bearer $CF_API_TOKEN"             > "$RUNNER_TEMP/after.json"
-          node - <<'NODE'
-          const fs = require('fs');
-          const p = process.env.RUNNER_TEMP + '/after.json';
-          const j = JSON.parse(fs.readFileSync(p, 'utf8'));
-          if (!j.success) throw new Error('Cloudflare verification GET failed');
-          const crons = j.result?.schedules ?? [];
-          if (crons.length !== 0) throw new Error('Cron trigger removal did not persist');
-          console.log('FREE_FABRIC_CRON_DISABLED');
-          NODE
+          $ErrorActionPreference='Stop'
+          if(-not $env:CF_ACCOUNT_ID){ throw 'Missing CLOUDFLARE_ACCOUNT_ID' }
+          if(-not $env:CF_API_TOKEN){ throw 'Missing CLOUDFLARE_API_TOKEN' }
+          $u="https://api.cloudflare.com/client/v4/accounts/$env:CF_ACCOUNT_ID/workers/scripts/$env:CF_SCRIPT_NAME/schedules"
+          $h=@{Authorization="Bearer $env:CF_API_TOKEN"}
+          $before=Invoke-RestMethod -Method Get -Uri $u -Headers $h
+          if(-not $before.success){ throw 'Cloudflare GET schedules failed' }
+          Write-Host ('BEFORE_CRONS=' + (($before.result | ForEach-Object cron) -join ','))
+          $updated=Invoke-RestMethod -Method Put -Uri $u -Headers $h -ContentType 'application/json' -Body '[]'
+          if(-not $updated.success){ throw 'Cloudflare PUT schedules failed' }
+          $after=Invoke-RestMethod -Method Get -Uri $u -Headers $h
+          if(-not $after.success){ throw 'Cloudflare verification GET failed' }
+          if(@($after.result).Count -ne 0){ throw 'Cron trigger removal did not persist' }
+          Write-Host 'FREE_FABRIC_CRON_DISABLED'

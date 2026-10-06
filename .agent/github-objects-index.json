@@ -1,0 +1,275 @@
+{
+  "schema": "github-objects-index-v1",
+  "snapshot_date": "2026-10-06",
+  "repository": "Ai-b0ss/kontur",
+  "warning": "Open PRs preserve product evolution and proof lines; many are intentionally unmerged historical candidates.",
+  "pr_summary": {
+    "total": 27,
+    "open": 20,
+    "merged": 3,
+    "closed_unmerged": 4
+  },
+  "issue_summary": {
+    "total": 5,
+    "open": 5,
+    "closed": 0
+  },
+  "open_pr_family_counts": {
+    "cursor": 5,
+    "ci": 4,
+    "infra": 3,
+    "fix": 2,
+    "autopilot": 1,
+    "ops": 1,
+    "yt": 1,
+    "cleanup": 1,
+    "test": 1,
+    "agent": 1
+  },
+  "open_prs": [
+    {
+      "number": 32,
+      "title": "AUTOPILOT v4.1: canonical scheduler state and CAS control plane",
+      "draft": true,
+      "head": "autopilot/v4-control-plane",
+      "head_sha": "a18c15b401110d80597eb8274060914a37b1d91a",
+      "base": "main",
+      "created_at": "2026-09-03T18:03:50Z",
+      "updated_at": "2026-09-06T12:34:04Z"
+    },
+    {
+      "number": 28,
+      "title": "CI: probe existing GitHub runner credential channels",
+      "draft": true,
+      "head": "ci/qwen-runner-token-probe-via-kontur-20260825",
+      "head_sha": "c5b6b11974c0967d7dd205dab2e102268e9a7fc0",
+      "base": "main",
+      "created_at": "2026-08-25T08:18:54Z",
+      "updated_at": "2026-08-25T08:20:29Z"
+    },
+    {
+      "number": 27,
+      "title": "CI proof: hatch master-frame candidate",
+      "draft": true,
+      "head": "ci/kontur-hatch-master-frame-proof-20260823",
+      "head_sha": "1e5cc8dede9df6f7da293d054bca8249a2aef366",
+      "base": "main",
+      "created_at": "2026-08-23T09:13:09Z",
+      "updated_at": "2026-08-23T09:13:18Z"
+    },
+    {
+      "number": 26,
+      "title": "fix: rebuild hatch around one master frame",
+      "draft": true,
+      "head": "fix/kontur-hatch-master-frame-20260823",
+      "head_sha": "fe114ba04c526ef0edba2b5250cc3c1d72a8b403",
+      "base": "cursor/hatch-product-289ef82f-1021",
+      "created_at": "2026-08-23T09:11:06Z",
+      "updated_at": "2026-08-24T04:13:39Z"
+    },
+    {
+      "number": 25,
+      "title": "CI proof: exact hatch master-frame candidate",
+      "draft": true,
+      "head": "ci/circle-account-smoke-20260823",
+      "head_sha": "4eff35798421c31db77568d96eeca4044e94627e",
+      "base": "main",
+      "created_at": "2026-08-22T21:01:33Z",
+      "updated_at": "2026-08-23T09:23:07Z"
+    },
+    {
+      "number": 24,
+      "title": "fix: visual hatch acceptance — shell opening, flash cover, reveal line",
+      "draft": true,
+      "head": "cursor/hatch-visual-acceptance-1021",
+      "head_sha": "0c40ea23c1069217ec48b0f1d794dabf869e3aae",
+      "base": "main",
+      "created_at": "2026-08-22T20:25:52Z",
+      "updated_at": "2026-08-23T07:27:55Z"
+    },
+    {
+      "number": 22,
+      "title": "Fix hatch flash continuity and leftover layers under the bird ring",
+      "draft": true,
+      "head": "cursor/kontur-hatch-flash-continuity-f7b4",
+      "head_sha": "6fefe26ba4a145e0b5e559005f8e7faf851e2737",
+      "base": "cursor/kontur-hatch-state-machine-f7b4",
+      "created_at": "2026-08-22T15:43:17Z",
+      "updated_at": "2026-08-22T16:41:29Z"
+    },
+    {
+      "number": 21,
+      "title": "Refactor quiz hatch into timed state machine",
+      "draft": true,
+      "head": "cursor/kontur-hatch-state-machine-f7b4",
+      "head_sha": "acccd0cc9ce87cb465ece82160400f0230b2f7a3",
+      "base": "cursor/kontur-visual-alt-b153d4c9",
+      "created_at": "2026-08-22T13:30:38Z",
+      "updated_at": "2026-08-22T14:57:42Z"
+    },
+    {
+      "number": 20,
+      "title": "Deploy accepted Kontur visual candidate without D1 writes",
+      "draft": true,
+      "head": "cursor/kontur-visual-alt-b153d4c9",
+      "head_sha": "ce282246c457f19112c178b1cbd7c8d9724b18b6",
+      "base": "main",
+      "created_at": "2026-08-22T11:08:27Z",
+      "updated_at": "2026-08-22T13:04:53Z"
+    },
+    {
+      "number": 19,
+      "title": "KONTUR: preserve b153d4c9 emergency visual evidence",
+      "draft": false,
+      "head": "cursor/kontur-emergency-evidence-b153d4c9-f7b4",
+      "head_sha": "9b9bd3594dff7af5e357db23cac6c71c5ff364e9",
+      "base": "fix/kontur-core-visual-continuity-20260818",
+      "created_at": "2026-08-22T10:23:13Z",
+      "updated_at": "2026-08-23T14:27:58Z"
+    },
+    {
+      "number": 18,
+      "title": "OPS: Cloudflare production D1 read-only capability probe",
+      "draft": true,
+      "head": "ops/kontur-prod-auth-probe-20260822",
+      "head_sha": "68b18fd686582a9c6d27307270dacc93ec0ffff2",
+      "base": "fix/kontur-core-visual-continuity-20260818",
+      "created_at": "2026-08-22T06:40:29Z",
+      "updated_at": "2026-08-23T14:27:58Z"
+    },
+    {
+      "number": 17,
+      "title": "TEMP VERIFY: Kontur canonical Linux build gate",
+      "draft": true,
+      "head": "ci/kontur-circle-vite-20260821",
+      "head_sha": "337bb7fe9bcb3740b981a4546a74f9c5c0318374",
+      "base": "cleanup/repo-hygiene-shareable-source",
+      "created_at": "2026-08-21T09:35:19Z",
+      "updated_at": "2026-08-23T11:15:01Z"
+    },
+    {
+      "number": 13,
+      "title": "Temporary isolated YouTube rescue",
+      "draft": true,
+      "head": "yt-video-rescue-20260818",
+      "head_sha": "5a731a07be16bf9a744f304b47a37f8c5188beb1",
+      "base": "main",
+      "created_at": "2026-08-18T17:42:59Z",
+      "updated_at": "2026-08-18T17:42:59Z"
+    },
+    {
+      "number": 12,
+      "title": "KONTUR: unify six-character identity and q8 hatch continuity",
+      "draft": true,
+      "head": "fix/kontur-core-visual-continuity-20260818",
+      "head_sha": "6952eba2b740b40b55433613d7c8bb594f215583",
+      "base": "cleanup/repo-hygiene-shareable-source",
+      "created_at": "2026-08-18T06:43:29Z",
+      "updated_at": "2026-08-23T14:28:53Z"
+    },
+    {
+      "number": 11,
+      "title": "Handoff: полный текущий Контур + отделённый legacy V1–V5",
+      "draft": true,
+      "head": "cleanup/repo-hygiene-shareable-source",
+      "head_sha": "76c50fd057d776b4d610c80e041bc9ab7bfd192e",
+      "base": "main",
+      "created_at": "2026-08-17T09:21:24Z",
+      "updated_at": "2026-08-17T14:53:01Z"
+    },
+    {
+      "number": 10,
+      "title": "Cloudflare staging: integrate product proof and production post-check",
+      "draft": false,
+      "head": "infra/cloudflare-staging-integrated-proof",
+      "head_sha": "22c7fca48c7ed57c4e9b44b424729cc19c689aa9",
+      "base": "infra/cloudflare-staging-live-v2",
+      "created_at": "2026-08-17T06:31:55Z",
+      "updated_at": "2026-08-17T06:31:59Z"
+    },
+    {
+      "number": 8,
+      "title": "Cloudflare staging: verify forbidden production targets stay unchanged",
+      "draft": false,
+      "head": "infra/cloudflare-staging-postcheck",
+      "head_sha": "a1a767be2c9bc4ecdedba15d717bc78a7cff95db",
+      "base": "infra/cloudflare-staging-live-v2",
+      "created_at": "2026-08-17T04:04:58Z",
+      "updated_at": "2026-08-17T06:26:56Z"
+    },
+    {
+      "number": 7,
+      "title": "Cloudflare: prove real staging product API path",
+      "draft": false,
+      "head": "test/cloudflare-staging-api-proof",
+      "head_sha": "d6564e7ddfdaa90711a112d0ac44f2b9fad57166",
+      "base": "infra/cloudflare-staging-live-v2",
+      "created_at": "2026-08-17T03:53:53Z",
+      "updated_at": "2026-08-17T03:53:57Z"
+    },
+    {
+      "number": 6,
+      "title": "Cloudflare: promote proven isolated staging path",
+      "draft": false,
+      "head": "infra/cloudflare-staging-live-v2",
+      "head_sha": "90374a0ddbd1941a6c068a3e0fdf35b14e0e7308",
+      "base": "main",
+      "created_at": "2026-08-17T03:43:15Z",
+      "updated_at": "2026-08-17T03:45:01Z"
+    },
+    {
+      "number": 3,
+      "title": "Test: prove autonomous remote fix loop",
+      "draft": true,
+      "head": "agent/remote-loop-smoke-20260817",
+      "head_sha": "d09c4e213119f6feb4900162718ea632b3fef13c",
+      "base": "main",
+      "created_at": "2026-08-17T00:02:18Z",
+      "updated_at": "2026-08-17T00:02:54Z"
+    }
+  ],
+  "workflow_sources": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "blob": "f521c33e983907b4f5390610e3d96ff0b98a3093",
+      "bytes": 2396
+    },
+    {
+      "path": ".github/workflows/cloudflare-staging.yml",
+      "blob": "5badaab1e59d0a82bf61073605d0cb6427baff7d",
+      "bytes": 5681
+    }
+  ],
+  "notable": [
+    {
+      "pr": 11,
+      "status": "HANDOFF/ARCHAEOLOGY",
+      "note": "Separates current Kontur from legacy V1–V5; use before reconstructing old product state."
+    },
+    {
+      "prs": "20-27",
+      "status": "VISUAL/HATCH CANDIDATE LINEAGE",
+      "note": "Accepted visual candidate → timed state machine → flash continuity → visual acceptance/master frame → CI proof."
+    },
+    {
+      "pr": 32,
+      "status": "CONTROL-PLANE CANDIDATE",
+      "note": "AUTOPILOT v4.1 machine state/CAS control plane. +40/-30 vs modern main; related to public free-fabric-ci scheduler contracts."
+    },
+    {
+      "prs": "6,7,8,10",
+      "status": "DEPLOYMENT/PROOF LINEAGE",
+      "note": "Cloudflare staging promote → API proof → forbidden-target postcheck → integrated proof."
+    }
+  ],
+  "relations": [
+    {
+      "repo": "Ai-b0ss/free-fabric-ci",
+      "kind": "AUTOPILOT reusable public contracts"
+    },
+    {
+      "repo": "Ai-b0ss/qwen-free-api",
+      "kind": "historical Chromium QA/cross-repo CI carrier"
+    }
+  ]
+}

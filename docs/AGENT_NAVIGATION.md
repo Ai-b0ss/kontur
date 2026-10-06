@@ -23,4 +23,4 @@
 Точные 103 ветки и их head SHA находятся в `.agent/branch-index.json`. `evidence/*` и многие `ci/*` должны рассматриваться как зафиксированные свидетельства, а не как место для новых правок.
 
 ## Построчное чтение
-После checkout выполнить `python tools/build_agent_index.py`. В `.agent/local-code-index.json` будут line count, SHA256 и начала функций/классов для каждого текстового файла. Номера строк нельзя переносить между ветками.
+После checkout выполнить `python tools/build_agent_index.py --ref "<branch-or-SHA>"`. В `.agent/local-code-index.json` будут line count, SHA256 и начала функций/классов для каждого текстового файла. Номера строк нельзя переносить между ветками.

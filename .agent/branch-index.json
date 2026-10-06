@@ -474,8 +474,9 @@
     },
     {
       "name": "main",
-      "head": "c831e56173bb38e9fb5d7b2e92d6a8cec87eff82",
-      "family": "main"
+      "head": null,
+      "family": "main",
+      "resolve_at_read_time": true
     },
     {
       "name": "ops/disable-free-fabric-cron-20260926",
@@ -537,5 +538,6 @@
       "head": "5a731a07be16bf9a744f304b47a37f8c5188beb1",
       "family": "yt-video-rescue-20260818"
     }
-  ]
+  ],
+  "main_resolution": "The main branch is dynamic. Resolve its current commit at read time with `git rev-parse main` or the GitHub branch ref. Non-main SHAs are navigation snapshots; re-resolve any branch that may have moved."
 }

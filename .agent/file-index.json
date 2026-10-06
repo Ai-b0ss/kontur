@@ -11,6 +11,12 @@
       "role": "agent_tooling"
     },
     {
+      "path": ".cursor/rules/repository-navigation.mdc",
+      "blob": "0794e048f55abf3590390c38b5c75db9f5efc54b",
+      "bytes": 658,
+      "role": "agent_tooling"
+    },
+    {
       "path": ".env.example",
       "blob": "76f9c55f1203a5ff16c19dfc6c9702f91d278fe2",
       "bytes": 1563,
@@ -33,6 +39,12 @@
       "blob": "d77e17ffd35379ad0be94a6902404b2a40038e04",
       "bytes": 952,
       "role": "ci"
+    },
+    {
+      "path": ".github/copilot-instructions.md",
+      "blob": "1efac671cf6ddc5cdfdeb279bcd19e2bebc30014",
+      "bytes": 574,
+      "role": "agent_tooling"
     },
     {
       "path": ".github/pull_request_template.md",
@@ -66,9 +78,9 @@
     },
     {
       "path": "AGENTS.md",
-      "blob": "5302505c3c2078cf4e49f7529cf75d5398736e62",
-      "bytes": 4669,
-      "role": "documentation_or_state"
+      "blob": "eddf784bec822812da8a747bf783af5ee10cacf3",
+      "bytes": 5620,
+      "role": "agent_tooling"
     },
     {
       "path": "AI_PROJECT_NAVIGATOR.md",
@@ -93,6 +105,12 @@
       "blob": "f18009b3a2c40089120683f29f93973224c40a02",
       "bytes": 5037,
       "role": "documentation_or_state"
+    },
+    {
+      "path": "CLAUDE.md",
+      "blob": "c92840b89e49539ec1da2f95060d962a0687fd17",
+      "bytes": 703,
+      "role": "agent_tooling"
     },
     {
       "path": "COMMUNITY_INTERVIEW_GUIDE_V1.md",
@@ -135,6 +153,12 @@
       "blob": "694b9af19dea03bebf7ed76f4f56d9c40a0d7a68",
       "bytes": 27674,
       "role": "documentation_or_state"
+    },
+    {
+      "path": "GEMINI.md",
+      "blob": "9a0eeffd26f59d4b73fba0d17bcd5d128677b043",
+      "bytes": 588,
+      "role": "agent_tooling"
     },
     {
       "path": "HANDOVER.md",
@@ -1148,7 +1172,13 @@
       "path": "docs/AGENT_NAVIGATION.md",
       "blob": "444419f173d4433ffb8f264abc9031720fce7d01",
       "bytes": 2732,
-      "role": "documentation_or_state"
+      "role": "agent_tooling"
+    },
+    {
+      "path": "docs/AGENT_OPERATING_SYSTEM.md",
+      "blob": "c5cb47ff4b4bff2c9c2e9c374fdb6c7ed90f9f9e",
+      "bytes": 10463,
+      "role": "agent_tooling"
     },
     {
       "path": "docs/direction-candidates-2026-08-07/A-crown-storm.png",
@@ -1551,6 +1581,12 @@
       "blob": "ed2f03401ba4afa1649d9515a6f046777ec52bd3",
       "bytes": 11064,
       "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "tools/agent_history.py",
+      "blob": "e5bafa35894387de114935bbcd88607b7074851e",
+      "bytes": 14293,
+      "role": "agent_tooling"
     },
     {
       "path": "tools/build_agent_index.py",

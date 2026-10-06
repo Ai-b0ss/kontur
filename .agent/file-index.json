@@ -6,8 +6,8 @@
   "files": [
     {
       "path": ".agent/branch-index.json",
-      "blob": "00026ae31719b2e14850d33bbb0fac37d20ff969",
-      "bytes": 16588,
+      "blob": "f51a86c770b98743fe7505508dbde0cd8cdfc4f2",
+      "bytes": 16813,
       "role": "agent_tooling"
     },
     {
@@ -186,8 +186,8 @@
     },
     {
       "path": "README.md",
-      "blob": "5b19ce58bdd628af54a8073ba285d69e3e0925d0",
-      "bytes": 21331,
+      "blob": "7843f377535b5c6a61f8460573fbcefdceba3053",
+      "bytes": 21762,
       "role": "documentation_or_state"
     },
     {
@@ -1556,7 +1556,7 @@
       "path": "tools/build_agent_index.py",
       "blob": "9ad5e056e09909d4eeb0735e479d8cff7cd8a446",
       "bytes": 4539,
-      "role": "tooling_or_test"
+      "role": "agent_tooling"
     },
     {
       "path": "tools/cloudflare-d1-backup.ps1",

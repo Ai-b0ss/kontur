@@ -1,0 +1,1706 @@
+{
+  "schema": "agent-file-index-v1",
+  "repository": "Ai-b0ss/kontur",
+  "branch": "main",
+  "note": "Current product behavior should be traced from apps/packages and PROJECT_STATE. Run tools/build_agent_index.py for branch-local line/symbol positions.",
+  "files": [
+    {
+      "path": ".env.example",
+      "blob": "76f9c55f1203a5ff16c19dfc6c9702f91d278fe2",
+      "bytes": 1563,
+      "role": "project_file"
+    },
+    {
+      "path": ".env.telegram-test.example",
+      "blob": "068f4844a295f6fd638df09790790083768ff227",
+      "bytes": 398,
+      "role": "project_file"
+    },
+    {
+      "path": ".gitattributes",
+      "blob": "f5844ff7a5ca0a91e98f16bce67648b87f3b6bff",
+      "bytes": 57,
+      "role": "project_file"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/remote-agent-task.md",
+      "blob": "d77e17ffd35379ad0be94a6902404b2a40038e04",
+      "bytes": 952,
+      "role": "ci"
+    },
+    {
+      "path": ".github/pull_request_template.md",
+      "blob": "e9c8b2be0e3074e6b4cd4fdcbc7d8867e56ff1aa",
+      "bytes": 707,
+      "role": "ci"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "blob": "f521c33e983907b4f5390610e3d96ff0b98a3093",
+      "bytes": 2396,
+      "role": "ci"
+    },
+    {
+      "path": ".github/workflows/cloudflare-staging.yml",
+      "blob": "5badaab1e59d0a82bf61073605d0cb6427baff7d",
+      "bytes": 5681,
+      "role": "ci"
+    },
+    {
+      "path": ".gitignore",
+      "blob": "04c39cf36422191c4e1c87af13ac5216690f2f66",
+      "bytes": 540,
+      "role": "project_file"
+    },
+    {
+      "path": ".runtime-state/kontur-runtime-state.tar.gz.gpg",
+      "blob": "29772444753be8f5ea4cfb7439377b93f6349cd8",
+      "bytes": 129,
+      "role": "project_file"
+    },
+    {
+      "path": "AGENTS.md",
+      "blob": "af6c92b926eeac188c3e54915d61476d786a0161",
+      "bytes": 3148,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "AI_PROJECT_NAVIGATOR.md",
+      "blob": "c9ad8631a0bcf1e1da4fc155b30b7f7a1f4ca4ab",
+      "bytes": 23858,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "ART_DIRECTION_V1.md",
+      "blob": "b20bc8bfd32c0c29a66cb8d58af851da99bc1ecf",
+      "bytes": 19080,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "BACKLOG.md",
+      "blob": "6fdc0e2ce03be276eafbb9dfb0a4164dc453c212",
+      "bytes": 12717,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "CHAT_RESEARCH_PROTOCOL.md",
+      "blob": "f18009b3a2c40089120683f29f93973224c40a02",
+      "bytes": 5037,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "COMMUNITY_INTERVIEW_GUIDE_V1.md",
+      "blob": "ba6c6f41b79b4c2e13d21f169ae28847f2cac7bc",
+      "bytes": 7049,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "COMMUNITY_RESEARCH_DEEP_DIVE_V1.md",
+      "blob": "219f0d76514873140ea9d69e6e536c87bf8068be",
+      "bytes": 18306,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "COMMUNITY_RESEARCH_STAGE1_INTERIM.md",
+      "blob": "8097d17667655aeaf43e938be4d886f340f2bd98",
+      "bytes": 21758,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "CURSOR_HANDOFF_2026-08-07.md",
+      "blob": "81adfede3d2d2f4dcba02e20143d5c46592bb38b",
+      "bytes": 10414,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "DERIVED_CANDIDATE_README.md",
+      "blob": "10ed3dae67aa3c689b6ea8abd16ff5b9ed572aa1",
+      "bytes": 1192,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "DESIGN.md",
+      "blob": "492b8ff6804b68c236f35e0948fe584791eabe55",
+      "bytes": 20144,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "EXPERIENCE_SPEC_V1.md",
+      "blob": "694b9af19dea03bebf7ed76f4f56d9c40a0d7a68",
+      "bytes": 27674,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "HANDOVER.md",
+      "blob": "e552cd72b0824e3bf0fe1dd879d5283f90b3867f",
+      "bytes": 13896,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "IMPLEMENTATION_PLAN_V1.md",
+      "blob": "9cd5110344803a906d2083218dc8d6ec66f756c4",
+      "bytes": 38023,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "INTEGRATION_README_2026-08-14.md",
+      "blob": "031b43c73559bf48fe46aa72e3a741fafe0d6166",
+      "bytes": 2147,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "NEXT_CHAT_PROMPT.md",
+      "blob": "e5a9c5d4571d2a1c78eb90cb01f153ed134d3c7e",
+      "bytes": 419,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "PRODUCT_DIRECTION_V1.md",
+      "blob": "4fde26370a7812ec106054276cc3fb95ee95c63a",
+      "bytes": 23313,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "PRODUCT_REDESIGN_BRIEF.md",
+      "blob": "78a94380c4aaac49bbd4f79f0f6b27297c1bc001",
+      "bytes": 22316,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "PROJECT_PASSPORT.md",
+      "blob": "592a9e12610f76b528cc8c5045fc990e0a350d86",
+      "bytes": 12364,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "PROJECT_STATE.yaml",
+      "blob": "04c1543929e2aac1eb774a737f131238bae4e42a",
+      "bytes": 14279,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "README.md",
+      "blob": "5b19ce58bdd628af54a8073ba285d69e3e0925d0",
+      "bytes": 21331,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "RESEARCH_SCOPE_V1.md",
+      "blob": "c9081e05b58e02f27700cc5c9b7b2f89a3eaf675",
+      "bytes": 12442,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "RESTORED_PRODUCT_V3.md",
+      "blob": "e7f61b0512d806ae073f7d270d006e26668737a0",
+      "bytes": 6280,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "RESTORE_RUNTIME_STATE.ps1",
+      "blob": "70702fb88968c08dc568eeee98a22da302f36648",
+      "bytes": 906,
+      "role": "project_file"
+    },
+    {
+      "path": "RESTORE_RUNTIME_STATE.sh",
+      "blob": "81408f24bd4bbfe4d2d00b9f204a0c90a4e78aaa",
+      "bytes": 456,
+      "role": "project_file"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "blob": "7055fca2587debcbd66b058138499c3abb648119",
+      "bytes": 26919,
+      "role": "project_file"
+    },
+    {
+      "path": "SNAPSHOT_INFO.txt",
+      "blob": "c617fd1afbb2b07bf4fb70bb4b93986d9151ba3c",
+      "bytes": 933,
+      "role": "project_file"
+    },
+    {
+      "path": "SOURCE_PROVENANCE_LOCAL.json",
+      "blob": "c882fc9d067dee12efd50c66db72f52892a267da",
+      "bytes": 335,
+      "role": "project_file"
+    },
+    {
+      "path": "STAGE1_INTERVIEW_EXECUTION.md",
+      "blob": "0f172b7fa630d69e664334dc30e97582ca233574",
+      "bytes": 8810,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "STAGE1_MINIMAL_VALIDATION.md",
+      "blob": "b474dbe2e2bc2f9f2b9b392d11aeada65e02f8cf",
+      "bytes": 3156,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "STAGE5_PROTOTYPE_V1.md",
+      "blob": "496dc111c003b1d5380fd4f8595e81be098acef4",
+      "bytes": 10398,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "STAGE6_PREVIEW_TRIAL_V1.md",
+      "blob": "b1081e93c374ed488503d1608c8b1e6a17ad17bf",
+      "bytes": 7213,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "STAGE7_CLOSED_ROLLOUT_V1.md",
+      "blob": "d69adbd386529c4b8d79b888bd207b1bd3ac1dff",
+      "bytes": 6231,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "V5_EXECUTION_CHARTER.md",
+      "blob": "427f39c5b9e0f06dacc22d8fc224007274a18f98",
+      "bytes": 9602,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "V5_PRODUCT_SPEC.md",
+      "blob": "b44740be610678b5fd0a29c8eef6cff99593ba0b",
+      "bytes": 20209,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "WORKLOG.md",
+      "blob": "8d6fc715b1d77abb2bf479699a087afc35950555",
+      "bytes": 124987,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "apps/api/package.json",
+      "blob": "07c89cdcf8a860936c782a1d600ebe2ff30ca740",
+      "bytes": 542,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/api/src/ctx.ts",
+      "blob": "065130d8ce9a3d048c80961802a31c7da4ebd384",
+      "bytes": 1343,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/api/src/env.ts",
+      "blob": "5833d6711e306310208bc335052ad52b6ed72885",
+      "bytes": 2639,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/api/src/errors.ts",
+      "blob": "206baf95b0613d4aaef8d56837a43d0e869c7512",
+      "bytes": 766,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/api/src/idempotency.ts",
+      "blob": "8a8d1dd67dc571bd66b55706cc2424d83adf3548",
+      "bytes": 1590,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/api/src/index.ts",
+      "blob": "91eaf3db39c0ab86b90b91df4ff83d8753673fd2",
+      "bytes": 6319,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/api/src/jwt.ts",
+      "blob": "104b5cdcea14028c6deca0a940b387a9db794e41",
+      "bytes": 1847,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/api/src/player.ts",
+      "blob": "349b611d3ba47d44127e17f9f8815d18603a46f6",
+      "bytes": 5791,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/api/src/routes/auth.ts",
+      "blob": "c752d23d3ad2cd3a8809583add229121c92e9d4a",
+      "bytes": 2943,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/api/src/routes/dev.ts",
+      "blob": "2316a5b65528311feb74b83efbb96b03bbb84d30",
+      "bytes": 5300,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/api/src/routes/game.ts",
+      "blob": "a504a403609e2ad2287195fd05f62224004022d0",
+      "bytes": 16623,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/api/src/telegram.ts",
+      "blob": "2208d1401a1b43fdac8c8fb9ddc861e8a1ed7010",
+      "bytes": 5379,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/api/tsconfig.json",
+      "blob": "7b283537aae98a5313a12ceb9214fa55c4abb1aa",
+      "bytes": 287,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/bot/package.json",
+      "blob": "bc4be697d6dddbf3f84fb60c947caef4275eb80a",
+      "bytes": 675,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/bot/src/bot.ts",
+      "blob": "30c17bf6933e7459c254b84ee7b893958b905ae7",
+      "bytes": 21705,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/bot/src/chat-id.ts",
+      "blob": "d7c90042a9cc9d7df6e5e1c5ea4a5ead46f79c85",
+      "bytes": 3875,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/bot/src/env.ts",
+      "blob": "e3a0f176e8ae1af4fff11835e526a0a6446f21ef",
+      "bytes": 903,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/bot/src/index.ts",
+      "blob": "2d5f1f18fb8d1f242d92d8de2c06fb04282450d9",
+      "bytes": 1335,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/bot/src/scope.ts",
+      "blob": "0762b18f3c3a03df61ce527d78d2791dfc38940f",
+      "bytes": 305,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/bot/src/setup.ts",
+      "blob": "3d7626b943ab1bd8747aaabdae332db83fd3efa0",
+      "bytes": 5195,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/bot/test/grant.test.ts",
+      "blob": "29ab3c530e791abd0790ac598e28a3ef029ef2ea",
+      "bytes": 2401,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/bot/test/scope.test.ts",
+      "blob": "f6a3431ea067f6765d4022243c794f4a0248347b",
+      "bytes": 1062,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/bot/tsconfig.json",
+      "blob": "7b283537aae98a5313a12ceb9214fa55c4abb1aa",
+      "bytes": 287,
+      "role": "project_file"
+    },
+    {
+      "path": "apps/miniapp/index.html",
+      "blob": "3791178513a9581e2b2d11913ce1083ccc408ba9",
+      "bytes": 860,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/package.json",
+      "blob": "50a64e8f0e9d2a0d9c8d1ec8eebc6de50fb3f281",
+      "bytes": 764,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/birds/crane.webp",
+      "blob": "d99280acc6a5a6895c28573faea1e3306880e371",
+      "bytes": 14142,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/birds/jay.webp",
+      "blob": "c0c1f20ca00f795e33b891fcf53b403bbb5b1595",
+      "bytes": 16726,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/birds/magpie.webp",
+      "blob": "f7679b7ec324667037f3689b1969a5858f628892",
+      "bytes": 15266,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/birds/owl.webp",
+      "blob": "e8c7a678067991631728c01600a9cc533f4146ba",
+      "bytes": 19604,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/birds/woodpecker.webp",
+      "blob": "0ecbdeed1cabb5808d234cf6ea853d17307eb58f",
+      "bytes": 17932,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/quiz/egg-crack-light.webp",
+      "blob": "d29382ebfc934b2b0b31c98fecd4c95c44ce1292",
+      "bytes": 43262,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/quiz/egg-stage-01.webp",
+      "blob": "e6967fe28ee612499963b4a699941407181b76f9",
+      "bytes": 144698,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/quiz/egg-stage-02.webp",
+      "blob": "c3343f66e3c9e8af3ae8db760fa62a596c70f00d",
+      "bytes": 146684,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/quiz/egg-stage-03.webp",
+      "blob": "c4bfbed8f476ce1244cfa4001f7116e0ee5ecabe",
+      "bytes": 149484,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/quiz/egg-stage-04.webp",
+      "blob": "39c6c0e1c8aab02f607a04137019fab94d379d56",
+      "bytes": 160856,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/quiz/egg-stage-05.webp",
+      "blob": "3949bafd41d1bffd72b5d3f3f87c959905ad985a",
+      "bytes": 174626,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/quiz/egg-stage-06.webp",
+      "blob": "98c6e2926864b923e682e78cdb7f51898a59974b",
+      "bytes": 194194,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/quiz/egg-stage-07.webp",
+      "blob": "88cdef3a8492753e8eee69074ba7dfaebda800fb",
+      "bytes": 208572,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/quiz/egg-stage-08.webp",
+      "blob": "3aadfb8de93766418515c8ee88a9403dd2f150a5",
+      "bytes": 216484,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/results/crane-character-v4.webp",
+      "blob": "24bb638cd35266fed7c409076ebb642ef8a04145",
+      "bytes": 52178,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/results/crane.webp",
+      "blob": "da0416981e3bfba75e873d608eeeaf046002b143",
+      "bytes": 129910,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/results/jay.webp",
+      "blob": "2c771d3b7a06a0325ddfc391294e2c7eed55b535",
+      "bytes": 248776,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/results/kotosov.webp",
+      "blob": "da0420d42264fe0ed4f5ea0833acba42cf3e8447",
+      "bytes": 244390,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/results/magpie.webp",
+      "blob": "1c47fb50635f38144c86b1f520b689aae365018a",
+      "bytes": 98396,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/results/owl.webp",
+      "blob": "fcfc941e413eb9467c126135c7e78f3c812cb49c",
+      "bytes": 5748,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/public/results/woodpecker.webp",
+      "blob": "a5d700a9626758614fc23b2c704904b9527f5c29",
+      "bytes": 172948,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/App.tsx",
+      "blob": "9e0e4d11fc9a8d111b2a938ea045dc22f1a42116",
+      "bytes": 14768,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/api.ts",
+      "blob": "725f9235fc33bad6ce8627ac450c659e60bca183",
+      "bytes": 19728,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/components/Bird.tsx",
+      "blob": "354b49e0abb00177a84a9b0566f56ddcb9a4acb6",
+      "bytes": 6454,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/components/Egg.tsx",
+      "blob": "8db336bdf231efe00f9d03db313256df0db95e49",
+      "bytes": 4566,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/components/Hand.tsx",
+      "blob": "75e266098603ac7d3b5cf16fb6dfb3add3cd9f1e",
+      "bytes": 3024,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/components/LocalBird.tsx",
+      "blob": "f40f0e29123aac4e5f95985e6cdb24f90cf24dad",
+      "bytes": 12792,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/components/LocalBirdAsset.tsx",
+      "blob": "cdc716c6ffa730a03dd36d0aae4433d07dd0c217",
+      "bytes": 1921,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/components/LocalBirdVisual.tsx",
+      "blob": "b12455933654654f81a2a33e83a9cfa917f9406c",
+      "bytes": 549,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/components/QuizEgg.tsx",
+      "blob": "06c0abe4ee7d525297c9ee44cc4c1bc82a9ac867",
+      "bytes": 652,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/components/ResultBird.tsx",
+      "blob": "50c31f29b8cae9646807eee2878a682e943587cf",
+      "bytes": 477,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/components/V5Bird.tsx",
+      "blob": "40e5f0635edfa1c178779a9da3d7753a61d2ccc0",
+      "bytes": 8103,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/components/ZeroSeasonBird.tsx",
+      "blob": "c7266c71316afbf8c11fa950fdf74121f81c32fb",
+      "bytes": 8408,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/components/ZeroSeasonTree.tsx",
+      "blob": "be7a5a87062fb2536fdace5e97d51ff70883cb3a",
+      "bytes": 3342,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/components/local-bird-assets.ts",
+      "blob": "c867e0fd745a0a7cfb385cb49021be7e1fd328c5",
+      "bytes": 1819,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/components/result-bird-assets.ts",
+      "blob": "749943c9b5c73c47e52fc9d7b7d6641da0b59452",
+      "bytes": 762,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/components/ui.tsx",
+      "blob": "ce96d4966d6e0a39fafe1979ae99416e0df735e8",
+      "bytes": 4070,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/experience-v2-state.ts",
+      "blob": "ba5a2264eb40c51f6b95d63479b7d95179615fc1",
+      "bytes": 998,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/experience-v2.css",
+      "blob": "4ba1c41649304da1496c716f3e5edb1ded11aec6",
+      "bytes": 9234,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/live-campaign-model.ts",
+      "blob": "820a50a21af66b4e0e8c5ca60dc3f14f62b6689a",
+      "bytes": 6376,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/live-campaign.css",
+      "blob": "cf8905269b80869cfb0246834ddfa04cf23da9bb",
+      "bytes": 38785,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/local-kontur-model.ts",
+      "blob": "3669053dacc376b452447c7f41047845624a1b19",
+      "bytes": 1610,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/local-kontur.css",
+      "blob": "f2e3e923fe1d3bd940ba56e12c47f15d3164eb29",
+      "bytes": 37803,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/main.tsx",
+      "blob": "3a59ad3d61067352bfb2424a4f66e5f640503ff7",
+      "bytes": 324,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/navigation.ts",
+      "blob": "59edcc12e25703a4a4fb2f6f7bebbd98f716911f",
+      "bytes": 515,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/preview.ts",
+      "blob": "eb00d54e20304ea65022f0c295d37087d0c8f195",
+      "bytes": 522,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/restored-model.ts",
+      "blob": "f66f3db67f5ec1b97ab2b9c7608f99516d091b90",
+      "bytes": 3134,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/restored.css",
+      "blob": "ce75baa3a968692be09c8f72291f9bf814b6bd9e",
+      "bytes": 24487,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/result-taxonomy.ts",
+      "blob": "f4ea0c910166f9045c89cbd77ccf952fea012378",
+      "bytes": 5254,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/screens/Community.tsx",
+      "blob": "23cf1fb2cd9113eb0b3386cb5f02aaf8759538f9",
+      "bytes": 4209,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/screens/Eggs.tsx",
+      "blob": "d7f60643a421c65f4795c14e2a71b08af80aa203",
+      "bytes": 5656,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/screens/ExperienceV2.tsx",
+      "blob": "2490326fb2ac976e457c920a9c40df6ea5968685",
+      "bytes": 19999,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/screens/LiveCampaign.tsx",
+      "blob": "4dd5af561f36bad1097dee02cf334e9f5aa0ec44",
+      "bytes": 40028,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/screens/LocalKontur.tsx",
+      "blob": "0707c44e77204fab256eacac16c20f795e901875",
+      "bytes": 29751,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/screens/Onboarding.tsx",
+      "blob": "3bd8511f71d4fc1b7fd625694d8a93e01a6c6337",
+      "bytes": 8190,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/screens/Profile.tsx",
+      "blob": "bd116f51411f09d9a0322991288273039bfe9fad",
+      "bytes": 6542,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/screens/RestoredExperience.tsx",
+      "blob": "6aae4196dd7980ecfb6b4b24c5fa1076432879b4",
+      "bytes": 26452,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/screens/ZeroSeason.tsx",
+      "blob": "f958e77909fdb5a82d1a192ac384d18d30e3252e",
+      "bytes": 37082,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/share.ts",
+      "blob": "c2c7b85bd22ac17825cfc0f9cd6acaf62d92db5a",
+      "bytes": 132,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/styles.css",
+      "blob": "00e99d4bf8fa98668ec4650aff62d4c14615f654",
+      "bytes": 22126,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/telegram.ts",
+      "blob": "435cdf5fa8cac1ff20b555440605ab85be2f5323",
+      "bytes": 1886,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/zero-season.css",
+      "blob": "09b10495117a744475ab03cf76f917dca70d8e0e",
+      "bytes": 21561,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/test/experience-v2.test.ts",
+      "blob": "4663785548d90ce81ca8b76794ec4f8ebd012546",
+      "bytes": 1734,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/test/live-campaign-model.test.ts",
+      "blob": "1d4bd1d2dfceefcb2b20ce157c3a0a5105f0fe40",
+      "bytes": 981,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/test/local-kontur.test.ts",
+      "blob": "b61207b51232d23a6395593cd065584d7d5edd3e",
+      "bytes": 7036,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/test/navigation.test.ts",
+      "blob": "4a8a4ae2c7e12b60ac660ba730adf4e5002456d4",
+      "bytes": 1233,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/test/restored-model.test.ts",
+      "blob": "59cf24b91cc08a2c7a80d118b9f941f67cc6d6e6",
+      "bytes": 1446,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/tsconfig.json",
+      "blob": "f1011366824ac110d73196fa17b1f20c154e7d92",
+      "bytes": 369,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/vite.config.ts",
+      "blob": "abd27f974599926cc651698368a33200376004aa",
+      "bytes": 706,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/worker/.dev.vars.example",
+      "blob": "0df9f297a5203050682863d3e932d597dd355f88",
+      "bytes": 142,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/migrations/0001_initial.sql",
+      "blob": "b0b1107ba2742b19d80b5e2096bc9d3212a3708a",
+      "bytes": 8480,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/migrations/0002_maintenance.sql",
+      "blob": "cb8afd57982a8c66a6cb7c176a818b6ae75d7ea6",
+      "bytes": 609,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/migrations/0003_participation_journey.sql",
+      "blob": "73b46d67d0ffe4a28f1e76414db3dc6e0a7805b6",
+      "bytes": 5433,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/migrations/0004_journey_action_requests.sql",
+      "blob": "2a4fa3279272869422619b6ceb06acdb23896964",
+      "bytes": 1189,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/migrations/0005_journey_reminders.sql",
+      "blob": "cc29e32ec396fa3c2beb47d442b7d38462cf380c",
+      "bytes": 829,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/migrations/0006_restored_product.sql",
+      "blob": "2017ca54e144951e6a7f59cfdf211b8c50646c25",
+      "bytes": 5795,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/migrations/0007_zero_season.sql",
+      "blob": "ae422901a94b9ba59eadcf391aef0c779346a3cf",
+      "bytes": 1105,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/migrations/0008_zero_season_closure.sql",
+      "blob": "0bd053a5351e09bf7ce05758138024a91c522c84",
+      "bytes": 486,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/migrations/0009_zero_season_forecasts.sql",
+      "blob": "b76a77527b65943d176ba3b62dc5d0bc33093acc",
+      "bytes": 912,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/migrations/0010_zero_season_series_starts.sql",
+      "blob": "0aa1e3a45dacd5a4246d66cfd20fe49c37e581c0",
+      "bytes": 496,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/migrations/0011_zero_season_paths.sql",
+      "blob": "2d0e89a25407f786a3fafd4ebcd4bfb7516e9360",
+      "bytes": 461,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/migrations/0012_zero_season_cycle.sql",
+      "blob": "1c025e457eb9d098481b93116d1161b6d299948a",
+      "bytes": 247,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/migrations/0013_zero_season_active_birds.sql",
+      "blob": "dd1bddb94fd7e89a530926fa2fd1bff8596c3541",
+      "bytes": 569,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/migrations/0014_zero_season_flights.sql",
+      "blob": "77ee6f1fc59726650e25320406420babbbb16b32",
+      "bytes": 1051,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/migrations/0015_v5_campaign_foundation.sql",
+      "blob": "9290efd155655fce5c58c980de37658055fecfd5",
+      "bytes": 9056,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/migrations/0016_v5_player_progress.sql",
+      "blob": "4dfe5bec288435d6a5aaa2af599ad684f1fa38e2",
+      "bytes": 7450,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/migrations/0017_v5_gameplay_writes.sql",
+      "blob": "c2fadc215be4af4d418fc788e71c2ff323113616",
+      "bytes": 15533,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/migrations/0018_v5_chat_narrative.sql",
+      "blob": "f918fd4972444120f77bd1cd085d1173f733e849",
+      "bytes": 4428,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/package.json",
+      "blob": "eefbabdf05aecd870c0e012102bd4b10600d63e7",
+      "bytes": 1008,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/src/api.ts",
+      "blob": "26dbfc62e1b4a44e3513140536a3c9a42a6ed634",
+      "bytes": 27755,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/src/bot.ts",
+      "blob": "24e7943c7f827b58428c9755821e6c45e34bc234",
+      "bytes": 18116,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/src/crypto.ts",
+      "blob": "7ea212ea03bbe4fca02bcb2c2f4ad8a627ee1b6a",
+      "bytes": 3902,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/src/db.ts",
+      "blob": "65d2e317c344ecd733b810bdb80779d9e44eb096",
+      "bytes": 5603,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/src/errors.ts",
+      "blob": "033e947ea1aebc6b097aa53818cfb0b41b39091f",
+      "bytes": 1082,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/src/experience-access.ts",
+      "blob": "6e2cb014b47b9a96a7a675ed9689b21860078970",
+      "bytes": 2630,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/src/index.ts",
+      "blob": "cdca91599bfd7e60d32ade23ae0c745b9ecfa451",
+      "bytes": 3451,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/src/journey-api.ts",
+      "blob": "1e6e632bec9ca122f05cb0bf1bfb6a8fd5fb4a51",
+      "bytes": 6730,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/src/journey-db.ts",
+      "blob": "4b8fd805e82fa9e27a0caa48d3a3231aa532bb9d",
+      "bytes": 19799,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/src/journey-telegram.ts",
+      "blob": "6f19d00341dd23fc3e68bc1c7fc3659fe45636e3",
+      "bytes": 5334,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/src/live-campaign-api.ts",
+      "blob": "b9a6a66225af5596de09f6a6cb7b4f8f0627f7bb",
+      "bytes": 79751,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/src/live-campaign-llm.ts",
+      "blob": "7de612f8ad88646e123c16a8e670b49c769bfd1e",
+      "bytes": 8738,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/src/live-campaign-telegram.ts",
+      "blob": "91324e02a1f3f47a6ead6730c04876b54a228fb5",
+      "bytes": 49589,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/src/local-kontur-api.ts",
+      "blob": "43d5cd9ac1302c802c91910cc86e04652364c5c7",
+      "bytes": 13760,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/src/restored-api.ts",
+      "blob": "f067114d3d5a8dfa513afe015c1a719e0d7acffa",
+      "bytes": 5685,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/src/restored-db.ts",
+      "blob": "b31f86e703808195dc4ab7e8f7232a1f86f534c3",
+      "bytes": 13436,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/src/telegram-api.ts",
+      "blob": "b17081ea5e65bd659a396461e010c4de36d4b0da",
+      "bytes": 3987,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/src/types.ts",
+      "blob": "5d0f08c84f6cc0abcf6817dfe72df28fc7aeed34",
+      "bytes": 2852,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/src/zero-season-api.ts",
+      "blob": "fd610f9c515f4d5b6c37965625457f3e83193bce",
+      "bytes": 34038,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/test/experience-access.test.ts",
+      "blob": "886dd31a0fb2146cdd81d78ac4ca997746790237",
+      "bytes": 3283,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/test/live-campaign-llm.test.ts",
+      "blob": "7f236384b505c04cb2f0186219bc9df9ad66026c",
+      "bytes": 1838,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/test/live-campaign-telegram.test.ts",
+      "blob": "4fde7e9984d7db1eaf1163c90ab4d2116432351e",
+      "bytes": 4276,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/test/zero-season-core.test.ts",
+      "blob": "e1fcf35e6fa0854233edda665a43381bf471284b",
+      "bytes": 1419,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/tsconfig.json",
+      "blob": "8289b85229d9343073a44d9df324a7b4959d7139",
+      "bytes": 316,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "apps/worker/wrangler.jsonc",
+      "blob": "b4e46d5483e16a6b88e5de717e6a949758e8f171",
+      "bytes": 964,
+      "role": "worker_runtime"
+    },
+    {
+      "path": "art-direction/GENERATION_NOTES.md",
+      "blob": "2207da758f440035fbfdc1e8bda80df2d6621573",
+      "bytes": 8056,
+      "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "art-direction/direction-a-living-nest.png",
+      "blob": "8bb29ea04a97e4887a7455e4d09e82aac25abe28",
+      "bytes": 2817134,
+      "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "art-direction/direction-b-restored-birds-v3.png",
+      "blob": "141b9bbeac41fcf84d648cbdc1afc2e22f0cf51f",
+      "bytes": 2715648,
+      "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "art-direction/direction-b-signal-map.png",
+      "blob": "320e4913e156017de953fbc763924f768e0a2431",
+      "bytes": 2652420,
+      "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "art-direction/direction-c-visible-trace.png",
+      "blob": "abe8df0e590d4e0b37a144695ed4b19bdce39732",
+      "bytes": 3021167,
+      "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "docs/direction-candidates-2026-08-07/A-crown-storm.png",
+      "blob": "2720a3951ce12e14fc3c76299298564d6719a541",
+      "bytes": 2525580,
+      "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "docs/direction-candidates-2026-08-07/AB-solo-first-flock-optional.png",
+      "blob": "3cfed641f38ce786df78b1cada0afd4f90948435",
+      "bytes": 2184101,
+      "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "docs/direction-candidates-2026-08-07/B-flock-rally.png",
+      "blob": "f4bb424576ab5b243644b3f00e4645d6453eca71",
+      "bytes": 2717515,
+      "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "docs/direction-candidates-2026-08-07/C-branch-table.png",
+      "blob": "add6457907f73b77f589631cb5be7724573cdd3f",
+      "bytes": 2489294,
+      "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "docs/direction-candidates-2026-08-07/CHOSEN_DIRECTION_AB.md",
+      "blob": "87e0f66f3a3d1f41db4350139b01ea2d22c6f260",
+      "bytes": 8774,
+      "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "docs/direction-candidates-2026-08-07/FIRST_SESSION_FLOW.md",
+      "blob": "e3fd427cf8d079ebbaa8847a676d8d415e918c31",
+      "bytes": 14853,
+      "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "docs/direction-candidates-2026-08-07/README.md",
+      "blob": "d2ffa3f23b3cad59dfd86073fe119fe6edb89902",
+      "bytes": 13092,
+      "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "docs/mvp-core-2026-08-08/MVP_CORE.md",
+      "blob": "867b21f19ba502c1d49af39baf679abe384fc594",
+      "bytes": 3199,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "docs/mvp-core-2026-08-08/VISUAL_DIRECTION_CU.md",
+      "blob": "c8671bfb3472aa14121a1821b87d3f803d39cfe5",
+      "bytes": 1821,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "kontur-brief.html",
+      "blob": "199e9eac213b97ae08e3ffaf2ee75f2cd073d0c0",
+      "bytes": 33020,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "package.json",
+      "blob": "197f2de46b61f298569b42ba4246f480ab3f3214",
+      "bytes": 1357,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/contracts/package.json",
+      "blob": "ddf44dffdeb96fd4ee53d416401f2e323e9fb30e",
+      "bytes": 335,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/contracts/src/actions.ts",
+      "blob": "63d67d84dd5ea2dbfeedc90f80fb6b75192876ad",
+      "bytes": 4006,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/contracts/src/errors.ts",
+      "blob": "1f263629978905ed7d6025478b1c5f670f433d74",
+      "bytes": 2478,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/contracts/src/index.ts",
+      "blob": "cd2f3db3074517a94c10f11d00a50a4e04b85ba0",
+      "bytes": 148,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/contracts/src/journey.ts",
+      "blob": "138d98bf68981635323bfb0680f830e9e08eacb8",
+      "bytes": 3205,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/contracts/src/restored.ts",
+      "blob": "a5b1cd25d3a919ee15f26c8427e3ab7829fa1944",
+      "bytes": 2895,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/contracts/src/state.ts",
+      "blob": "25cf2aff81c2d7abc8000e88b183f001b676e53d",
+      "bytes": 2018,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/contracts/tsconfig.json",
+      "blob": "50774a4b51af6c01bd771830889847f2a33c425d",
+      "bytes": 264,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/core/package.json",
+      "blob": "8cf425dd6726466243e3cd3e58fa4202d4064e68",
+      "bytes": 429,
+      "role": "domain_core"
+    },
+    {
+      "path": "packages/core/src/config.ts",
+      "blob": "cefb5a5d7f6aa72fc1ff6ae939c547b6b82c94e6",
+      "bytes": 5221,
+      "role": "domain_core"
+    },
+    {
+      "path": "packages/core/src/gacha.ts",
+      "blob": "b552f117ed6e19398441235a0f4328c3130290b3",
+      "bytes": 2259,
+      "role": "domain_core"
+    },
+    {
+      "path": "packages/core/src/index.ts",
+      "blob": "7532426a0ffe47ce3262c02459f85454d002b709",
+      "bytes": 798,
+      "role": "domain_core"
+    },
+    {
+      "path": "packages/core/src/journey.ts",
+      "blob": "584bb4443200e26d891527f88beed458871a06d8",
+      "bytes": 4439,
+      "role": "domain_core"
+    },
+    {
+      "path": "packages/core/src/live-campaign.ts",
+      "blob": "fe54a234df891ab9d023c4f876b300a23b204730",
+      "bytes": 60896,
+      "role": "domain_core"
+    },
+    {
+      "path": "packages/core/src/roles.ts",
+      "blob": "126eaf5a6f52a6b724b1a9e070d57f04b0e9f4dd",
+      "bytes": 8770,
+      "role": "domain_core"
+    },
+    {
+      "path": "packages/core/src/time.ts",
+      "blob": "ec735e9661bcc673bae85693e1e24782b5b754f9",
+      "bytes": 1405,
+      "role": "domain_core"
+    },
+    {
+      "path": "packages/core/src/worms.ts",
+      "blob": "d203c6fa6fb36137874404a9ee6cc0586fcaa101",
+      "bytes": 4661,
+      "role": "domain_core"
+    },
+    {
+      "path": "packages/core/src/zero-season.ts",
+      "blob": "5a4b6f46699803003a27edce3dcc6207b725e664",
+      "bytes": 12418,
+      "role": "domain_core"
+    },
+    {
+      "path": "packages/core/test/journey.test.ts",
+      "blob": "b8b7a38698e2279a89bed7cbc0a2945ecd03e16d",
+      "bytes": 4200,
+      "role": "domain_core"
+    },
+    {
+      "path": "packages/core/test/live-campaign.test.ts",
+      "blob": "7f94240b3b48d049cdf21d32f8e3c3d5679a49d4",
+      "bytes": 15981,
+      "role": "domain_core"
+    },
+    {
+      "path": "packages/core/test/roles.test.ts",
+      "blob": "53cc62ddfe99d4cdf94e6fa06f20e42fa91fde59",
+      "bytes": 4691,
+      "role": "domain_core"
+    },
+    {
+      "path": "packages/core/test/worms.test.ts",
+      "blob": "5e5e7523e440e7d471dea6f3a77611c623042588",
+      "bytes": 8918,
+      "role": "domain_core"
+    },
+    {
+      "path": "packages/core/test/zero-season.test.ts",
+      "blob": "ff3c650f955b6272726bf0dcdbf49c91f508d86e",
+      "bytes": 3937,
+      "role": "domain_core"
+    },
+    {
+      "path": "packages/core/tsconfig.json",
+      "blob": "a9f6f35fe901cec758563cef5d45e26dc85d9be1",
+      "bytes": 361,
+      "role": "domain_core"
+    },
+    {
+      "path": "packages/db/migrations/001_init.sql",
+      "blob": "8c0e348b024c0d4bc1c02a479b528a3652c7d108",
+      "bytes": 10104,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/migrations/002_flock.sql",
+      "blob": "ba41b79bd3e994bbb00dca10b07d6b335a417f66",
+      "bytes": 6594,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/migrations/003_signal_bridge.sql",
+      "blob": "84b7ec7472200ff2f264f8c6fcc40ce8351430a9",
+      "bytes": 698,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/migrations/004_participation_journey.sql",
+      "blob": "73cf470f21fa22701f2f5fbe3074328dce6dc8eb",
+      "bytes": 5471,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/migrations/005_journey_action_requests.sql",
+      "blob": "be12e074e3eb939c3126dee9be592e9f37a463bd",
+      "bytes": 928,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/migrations/006_journey_reminders.sql",
+      "blob": "0556c32be0644afd7e4e94cdcee853e57344d6e5",
+      "bytes": 847,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/package.json",
+      "blob": "190c6d9f0ae27d1746e4243e47f4ba7b038fd735",
+      "bytes": 833,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/src/cli.ts",
+      "blob": "a05c66a90c12097859c723351bac275814f0db6a",
+      "bytes": 528,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/src/config.ts",
+      "blob": "c48de438b41462bf6cab77793bfba18abb957c58",
+      "bytes": 3656,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/src/driver.ts",
+      "blob": "51e5bd808981438d72720fbb98472f6cb1516041",
+      "bytes": 8026,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/src/export-d1.ts",
+      "blob": "3849c559e757680b6d13b1399eb6746330bc416c",
+      "bytes": 6014,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/src/index.ts",
+      "blob": "92c39c91b0e6b69eb44f7006fedf50cd1603f050",
+      "bytes": 202,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/src/metrics-cli.ts",
+      "blob": "9c533fa302adc0b6e1fd74884421b0dae4c80136",
+      "bytes": 1792,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/src/metrics.ts",
+      "blob": "b52fd4aa11493700d8e1b24324f041061d7ced74",
+      "bytes": 4039,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/src/migrate.ts",
+      "blob": "03cf3badac5a474d086871528eaa7c31d3729613",
+      "bytes": 1549,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/src/peek.ts",
+      "blob": "9f67bfaea9600ae001df1a1b41f0af60d8244d03",
+      "bytes": 883,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/src/repo.ts",
+      "blob": "442740514b0c3d24583175b8ca82d80965c4876e",
+      "bytes": 4263,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/src/seed.ts",
+      "blob": "27b5f6f45e1e1d0e76a360aeea0f230809aaf4a0",
+      "bytes": 3431,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/src/signal-cli.ts",
+      "blob": "803ebcd04e0dbae530b16c75fba9ff33ed529cb2",
+      "bytes": 3115,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/src/signals.ts",
+      "blob": "e746d62b84ac5c139357e4398ba0c20d2ed9f0d1",
+      "bytes": 3166,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/test/driver.test.ts",
+      "blob": "8fe38cd26a1920b752da923697d7662f08d7a489",
+      "bytes": 975,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/test/journey-schema.test.ts",
+      "blob": "f1c196dcda9ac20b5f6aa7a7b8ee7dfad611f481",
+      "bytes": 6178,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/test/signals.test.ts",
+      "blob": "62b17a24799b90286fd0f48c2aa1f563197e8eed",
+      "bytes": 3043,
+      "role": "project_file"
+    },
+    {
+      "path": "packages/db/tsconfig.json",
+      "blob": "7b283537aae98a5313a12ceb9214fa55c4abb1aa",
+      "bytes": 287,
+      "role": "project_file"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "blob": "be8e9c28ee70e383a36fc657c6844dc7b44532c0",
+      "bytes": 94832,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "blob": "fc5cfa6137a4128020ae7b8ea0c09bac18fd81f5",
+      "bytes": 624,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "stage5-prototype/GENERATION_PROMPT.md",
+      "blob": "0961d995f1da7d9de3e2ed2be476cadfe0731f02",
+      "bytes": 2323,
+      "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "stage5-prototype/README.md",
+      "blob": "e0fc20442d3e95d316aa0883e3fb448622a97e2a",
+      "bytes": 2364,
+      "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "stage5-prototype/app.js",
+      "blob": "fe3543dbd47d8aea02de17e490997f7b34f2135f",
+      "bytes": 4375,
+      "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "stage5-prototype/assets/refined-bird-concept.png",
+      "blob": "4847763a028bfaae87c32af2377c75ff4b6c0bd0",
+      "bytes": 2403887,
+      "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "stage5-prototype/index.html",
+      "blob": "6e4db5ef053909b2385d1df0ba3afc9739d2e1d1",
+      "bytes": 9443,
+      "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "stage5-prototype/styles.css",
+      "blob": "ed2f03401ba4afa1649d9515a6f046777ec52bd3",
+      "bytes": 11064,
+      "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "tools/build_agent_index.py",
+      "blob": "6e97262afe88d48dd498ec6be3cdaf8d748259ff",
+      "bytes": 3455,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/cloudflare-d1-backup.ps1",
+      "blob": "65a7630a117380007eb787ccbd51d2f34d788500",
+      "bytes": 5493,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/cloudflare-d1-logical-backup.ps1",
+      "blob": "a0587d04500e27f74b0f7a03336fd7f474ba87d8",
+      "bytes": 11766,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/cloudflare-d1-restore.ps1",
+      "blob": "548bfd9cd7c71531266feab26fc716d1bf271ddf",
+      "bytes": 4731,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/cloudflare-deploy.ps1",
+      "blob": "6d3c28362cc8ad701ec6afe268c343cb8418c835",
+      "bytes": 12044,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/cloudflare-login.ps1",
+      "blob": "aedf316413b2f1be7b760ba89fbe8e2ef7eb64cb",
+      "bytes": 2592,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/cloudflare-preview.ps1",
+      "blob": "6e2b7041c25cd77bde44ba916b7e655ee7d24afd",
+      "bytes": 7947,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/cloudflare-signal.ps1",
+      "blob": "451d5606099e94d82e1052bddbdda040b6714d83",
+      "bytes": 1732,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/cloudflare-v2-disable.ps1",
+      "blob": "8cc991d40b1886190724ddb473a68b1f9dbc3f30",
+      "bytes": 1225,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/cloudflare-v3-control.ps1",
+      "blob": "df21d42457a08957d17212b7c866649d1ef0d311",
+      "bytes": 1473,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/cloudflare-v4-control.ps1",
+      "blob": "77ffe50c865d5c0f7adbd5e9521a106e9abd47e2",
+      "bytes": 1438,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/cloudflare-v5-release.ps1",
+      "blob": "38c19c73e8d9a5a15c688f678483d220d0d9b2b5",
+      "bytes": 14625,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/cloudflare/make-staging-config.mjs",
+      "blob": "1bd8fecb87de54a725bfea7cf92382f92762ebe7",
+      "bytes": 3584,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/cloudflare/staging-config-check.mjs",
+      "blob": "63122792e18746d28af2766e7c00e8c50fd047b3",
+      "bytes": 2059,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/package-handoff.ps1",
+      "blob": "e7617b5eb7196864e65765a13fa91d2eaa421758",
+      "bytes": 8237,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/run-vite.mjs",
+      "blob": "65990e5d3909acaf68654ef70ef1e86963c95ab7",
+      "bytes": 726,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/sim/package.json",
+      "blob": "4dca8c4889c0dcc1e59daa648e22f9c11bb13457",
+      "bytes": 341,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/sim/src/api-check.mjs",
+      "blob": "ca5156dfd90891b9f21a6838c44733f1282bdeb8",
+      "bytes": 2583,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/sim/src/auth-check.mjs",
+      "blob": "bae265a6394fe204f3538fc1bdc77509ec192dac",
+      "bytes": 4693,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/sim/src/check.mjs",
+      "blob": "bb258108d4f8d0293ec4f4f9ae87345a02647f7d",
+      "bytes": 13002,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/sim/src/d1-journey-schema-check.mjs",
+      "blob": "767fc22e6317ecfef976d1b255393cf679679c58",
+      "bytes": 8216,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/sim/src/d1-transfer-check.mjs",
+      "blob": "e8cdbcc8b9c38a6b29ad2a6c53cb43382e4fd757",
+      "bytes": 3431,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/sim/src/index.ts",
+      "blob": "520b5c0a2505bfc44f09f71ef646dea61b47d91a",
+      "bytes": 3972,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/sim/src/v5-api-check.mjs",
+      "blob": "831ecc5d069680a20a701cfce581476be7522d1c",
+      "bytes": 29759,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/sim/src/v5-telegram-check.mjs",
+      "blob": "13b455eeb7183c2f39346eba477b360aa8679466",
+      "bytes": 8097,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/sim/src/worker-check.mjs",
+      "blob": "992929520fb7fbeb4bdd386414d2f62b0cf6f898",
+      "bytes": 41166,
+      "role": "tooling_or_test"
+    },
+    {
+      "path": "tools/sim/tsconfig.json",
+      "blob": "7b283537aae98a5313a12ceb9214fa55c4abb1aa",
+      "bytes": 287,
+      "role": "tooling_or_test"
+    }
+  ]
+}

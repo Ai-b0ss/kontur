@@ -5,15 +5,45 @@
   "self_indexing": "`.agent/file-index.json` is intentionally omitted to avoid recursive self-staleness.",
   "files": [
     {
-      "path": ".agent/README.md",
-      "blob": "c57c6a47ad5a0badf634cfc8e2a006a1ef30e344",
-      "bytes": 1549,
+      "path": ".agent/account-index.json",
+      "blob": "a1b4a5956b2fc353923a2394202dd7f37289fb99",
+      "bytes": 17007,
       "role": "agent_tooling"
     },
     {
       "path": ".agent/branch-index.json",
       "blob": "f51a86c770b98743fe7505508dbde0cd8cdfc4f2",
       "bytes": 16813,
+      "role": "agent_tooling"
+    },
+    {
+      "path": ".agent/github-objects-index.json",
+      "blob": "50823c73e0e2bc49d0c293ee96c8820061e96eeb",
+      "bytes": 10037,
+      "role": "agent_tooling"
+    },
+    {
+      "path": ".agent/idea-lineages.json",
+      "blob": "70f3108cd4c41cd1dffd9a8e6a6dda460c6e02fa",
+      "bytes": 42109,
+      "role": "agent_tooling"
+    },
+    {
+      "path": ".agent/pr-ledger.json",
+      "blob": "9e1e0387a9f7d0696155067eea3e28f7c0972c8f",
+      "bytes": 25436,
+      "role": "agent_tooling"
+    },
+    {
+      "path": ".agent/README.md",
+      "blob": "c57c6a47ad5a0badf634cfc8e2a006a1ef30e344",
+      "bytes": 1549,
+      "role": "agent_tooling"
+    },
+    {
+      "path": ".agent/tag-release-index.json",
+      "blob": "ff6853afde8589b4040681a6e9df3ecb89977e3c",
+      "bytes": 588,
       "role": "agent_tooling"
     },
     {
@@ -41,16 +71,16 @@
       "role": "project_file"
     },
     {
-      "path": ".github/ISSUE_TEMPLATE/remote-agent-task.md",
-      "blob": "d77e17ffd35379ad0be94a6902404b2a40038e04",
-      "bytes": 952,
-      "role": "ci"
-    },
-    {
       "path": ".github/copilot-instructions.md",
       "blob": "1efac671cf6ddc5cdfdeb279bcd19e2bebc30014",
       "bytes": 574,
       "role": "agent_tooling"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/remote-agent-task.md",
+      "blob": "d77e17ffd35379ad0be94a6902404b2a40038e04",
+      "bytes": 952,
+      "role": "ci"
     },
     {
       "path": ".github/pull_request_template.md",
@@ -84,230 +114,14 @@
     },
     {
       "path": "AGENTS.md",
-      "blob": "eddf784bec822812da8a747bf783af5ee10cacf3",
-      "bytes": 5620,
+      "blob": "821128ea3d5337429fc72095399cd338b5d494d5",
+      "bytes": 7185,
       "role": "agent_tooling"
     },
     {
       "path": "AI_PROJECT_NAVIGATOR.md",
       "blob": "c9ad8631a0bcf1e1da4fc155b30b7f7a1f4ca4ab",
       "bytes": 23858,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "ART_DIRECTION_V1.md",
-      "blob": "b20bc8bfd32c0c29a66cb8d58af851da99bc1ecf",
-      "bytes": 19080,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "BACKLOG.md",
-      "blob": "6fdc0e2ce03be276eafbb9dfb0a4164dc453c212",
-      "bytes": 12717,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "CHAT_RESEARCH_PROTOCOL.md",
-      "blob": "f18009b3a2c40089120683f29f93973224c40a02",
-      "bytes": 5037,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "CLAUDE.md",
-      "blob": "c92840b89e49539ec1da2f95060d962a0687fd17",
-      "bytes": 703,
-      "role": "agent_tooling"
-    },
-    {
-      "path": "COMMUNITY_INTERVIEW_GUIDE_V1.md",
-      "blob": "ba6c6f41b79b4c2e13d21f169ae28847f2cac7bc",
-      "bytes": 7049,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "COMMUNITY_RESEARCH_DEEP_DIVE_V1.md",
-      "blob": "219f0d76514873140ea9d69e6e536c87bf8068be",
-      "bytes": 18306,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "COMMUNITY_RESEARCH_STAGE1_INTERIM.md",
-      "blob": "8097d17667655aeaf43e938be4d886f340f2bd98",
-      "bytes": 21758,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "CURSOR_HANDOFF_2026-08-07.md",
-      "blob": "81adfede3d2d2f4dcba02e20143d5c46592bb38b",
-      "bytes": 10414,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "DERIVED_CANDIDATE_README.md",
-      "blob": "10ed3dae67aa3c689b6ea8abd16ff5b9ed572aa1",
-      "bytes": 1192,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "DESIGN.md",
-      "blob": "492b8ff6804b68c236f35e0948fe584791eabe55",
-      "bytes": 20144,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "EXPERIENCE_SPEC_V1.md",
-      "blob": "694b9af19dea03bebf7ed76f4f56d9c40a0d7a68",
-      "bytes": 27674,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "GEMINI.md",
-      "blob": "9a0eeffd26f59d4b73fba0d17bcd5d128677b043",
-      "bytes": 588,
-      "role": "agent_tooling"
-    },
-    {
-      "path": "HANDOVER.md",
-      "blob": "e552cd72b0824e3bf0fe1dd879d5283f90b3867f",
-      "bytes": 13896,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "IMPLEMENTATION_PLAN_V1.md",
-      "blob": "9cd5110344803a906d2083218dc8d6ec66f756c4",
-      "bytes": 38023,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "INTEGRATION_README_2026-08-14.md",
-      "blob": "031b43c73559bf48fe46aa72e3a741fafe0d6166",
-      "bytes": 2147,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "NEXT_CHAT_PROMPT.md",
-      "blob": "e5a9c5d4571d2a1c78eb90cb01f153ed134d3c7e",
-      "bytes": 419,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "PRODUCT_DIRECTION_V1.md",
-      "blob": "4fde26370a7812ec106054276cc3fb95ee95c63a",
-      "bytes": 23313,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "PRODUCT_REDESIGN_BRIEF.md",
-      "blob": "78a94380c4aaac49bbd4f79f0f6b27297c1bc001",
-      "bytes": 22316,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "PROJECT_PASSPORT.md",
-      "blob": "592a9e12610f76b528cc8c5045fc990e0a350d86",
-      "bytes": 12364,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "PROJECT_STATE.yaml",
-      "blob": "04c1543929e2aac1eb774a737f131238bae4e42a",
-      "bytes": 14279,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "README.md",
-      "blob": "64ad575501dbb58f4497733b55c8bd73289a9681",
-      "bytes": 21954,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "RESEARCH_SCOPE_V1.md",
-      "blob": "c9081e05b58e02f27700cc5c9b7b2f89a3eaf675",
-      "bytes": 12442,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "RESTORED_PRODUCT_V3.md",
-      "blob": "e7f61b0512d806ae073f7d270d006e26668737a0",
-      "bytes": 6280,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "RESTORE_RUNTIME_STATE.ps1",
-      "blob": "70702fb88968c08dc568eeee98a22da302f36648",
-      "bytes": 906,
-      "role": "project_file"
-    },
-    {
-      "path": "RESTORE_RUNTIME_STATE.sh",
-      "blob": "81408f24bd4bbfe4d2d00b9f204a0c90a4e78aaa",
-      "bytes": 456,
-      "role": "project_file"
-    },
-    {
-      "path": "SHA256SUMS.txt",
-      "blob": "7055fca2587debcbd66b058138499c3abb648119",
-      "bytes": 26919,
-      "role": "project_file"
-    },
-    {
-      "path": "SNAPSHOT_INFO.txt",
-      "blob": "c617fd1afbb2b07bf4fb70bb4b93986d9151ba3c",
-      "bytes": 933,
-      "role": "project_file"
-    },
-    {
-      "path": "SOURCE_PROVENANCE_LOCAL.json",
-      "blob": "c882fc9d067dee12efd50c66db72f52892a267da",
-      "bytes": 335,
-      "role": "project_file"
-    },
-    {
-      "path": "STAGE1_INTERVIEW_EXECUTION.md",
-      "blob": "0f172b7fa630d69e664334dc30e97582ca233574",
-      "bytes": 8810,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "STAGE1_MINIMAL_VALIDATION.md",
-      "blob": "b474dbe2e2bc2f9f2b9b392d11aeada65e02f8cf",
-      "bytes": 3156,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "STAGE5_PROTOTYPE_V1.md",
-      "blob": "496dc111c003b1d5380fd4f8595e81be098acef4",
-      "bytes": 10398,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "STAGE6_PREVIEW_TRIAL_V1.md",
-      "blob": "b1081e93c374ed488503d1608c8b1e6a17ad17bf",
-      "bytes": 7213,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "STAGE7_CLOSED_ROLLOUT_V1.md",
-      "blob": "d69adbd386529c4b8d79b888bd207b1bd3ac1dff",
-      "bytes": 6231,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "V5_EXECUTION_CHARTER.md",
-      "blob": "427f39c5b9e0f06dacc22d8fc224007274a18f98",
-      "bytes": 9602,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "V5_PRODUCT_SPEC.md",
-      "blob": "b44740be610678b5fd0a29c8eef6cff99593ba0b",
-      "bytes": 20209,
-      "role": "documentation_or_state"
-    },
-    {
-      "path": "WORKLOG.md",
-      "blob": "8d6fc715b1d77abb2bf479699a087afc35950555",
-      "bytes": 124987,
       "role": "documentation_or_state"
     },
     {
@@ -587,15 +401,15 @@
       "role": "miniapp_runtime"
     },
     {
-      "path": "apps/miniapp/src/App.tsx",
-      "blob": "9e0e4d11fc9a8d111b2a938ea045dc22f1a42116",
-      "bytes": 14768,
-      "role": "miniapp_runtime"
-    },
-    {
       "path": "apps/miniapp/src/api.ts",
       "blob": "725f9235fc33bad6ce8627ac450c659e60bca183",
       "bytes": 19728,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/App.tsx",
+      "blob": "9e0e4d11fc9a8d111b2a938ea045dc22f1a42116",
+      "bytes": 14768,
       "role": "miniapp_runtime"
     },
     {
@@ -614,6 +428,12 @@
       "path": "apps/miniapp/src/components/Hand.tsx",
       "blob": "75e266098603ac7d3b5cf16fb6dfb3add3cd9f1e",
       "bytes": 3024,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/components/local-bird-assets.ts",
+      "blob": "c867e0fd745a0a7cfb385cb49021be7e1fd328c5",
+      "bytes": 1819,
       "role": "miniapp_runtime"
     },
     {
@@ -641,9 +461,21 @@
       "role": "miniapp_runtime"
     },
     {
+      "path": "apps/miniapp/src/components/result-bird-assets.ts",
+      "blob": "749943c9b5c73c47e52fc9d7b7d6641da0b59452",
+      "bytes": 762,
+      "role": "miniapp_runtime"
+    },
+    {
       "path": "apps/miniapp/src/components/ResultBird.tsx",
       "blob": "50c31f29b8cae9646807eee2878a682e943587cf",
       "bytes": 477,
+      "role": "miniapp_runtime"
+    },
+    {
+      "path": "apps/miniapp/src/components/ui.tsx",
+      "blob": "ce96d4966d6e0a39fafe1979ae99416e0df735e8",
+      "bytes": 4070,
       "role": "miniapp_runtime"
     },
     {
@@ -662,24 +494,6 @@
       "path": "apps/miniapp/src/components/ZeroSeasonTree.tsx",
       "blob": "be7a5a87062fb2536fdace5e97d51ff70883cb3a",
       "bytes": 3342,
-      "role": "miniapp_runtime"
-    },
-    {
-      "path": "apps/miniapp/src/components/local-bird-assets.ts",
-      "blob": "c867e0fd745a0a7cfb385cb49021be7e1fd328c5",
-      "bytes": 1819,
-      "role": "miniapp_runtime"
-    },
-    {
-      "path": "apps/miniapp/src/components/result-bird-assets.ts",
-      "blob": "749943c9b5c73c47e52fc9d7b7d6641da0b59452",
-      "bytes": 762,
-      "role": "miniapp_runtime"
-    },
-    {
-      "path": "apps/miniapp/src/components/ui.tsx",
-      "blob": "ce96d4966d6e0a39fafe1979ae99416e0df735e8",
-      "bytes": 4070,
       "role": "miniapp_runtime"
     },
     {
@@ -1145,10 +959,10 @@
       "role": "worker_runtime"
     },
     {
-      "path": "art-direction/GENERATION_NOTES.md",
-      "blob": "2207da758f440035fbfdc1e8bda80df2d6621573",
-      "bytes": 8056,
-      "role": "prototype_or_design_evidence"
+      "path": "ART_DIRECTION_V1.md",
+      "blob": "b20bc8bfd32c0c29a66cb8d58af851da99bc1ecf",
+      "bytes": 19080,
+      "role": "documentation_or_state"
     },
     {
       "path": "art-direction/direction-a-living-nest.png",
@@ -1175,6 +989,72 @@
       "role": "prototype_or_design_evidence"
     },
     {
+      "path": "art-direction/GENERATION_NOTES.md",
+      "blob": "2207da758f440035fbfdc1e8bda80df2d6621573",
+      "bytes": 8056,
+      "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "BACKLOG.md",
+      "blob": "6fdc0e2ce03be276eafbb9dfb0a4164dc453c212",
+      "bytes": 12717,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "CHAT_RESEARCH_PROTOCOL.md",
+      "blob": "f18009b3a2c40089120683f29f93973224c40a02",
+      "bytes": 5037,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "CLAUDE.md",
+      "blob": "c92840b89e49539ec1da2f95060d962a0687fd17",
+      "bytes": 703,
+      "role": "agent_tooling"
+    },
+    {
+      "path": "COMMUNITY_INTERVIEW_GUIDE_V1.md",
+      "blob": "ba6c6f41b79b4c2e13d21f169ae28847f2cac7bc",
+      "bytes": 7049,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "COMMUNITY_RESEARCH_DEEP_DIVE_V1.md",
+      "blob": "219f0d76514873140ea9d69e6e536c87bf8068be",
+      "bytes": 18306,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "COMMUNITY_RESEARCH_STAGE1_INTERIM.md",
+      "blob": "8097d17667655aeaf43e938be4d886f340f2bd98",
+      "bytes": 21758,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "CURSOR_HANDOFF_2026-08-07.md",
+      "blob": "81adfede3d2d2f4dcba02e20143d5c46592bb38b",
+      "bytes": 10414,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "DERIVED_CANDIDATE_README.md",
+      "blob": "10ed3dae67aa3c689b6ea8abd16ff5b9ed572aa1",
+      "bytes": 1192,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "DESIGN.md",
+      "blob": "492b8ff6804b68c236f35e0948fe584791eabe55",
+      "bytes": 20144,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "docs/ACCOUNT_ATLAS.md",
+      "blob": "2923d3935ed08fc3bd2f880ad77f709a9af9de2e",
+      "bytes": 13343,
+      "role": "documentation_or_state"
+    },
+    {
       "path": "docs/AGENT_NAVIGATION.md",
       "blob": "444419f173d4433ffb8f264abc9031720fce7d01",
       "bytes": 2732,
@@ -1184,12 +1064,6 @@
       "path": "docs/AGENT_OPERATING_SYSTEM.md",
       "blob": "c5cb47ff4b4bff2c9c2e9c374fdb6c7ed90f9f9e",
       "bytes": 10463,
-      "role": "agent_tooling"
-    },
-    {
-      "path": "docs/REPOSITORY_INVENTORY.md",
-      "blob": "6f1b315421f1fa5289ca7bb2424e7d3e49f0ba4d",
-      "bytes": 6027,
       "role": "agent_tooling"
     },
     {
@@ -1235,6 +1109,12 @@
       "role": "prototype_or_design_evidence"
     },
     {
+      "path": "docs/IDEA_LINEAGES.md",
+      "blob": "dd5e4739a1981f54321d4a5f88d0a78f20cc4361",
+      "bytes": 28058,
+      "role": "documentation_or_state"
+    },
+    {
       "path": "docs/mvp-core-2026-08-08/MVP_CORE.md",
       "blob": "867b21f19ba502c1d49af39baf679abe384fc594",
       "bytes": 3199,
@@ -1247,9 +1127,51 @@
       "role": "documentation_or_state"
     },
     {
+      "path": "docs/REPOSITORY_INVENTORY.md",
+      "blob": "6f1b315421f1fa5289ca7bb2424e7d3e49f0ba4d",
+      "bytes": 6027,
+      "role": "agent_tooling"
+    },
+    {
+      "path": "EXPERIENCE_SPEC_V1.md",
+      "blob": "694b9af19dea03bebf7ed76f4f56d9c40a0d7a68",
+      "bytes": 27674,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "GEMINI.md",
+      "blob": "9a0eeffd26f59d4b73fba0d17bcd5d128677b043",
+      "bytes": 588,
+      "role": "agent_tooling"
+    },
+    {
+      "path": "HANDOVER.md",
+      "blob": "e552cd72b0824e3bf0fe1dd879d5283f90b3867f",
+      "bytes": 13896,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "IMPLEMENTATION_PLAN_V1.md",
+      "blob": "9cd5110344803a906d2083218dc8d6ec66f756c4",
+      "bytes": 38023,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "INTEGRATION_README_2026-08-14.md",
+      "blob": "031b43c73559bf48fe46aa72e3a741fafe0d6166",
+      "bytes": 2147,
+      "role": "documentation_or_state"
+    },
+    {
       "path": "kontur-brief.html",
       "blob": "199e9eac213b97ae08e3ffaf2ee75f2cd073d0c0",
       "bytes": 33020,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "NEXT_CHAT_PROMPT.md",
+      "blob": "e5a9c5d4571d2a1c78eb90cb01f153ed134d3c7e",
+      "bytes": 419,
       "role": "documentation_or_state"
     },
     {
@@ -1559,16 +1481,94 @@
       "role": "documentation_or_state"
     },
     {
-      "path": "stage5-prototype/GENERATION_PROMPT.md",
-      "blob": "0961d995f1da7d9de3e2ed2be476cadfe0731f02",
-      "bytes": 2323,
-      "role": "prototype_or_design_evidence"
+      "path": "PRODUCT_DIRECTION_V1.md",
+      "blob": "4fde26370a7812ec106054276cc3fb95ee95c63a",
+      "bytes": 23313,
+      "role": "documentation_or_state"
     },
     {
-      "path": "stage5-prototype/README.md",
-      "blob": "e0fc20442d3e95d316aa0883e3fb448622a97e2a",
-      "bytes": 2364,
-      "role": "prototype_or_design_evidence"
+      "path": "PRODUCT_REDESIGN_BRIEF.md",
+      "blob": "78a94380c4aaac49bbd4f79f0f6b27297c1bc001",
+      "bytes": 22316,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "PROJECT_PASSPORT.md",
+      "blob": "592a9e12610f76b528cc8c5045fc990e0a350d86",
+      "bytes": 12364,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "PROJECT_STATE.yaml",
+      "blob": "04c1543929e2aac1eb774a737f131238bae4e42a",
+      "bytes": 14279,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "README.md",
+      "blob": "64ad575501dbb58f4497733b55c8bd73289a9681",
+      "bytes": 21954,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "RESEARCH_SCOPE_V1.md",
+      "blob": "c9081e05b58e02f27700cc5c9b7b2f89a3eaf675",
+      "bytes": 12442,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "RESTORE_RUNTIME_STATE.ps1",
+      "blob": "70702fb88968c08dc568eeee98a22da302f36648",
+      "bytes": 906,
+      "role": "project_file"
+    },
+    {
+      "path": "RESTORE_RUNTIME_STATE.sh",
+      "blob": "81408f24bd4bbfe4d2d00b9f204a0c90a4e78aaa",
+      "bytes": 456,
+      "role": "project_file"
+    },
+    {
+      "path": "RESTORED_PRODUCT_V3.md",
+      "blob": "e7f61b0512d806ae073f7d270d006e26668737a0",
+      "bytes": 6280,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "blob": "7055fca2587debcbd66b058138499c3abb648119",
+      "bytes": 26919,
+      "role": "project_file"
+    },
+    {
+      "path": "SNAPSHOT_INFO.txt",
+      "blob": "c617fd1afbb2b07bf4fb70bb4b93986d9151ba3c",
+      "bytes": 933,
+      "role": "project_file"
+    },
+    {
+      "path": "SOURCE_PROVENANCE_LOCAL.json",
+      "blob": "c882fc9d067dee12efd50c66db72f52892a267da",
+      "bytes": 335,
+      "role": "project_file"
+    },
+    {
+      "path": "STAGE1_INTERVIEW_EXECUTION.md",
+      "blob": "0f172b7fa630d69e664334dc30e97582ca233574",
+      "bytes": 8810,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "STAGE1_MINIMAL_VALIDATION.md",
+      "blob": "b474dbe2e2bc2f9f2b9b392d11aeada65e02f8cf",
+      "bytes": 3156,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "STAGE5_PROTOTYPE_V1.md",
+      "blob": "496dc111c003b1d5380fd4f8595e81be098acef4",
+      "bytes": 10398,
+      "role": "documentation_or_state"
     },
     {
       "path": "stage5-prototype/app.js",
@@ -1583,9 +1583,21 @@
       "role": "prototype_or_design_evidence"
     },
     {
+      "path": "stage5-prototype/GENERATION_PROMPT.md",
+      "blob": "0961d995f1da7d9de3e2ed2be476cadfe0731f02",
+      "bytes": 2323,
+      "role": "prototype_or_design_evidence"
+    },
+    {
       "path": "stage5-prototype/index.html",
       "blob": "6e4db5ef053909b2385d1df0ba3afc9739d2e1d1",
       "bytes": 9443,
+      "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "stage5-prototype/README.md",
+      "blob": "e0fc20442d3e95d316aa0883e3fb448622a97e2a",
+      "bytes": 2364,
       "role": "prototype_or_design_evidence"
     },
     {
@@ -1593,6 +1605,18 @@
       "blob": "ed2f03401ba4afa1649d9515a6f046777ec52bd3",
       "bytes": 11064,
       "role": "prototype_or_design_evidence"
+    },
+    {
+      "path": "STAGE6_PREVIEW_TRIAL_V1.md",
+      "blob": "b1081e93c374ed488503d1608c8b1e6a17ad17bf",
+      "bytes": 7213,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "STAGE7_CLOSED_ROLLOUT_V1.md",
+      "blob": "d69adbd386529c4b8d79b888bd207b1bd3ac1dff",
+      "bytes": 6231,
+      "role": "documentation_or_state"
     },
     {
       "path": "tools/agent_history.py",
@@ -1761,6 +1785,24 @@
       "blob": "7b283537aae98a5313a12ceb9214fa55c4abb1aa",
       "bytes": 287,
       "role": "tooling_or_test"
+    },
+    {
+      "path": "V5_EXECUTION_CHARTER.md",
+      "blob": "427f39c5b9e0f06dacc22d8fc224007274a18f98",
+      "bytes": 9602,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "V5_PRODUCT_SPEC.md",
+      "blob": "b44740be610678b5fd0a29c8eef6cff99593ba0b",
+      "bytes": 20209,
+      "role": "documentation_or_state"
+    },
+    {
+      "path": "WORKLOG.md",
+      "blob": "8d6fc715b1d77abb2bf479699a087afc35950555",
+      "bytes": 124987,
+      "role": "documentation_or_state"
     }
   ]
 }

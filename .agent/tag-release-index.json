@@ -1,0 +1,19 @@
+{
+  "schema": "tag-release-index-v1",
+  "snapshot_date": "2026-10-07",
+  "repository": "Ai-b0ss/kontur",
+  "visibility_context": "private-account-history",
+  "completeness": {
+    "tag_count": 0,
+    "release_count": 0,
+    "source": "live Git refs/tags namespace + GitHub Releases API",
+    "complete": true
+  },
+  "rules": [
+    "Use target_sha for exact tagged commit/object.",
+    "Release asset digest binds the exact uploaded asset when GitHub provides it.",
+    "Tags/releases are historical evidence, not automatic current source authority."
+  ],
+  "tags": [],
+  "releases": []
+}

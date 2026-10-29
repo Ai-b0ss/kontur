@@ -4,21 +4,24 @@ export type HatchTimings = {
   pulse: number;
   cracks: number;
   flash: number;
+  flashOut: number;
   reveal: number;
 };
 
 const NORMAL_HATCH_TIMINGS: Readonly<HatchTimings> = Object.freeze({
   pulse: 500,
   cracks: 500,
-  flash: 300,
-  reveal: 500,
+  flash: 140,
+  flashOut: 300,
+  reveal: 400,
 });
 
 const REDUCED_HATCH_TIMINGS: Readonly<HatchTimings> = Object.freeze({
   pulse: 80,
   cracks: 80,
-  flash: 120,
-  reveal: 180,
+  flash: 80,
+  flashOut: 180,
+  reveal: 220,
 });
 
 export function hatchTimings(reducedMotion: boolean): Readonly<HatchTimings> {

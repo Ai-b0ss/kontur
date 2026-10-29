@@ -1,7 +1,5 @@
 # Контур
 
-> **Agent navigation:** start with [`AGENTS.md`](AGENTS.md), then [`docs/AGENT_OPERATING_SYSTEM.md`](docs/AGENT_OPERATING_SYSTEM.md), [`docs/AGENT_NAVIGATION.md`](docs/AGENT_NAVIGATION.md) and [`docs/REPOSITORY_INVENTORY.md`](docs/REPOSITORY_INVENTORY.md). Exact branch heads are catalogued in [`.agent/branch-index.json`](.agent/branch-index.json); current `main` files/blobs are in [`.agent/file-index.json`](.agent/file-index.json). Search all branch tips and deleted/older committed work with `tools/agent_history.py`; for exact lines/symbols on any ref run `python tools/build_agent_index.py --ref "<branch-or-SHA>"`.
-
 > **Статус документов.** Этот README описывает текущий реализованный чатовый
 > MVP и минимальный мост через сигнал-карты. `DESIGN.md` и
 > `kontur-brief.html` сохраняют расширенную продуктовую

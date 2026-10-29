@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AUTOPILOT v4.1 scheduler state",
+  "type": "object",
+  "required": ["schema_version", "generation", "release", "workers", "packets", "execution", "scheduler_policy", "liveness"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "generation": {"type": "integer", "minimum": 1},
+    "release": {
+      "type": "object",
+      "required": ["phase", "candidate_sha", "frozen"],
+      "properties": {
+        "phase": {"enum": ["BUILD", "STABILIZE", "RC"]},
+        "candidate_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "frozen": {"type": "boolean"},
+        "critical_path": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "known_open_product_blockers": {"type": "integer", "minimum": 0}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"frozen": {"const": true}}, "required": ["frozen"]},
+          "then": {"properties": {"phase": {"const": "RC"}}}
+        }
+      ],
+      "additionalProperties": true
+    },
+    "workers": {
+      "type": "object",
+      "required": ["DIRECTOR", "A", "B", "C", "D"],
+      "properties": {
+        "DIRECTOR": {"$ref": "#/$defs/director"},
+        "A": {"$ref": "#/$defs/worker"},
+        "B": {"$ref": "#/$defs/worker"},
+        "C": {"$ref": "#/$defs/worker"},
+        "D": {"$ref": "#/$defs/worker"}
+      },
+      "additionalProperties": false
+    },
+    "packets": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/packet"}
+    },
+    "execution": {"type": "object"},
+    "scheduler_policy": {
+      "type": "object",
+      "properties": {
+        "max_mutable_product_wip": {"type": "integer", "minimum": 1, "maximum": 4},
+        "comments_are_state": {"const": false},
+        "stale_issue_body_is_state": {"const": false},
+        "cas_required_for_state_mutation": {"const": true},
+        "blocked_packet_retry_budget": {"type": "integer", "minimum": 0},
+        "frozen_rc_no_speculative_hardening": {"const": true},
+        "account_capability_restriction_is_system_blocker": {"const": false}
+      },
+      "additionalProperties": true
+    },
+    "liveness": {
+      "type": "object",
+      "required": ["user_only_may_disable_slots", "required_enabled_slots"],
+      "properties": {
+        "user_only_may_disable_slots": {"const": true},
+        "required_enabled_slots": {
+          "type": "array",
+          "const": ["DIRECTOR", "A", "B", "C", "D"]
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "worker": {
+      "type": "object",
+      "required": ["automation_id", "enabled", "packet"],
+      "properties": {
+        "automation_id": {"type": "string", "minLength": 1},
+        "enabled": {"type": "boolean"},
+        "packet": {"type": ["string", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "director": {
+      "allOf": [
+        {"$ref": "#/$defs/worker"},
+        {"properties": {"packet": {"type": "null"}}}
+      ]
+    },
+    "packet": {
+      "type": "object",
+      "required": ["state", "owner_slot", "lease_epoch", "depends_on", "phase", "blocker_class", "evidence"],
+      "properties": {
+        "state": {"enum": ["READY", "RUNNING", "BLOCKED", "DONE", "DEFERRED"]},
+        "owner_slot": {"enum": ["A", "B", "C", "D", null]},
+        "lease_epoch": {"type": "integer", "minimum": 0},
+        "depends_on": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "phase": {"enum": ["BUILD", "STABILIZE", "RC", "READ_ONLY"]},
+        "blocker_class": {"type": ["string", "null"]},
+        "evidence": {"type": "array", "items": {"type": "string"}},
+        "repo": {"type": "string", "minLength": 1},
+        "branch": {"type": "string", "minLength": 1},
+        "base_ref": {"type": "string", "minLength": 1},
+        "base_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "integration_target": {"type": "string", "minLength": 1}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"state": {"const": "READY"}}, "required": ["state"]},
+          "then": {"properties": {"owner_slot": {"type": "null"}, "blocker_class": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"state": {"const": "RUNNING"}}, "required": ["state"]},
+          "then": {"properties": {"owner_slot": {"enum": ["A", "B", "C", "D"]}, "blocker_class": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"state": {"const": "BLOCKED"}}, "required": ["state"]},
+          "then": {"properties": {"blocker_class": {"type": "string", "minLength": 1}}}
+        },
+        {
+          "if": {"properties": {"state": {"enum": ["DONE", "DEFERRED"]}}, "required": ["state"]},
+          "then": {"properties": {"owner_slot": {"type": "null"}}}
+        }
+      ],
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

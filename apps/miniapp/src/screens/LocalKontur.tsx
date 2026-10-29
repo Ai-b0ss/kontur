@@ -6,7 +6,13 @@ import { CanonicalBirdVisual } from '../components/CanonicalBirdVisual.js';
 import { LocalBirdVisual } from '../components/LocalBirdVisual.js';
 import { QuizEgg } from '../components/QuizEgg.js';
 import { initialLocalStage, needsLocalQuestions, reconcileColoring, shouldReduceMotion, wormWord } from '../local-kontur-model.js';
-import { shouldBlockQuizAnswer, shouldEnterQ8Hatching } from '../q8-hatch-timeline.js';
+import {
+  canBeginHatchFlash,
+  hatchTimings,
+  shouldBlockQuizAnswer,
+  shouldEnterQ8Hatching,
+  type HatchPhase,
+} from '../q8-hatch-timeline.js';
 import {
   personalizedBirdNote,
   selectBirdResult,
@@ -91,6 +97,12 @@ function WormMark({ big = false }: { big?: boolean }) {
   );
 }
 
+function hatchStatus(phase: HatchPhase): string {
+  if (phase === 'pulse') return 'яйцо просыпается';
+  if (phase === 'cracks') return 'внутри уже светло';
+  return '';
+}
+
 function ContourMotif({ step = 0 }: { step?: number }) {
   return (
     <svg className="lk-contour" viewBox="0 0 360 210" aria-hidden="true">
@@ -130,6 +142,9 @@ export function LocalKontur() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [eggResponding, setEggResponding] = useState(false);
   const [hatchReady, setHatchReady] = useState(false);
+  const [hatchPhase, setHatchPhase] = useState<HatchPhase>('idle');
+  const [hatchMinimumElapsed, setHatchMinimumElapsed] = useState(false);
+  const [birdAssetReady, setBirdAssetReady] = useState(false);
   const booting = useRef(false);
   const actionLock = useRef(false);
   const refreshLock = useRef(false);
@@ -137,8 +152,9 @@ export function LocalKontur() {
   const pendingEggRequestId = useRef<string | null>(null);
   const pulseTimer = useRef<number | null>(null);
   const answerTimer = useRef<number | null>(null);
-  const hatchTimer = useRef<number | null>(null);
+  const hatchPhaseTimer = useRef<number | null>(null);
   const answerLock = useRef(false);
+  const timings = hatchTimings(reducedMotion);
 
   const refresh = useCallback(async () => {
     if (refreshLock.current || actionLock.current) return null;
@@ -198,14 +214,15 @@ export function LocalKontur() {
   useEffect(() => () => {
     if (pulseTimer.current) window.clearTimeout(pulseTimer.current);
     if (answerTimer.current) window.clearTimeout(answerTimer.current);
-    if (hatchTimer.current) window.clearTimeout(hatchTimer.current);
+    if (hatchPhaseTimer.current) window.clearTimeout(hatchPhaseTimer.current);
   }, []);
 
   useEffect(() => {
-    if (shouldEnterQ8Hatching(stage, eggResponding, hatchReady)) {
-      if (!eggResponding && hatchReady) setStage('hatching');
+    const quizComplete = questions.length > 0 && answers.length === questions.length;
+    if (shouldEnterQ8Hatching(stage, eggResponding, quizComplete)) {
+      setStage('hatching');
     }
-  }, [stage, eggResponding, hatchReady]);
+  }, [stage, eggResponding, answers.length, questions.length]);
 
   useEffect(() => {
     const onVisible = () => {
@@ -226,21 +243,47 @@ export function LocalKontur() {
     setStage('hook');
   };
 
-  const finishHatchReveal = () => {
-    if (hatchTimer.current) window.clearTimeout(hatchTimer.current);
-    hatchTimer.current = null;
+  const finishHatchReveal = useCallback(() => {
+    if (hatchPhaseTimer.current) window.clearTimeout(hatchPhaseTimer.current);
+    hatchPhaseTimer.current = null;
+    setHatchPhase('settled');
     setStage('reveal');
-  };
+  }, []);
 
   useEffect(() => {
-    if (stage !== 'hatching' || !hatchReady) return;
-    if (hatchTimer.current) window.clearTimeout(hatchTimer.current);
-    hatchTimer.current = window.setTimeout(finishHatchReveal, reducedMotion ? 20 : 2340);
+    if (stage !== 'hatching') return;
+    setHatchPhase('pulse');
+    setHatchMinimumElapsed(false);
+    const cracksTimer = window.setTimeout(() => setHatchPhase('cracks'), timings.pulse);
+    const minimumTimer = window.setTimeout(
+      () => setHatchMinimumElapsed(true),
+      timings.pulse + timings.cracks,
+    );
     return () => {
-      if (hatchTimer.current) window.clearTimeout(hatchTimer.current);
-      hatchTimer.current = null;
+      window.clearTimeout(cracksTimer);
+      window.clearTimeout(minimumTimer);
     };
-  }, [stage, hatchReady, reducedMotion]);
+  }, [stage, timings.cracks, timings.pulse]);
+
+  useEffect(() => {
+    if (stage !== 'hatching') return;
+    if (canBeginHatchFlash(hatchPhase, hatchMinimumElapsed, hatchReady, birdAssetReady)) {
+      setHatchPhase('flash');
+    }
+  }, [stage, hatchPhase, hatchMinimumElapsed, hatchReady, birdAssetReady]);
+
+  useEffect(() => {
+    if (stage !== 'hatching' || (hatchPhase !== 'flash' && hatchPhase !== 'reveal')) return;
+    if (hatchPhaseTimer.current) window.clearTimeout(hatchPhaseTimer.current);
+    hatchPhaseTimer.current = window.setTimeout(
+      hatchPhase === 'flash' ? () => setHatchPhase('reveal') : finishHatchReveal,
+      hatchPhase === 'flash' ? timings.flash : timings.reveal,
+    );
+    return () => {
+      if (hatchPhaseTimer.current) window.clearTimeout(hatchPhaseTimer.current);
+      hatchPhaseTimer.current = null;
+    };
+  }, [stage, hatchPhase, finishHatchReveal, timings.flash, timings.reveal]);
 
   const pick = (answer: number) => {
     if (shouldBlockQuizAnswer(answerLock.current, actionLock.current, busy)) return;
@@ -259,6 +302,9 @@ export function LocalKontur() {
     }, reducedMotion ? 0 : 260);
     if (index + 1 >= questions.length) {
       setHatchReady(false);
+      setBirdAssetReady(false);
+      setHatchMinimumElapsed(false);
+      setHatchPhase('idle');
       void hatch(next);
     }
   };
@@ -406,6 +452,9 @@ export function LocalKontur() {
       setVisualQuestionIndex(0);
       setReveal(null);
       setHatchReady(false);
+      setBirdAssetReady(false);
+      setHatchMinimumElapsed(false);
+      setHatchPhase('idle');
       setReplayMode(true);
       setStage('hook');
     } catch (e) {
@@ -471,7 +520,7 @@ export function LocalKontur() {
       <main className={`lk lk-onboarding lk-first-time lk-first-time--${stage}${eggResponding ? ' is-egg-responding' : ''}${reducedMotion ? ' lk-reduced-motion' : ''}`}>
         <header className="lk-top">
           <span className="lk-mark">КОНТУР</span>
-          <span>{showingReveal ? 'готово' : stage === 'hook' ? '01' : `${String(index + 1).padStart(2, '0')} / 08`}</span>
+          <span>{showingReveal ? 'ГОТОВО' : stage === 'hook' ? '01' : `${String(index + 1).padStart(2, '0')} / 08`}</span>
         </header>
         <div className="lk-progress" aria-hidden="true">
           <span style={{ width: stage === 'hook' ? '0%' : `${((visualQuestionIndex + 1) / questions.length) * 100}%` }} />
@@ -485,9 +534,10 @@ export function LocalKontur() {
         <div className="lk-quiz-egg-stage">
           <QuizEgg
             stage={eggStage}
-            hatching={stage === 'hatching' || stage === 'reveal'}
-            resultId={revealResultId}
+            hatchPhase={stage === 'reveal' ? 'settled' : hatchPhase}
+            resultId={hatchReady ? revealResultId : undefined}
             palette={reveal?.state.player.palette ?? state?.player.palette ?? null}
+            onBirdReady={() => setBirdAssetReady(true)}
           />
         </div>
 
@@ -522,8 +572,10 @@ export function LocalKontur() {
           </section>
         )}
 
-        <p className="lk-hatching-label" aria-live="polite">{stage === 'hatching' ? 'внутри уже светло' : ''}</p>
-        {stage === 'hatching' && <button className="lk-skip-motion" onClick={finishHatchReveal}>пропустить анимацию</button>}
+        <p className="lk-hatching-label" aria-live="polite">{stage === 'hatching' ? hatchStatus(hatchPhase) : ''}</p>
+        {stage === 'hatching' && hatchReady && birdAssetReady && (
+          <button className="lk-skip-motion" onClick={finishHatchReveal}>пропустить анимацию</button>
+        )}
 
         {showingReveal && (
           <section className="lk-reveal lk-reveal--inline">
@@ -578,7 +630,7 @@ export function LocalKontur() {
           disabled={busy || refreshing}
           aria-label={refreshing ? 'Обновляется' : 'Обновить'}
           aria-busy={refreshing}
-        >↻</button>
+        />
       </header>
 
       <section className="lk-hero">

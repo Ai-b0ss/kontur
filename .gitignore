@@ -32,3 +32,6 @@ coverage/
 .turbo/
 .cache/
 *.pyc
+
+# Local browser recordings; final reviewed evidence may be force-added explicitly.
+.evidence/

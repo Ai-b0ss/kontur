@@ -1,0 +1,17 @@
+
+> kontur@ build /workspace
+> pnpm -F @kontur/miniapp build
+
+
+> @kontur/miniapp@1.0.0 build /workspace/apps/miniapp
+> node ../../tools/run-vite.mjs build
+
+vite v6.4.3 building for production...
+transforming...
+✓ 84 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.96 kB │ gzip:  0.57 kB
+dist/assets/index-DKG4ELWo.css  135.67 kB │ gzip: 27.94 kB
+dist/assets/index-H25nw2V3.js   275.81 kB │ gzip: 82.49 kB
+✓ built in 897ms

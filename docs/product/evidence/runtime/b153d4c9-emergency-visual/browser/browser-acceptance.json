@@ -1,0 +1,904 @@
+{
+  "result": "PASS",
+  "exactHead": "b153d4c96a775484c0cfc3b454029f9e4dadaf75",
+  "engine": "Chromium / Playwright 1.55.0",
+  "classification": {
+    "browser": "real Chromium",
+    "backend": "contract-faithful isolated mock; remote staging is a separate gate"
+  },
+  "viewports": {
+    "smallHook": {
+      "width": 320,
+      "height": 568,
+      "scrollWidth": 320,
+      "bodyScrollWidth": 320,
+      "overflow": [],
+      "unnamedButtons": 0,
+      "safeTop": true,
+      "safeBottom": true,
+      "reducedClass": false
+    },
+    "smallHome": {
+      "width": 320,
+      "height": 568,
+      "scrollWidth": 320,
+      "bodyScrollWidth": 320,
+      "overflow": [],
+      "unnamedButtons": 0,
+      "safeTop": true,
+      "safeBottom": true,
+      "reducedClass": false
+    },
+    "largeHook": {
+      "width": 430,
+      "height": 1000,
+      "scrollWidth": 430,
+      "bodyScrollWidth": 430,
+      "overflow": [],
+      "unnamedButtons": 0,
+      "safeTop": true,
+      "safeBottom": true,
+      "reducedClass": false
+    },
+    "largeHome": {
+      "width": 430,
+      "height": 1000,
+      "scrollWidth": 430,
+      "bodyScrollWidth": 430,
+      "overflow": [],
+      "unnamedButtons": 0,
+      "safeTop": true,
+      "safeBottom": true,
+      "reducedClass": false
+    },
+    "mediumHook": {
+      "width": 390,
+      "height": 844,
+      "scrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "overflow": [],
+      "unnamedButtons": 0,
+      "safeTop": true,
+      "safeBottom": true,
+      "reducedClass": false
+    },
+    "reducedHook": {
+      "width": 320,
+      "height": 568,
+      "scrollWidth": 320,
+      "bodyScrollWidth": 320,
+      "overflow": [],
+      "unnamedButtons": 0,
+      "safeTop": true,
+      "safeBottom": true,
+      "reducedClass": true
+    }
+  },
+  "continuity": {
+    "hatchBird": "magpie",
+    "hatchAsset": "/results/magpie.webp",
+    "revealBird": "magpie",
+    "revealAsset": "/results/magpie.webp",
+    "homeBird": "magpie",
+    "homeAsset": "/results/magpie.webp",
+    "dropBird": "magpie",
+    "equippedBird": "magpie",
+    "equippedAsset": "/results/magpie-northern.webp",
+    "reloadBird": "magpie",
+    "reloadAsset": "/results/magpie-northern.webp",
+    "replayBird": "magpie",
+    "replayAsset": "/results/magpie-northern.webp"
+  },
+  "visual": {
+    "smallHookSeparation": {
+      "copy": {
+        "top": 62,
+        "bottom": 231.59375,
+        "height": 169.59375
+      },
+      "egg": {
+        "top": 249.90625,
+        "bottom": 448.9375,
+        "height": 199.03125
+      },
+      "action": {
+        "top": 474.125,
+        "bottom": 557,
+        "height": 82.875
+      }
+    },
+    "q1Question": {
+      "opacity": 0.99136,
+      "visibility": "visible",
+      "number": "01"
+    },
+    "q1Separation": {
+      "ring": {
+        "top": 44.953125,
+        "bottom": 156.328125,
+        "height": 111.375
+      },
+      "number": {
+        "top": 172.43942260742188,
+        "bottom": 215.43942260742188,
+        "height": 43
+      },
+      "kicker": {
+        "top": 182.43942260742188,
+        "bottom": 193.31442260742188,
+        "height": 10.875
+      },
+      "heading": {
+        "top": 198.31442260742188,
+        "bottom": 246.31442260742188,
+        "height": 48
+      },
+      "firstTextTop": 172.43942260742188,
+      "gap": 16.111297607421875
+    },
+    "q4Question": {
+      "opacity": 1,
+      "visibility": "visible",
+      "number": "04"
+    },
+    "q4Separation": {
+      "ring": {
+        "top": 44,
+        "bottom": 154.84375,
+        "height": 110.84375
+      },
+      "number": {
+        "top": 172,
+        "bottom": 215,
+        "height": 43
+      },
+      "kicker": {
+        "top": 182,
+        "bottom": 192.875,
+        "height": 10.875
+      },
+      "heading": {
+        "top": 197.875,
+        "bottom": 245.875,
+        "height": 48
+      },
+      "firstTextTop": 172,
+      "gap": 17.15625
+    },
+    "q8Question": {
+      "opacity": 1,
+      "visibility": "visible",
+      "number": "08"
+    },
+    "q8Separation": {
+      "ring": {
+        "top": 44,
+        "bottom": 154.84375,
+        "height": 110.84375
+      },
+      "number": {
+        "top": 172,
+        "bottom": 215,
+        "height": 43
+      },
+      "kicker": {
+        "top": 182,
+        "bottom": 192.875,
+        "height": 10.875
+      },
+      "heading": {
+        "top": 197.875,
+        "bottom": 245.875,
+        "height": 48
+      },
+      "firstTextTop": 172,
+      "gap": 17.15625
+    },
+    "hatchIntact": {
+      "base": {
+        "present": true,
+        "opacity": 1,
+        "transform": "none"
+      },
+      "shellLeft": {
+        "present": true,
+        "opacity": 0,
+        "transform": "none"
+      },
+      "shellRight": {
+        "present": true,
+        "opacity": 0,
+        "transform": "none"
+      },
+      "bird": {
+        "present": true,
+        "opacity": 0,
+        "transform": "matrix(0.78, 0, 0, 0.78, 6.51875, 4.12437)"
+      }
+    },
+    "hatchOpening": {
+      "base": {
+        "present": true,
+        "opacity": 0.160989,
+        "transform": "none"
+      },
+      "shellLeft": {
+        "present": true,
+        "opacity": 0.795478,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)"
+      },
+      "shellRight": {
+        "present": true,
+        "opacity": 0.795478,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)"
+      },
+      "bird": {
+        "present": true,
+        "opacity": 0,
+        "transform": "matrix(0.78, 0, 0, 0.78, 11.0075, 6.96438)"
+      }
+    },
+    "reveal": {
+      "resultId": "magpie",
+      "plumageAsset": "/results/magpie.webp",
+      "imageReady": "true",
+      "imageComplete": true,
+      "naturalWidth": 1067,
+      "naturalHeight": 1271,
+      "imageWidth": 141.7215576171875,
+      "imageHeight": 179.33267211914062,
+      "imageDisplay": "block",
+      "imageVisibility": "visible",
+      "imageOpacity": 1,
+      "renderedDetail": {
+        "width": 142,
+        "height": 180,
+        "samples": 6390,
+        "bright": 560,
+        "brightRatio": 0.08763693270735524,
+        "maxLuma": 237.9014
+      }
+    },
+    "smallRevealLayout": {
+      "position": "absolute",
+      "opacity": 1,
+      "panel": {
+        "top": 389.984375,
+        "right": 304,
+        "bottom": 560,
+        "left": 16,
+        "width": 288,
+        "height": 170.015625
+      },
+      "bird": {
+        "top": 170.304443359375,
+        "right": 230.84515380859375,
+        "bottom": 349.6371154785156,
+        "left": 89.12359619140625,
+        "width": 141.7215576171875,
+        "height": 179.33267211914062
+      },
+      "ring": {
+        "top": 138.3828125,
+        "right": 256,
+        "bottom": 381.6171875,
+        "left": 64,
+        "width": 192,
+        "height": 243.234375
+      },
+      "hookCopy": {
+        "present": true,
+        "opacity": 0,
+        "visibility": "hidden",
+        "pointerEvents": "none"
+      },
+      "hookAction": {
+        "present": true,
+        "opacity": 0,
+        "visibility": "hidden",
+        "pointerEvents": "none"
+      },
+      "question": {
+        "present": true,
+        "opacity": 0,
+        "visibility": "hidden",
+        "pointerEvents": "none"
+      },
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "separated": true,
+      "frameSeparated": true
+    },
+    "home": {
+      "resultId": "magpie",
+      "plumageAsset": "/results/magpie.webp",
+      "imageReady": "true",
+      "imageComplete": true,
+      "naturalWidth": 1067,
+      "naturalHeight": 1271,
+      "imageWidth": 256,
+      "imageHeight": 294,
+      "imageDisplay": "block",
+      "imageVisibility": "visible",
+      "imageOpacity": 1,
+      "renderedDetail": {
+        "width": 256,
+        "height": 294,
+        "samples": 18816,
+        "bright": 1741,
+        "brightRatio": 0.09252763605442177,
+        "maxLuma": 238.9014
+      }
+    },
+    "drop": {
+      "resultId": "magpie",
+      "plumageAsset": "/results/magpie-northern.webp",
+      "imageReady": "true",
+      "imageComplete": true,
+      "naturalWidth": 1067,
+      "naturalHeight": 1271,
+      "imageWidth": 252,
+      "imageHeight": 251.99993896484375,
+      "imageDisplay": "block",
+      "imageVisibility": "visible",
+      "imageOpacity": 1,
+      "renderedDetail": {
+        "width": 252,
+        "height": 253,
+        "samples": 15939,
+        "bright": 1553,
+        "brightRatio": 0.09743396699918438,
+        "maxLuma": 233.11520000000002
+      }
+    },
+    "dropLayout": {
+      "image": {
+        "top": 315.9375,
+        "right": 286,
+        "bottom": 567.9375,
+        "left": 34,
+        "width": 252,
+        "height": 252
+      },
+      "heading": {
+        "top": 602.9375,
+        "right": 304,
+        "bottom": 636.25,
+        "left": 16,
+        "width": 288,
+        "height": 33.3125
+      },
+      "copy": {
+        "top": 642.25,
+        "right": 304,
+        "bottom": 659.640625,
+        "left": 16,
+        "width": 288,
+        "height": 17.390625
+      },
+      "button": {
+        "top": 681.640625,
+        "right": 304,
+        "bottom": 733.640625,
+        "left": 16,
+        "width": 288,
+        "height": 52
+      },
+      "viewport": {
+        "width": 320,
+        "height": 568
+      }
+    },
+    "equipped": {
+      "resultId": "magpie",
+      "plumageAsset": "/results/magpie-northern.webp",
+      "imageReady": "true",
+      "imageComplete": true,
+      "naturalWidth": 1067,
+      "naturalHeight": 1271,
+      "imageWidth": 256.7449951171875,
+      "imageHeight": 294.8555908203125,
+      "imageDisplay": "block",
+      "imageVisibility": "visible",
+      "imageOpacity": 1,
+      "renderedDetail": {
+        "width": 256,
+        "height": 294,
+        "samples": 18816,
+        "bright": 2123,
+        "brightRatio": 0.1128295068027211,
+        "maxLuma": 232.1444
+      }
+    },
+    "reload": {
+      "resultId": "magpie",
+      "plumageAsset": "/results/magpie-northern.webp",
+      "imageReady": "true",
+      "imageComplete": true,
+      "naturalWidth": 1067,
+      "naturalHeight": 1271,
+      "imageWidth": 256,
+      "imageHeight": 294,
+      "imageDisplay": "block",
+      "imageVisibility": "visible",
+      "imageOpacity": 1,
+      "renderedDetail": {
+        "width": 256,
+        "height": 294,
+        "samples": 18816,
+        "bright": 2150,
+        "brightRatio": 0.11426445578231292,
+        "maxLuma": 233.11520000000002
+      }
+    },
+    "replayHatch": {
+      "resultId": "magpie",
+      "plumageAsset": "/results/magpie-northern.webp",
+      "imageReady": "true",
+      "imageComplete": true,
+      "naturalWidth": 1067,
+      "naturalHeight": 1271,
+      "imageWidth": 125.87709045410156,
+      "imageHeight": 159.28329467773438,
+      "imageDisplay": "block",
+      "imageVisibility": "visible",
+      "imageOpacity": 1
+    },
+    "replayReveal": {
+      "resultId": "magpie",
+      "plumageAsset": "/results/magpie-northern.webp",
+      "imageReady": "true",
+      "imageComplete": true,
+      "naturalWidth": 1067,
+      "naturalHeight": 1271,
+      "imageWidth": 141.7215576171875,
+      "imageHeight": 179.33267211914062,
+      "imageDisplay": "block",
+      "imageVisibility": "visible",
+      "imageOpacity": 1,
+      "renderedDetail": {
+        "width": 142,
+        "height": 180,
+        "samples": 6390,
+        "bright": 675,
+        "brightRatio": 0.1056338028169014,
+        "maxLuma": 230.18219999999997
+      }
+    },
+    "replayRevealLayout": {
+      "position": "absolute",
+      "opacity": 1,
+      "panel": {
+        "top": 389.984375,
+        "right": 304,
+        "bottom": 560,
+        "left": 16,
+        "width": 288,
+        "height": 170.015625
+      },
+      "bird": {
+        "top": 170.304443359375,
+        "right": 230.84515380859375,
+        "bottom": 349.6371154785156,
+        "left": 89.12359619140625,
+        "width": 141.7215576171875,
+        "height": 179.33267211914062
+      },
+      "ring": {
+        "top": 138.3828125,
+        "right": 256,
+        "bottom": 381.6171875,
+        "left": 64,
+        "width": 192,
+        "height": 243.234375
+      },
+      "hookCopy": {
+        "present": true,
+        "opacity": 0,
+        "visibility": "hidden",
+        "pointerEvents": "none"
+      },
+      "hookAction": {
+        "present": true,
+        "opacity": 0,
+        "visibility": "hidden",
+        "pointerEvents": "none"
+      },
+      "question": {
+        "present": true,
+        "opacity": 0,
+        "visibility": "hidden",
+        "pointerEvents": "none"
+      },
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "separated": true,
+      "frameSeparated": true
+    },
+    "largeHookSeparation": {
+      "copy": {
+        "top": 104,
+        "bottom": 365.171875,
+        "height": 261.171875
+      },
+      "egg": {
+        "top": 386,
+        "bottom": 732,
+        "height": 346
+      },
+      "action": {
+        "top": 881.375,
+        "bottom": 983,
+        "height": 101.625
+      }
+    },
+    "largeQ8Separation": {
+      "ring": {
+        "top": 62,
+        "bottom": 222.171875,
+        "height": 160.171875
+      },
+      "number": {
+        "top": 239,
+        "bottom": 303,
+        "height": 64
+      },
+      "kicker": {
+        "top": 255,
+        "bottom": 268.046875,
+        "height": 13.046875
+      },
+      "heading": {
+        "top": 277.046875,
+        "bottom": 347.921875,
+        "height": 70.875
+      },
+      "firstTextTop": 239,
+      "gap": 16.828125
+    },
+    "largeReveal": {
+      "resultId": "magpie",
+      "plumageAsset": "/results/magpie.webp",
+      "imageReady": "true",
+      "imageComplete": true,
+      "naturalWidth": 1067,
+      "naturalHeight": 1271,
+      "imageWidth": 214.239990234375,
+      "imageHeight": 271.0992126464844,
+      "imageDisplay": "block",
+      "imageVisibility": "visible",
+      "imageOpacity": 1,
+      "renderedDetail": {
+        "width": 216,
+        "height": 272,
+        "samples": 14688,
+        "bright": 1310,
+        "brightRatio": 0.08918845315904139,
+        "maxLuma": 237.9014
+      }
+    },
+    "largeRevealLayout": {
+      "position": "absolute",
+      "opacity": 1,
+      "panel": {
+        "top": 778.578125,
+        "right": 412,
+        "bottom": 982,
+        "left": 18,
+        "width": 394,
+        "height": 203.421875
+      },
+      "bird": {
+        "top": 364.4027404785156,
+        "right": 322.1199951171875,
+        "bottom": 635.501953125,
+        "left": 107.8800048828125,
+        "width": 214.239990234375,
+        "height": 271.0992126464844
+      },
+      "ring": {
+        "top": 321.2734375,
+        "right": 355,
+        "bottom": 678.7265625,
+        "left": 75,
+        "width": 280,
+        "height": 357.453125
+      },
+      "hookCopy": {
+        "present": true,
+        "opacity": 0,
+        "visibility": "hidden",
+        "pointerEvents": "none"
+      },
+      "hookAction": {
+        "present": true,
+        "opacity": 0,
+        "visibility": "hidden",
+        "pointerEvents": "none"
+      },
+      "question": {
+        "present": true,
+        "opacity": 0,
+        "visibility": "hidden",
+        "pointerEvents": "none"
+      },
+      "viewport": {
+        "width": 430,
+        "height": 1000
+      },
+      "separated": true,
+      "frameSeparated": true
+    },
+    "largeHome": {
+      "resultId": "magpie",
+      "plumageAsset": "/results/magpie.webp",
+      "imageReady": "true",
+      "imageComplete": true,
+      "naturalWidth": 1067,
+      "naturalHeight": 1271,
+      "imageWidth": 310,
+      "imageHeight": 294,
+      "imageDisplay": "block",
+      "imageVisibility": "visible",
+      "imageOpacity": 1,
+      "renderedDetail": {
+        "width": 310,
+        "height": 294,
+        "samples": 22785,
+        "bright": 1711,
+        "brightRatio": 0.07509326311169628,
+        "maxLuma": 238.9014
+      }
+    },
+    "mediumHookSeparation": {
+      "copy": {
+        "top": 104,
+        "bottom": 342.921875,
+        "height": 238.921875
+      },
+      "egg": {
+        "top": 371.359375,
+        "bottom": 685.1875,
+        "height": 313.828125
+      },
+      "action": {
+        "top": 725.375,
+        "bottom": 827,
+        "height": 101.625
+      }
+    },
+    "reducedReveal": {
+      "resultId": "magpie",
+      "plumageAsset": "/results/magpie.webp",
+      "imageReady": "true",
+      "imageComplete": true,
+      "naturalWidth": 1067,
+      "naturalHeight": 1271,
+      "imageWidth": 141.7215576171875,
+      "imageHeight": 179.33267211914062,
+      "imageDisplay": "block",
+      "imageVisibility": "visible",
+      "imageOpacity": 1,
+      "renderedDetail": {
+        "width": 142,
+        "height": 180,
+        "samples": 6390,
+        "bright": 560,
+        "brightRatio": 0.08763693270735524,
+        "maxLuma": 237.9014
+      }
+    },
+    "reducedRevealLayout": {
+      "position": "absolute",
+      "opacity": 1,
+      "panel": {
+        "top": 389.984375,
+        "right": 304,
+        "bottom": 560,
+        "left": 16,
+        "width": 288,
+        "height": 170.015625
+      },
+      "bird": {
+        "top": 170.304443359375,
+        "right": 230.84515380859375,
+        "bottom": 349.6371154785156,
+        "left": 89.12359619140625,
+        "width": 141.7215576171875,
+        "height": 179.33267211914062
+      },
+      "ring": {
+        "top": 138.3828125,
+        "right": 256,
+        "bottom": 381.6171875,
+        "left": 64,
+        "width": 192,
+        "height": 243.234375
+      },
+      "hookCopy": {
+        "present": true,
+        "opacity": 0,
+        "visibility": "hidden",
+        "pointerEvents": "none"
+      },
+      "hookAction": {
+        "present": true,
+        "opacity": 0,
+        "visibility": "hidden",
+        "pointerEvents": "none"
+      },
+      "question": {
+        "present": true,
+        "opacity": 0,
+        "visibility": "hidden",
+        "pointerEvents": "none"
+      },
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "separated": true,
+      "frameSeparated": true
+    },
+    "coloringGalleries": [
+      {
+        "resultId": "magpie",
+        "count": 10,
+        "uniqueAssets": 3,
+        "uniqueRendered": 3
+      },
+      {
+        "resultId": "woodpecker",
+        "count": 10,
+        "uniqueAssets": 1,
+        "uniqueRendered": 1
+      },
+      {
+        "resultId": "jay",
+        "count": 10,
+        "uniqueAssets": 1,
+        "uniqueRendered": 1
+      },
+      {
+        "resultId": "crane",
+        "count": 10,
+        "uniqueAssets": 1,
+        "uniqueRendered": 1
+      },
+      {
+        "resultId": "owl",
+        "count": 10,
+        "uniqueAssets": 1,
+        "uniqueRendered": 1
+      },
+      {
+        "resultId": "kotosov",
+        "count": 10,
+        "uniqueAssets": 1,
+        "uniqueRendered": 1
+      }
+    ]
+  },
+  "consoleErrors": [],
+  "artifacts": [
+    {
+      "name": "01-hook.png",
+      "sha256": "acb7c629ec984d1dc9efffe1193c9dec8cfc1e9fc81bfbb47806972698ddc455"
+    },
+    {
+      "name": "02-hook-start-before.png",
+      "sha256": "32df27a0ab2ec443fd2f405bbc3a24b5252f30f689c505b678d27eee2476b6df"
+    },
+    {
+      "name": "03-quiz-q1.png",
+      "sha256": "b792658095be0a0681f2d54ae6b45cc67976a2efab87795228fd4f06197196de"
+    },
+    {
+      "name": "04-quiz-q4.png",
+      "sha256": "ea032d8be3c2c93a765f18f72954eeb884f5e77e789c98924dcce5db2cc0b574"
+    },
+    {
+      "name": "05-quiz-q8.png",
+      "sha256": "85d3a2b38828ef905961a27173299a7f1522aad3445c1fe00ac0294934881c3e"
+    },
+    {
+      "name": "15-hatch-intact.png",
+      "sha256": "8c66cbbc454ae4027e40bda862bd9e26c5a3d1a29188185a379cc8eb7626eff5"
+    },
+    {
+      "name": "16-hatch-opening.png",
+      "sha256": "153e587bde20530fb1c74fd77c5192c79295bda1e18bcf51e2ac985bccbbf6bb"
+    },
+    {
+      "name": "06-bird-reveal.png",
+      "sha256": "6cd76c97f3990aaf91a4ccdde9d5306ad8d15f4af82692a80c0c5f06b768d8a7"
+    },
+    {
+      "name": "07-worm-loop.png",
+      "sha256": "6d09f7ee6473111b134503ec9ce3f59778d34b5bbd25c3f55f468ef40a574370"
+    },
+    {
+      "name": "08-home.png",
+      "sha256": "594f29fcaf4955631b5259c7a33cc11e81eb9bfedebe0e0079ce7a6d4db17132"
+    },
+    {
+      "name": "09-new-coloring-drop.png",
+      "sha256": "f5b779a86df94ea3e762fff14744f5a2a3790e87a0717cd304e2801315ea5962"
+    },
+    {
+      "name": "10-reload-persistence.png",
+      "sha256": "74aad22fba1016ed49771a8ef630789ac9e9a7d7e9a3ae8d0145e984e02d4c82"
+    },
+    {
+      "name": "11-replay-same-bird.png",
+      "sha256": "81b6216c0f355f98dc40b9f2e684175e2f8f286b7f7f0f9202abd87e1d97d66a"
+    },
+    {
+      "name": "12-large-hook.png",
+      "sha256": "f92b076a0e2e1c51b4763719da156b81f5a12235a4ab822dd6128fcf7fbf2c34"
+    },
+    {
+      "name": "13-large-home.png",
+      "sha256": "c04e37c930932024b0d7439464bf9db994036a1908b2931c64158de92c683277"
+    },
+    {
+      "name": "17-hook-390x844.png",
+      "sha256": "ea96d35c914620e2e4a68929638c6171f01d314901311d815b4dcdbc2c72a64d"
+    },
+    {
+      "name": "14-reduced-motion-reveal.png",
+      "sha256": "ef963cb0418c89ed58f369b109f1f98f50b514cb7b4110c1c4a77ce870b5f6fe"
+    },
+    {
+      "name": "motion-1-hook-to-q1.webm",
+      "sha256": "6d5233b0c27cd0e21b0814ca6c37a5d0b8ebfa7c3d984bb7a8f8f12b116bf312"
+    },
+    {
+      "name": "motion-2-q1-q4-q8-cracks.webm",
+      "sha256": "88bc7f448a568093e96f422b99d8a1b954e7d2cbeb9cdb4960af14ddbf0c0bb0"
+    },
+    {
+      "name": "motion-3-q8-to-reveal.webm",
+      "sha256": "9b88aa2e55310ba035136c26f8c192d4c14b569971d76d969b2c27affb49b6b9"
+    },
+    {
+      "name": "gallery-magpie-real-plumage.png",
+      "sha256": "3ad340cf58e147eff4acb6e102222d54517df897fd55e2d61306e18a3d2d0b96"
+    },
+    {
+      "name": "gallery-magpie-10-colorings.png",
+      "sha256": "3ad340cf58e147eff4acb6e102222d54517df897fd55e2d61306e18a3d2d0b96"
+    },
+    {
+      "name": "gallery-woodpecker-10-colorings.png",
+      "sha256": "85adfd3afc4aa64243862b39f66f889d5b07c3f5ab513a47dfcad755af9fc486"
+    },
+    {
+      "name": "gallery-jay-10-colorings.png",
+      "sha256": "b5315015306819cd12d5a9b34b788e79443926d9b94167f267827739ca50c03c"
+    },
+    {
+      "name": "gallery-crane-10-colorings.png",
+      "sha256": "1e99f8e993c7fa2aa7220aa055fd3fbb0b38c27653ca0dedead3393523f2947b"
+    },
+    {
+      "name": "gallery-owl-10-colorings.png",
+      "sha256": "c272693aeeb63852ccd5d07103d914cc17d1cffdd07658feedea71ebb7fb19fc"
+    },
+    {
+      "name": "gallery-kotosov-10-colorings.png",
+      "sha256": "604d3e244b0492e6d57a32c21f081e9d82df18c5b2093340f9436be71d8f1511"
+    },
+    {
+      "name": "KONTUR_VISUAL_FIX_WALKTHROUGH.webm",
+      "sha256": "b61074b9379a998a142e1551be96af186df454204ee06e739b019598d05a5283"
+    }
+  ],
+  "productionBuild": {
+    "indexSha256": "4dcf7535f14a278ea6f81caecc35b0f35cbddf8f9d2f69a48b3bec77338804c7"
+  }
+}

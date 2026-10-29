@@ -1,0 +1,7 @@
+exact_product_head=b153d4c96a775484c0cfc3b454029f9e4dadaf75
+exact_product_head_circle_status=NONE
+technical_branch=ci/kontur-circle-vite-20260821
+technical_branch_head=60e1dbd17fff76af220ee0dae7dc6b960f7ef775
+technical_branch_circle_context=ci/circleci: kontur-visual-regression-fix
+technical_branch_circle_result=SUCCESS
+classification=technical-branch evidence only; not exact-product-head proof

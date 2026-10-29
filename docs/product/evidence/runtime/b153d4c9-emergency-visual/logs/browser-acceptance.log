@@ -1,0 +1,6 @@
+KONTUR_BROWSER_ACCEPTANCE_PASS head=b153d4c96a775484c0cfc3b454029f9e4dadaf75 artifacts=28
+engine=Chromium / Playwright 1.55.0
+viewports=320x568,390x844,430x1000
+reduced_motion=PASS
+console_errors=0
+runtime_crashes=0

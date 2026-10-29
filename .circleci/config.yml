@@ -1,0 +1,61 @@
+version: 2.1
+
+jobs:
+  kontur-hatch-master-frame:
+    docker:
+      - image: cimg/node:22.18-browsers
+    resource_class: medium
+    steps:
+      - checkout
+      - run:
+          name: Exact candidate identity
+          command: |
+            set -euo pipefail
+            echo "KONTUR_HATCH_MASTER_FRAME_SHA=$(git rev-parse HEAD)"
+            git status --short
+      - run:
+          name: Install
+          no_output_timeout: 20m
+          command: |
+            set -euo pipefail
+            corepack enable
+            corepack prepare pnpm@11.22.0 --activate
+            pnpm install --frozen-lockfile
+      - run:
+          name: Mini App tests
+          command: |
+            set -euo pipefail
+            pnpm -F @kontur/miniapp test
+      - run:
+          name: Mini App typecheck
+          command: |
+            set -euo pipefail
+            pnpm -F @kontur/miniapp typecheck
+      - run:
+          name: Production build
+          command: |
+            set -euo pipefail
+            pnpm -F @kontur/miniapp build
+      - run:
+          name: Install Chromium
+          no_output_timeout: 20m
+          command: |
+            set -euo pipefail
+            pnpm exec playwright install chromium
+      - run:
+          name: Telegram hatch master-frame browser proof
+          no_output_timeout: 10m
+          command: |
+            set -euo pipefail
+            node apps/miniapp/test/telegram-hatch-browser.mjs
+      - store_artifacts:
+          path: apps/miniapp/dist/telegram-hatch-evidence
+          destination: telegram-hatch-evidence
+
+workflows:
+  kontur-hatch-master-frame:
+    jobs:
+      - kontur-hatch-master-frame:
+          filters:
+            branches:
+              only: fix/kontur-hatch-master-frame-20260823

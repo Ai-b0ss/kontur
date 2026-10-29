@@ -1,184 +1,125 @@
-# Контур — как передать проект другому разработчику
+# Контур — финальная передача CORE
 
-## Короткий ответ
+## Текущий кандидат
 
-**Передавать одной ссылкой на private GitHub repository и конкретный проверенный handoff commit/ветку.**
+- repository: `Ai-b0ss/kontur`;
+- branch: `fix/kontur-core-visual-continuity-20260818`;
+- PR: #12, **draft / open / unmerged**;
+- runtime/product baseline: `287b9aa294dbec0af077cdcf96e8e5b864f32c03`;
+- exact release-record commit: поле `final_commit` в финальном owner-package `MANIFEST.json` и канонической записи issue #9;
+- production/main не менялись и не разрешены.
 
-Не отправлять случайный ZIP из Downloads и не просить получателя угадывать, какая из старых V1–V5 папок актуальна.
+Git-коммит не может содержать собственный SHA. Поэтому exact closing SHA и относящиеся к нему Circle/Cloudflare IDs связаны с деревом во внешнем `MANIFEST.json`, в последнем `KONTUR_CORE_DONE CANONICAL REVALIDATION` комментарии issue #9 и в последнем `KONTUR_CORE_DONE EVIDENCE BINDING` комментарии PR #12.
 
-## Текущая handoff-база
+## Что является текущим продуктом
 
-- repo: `Ai-b0ss/kontur`;
-- branch: `cleanup/repo-hygiene-shareable-source`;
-- PR: `#11`;
-- PR остаётся draft до финального owner decision;
-- merge в `main` без отдельного явного разрешения запрещён.
+Первый путь:
 
-Исторический owner-visible preview:
+`Какая ты птица в IT? → одно hero egg → q1…q8 / восемь стадий трещин → response-gated hatch → reveal → /worm → Home`
 
-`https://5dabce57-kontur-igor.igorekglukhovskii43.workers.dev`
+Экономика:
 
-Критическая forensic-граница: exact byte-for-byte mapping `5dabce57 -> immutable Worker version -> exact asset hashes -> Git source` ещё не закрыт. Поэтому ветку можно называть **единой текущей рабочей source-базой/candidate handoff**, но нельзя называть exact recovered bytes этого конкретного preview.
+`reply /worm → +1 worm → 5 worms = egg → гарантированно новый косметический окрас → equip → reload сохраняет состояние`
 
-## Что является продуктовой истиной
+Инварианты:
 
-В порядке приоритета:
+- пять backend roles и шесть визуальных персонажей: сорока, дятел, сойка, компактный журавль-менеджер, сова и Котосов;
+- Котосов — client-local presentation subtype роли `vibe`, а не шестая server-role;
+- hatch, reveal, Home, reward drop и collection используют один `BirdResultId` master;
+- palette меняет только косметическую маску;
+- q8 не начинает видимое вылупление до окончания response gesture;
+- back заблокирован во время answer transition;
+- reload и replay не меняют identity/palette.
 
-1. новое явное решение owner;
-2. exact primary source 13.08 из `docs/product/source/`;
-3. exact accepted execution evidence 14.08 из `docs/product/evidence/`;
-4. `CURRENT_PRODUCT.md`;
-5. производные `PRODUCT_BRIEF` / `DECISION_LOG`;
-6. воспроизводимое current-source/deployment evidence;
-7. архив V1–V5 — только история.
+## Где лежит финальная доказательная база
 
-Exact primary files уже восстановлены byte-for-byte и закреплены SHA-256 в `tools/handoff-safety-check.mjs`.
+Начать с:
 
-## Что уже доказано в source
+1. `docs/product/evidence/KONTUR_FINAL_REQUIREMENT_MATRIX_2026-08-22.md`;
+2. `docs/product/evidence/KONTUR_CORE_DONE_REVALIDATION_2026-08-22.md`;
+3. `docs/product/evidence/KONTUR_EVIDENCE_INDEX_2026-08-22.md`;
+4. `docs/product/source/PRIMARY_SOURCE_IGOR_ZEZOKUK_2026-08-13.md`;
+5. `docs/product/source/FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md`;
+6. accepted 14.08 evidence;
+7. `CURRENT_PRODUCT.md`, `ARCHITECTURE.md`, `CODEBASE_MAP.md`.
 
-Current first-time flow:
+Файлы `KONTUR_REQUIREMENT_MATRIX_2026-08-18.md` и `KONTUR_FINAL_TZ_16_18_CLASSIFICATION_2026-08-18.md` сохранены как исторические audit snapshots и явно помечены superseded. Их старые `VERIFY_PENDING` не являются текущим verdict.
 
-`Какая ты птица в IT? -> hero egg -> 8Q -> 8 crack stages -> hatching -> bird reveal -> /worm -> Home`
+## Что свежо доказано
 
-Игровой инвариант:
+- clean exact-head checkout без overlay/temporary patch;
+- frozen Linux install, pnpm 11.22, native Rollup/esbuild;
+- Mini App, core, DB, bot и Worker tests;
+- repository-wide TypeScript;
+- production Vite build, `dist/index.html`, HTTP serve;
+- real Playwright Chromium, 320×568 и 430×1000;
+- normal и reduced motion;
+- full UI journey, q1…q8, back lock, q8 gesture gate, hatch/reveal/Home continuity, palette, egg/equip, reload и replay;
+- console/page/request errors = 0, horizontal overflow = 0, safe-area contract present, reveal copy is separated from the entire outer frame;
+- canonical master art is decoded and independently checked for rendered pixel detail, so a tint-only silhouette cannot pass;
+- восемь обязательных PNG + три обязательных WebM + дополнительные captures;
+- exact isolated Cloudflare staging generation;
+- live synthetic staging auth/questions/hatch/egg/equip/reload на реальном Worker/D1, включая self/pair rejection и collision-safe повторные прогоны;
+- строгая provenance граница от старого DONE `50b4426…`;
+- воспроизводимый secret-safe owner package.
 
-`8Q once -> bird -> reply /worm -> +1 worm -> 5 worms = egg -> guaranteed-new coloration -> equip -> reload persists`
+Binding IDs находятся в package `MANIFEST.json` и канонических GitHub comments. Product-baseline acceptance run: exact head `287b9aa294dbec0af077cdcf96e8e5b864f32c03`, Circle trigger `0b12fc5838b673962422ea015eafed1b3564bef8`, workflow `1cb18623-ee52-42a5-8a0f-ca53a994a1a8`, job `cb3ed7e5-ebc5-456d-ad0b-e68212d06860`, SUCCESS. Exact isolated staging build: `9ec8e6a5-38a6-485f-9e1f-cafa066b93cb`; immutable evidence branch: `evidence/kontur-core-287b9aa2-runtime2-20260822`.
 
-Статус visual gates:
-- STEP A H3 — accepted;
-- STEP B one-egg continuity — accepted;
-- STEP C 8 deterministic crack states — accepted;
-- STEP D first-time flow — integrated in current runtime source;
-- STEP E — accepted + integrated;
-- 5 canonical backend roles / 6 visual results;
-- Kotosov — presentation-only `vibe` subtype при strict unique coder secondary score; tie/incomplete -> owl.
+Repeated-run evidence hardening: exact `8487df3b067bde800dd607e65bc4ad80ea89d10c`, Circle trigger `9b8e86af688d7c69f710f694396f5a3ad65a9e44`, workflow `cdfda3af-92cd-4025-83ae-327a0545ae80`, job `7ba2fe6f-6e87-4885-8e8c-f7b1ecf05324`, SUCCESS; Cloudflare staging build `e7b4df49-df7a-4056-a571-e21bfdad95a3`; evidence `evidence/kontur-core-8487df3b-tooling1-20260822`. This run supersedes both the rejected self-hashing manifest and the later 3/5 synthetic-ID collision run.
 
-Основные current files:
-- `apps/miniapp/src/screens/LocalKontur.tsx`;
-- `apps/miniapp/src/components/QuizEgg.tsx`;
-- `apps/miniapp/src/result-taxonomy.ts`;
-- `apps/worker/src/local-kontur-api.ts`;
-- `packages/core/src/index.ts`;
-- `packages/contracts/src/index.ts`.
-
-## Важная runtime-граница
-
-Старый runtime **ещё не физически вычищен**.
-
-`App.tsx` имеет runtime-imports старых screens, а `apps/worker/src/api.ts` runtime-монтирует старые routers. Поэтому эта часть V1–V5 **статически runtime-достижима из production entrypoints** и не может удаляться по имени.
-
-Это не тождественно двум другим утверждениям:
-- статическая runtime-достижимость **не доказывает**, что модуль оставил байты в финальном emitted bundle после tree-shaking;
-- наличие байтов в bundle **не делает механику current product**.
-
-`tools/runtime-reachability.mjs` v2 отдельно строит:
-- runtime-import graph без type-only imports;
-- source-dependency graph с type-only imports;
-- narrow LocalKontur runtime/source graph;
-- public asset references.
-
-Его artifact нужно прочитать на exact head до per-file cleanup-решений.
-
-Особый naming debt: `ZERO_SEASON_ENABLED` сейчас используется как backend gate для `/api/v4/local/*`, хотя отдельный старый `ZeroSeason.tsx` surface не является current product. Не путать имя feature flag с продуктовой властью старого UI.
-
-## Что читать получателю
-
-1. `README.md`;
-2. `CURRENT_PRODUCT.md`;
-3. `docs/product/source/PRIMARY_SOURCE_IGOR_ZEZOKUK_2026-08-13.md`;
-4. `docs/product/source/FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md`;
-5. `docs/product/evidence/PREVIEW_INTEGRATION_GATE_2026-08-14.md`;
-6. `docs/product/evidence/RESULT_TAXONOMY_ALIGNMENT_2026-08-14.md`;
-7. `docs/product/DECISION_LOG_2026-08-14.md`;
-8. `ARCHITECTURE.md`;
-9. `CODEBASE_MAP.md`;
-10. `IMPLEMENTATION_PRIORITY.md`;
-11. затем код.
-
-`docs/archive/` — история/provenance, не текущее ТЗ.
-
-## Как проверить clone
+## Как воспроизвести локальные gates
 
 ```bash
-git clone <repo>
-cd kontur
+corepack enable
+corepack prepare pnpm@11.22.0 --activate
 pnpm install --frozen-lockfile
-pnpm check
+pnpm -F @kontur/miniapp test
+pnpm -F @kontur/core test
+pnpm -F @kontur/db test
+pnpm -F @kontur/bot test
+pnpm -F @kontur/worker test
+pnpm -r --if-present typecheck
+pnpm -F @kontur/miniapp build
+pnpm -F @kontur/miniapp exec playwright install chromium
+pnpm -F @kontur/miniapp test:browser:kontur
+node tools/handoff-safety-check.mjs
 ```
 
-Для handoff-commit дополнительно нужен зелёный clean-checkout GitHub CI именно на зафиксированном head. **Не переносить зелёный статус со старого commit на более новый.**
+Browser harness использует production `dist` и contract-faithful isolated API. Это UI proof. Live backend proof запускается отдельно против **только** `kontur-igor-staging` через `tools/cloudflare/live-release-staging-smoke.mjs`.
 
-CI также проверяет:
-- exact primary/evidence hashes;
-- current A–E source invariants;
-- direct production deploy refusal;
-- runtime/source reachability v2;
-- deployment propagation regression;
-- share-safe reproducible archive;
-- isolated staging Wrangler dry-run.
+## Evidence artifacts
 
-На текущем head CI нельзя считать доказанно зелёным, пока Actions connector не вернёт run/jobs/artifacts.
+Имена обязательных файлов:
 
-## Deployment: что делать нельзя
+- `01-hook.png` … `08-home.png`;
+- `motion-1-hook-to-q1.webm`;
+- `motion-2-q1-q4-q8-cracks.webm`;
+- `motion-3-q8-to-reveal.webm`.
 
-**Не запускать `pnpm cf:deploy` и `pnpm -F @kontur/worker deploy`.**
+Плюс captures drop/reload/replay/large/reduced-motion и `browser-acceptance.json`. Exact evidence branch и SHA-256 каждого файла записаны в owner-package manifest/index.
 
-Они намеренно завершаются fail-closed до Cloudflare request. Старый прямой путь обходил:
-- rollback capture;
-- exact production D1 identity check;
-- explicit current runtime vars (`ZERO_SEASON_ENABLED=true`, old experiments off);
-- post-deploy exact asset convergence proof.
+## Что запрещено после передачи
 
-Production release — только через `.github/workflows/release-production.yml` после отдельного owner authorization. Staging — через `.github/workflows/release-staging.yml`.
+Без нового явного решения owner:
 
-## Production incident 17.08
+- не merge PR #12;
+- не push/merge в `main`;
+- не promote/switch production traffic;
+- не писать в production Worker/D1;
+- не делать destructive D1 reset;
+- не менять production secrets или Telegram configuration;
+- не использовать production как тестовый стенд.
 
-Run `32030041504` уже выполнил production D1 reset/migrations и deploy frozen source, создав Worker Version `b6a03ac0-ec1f-43b9-886a-dd1664c9f6c1`.
+Эти действия не являются незакрытым CORE blocker: они owner-constrained и намеренно не выполнялись.
 
-Последний red asset smoke получил старый public `index.html` после успешного deploy; `egg-stage-01.webp` вернулся как SPA fallback HTML. Это классифицировано как stale/public-generation race, а не отсутствие файла в source.
+## Что не передавать
 
-`docs/provenance/PRODUCTION_RELEASE_2026-08-17.md` содержит evidence и durable fix.
+Не добавлять в handoff:
 
-**Не повторять destructive production reset ради retry этого smoke.** Следующий live proof должен быть read-only/non-destructive.
-
-## Что НЕ передавать
-
-Не включать в обычный handoff:
-- `.env`;
-- API tokens/secrets;
-- Telegram cookies/sessions/accounts;
-- Cloudflare credentials;
+- `.env`, API tokens, cookies/sessions/accounts;
+- Cloudflare/Telegram credentials;
 - production D1 dumps;
-- browser profiles;
-- encryption keys;
-- private chat/research exports.
+- browser profiles, private exports, encryption keys;
+- `.git`, `node_modules`, `dist`, caches и временные runner files.
 
-Зашифрованный `.runtime-state/*.gpg` не является заменой безопасной отдельной передачи ключа.
-
-## Сообщение разработчику
-
-> Рабочая база «Контура»: `Ai-b0ss/kontur`, ветка `cleanup/repo-hygiene-shareable-source`, PR #11. Начни с `README.md`, `CURRENT_PRODUCT.md` и exact sources/evidence в `docs/product/source` + `docs/product/evidence`. Current flow A–E уже интегрирован: hook → 8Q/8 egg stages → bird reveal → `/worm` → Home; 5 backend roles дают 6 visual results, включая Kotosov presentation subtype. Старый V1–V5 runtime частично статически runtime-достижим из production entrypoints, но это не product authority и не доказательство emitted bytes каждого модуля. Не удаляй его без reachability/build proof. Не используй прямой `pnpm cf:deploy`; production только через guarded workflow после owner authorization. `5dabce57` остаётся historical forensic target, exact mapping к Git ещё не закрыт.
-
-## Definition of handoff-ready
-
-### Рабочий source handoff
-
-Нужны одновременно:
-- exact primary/evidence присутствуют и SHA gate green;
-- current A–E source/assets присутствуют;
-- clean clone install/check/tests/typecheck/build green на exact head;
-- runtime/source reachability artifact сохранён и прочитан;
-- secret/private-state scan green;
-- reproducible share-safe archive green;
-- одна branch + один зафиксированный commit;
-- прямой production deploy fail-closed.
-
-### Forensic-complete handoff
-
-Дополнительно:
-- закрыть `5dabce57 -> immutable Cloudflare version -> exact assets/source` настолько, насколько позволяют raw evidence;
-- закончить per-file runtime/build classification спорного runtime;
-- проиндексировать восстановленную Codex lineage 14.08;
-- не выдавать `UNKNOWN` за `PROVEN`.
-
-До этого PR остаётся draft/current-candidate. Merge — только по отдельному owner-разрешению.
+Использовать финальный owner package, а не старый ZIP `KONTUR_CORE_DONE_5ec223a_2026-08-22.zip`: тот архив был проверен и признан неполным/не привязанным к текущему дереву.

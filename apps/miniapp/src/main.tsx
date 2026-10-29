@@ -5,6 +5,8 @@ import './styles.css';
 import './experience-v2.css';
 import './restored.css';
 import './live-campaign.css';
+import './kontur-telegram-hotfix.css';
+import './kontur-hatch-master-frame-final.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

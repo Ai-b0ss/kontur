@@ -1,0 +1,76 @@
+/* Final cascade seal for the hatch master-frame candidate.
+   Imported last on purpose: old historical hatch layers remain in the repo,
+   but cannot re-introduce circular bird geometry, a reveal jump or Home overlap. */
+
+.lk-quiz-egg__inner > .lk-quiz-hatch__frame {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: auto;
+  height: auto;
+  aspect-ratio: auto;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Exact same master-frame coordinates from shell opening through settled bird.
+   The result copy reserves space below it instead of moving the bird. */
+.lk-first-time.lk-first-time--hatching .lk-quiz-egg-stage,
+.lk-first-time.lk-first-time--reveal .lk-quiz-egg-stage {
+  position: absolute;
+  z-index: 41;
+  top: 50%;
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  width: min(58vw, 230px);
+  margin: 0;
+  opacity: 1;
+  filter: none;
+  transform: translate(-50%, -50%);
+}
+
+.lk-first-time.lk-first-time--reveal .lk-reveal.lk-reveal--inline {
+  position: relative;
+  z-index: 55;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  width: 100%;
+  margin: 0 auto;
+  /* Egg geometry is 1101/1429, so the full-height master frame is taller
+     than its width. Reserve the real half-height plus a visible text gap. */
+  padding: calc(50dvh + 166px) 0 max(18px, env(safe-area-inset-bottom));
+  text-align: center;
+}
+
+.lk-home .lk-bird-stage--home {
+  height: 310px;
+  margin: 0 -8px 12px;
+  overflow: hidden;
+}
+
+.lk-home .lk-bird-stage--home .lk-canonical-bird,
+.lk-home .lk-bird-stage--home .lk-result-bird {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.lk-home .lk-identity {
+  margin-top: 0;
+}
+
+@media (max-height: 700px), (max-width: 360px) {
+  .lk-first-time.lk-first-time--hatching .lk-quiz-egg-stage,
+  .lk-first-time.lk-first-time--reveal .lk-quiz-egg-stage {
+    top: calc(50% - 18px);
+    width: min(58vw, 185px);
+  }
+
+  .lk-first-time.lk-first-time--reveal .lk-reveal.lk-reveal--inline {
+    padding-top: calc(50dvh + 120px);
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+}

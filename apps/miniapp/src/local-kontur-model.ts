@@ -1,5 +1,20 @@
 import type { ColoringDto } from '@kontur/contracts';
 
+const OWNER_ONLY_USERNAME = 'fff6pm';
+
+type LocalIdentityState = {
+  hatched: boolean;
+  player?: { username?: string | null } | null;
+};
+
+function normalizeUsername(value: string | null | undefined) {
+  return (value ?? '').trim().replace(/^@/, '').toLowerCase();
+}
+
+export function ownerOnlyFreshRun(state: LocalIdentityState | null | undefined) {
+  return normalizeUsername(state?.player?.username) === OWNER_ONLY_USERNAME;
+}
+
 export function wormWord(value: number) {
   const n = Math.abs(value) % 100;
   const last = n % 10;
@@ -14,19 +29,20 @@ export function replayRequested(search = '') {
 }
 
 export function needsLocalQuestions(
-  state: { hatched: boolean } | null | undefined,
+  state: LocalIdentityState | null | undefined,
   search = '',
 ) {
-  return Boolean(state && (!state.hatched || replayRequested(search)));
+  return Boolean(state && (ownerOnlyFreshRun(state) || !state.hatched || replayRequested(search)));
 }
 
 export type InitialLocalStage = 'hook' | 'community' | 'home';
 
 export function initialLocalStage(
-  state: { hatched: boolean },
+  state: LocalIdentityState,
   search = '',
 ): InitialLocalStage {
   const params = new URLSearchParams(search);
+  if (ownerOnlyFreshRun(state)) return 'hook';
   if (state.hatched) return params.get('replay') === '1' ? 'hook' : 'home';
   return params.get('community') === '1' ? 'community' : 'hook';
 }

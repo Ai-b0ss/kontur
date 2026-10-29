@@ -1,0 +1,67 @@
+version: 2.1
+
+jobs:
+  token-autopilot:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+    steps:
+      - run:
+          name: Check AUTOPILOT_GITHUB_TOKEN channel
+          command: |
+            set +x
+            test -n "${AUTOPILOT_GITHUB_TOKEN:-}" || exit 3
+            echo KONTUR_AUTOPILOT_GITHUB_TOKEN_PRESENT
+  token-handoff:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+    steps:
+      - run:
+          name: Check AUTOPILOT_HANDOFF_TOKEN channel
+          command: |
+            set +x
+            test -n "${AUTOPILOT_HANDOFF_TOKEN:-}" || exit 3
+            echo KONTUR_AUTOPILOT_HANDOFF_TOKEN_PRESENT
+  token-gh:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+    steps:
+      - run:
+          name: Check GH_TOKEN channel
+          command: |
+            set +x
+            test -n "${GH_TOKEN:-}" || exit 3
+            echo KONTUR_GH_TOKEN_PRESENT
+  token-github:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+    steps:
+      - run:
+          name: Check GITHUB_TOKEN channel
+          command: |
+            set +x
+            test -n "${GITHUB_TOKEN:-}" || exit 3
+            echo KONTUR_GITHUB_TOKEN_PRESENT
+
+workflows:
+  qwen-runner-token-probe-via-kontur:
+    jobs:
+      - token-autopilot:
+          filters:
+            branches:
+              only: ci/qwen-runner-token-probe-via-kontur-20260825
+      - token-handoff:
+          filters:
+            branches:
+              only: ci/qwen-runner-token-probe-via-kontur-20260825
+      - token-gh:
+          filters:
+            branches:
+              only: ci/qwen-runner-token-probe-via-kontur-20260825
+      - token-github:
+          filters:
+            branches:
+              only: ci/qwen-runner-token-probe-via-kontur-20260825

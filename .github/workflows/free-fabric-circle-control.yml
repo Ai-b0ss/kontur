@@ -1,0 +1,112 @@
+name: FREE FABRIC CircleCI Kontur Control
+
+on:
+  push:
+    branches:
+      - ci/kontur-circle-vite-20260821
+    paths:
+      - .github/workflows/free-fabric-circle-control.yml
+      - .free-fabric/circle_control_v3.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  circle-control:
+    runs-on: [self-hosted, Linux, X64, free-fabric-kontur]
+    timeout-minutes: 35
+    steps:
+      - name: Checkout control branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Persist workflow-start heartbeat
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .free-fabric/runtime
+          printf '%s\n' '{"phase":"workflow-started","result":{"status":"running"}}' > .free-fabric/runtime/circle-control-state.json
+          git config user.name "FREE FABRIC bot"
+          git config user.email "free-fabric@users.noreply.github.com"
+          git add -- .free-fabric/runtime/circle-control-state.json
+          git commit -m "FREE FABRIC: workflow started [skip ci]"
+          git pull --rebase origin ci/kontur-circle-vite-20260821
+          git push origin HEAD:ci/kontur-circle-vite-20260821
+
+      - name: Confirm encrypted secrets are mounted
+        shell: bash
+        env:
+          CIRCLE_TOKEN_A: ${{ secrets.CIRCLE_TOKEN_A }}
+          CIRCLE_TOKEN_B: ${{ secrets.CIRCLE_TOKEN_B }}
+        run: |
+          set -euo pipefail
+          test -n "${CIRCLE_TOKEN_A:-}" || { echo 'CIRCLE_TOKEN_A missing'; exit 11; }
+          test -n "${CIRCLE_TOKEN_B:-}" || { echo 'CIRCLE_TOKEN_B missing'; exit 12; }
+          echo 'Both CircleCI tokens are present; values remain masked.'
+
+      - name: Start or adopt Circle pipeline
+        id: start
+        continue-on-error: true
+        env:
+          CIRCLE_TOKEN_A: ${{ secrets.CIRCLE_TOKEN_A }}
+          CIRCLE_TOKEN_B: ${{ secrets.CIRCLE_TOKEN_B }}
+        run: python3 .free-fabric/circle_control_v3.py start
+
+      - name: Persist immediate sanitized heartbeat
+        if: always()
+        run: |
+          set -euo pipefail
+          test -f .free-fabric/runtime/circle-control-state.json
+          git config user.name "FREE FABRIC bot"
+          git config user.email "free-fabric@users.noreply.github.com"
+          git add -- .free-fabric/runtime/circle-control-state.json
+          if ! git diff --cached --quiet; then
+            git commit -m "FREE FABRIC: persist Circle start heartbeat [skip ci]"
+            git pull --rebase origin ci/kontur-circle-vite-20260821
+            git push origin HEAD:ci/kontur-circle-vite-20260821
+          fi
+
+      - name: Poll selected Circle pipeline to terminal state
+        if: always()
+        id: poll
+        continue-on-error: true
+        env:
+          CIRCLE_TOKEN_A: ${{ secrets.CIRCLE_TOKEN_A }}
+          CIRCLE_TOKEN_B: ${{ secrets.CIRCLE_TOKEN_B }}
+        run: python3 .free-fabric/circle_control_v3.py poll
+
+      - name: Persist final sanitized Circle result
+        if: always()
+        run: |
+          set -euo pipefail
+          test -f .free-fabric/runtime/circle-control-state.json
+          git config user.name "FREE FABRIC bot"
+          git config user.email "free-fabric@users.noreply.github.com"
+          git add -- .free-fabric/runtime/circle-control-state.json
+          if ! git diff --cached --quiet; then
+            git commit -m "FREE FABRIC: persist Circle final result [skip ci]"
+            git pull --rebase origin ci/kontur-circle-vite-20260821
+            git push origin HEAD:ci/kontur-circle-vite-20260821
+          fi
+
+      - name: Upload sanitized control evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: free-fabric-circle-control-evidence
+          path: .free-fabric/runtime/circle-control-state.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Final gate
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json
+          d=json.load(open('.free-fabric/runtime/circle-control-state.json'))
+          print(json.dumps(d,ensure_ascii=False,indent=2))
+          if (d.get('result') or {}).get('status')!='success':
+              raise SystemExit(2)
+          PY

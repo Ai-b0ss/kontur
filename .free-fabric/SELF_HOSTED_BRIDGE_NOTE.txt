@@ -1,0 +1,1 @@
+Kontur Circle control is intentionally routed through a temporary self-hosted GitHub runner with label free-fabric-kontur. GitHub-hosted minutes are not required. CircleCI secrets remain in GitHub Secrets and are injected only into the self-hosted job.

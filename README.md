@@ -1,7 +1,8 @@
 # Контур
 
-> **Начни отсюда.** Это единая текущая рабочая Git-база Telegram Mini App + бота «Контур».  
-> Она экспортирована из проверенного изолированного Codex `v86-local-candidate` 14 августа и содержит доказанную продуктовую линию A–E, Worker/D1 runtime, migrations, tests и release utilities.
+> **Текущий кандидат на передачу и проверку (19.08.2026).** Рабочая ветка: `fix/kontur-core-visual-continuity-20260818`, PR #12. Текущий проверяемый коммит: `60d1703a958757dc27222338cc41a9349382efb5`. Это развитие чистой handoff-базы `cleanup/repo-hygiene-shareable-source`: в нём собран текущий первый пользовательский путь, единая система шести визуальных персонажей и исправления непрерывности q1→q8→раскрытие. Полный Chromium/CircleCI и non-destructive Cloudflare staging proof для этого exact head ещё не закрыты, поэтому PR остаётся draft и в production не продвигается.
+>
+> **Начни отсюда.** Это единая текущая рабочая Git-база Telegram Mini App + бота «Контур». Она экспортирована из проверенного изолированного Codex `v86-local-candidate` 14 августа и содержит доказанную продуктовую линию A–E, Worker/D1 runtime, migrations, tests и release utilities.
 
 ## Что за продукт
 
@@ -19,14 +20,18 @@
 
 Проект не находится в состоянии «нужно придумать hook/птиц с нуля».
 
-После ТЗ 13 августа и работы через Codex 14 августа:
+После ТЗ 13 августа и работы через Codex 14–19 августа:
 - **STEP A:** Hook Hybrid H3 — принят;
 - **STEP B:** одно hero egg переезжает/уменьшается в q1 — принят;
 - **STEP C:** 8 deterministic crack states — принят;
 - **STEP D:** first-time flow `hook -> 8Q -> hatching -> reveal -> /worm -> Home` — интегрирован в current source;
 - **STEP E:** принят и интегрирован — 5 canonical backend roles дают 6 visual results: сорока, дятел, сойка, журавль, сова и Котосов;
 - Котосов не является шестой backend-role: это presentation-only вариант уже победившего `vibe`, когда `coder` — строго единственный сильнейший secondary score; ничья/неполные данные дают сову;
-- исторический следующий gate после E был STEP F — безопасная Worker Version без переключения traffic.
+- q1–q7 теперь имеют явный React `visualQuestionIndex`: визуальное состояние яйца/прогресса меняется сразу после ответа, а номер вопроса коммитится после жеста;
+- q8 разделяет `eggResponding` и `hatchReady`: видимое раскрытие начинается только после завершения жеста и готовности результата;
+- hatching и reveal используют одну непрерывную сцену и один `QuizEgg`; отдельный дублирующий `ResultBird` удалён;
+- текущая скорлупа раскрывается двумя согласованными половинами, птица остаётся за скорлупой;
+- следующий обязательный gate — реальный Chromium user journey на exact head, затем isolated non-destructive staging и Telegram/WebView smoke.
 
 Current implementation:
 - `apps/miniapp/src/screens/LocalKontur.tsx`;
@@ -55,7 +60,7 @@ Current implementation:
 3. [`docs/product/source/FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md`](docs/product/source/FINAL_TZ_HOOK_QUIZ_MOTION_ALIGNMENT.md) — exact final ТЗ;
 4. [`docs/product/evidence/PREVIEW_INTEGRATION_GATE_2026-08-14.md`](docs/product/evidence/PREVIEW_INTEGRATION_GATE_2026-08-14.md) — exact интеграционный gate после STEP E;
 5. [`docs/product/evidence/RESULT_TAXONOMY_ALIGNMENT_2026-08-14.md`](docs/product/evidence/RESULT_TAXONOMY_ALIGNMENT_2026-08-14.md) — exact taxonomy/owner acceptance;
-6. [`docs/product/DECISION_LOG_2026-08-14.md`](docs/product/DECISION_LOG_2026-08-14.md) — текущая карта A–E;
+6. [`docs/product/evidence/KONTUR_REQUIREMENT_MATRIX_2026-08-18.md`](docs/product/evidence/KONTUR_REQUIREMENT_MATRIX_2026-08-18.md) — текущая матрица выполненного/ожидающего проверки;
 7. [`ARCHITECTURE.md`](ARCHITECTURE.md) и [`CODEBASE_MAP.md`](CODEBASE_MAP.md);
 8. [`HANDOFF.md`](HANDOFF.md);
 9. [`AGENTS.md`](AGENTS.md) — правила для AI/агентов;
@@ -109,27 +114,14 @@ Guarded release run `32030041504`:
 
 ## Проверка чистого клона
 
-CI выполняет:
-- `pnpm install --frozen-lockfile`;
-- exact `Handoff safety gate`;
-- runtime/source reachability v2;
-- deployment-propagation regression;
-- unit/integration/Worker tests;
-- typecheck;
-- economy/D1 checks;
-- production Mini App build;
-- read-only public provenance probe;
-- reproducible share-safe archive;
-- изолированный Cloudflare staging dry-run.
-
-**Green считается доказанным только для exact commit, на котором реально завершился этот CI.** На текущем head статус пока не повышать: GitHub Actions connector временно не отдаёт runs/jobs.
-
-Локально базовый полный gate:
+Базовый полный gate:
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 pnpm check
 ```
+
+Для текущего PR этого недостаточно для финального выпуска: нужен отдельный реальный Chromium/CircleCI user journey, затем isolated non-destructive staging и Telegram/WebView smoke именно на проверяемом exact head.
 
 Dev:
 
@@ -144,7 +136,7 @@ pnpm dev
 
 Причина: прямой Wrangler deploy обходил rollback capture, D1 identity gate, current runtime vars и post-deploy convergence proof.
 
-Production release допустим только через reviewed `.github/workflows/release-production.yml` после отдельного owner authorization. Staging — через `.github/workflows/release-staging.yml`.
+Production release допустим только через reviewed `.github/workflows/release-production.yml` после отдельного owner authorization. Staging — только изолированный и non-destructive.
 
 ## Безопасность
 
@@ -156,8 +148,6 @@ Production release допустим только через reviewed `.github/wo
 - private chat/research exports;
 - browser profiles;
 - encryption keys.
-
-В `.runtime-state/` разрешён только уже зашифрованный `.gpg`; ключ хранится отдельно.
 
 Production/deploy без отдельного согласования не трогать.
 

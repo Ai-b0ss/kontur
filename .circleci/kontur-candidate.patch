@@ -1,0 +1,125 @@
+diff --git a/apps/miniapp/src/screens/LocalKontur.tsx b/apps/miniapp/src/screens/LocalKontur.tsx
+--- a/apps/miniapp/src/screens/LocalKontur.tsx
++++ b/apps/miniapp/src/screens/LocalKontur.tsx
+@@
+ import { ApiError, OfflineError, api, authenticate } from '../api.js';
++import { CanonicalBirdVisual } from '../components/CanonicalBirdVisual.js';
+ import { LocalBirdVisual } from '../components/LocalBirdVisual.js';
+ import { QuizEgg } from '../components/QuizEgg.js';
+-import { ResultBird } from '../components/ResultBird.js';
+@@
+       if (replayMode && state) {
+-        const localResult = resolveRole(finalAnswers);
+-        const visualResult = selectBirdResult({
+-          resolvedRole: localResult.role,
+-          scores: localResult.scores,
+-        });
++        // Повтор теста не меняет серверный профиль, поэтому и reveal должен
++        // показывать ту же сохранённую птицу, которая останется на Home.
++        const savedBird = birdPresentation(
++          state.player.role,
++          state.player.roleTitle ?? 'птица',
++          state.player.userId,
++        );
+         setReveal({ state });
+-        setRevealResultId(visualResult.resultId);
+-        setRevealNote(personalizedBirdNote(visualResult.resultId, finalAnswers));
++        setRevealResultId(savedBird.resultId);
++        setRevealNote(savedBird.note);
+         setHatchReady(true);
+         haptic('ok');
+         return;
+@@
+           <QuizEgg
+             stage={eggStage}
+             hatching={stage === 'hatching' || stage === 'reveal'}
+             resultId={revealResultId}
++            palette={reveal?.state.player.palette ?? state?.player.palette ?? null}
+           />
+@@
+-            {index > 0 && !busy && (
+-              <button className="lk-text-button" onClick={() => { const previous = Math.max(0, index - 1); setIndex(previous); setVisualQuestionIndex(previous); }}>← назад</button>
++            {index > 0 && !busy && !eggResponding && !answerLock.current && (
++              <button className="lk-text-button" onClick={() => {
++                if (busy || eggResponding || answerLock.current) return;
++                const previous = Math.max(0, index - 1);
++                setIndex(previous);
++                setVisualQuestionIndex(previous);
++              }}>← назад</button>
+             )}
+@@
+         <span className="lk-hero-index" aria-hidden="true">01</span>
+         <div className={`lk-bird-stage lk-bird-stage--home ${birdPulse ? 'is-pulsing' : ''}`}>
+-          <ResultBird resultId={currentBird.resultId} />
++          <CanonicalBirdVisual resultId={currentBird.resultId} palette={state.player.palette} />
+         </div>
+diff --git a/apps/miniapp/test/local-kontur.test.ts b/apps/miniapp/test/local-kontur.test.ts
+--- a/apps/miniapp/test/local-kontur.test.ts
++++ b/apps/miniapp/test/local-kontur.test.ts
+@@
+ test('q8 hatch reuses shell art inside QuizEgg and delays visible hatch until response gesture ends', async () => {
+   const egg = await readFile(new URL('../src/components/QuizEgg.tsx', import.meta.url), 'utf8');
+   const css = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
++  const screen = await readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8');
+   assert.match(egg, /lk-quiz-egg__hatch-shells/);
+-  assert.equal((egg.match(/src="\/quiz\/egg-stage-08\.webp"/g) ?? []).length, 3);
+-  assert.match(css, /is-egg-responding[\s\S]*animation-delay: 260ms/);
+-  assert.match(css, /legacy hatch sibling supplies only glow\/bird/i);
++  assert.equal((egg.match(/src="\/quiz\/egg-stage-08\.webp"/g) ?? []).length, 2);
++  assert.equal((egg.match(/src="\/quiz\/egg-crack-light\.webp"/g) ?? []).length, 1);
++  assert.match(screen, /shouldEnterQ8Hatching\(stage, eggResponding, hatchReady\)/);
++  assert.match(screen, /if \(!eggResponding && hatchReady\) setStage\('hatching'\)/);
++  assert.doesNotMatch(css, /animation-delay:\s*260ms/);
+ });
++
++test('equipped palette stays on the same canonical bird from hatch through Home', async () => {
++  const screen = await readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8');
++  assert.match(screen, /palette=\{reveal\?\.state\.player\.palette \?\? state\?\.player\.palette \?\? null\}/);
++  assert.match(screen, /<CanonicalBirdVisual resultId=\{currentBird\.resultId\} palette=\{state\.player\.palette\} \/>/);
++  assert.doesNotMatch(screen, /<ResultBird resultId=\{currentBird\.resultId\}/);
++});
++
++test('quiz back control is unavailable while an answer transition is locked', async () => {
++  const screen = await readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8');
++  assert.match(screen, /index > 0 && !busy && !eggResponding && !answerLock\.current/);
++  assert.match(screen, /if \(busy \|\| eggResponding \|\| answerLock\.current\) return;/);
++});
++
++test('replay keeps the saved bird identity instead of presenting a temporary new bird', async () => {
++  const screen = await readFile(new URL('../src/screens/LocalKontur.tsx', import.meta.url), 'utf8');
++  const replayBranch = screen.match(/if \(replayMode && state\) \{([\s\S]*?)\n      \}\n      const result = await api\.localHatch/)?.[1] ?? '';
++  assert.match(replayBranch, /const savedBird = birdPresentation\(/);
++  assert.match(replayBranch, /setRevealResultId\(savedBird\.resultId\)/);
++  assert.match(replayBranch, /setRevealNote\(savedBird\.note\)/);
++  assert.doesNotMatch(replayBranch, /resolveRole|selectBirdResult|personalizedBirdNote/);
++});
+
+diff --git a/apps/miniapp/test/hatch-reveal-persistence.test.ts b/apps/miniapp/test/hatch-reveal-persistence.test.ts
+--- a/apps/miniapp/test/hatch-reveal-persistence.test.ts
++++ b/apps/miniapp/test/hatch-reveal-persistence.test.ts
+@@ -40,20 +40,16 @@
+   assert.doesNotMatch(egg, /<svg|<path|<line|stroke=/, 'QuizEgg must not paint a fake SVG crack over the raster shell');
+ });
+ 
+-test('the unified hatch scene beats the legacy local stylesheet without important hacks', async () => {
++test('the active hatch and reveal states keep the persistent QuizEgg visible without important hacks', async () => {
+   const corrections = await readFile(new URL('../src/kontur-core-corrections.css', import.meta.url), 'utf8');
+-  const local = await readFile(new URL('../src/local-kontur.css', import.meta.url), 'utf8');
++  const egg = await readFile(new URL('../src/components/QuizEgg.tsx', import.meta.url), 'utf8');
+ 
+   assert.match(
+-    local,
+-    /\.lk-first-time--hatching \.lk-quiz-egg-stage\s*\{\s*opacity:\s*0;\s*filter:\s*brightness\(1\.8\);\s*\}/,
+-    'the remaining legacy rule is tracked until local-kontur.css can be cleaned with a normal patch',
+-  );
+-  assert.match(
+     corrections,
+-    /\.lk-first-time\.lk-first-time--hatching \.lk-quiz-egg-stage,[\s\S]*?opacity:\s*1;[\s\S]*?filter:\s*none;/,
+-    'the correction selector must be strictly more specific than the legacy two-class selector',
++    /\.lk-first-time\.lk-first-time--hatching \.lk-quiz-egg-stage,\s*\.lk-first-time\.lk-first-time--reveal \.lk-quiz-egg-stage\s*\{[\s\S]*?opacity:\s*1;[\s\S]*?filter:\s*none;/,
++    'the active hatch/reveal contract must keep the same QuizEgg scene visible and unfiltered',
+   );
++  assert.match(egg, /className={`lk-quiz-egg\$\{hatching \? ' is-hatching' : ''\}`}/);
+   assert.doesNotMatch(
+     corrections,
+     /opacity:\s*1\s*!important|filter:\s*none\s*!important/,

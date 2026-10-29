@@ -1,0 +1,4 @@
+sha=289ef82f76536aa05b2efab59400e80bcb94d50a
+purpose=read-only-production-observer
+production-write=false
+d1-write=false

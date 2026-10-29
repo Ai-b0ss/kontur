@@ -1,0 +1,77 @@
+name: Kontur exact Linux build proof
+
+on:
+  push:
+    branches:
+      - ci/kontur-circle-vite-20260821
+    paths:
+      - .github/workflows/kontur-exact-linux-build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-linux-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact PR12 head
+        uses: actions/checkout@v4
+        with:
+          ref: 32034e8af92923a2abe09ad00e3220f6da1ed21c
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enable pnpm 11
+        run: |
+          corepack enable
+          corepack prepare pnpm@11 --activate
+          pnpm --version
+
+      - name: Install exact locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify Linux native build packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          node -e "require('@rollup/rollup-linux-x64-gnu'); console.log('ROLLUP_LINUX_NATIVE_PASS')"
+          node -e "require('@esbuild/linux-x64'); console.log('ESBUILD_LINUX_NATIVE_PASS')"
+
+      - name: Mini App tests
+        run: pnpm -F @kontur/miniapp test
+
+      - name: TypeScript typecheck
+        run: pnpm typecheck
+
+      - name: Canonical production build
+        run: pnpm build
+
+      - name: Record exact proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d apps/miniapp/dist
+          printf '%s\n' \
+            'status=success' \
+            'source_sha=32034e8af92923a2abe09ad00e3220f6da1ed21c' \
+            "node=$(node --version)" \
+            "pnpm=$(pnpm --version)" \
+            > /tmp/kontur-exact-linux-proof.txt
+          find apps/miniapp/dist -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/kontur-dist-sha256.txt
+          cat /tmp/kontur-exact-linux-proof.txt
+
+      - name: Upload proof and dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: kontur-exact-linux-proof-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            /tmp/kontur-exact-linux-proof.txt
+            /tmp/kontur-dist-sha256.txt
+            apps/miniapp/dist

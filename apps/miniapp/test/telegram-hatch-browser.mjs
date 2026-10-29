@@ -27,8 +27,8 @@ function state(hatched = false) {
     serverTime: new Date().toISOString(), gameDay: 1, isDoubleDay: false, hatched,
     features: { eggs: true, community: false, passive: false },
     player: {
-      userId: 991760, username: 'telegram_qa', role: hatched ? 'designer' : null,
-      roleTitle: hatched ? 'Дизайнер' : null, roleTagline: hatched ? 'Делает сложное понятным' : null,
+      userId: 991760, username: 'telegram_qa', role: hatched ? 'manager' : null,
+      roleTitle: hatched ? 'Менеджер' : null, roleTagline: hatched ? 'Собирает людей и следующий шаг' : null,
       birdName: null, coloring: 'plain', coloringTitle: 'Обычный', palette,
       hatchedAt: hatched ? new Date().toISOString() : null, wallet: 0, reputation: 0, signalCount: 0,
     },
@@ -77,13 +77,14 @@ async function mockApi(page, hatchDelay) {
     if (path === '/api/v1/auth/telegram') value = { token: 'telegram-qa', state: state(hatched) };
     else if (path === '/api/v4/local/state') value = { state: state(hatched), colorings: [] };
     else if (path === '/api/v4/local/questions') value = { questions };
+    else if (path === '/api/v4/local/colorings') value = { colorings: [] };
     else if (path === '/api/v4/local/hatch') {
       await new Promise((resolve) => setTimeout(resolve, hatchDelay));
       hatched = true;
       value = {
-        role: 'designer', roleTitle: 'Дизайнер', roleTagline: 'Делает сложное понятным',
+        role: 'manager', roleTitle: 'Менеджер', roleTagline: 'Собирает людей и следующий шаг',
         coloring: 'plain', coloringTitle: 'Обычный', palette,
-        shareText: 'Я в «Контуре»: Дизайнер.', state: state(true),
+        shareText: 'Я в «Контуре»: Менеджер.', state: state(true),
       };
     } else { status = 404; value = { error: { code: 'NOT_FOUND', message: path } }; }
     await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) });
@@ -162,36 +163,77 @@ async function prove(reduced) {
   const trace = await page.evaluate(() => window.__telegramHatchTrace ?? []);
   const active = trace.filter((s) => ['pulse', 'cracks', 'flash', 'reveal', 'settled'].includes(s.phase));
   for (const phase of ['pulse', 'cracks', 'flash', 'reveal']) ok(active.some((s) => s.phase === phase), `${reduced ? 'reduced' : 'normal'}: missing ${phase}`);
-  ok(active.some((s) => s.phase === 'cracks' && s.halves.opacity > .2), 'shell halves never became visible');
+  ok(active.every((s) => !s.halves.present && !s.cracks.present), 'legacy shell layers are still mounted');
   for (const sample of active.filter((s) => ['pulse', 'cracks', 'flash'].includes(s.phase))) {
     ok(!sample.bird.present || sample.bird.opacity < .02 || sample.bird.visibility === 'hidden', `premature bird ${JSON.stringify(sample)}`);
     ok(!sample.frame.present || sample.frame.opacity < .02 || sample.frame.visibility === 'hidden', `premature frame ${JSON.stringify(sample)}`);
     ok(!sample.question.present || sample.question.opacity < .02 || sample.question.visibility === 'hidden', `stale q8 copy ${JSON.stringify(sample)}`);
-    ok(Math.max(sample.base.opacity, sample.halves.opacity, sample.cracks.opacity, sample.flash.opacity) > .04, `empty hatch frame ${JSON.stringify(sample)}`);
+    ok(Math.max(sample.base.opacity, sample.flash.opacity) > .04, `empty hatch frame ${JSON.stringify(sample)}`);
   }
-  ok(active.some((s) => s.phase === 'flash' && s.flash.opacity > .95), 'flash never fully covered scene');
-  ok(active.filter((s) => s.phase === 'reveal').every((s) => !s.bird.present || s.flash.opacity > .02 || s.bird.opacity > .02), 'empty reveal handoff');
+  ok(active.some((s) => s.phase === 'flash' && s.flash.opacity > .9), 'radial flash never reached cover peak');
+  ok(active.filter((s) => s.phase === 'reveal').every((s) => !s.bird.present || s.bird.opacity > .02 || s.frame.opacity > .02), 'empty reveal handoff');
 
   const layout = await page.evaluate(() => {
     const rect = (selector) => {
       const box = document.querySelector(selector)?.getBoundingClientRect();
-      return box ? { top: box.top, bottom: box.bottom, left: box.left, right: box.right } : null;
+      return box ? { top: box.top, bottom: box.bottom, left: box.left, right: box.right, width: box.width, height: box.height } : null;
     };
+    const flash = document.querySelector('.lk-quiz-hatch__flash');
     return {
-      viewport: { width: innerWidth, height: innerHeight }, ring: rect('.lk-quiz-egg__ring'),
+      viewport: { width: innerWidth, height: innerHeight },
+      ring: rect('.lk-quiz-egg__ring'), inner: rect('.lk-quiz-egg__inner'), frame: rect('.lk-quiz-hatch__frame'),
+      birdImage: rect('.lk-quiz-hatch__bird > .lk-result-bird'),
       kicker: rect('.lk-reveal--inline > .lk-kicker'), name: rect('.lk-reveal--inline h1'), panel: rect('.lk-reveal--inline'),
+      resultId: document.querySelector('.lk-quiz-hatch__bird')?.getAttribute('data-bird-result') ?? null,
       question: document.querySelector('.lk-question--egg')?.textContent?.trim() ?? null,
+      flashBackground: flash ? getComputedStyle(flash).backgroundImage : '',
+      flashColor: flash ? getComputedStyle(flash).backgroundColor : '',
+      halvesPresent: Boolean(document.querySelector('.lk-hatch-halves')),
+      cracksPresent: Boolean(document.querySelector('.lk-quiz-egg__cracks')),
     };
   });
   ok(layout.viewport.width === 390 && layout.viewport.height === 760, `wrong viewport ${JSON.stringify(layout.viewport)}`);
-  ok(layout.ring && layout.kicker && layout.panel, `missing reveal geometry ${JSON.stringify(layout)}`);
+  ok(layout.ring && layout.inner && layout.frame && layout.birdImage && layout.kicker && layout.panel, `missing reveal geometry ${JSON.stringify(layout)}`);
+  ok(layout.resultId === 'crane', `worst-case tall crane was not rendered: ${layout.resultId}`);
   ok(layout.kicker.top >= layout.ring.bottom + 12, `kicker overlaps ring: ${JSON.stringify(layout)}`);
   ok(layout.panel.bottom <= 761 && layout.panel.left >= -1 && layout.panel.right <= 391, `panel overflow: ${JSON.stringify(layout)}`);
+  ok(layout.inner.top >= layout.ring.top + 5 && layout.inner.bottom <= layout.ring.bottom - 5, `inner mask does not match ring: ${JSON.stringify(layout)}`);
+  ok(layout.frame.top >= layout.inner.top - 1 && layout.frame.bottom <= layout.inner.bottom + 1, `bird frame escaped master mask: ${JSON.stringify(layout)}`);
+  ok(layout.birdImage.top >= layout.inner.top - 1 && layout.birdImage.bottom <= layout.inner.bottom + 1, `bird art escaped master mask: ${JSON.stringify(layout)}`);
+  ok(layout.flashBackground.includes('radial-gradient'), `flash is not radial: ${layout.flashBackground}`);
+  ok(layout.flashColor === 'rgba(0, 0, 0, 0)', `flash has opaque background color: ${layout.flashColor}`);
+  ok(!layout.halvesPresent && !layout.cracksPresent, `legacy shell DOM survived: ${JSON.stringify(layout)}`);
   ok(!layout.question, `q8 text still mounted: ${layout.question}`);
-  ok(errors.length === 0, `browser errors: ${JSON.stringify(errors)}`);
+  ok(errors.length === 0, `browser errors before result: ${JSON.stringify(errors)}`);
   await page.screenshot({ path: join(evidence, reduced ? 'telegram-390x760-reduced.png' : 'telegram-390x760-normal.png'), fullPage: false });
+
+  await page.getByRole('button', { name: 'что дальше' }).click();
+  await page.getByRole('button', { name: 'к моей птице' }).waitFor({ timeout: 2000 });
+  await page.getByRole('button', { name: 'к моей птице' }).click();
+  await page.locator('main.lk-home').waitFor({ timeout: 2000 });
+
+  const home = await page.evaluate(() => {
+    const rect = (selector) => {
+      const box = document.querySelector(selector)?.getBoundingClientRect();
+      return box ? { top: box.top, bottom: box.bottom, left: box.left, right: box.right } : null;
+    };
+    const stage = document.querySelector('.lk-bird-stage--home');
+    return {
+      stage: rect('.lk-bird-stage--home'),
+      identity: rect('.lk-identity'),
+      resultId: document.querySelector('.lk-bird-stage--home .lk-canonical-bird')?.getAttribute('data-bird-result') ?? null,
+      overflow: stage ? getComputedStyle(stage).overflow : null,
+    };
+  });
+  ok(home.stage && home.identity, `missing Home crane geometry ${JSON.stringify(home)}`);
+  ok(home.resultId === 'crane', `Home did not preserve crane: ${JSON.stringify(home)}`);
+  ok(home.overflow === 'hidden', `Home bird stage is not clipped: ${JSON.stringify(home)}`);
+  ok(home.identity.top >= home.stage.bottom + 8, `Home identity overlaps bird stage: ${JSON.stringify(home)}`);
+  ok(errors.length === 0, `browser errors after Home: ${JSON.stringify(errors)}`);
+  await page.screenshot({ path: join(evidence, reduced ? 'telegram-390x760-home-reduced.png' : 'telegram-390x760-home-normal.png'), fullPage: false });
+
   await context.close();
-  return { reduced, traceSamples: trace.length, layout };
+  return { reduced, traceSamples: trace.length, layout, home };
 }
 
 const { server, origin } = await startServer();

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ColoringDto, EggOpenResponse, GameState, QuestionDto } from '@kontur/contracts';
-import { resolveRole, type Role } from '@kontur/core';
+import { ROLES, resolveRole, type Role } from '@kontur/core';
 import { ApiError, OfflineError, api, authenticate } from '../api.js';
 import { CanonicalBirdVisual } from '../components/CanonicalBirdVisual.js';
 import { LocalBirdVisual } from '../components/LocalBirdVisual.js';
 import { QuizEgg } from '../components/QuizEgg.js';
-import { initialLocalStage, needsLocalQuestions, reconcileColoring, shouldReduceMotion, wormWord } from '../local-kontur-model.js';
+import { initialLocalStage, needsLocalQuestions, ownerOnlyFreshRun, reconcileColoring, shouldReduceMotion, wormWord } from '../local-kontur-model.js';
 import {
   canBeginHatchFlash,
   hatchTimings,
@@ -155,6 +155,7 @@ export function LocalKontur() {
   const hatchPhaseTimer = useRef<number | null>(null);
   const answerLock = useRef(false);
   const timings = hatchTimings(reducedMotion);
+  const ownerMode = ownerOnlyFreshRun(state);
 
   const refresh = useCallback(async () => {
     if (refreshLock.current || actionLock.current) return null;
@@ -200,7 +201,7 @@ export function LocalKontur() {
       setColorings(payload.colorings);
       setQuestions(q?.questions ?? []);
       const initialStage = initialLocalStage(payload.state, search);
-      setReplayMode(payload.state.hatched && initialStage === 'hook');
+      setReplayMode(!ownerOnlyFreshRun(payload.state) && payload.state.hatched && initialStage === 'hook');
       setStage(initialStage);
     } catch (e) {
       setError(message(e, 'Контур не открылся'));
@@ -226,13 +227,13 @@ export function LocalKontur() {
 
   useEffect(() => {
     const onVisible = () => {
-      if (document.visibilityState === 'visible' && state?.hatched && !busy) {
+      if (document.visibilityState === 'visible' && state?.hatched && !busy && !ownerMode) {
         void refresh().catch(() => {});
       }
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [state?.hatched, busy, refresh]);
+  }, [state?.hatched, busy, refresh, ownerMode]);
 
   const advanceCommunity = () => {
     haptic('tap');
@@ -335,6 +336,54 @@ export function LocalKontur() {
     if (!beginAction()) return;
     setError(null);
     try {
+      if (ownerMode && state) {
+        const localResult = resolveRole(finalAnswers);
+        const visualResult = selectBirdResult({
+          resolvedRole: localResult.role,
+          scores: localResult.scores,
+        });
+        const meta = ROLES[localResult.role];
+        const plain = colorings.find((item) => item.code === 'plain');
+        const previewState: GameState = {
+          ...state,
+          hatched: true,
+          player: {
+            ...state.player,
+            role: localResult.role,
+            roleTitle: meta.title,
+            roleTagline: meta.tagline,
+            birdName: null,
+            coloring: plain?.code ?? state.player.coloring,
+            coloringTitle: plain?.title ?? state.player.coloringTitle,
+            palette: plain?.palette ?? state.player.palette,
+            hatchedAt: new Date().toISOString(),
+          },
+        };
+        setReveal({ state: previewState });
+        setRevealResultId(visualResult.resultId);
+        setRevealNote(personalizedBirdNote(visualResult.resultId, finalAnswers));
+        setState(previewState);
+        if (plain) {
+          setColorings((current) => current.map((item) => ({
+            ...item,
+            owned: item.code === plain.code ? true : item.owned,
+            equipped: item.code === plain.code,
+          })));
+        }
+        if (localResult.role === 'vibe') {
+          try {
+            window.localStorage.setItem(
+              vibeVariantStorageKey(previewState.player.userId),
+              visualResult.resultId === 'kotosov' ? 'kotosov' : 'owl',
+            );
+          } catch {
+            // Owner-only presentation state may safely fall back to owl.
+          }
+        }
+        setHatchReady(true);
+        haptic('ok');
+        return;
+      }
       if (replayMode && state) {
         // Повтор теста не меняет серверный профиль, поэтому и reveal должен
         // показывать ту же сохранённую птицу, которая останется на Home.
@@ -387,7 +436,7 @@ export function LocalKontur() {
   };
 
   const openEgg = async () => {
-    if (!state?.egg?.affordable || !beginAction()) return;
+    if (ownerMode || !state?.egg?.affordable || !beginAction()) return;
     setEggOpening(true);
     setError(null);
     const requestId = pendingEggRequestId.current ?? crypto.randomUUID();
@@ -419,7 +468,7 @@ export function LocalKontur() {
   };
 
   const equip = async (code: string) => {
-    if (!beginAction()) return;
+    if (ownerMode || !beginAction()) return;
     setError(null);
     try {
       const result = await api.localEquip(code);
@@ -443,6 +492,7 @@ export function LocalKontur() {
   };
 
   const manualRefresh = async () => {
+    if (ownerMode) return;
     setError(null);
     try {
       await refresh();
@@ -465,7 +515,7 @@ export function LocalKontur() {
       setBirdAssetReady(false);
       setHatchMinimumElapsed(false);
       setHatchPhase('idle');
-      setReplayMode(true);
+      setReplayMode(!ownerMode);
       setStage('hook');
     } catch (e) {
       setError(message(e, 'Не получилось открыть тест заново'));
@@ -638,7 +688,7 @@ export function LocalKontur() {
         <button
           className={`lk-refresh ${refreshing ? 'is-refreshing' : ''}`}
           onClick={() => void manualRefresh()}
-          disabled={busy || refreshing}
+          disabled={busy || refreshing || ownerMode}
           aria-label={refreshing ? 'Обновляется' : 'Обновить'}
           aria-busy={refreshing}
         />
@@ -682,7 +732,7 @@ export function LocalKontur() {
           </div>
         </div>
         <div className="lk-meter" aria-label={`Прогресс до яйца ${progress}%`}><span style={{ width: `${progress}%` }} /></div>
-        {egg?.affordable && <button className="lk-button lk-button--egg" onClick={() => void openEgg()} disabled={busy || refreshing}>{busy ? 'открываем…' : 'открыть яйцо'}</button>}
+        {egg?.affordable && <button className="lk-button lk-button--egg" onClick={() => void openEgg()} disabled={busy || refreshing || ownerMode}>{busy ? 'открываем…' : 'открыть яйцо'}</button>}
       </section>
 
       {eggReveal && (
@@ -693,7 +743,7 @@ export function LocalKontur() {
           </div>
           <h2>{eggReveal.coloringTitle}</h2>
           <p>{RARITY[eggReveal.rarity] ?? eggReveal.rarity}. теперь он в коллекции</p>
-          <button className="lk-button" onClick={() => void equip(eggReveal.coloring)} disabled={busy || refreshing}>надеть окрас</button>
+          <button className="lk-button" onClick={() => void equip(eggReveal.coloring)} disabled={busy || refreshing || ownerMode}>надеть окрас</button>
         </section>
       )}
 
@@ -708,7 +758,7 @@ export function LocalKontur() {
             <button
               key={item.code}
               className={`lk-color ${item.equipped ? 'is-equipped' : ''} ${!item.owned ? 'is-locked' : ''}`}
-              disabled={!item.owned || item.equipped || busy || refreshing}
+              disabled={!item.owned || item.equipped || busy || refreshing || ownerMode}
               onClick={() => void equip(item.code)}
               aria-label={item.owned ? `${item.title}${item.equipped ? ', надет' : ''}` : 'Закрытый окрас'}
             >
@@ -740,7 +790,7 @@ export function LocalKontur() {
 
       <button className="lk-replay" onClick={() => void startReplay()} disabled={busy || refreshing}>
         посмотреть тест заново
-        <span>профиль и птица не изменятся</span>
+        <span>{ownerMode ? 'результат пересчитается, профиль не изменится' : 'профиль и птица не изменятся'}</span>
       </button>
 
       {error && <div className="lk-toast" role="status">{error}</div>}

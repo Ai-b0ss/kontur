@@ -8,19 +8,24 @@ export type HatchTimings = {
   reveal: number;
 };
 
+// Ready path stays exactly 1.4s:
+// 0.0–0.2 build-up, 0.2–0.6 strong rattle, 0.6–0.8 radial flash,
+// 0.8–1.2 spring pop, 1.2–1.4 settle/hold before result copy.
+// If the result image is not decoded by 0.6s, tension safely extends instead
+// of flashing to an empty frame.
 const NORMAL_HATCH_TIMINGS: Readonly<HatchTimings> = Object.freeze({
-  pulse: 500,
-  cracks: 500,
-  flash: 140,
-  flashOut: 300,
-  reveal: 400,
+  pulse: 200,
+  cracks: 400,
+  flash: 200,
+  flashOut: 120,
+  reveal: 600,
 });
 
 const REDUCED_HATCH_TIMINGS: Readonly<HatchTimings> = Object.freeze({
-  pulse: 80,
-  cracks: 80,
+  pulse: 60,
+  cracks: 60,
   flash: 80,
-  flashOut: 180,
+  flashOut: 80,
   reveal: 220,
 });
 

@@ -41,7 +41,9 @@ jobs:
 
       - name: Cloudflare staging isolation gate
         timeout-minutes: 1
-        run: node tools/cloudflare/staging-config-check.mjs
+        run: |
+          node tools/cloudflare/staging-config-check.mjs
+          node --check tools/cloudflare/live-staging-api-smoke.mjs
 
       - name: Core unit tests
         timeout-minutes: 2

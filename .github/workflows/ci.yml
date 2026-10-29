@@ -17,9 +17,7 @@ concurrency:
 jobs:
   check:
     name: remote verification
-    runs-on: [self-hosted, local-pc]
-    # Self-hosted runner on the owner's PC: never run PR code from forks.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
